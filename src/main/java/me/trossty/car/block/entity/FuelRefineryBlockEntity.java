@@ -6,15 +6,9 @@ import me.trossty.car.refinery.FuelRefineryScreenHandler;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModItems;
 import me.trossty.car.registry.ModTags;
-import net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
-import net.fabricmc.fabric.api.transfer.v1.storage.StorageView;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.InsertionOnlyStorage;
-import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
-import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 import net.minecraft.core.BlockPos;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.ContainerHelper;
@@ -26,11 +20,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 import me.trossty.car.registry.ModFluids;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * The middle of the production line.
@@ -143,10 +137,10 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
      * The buffer. It only takes: nothing is allowed to pull power back out of
      * a refinery, so a cable network cannot use one as a battery.
      */
-    private final SimpleEnergyStorage energy =
-            new SimpleEnergyStorage(ENERGY_CAPACITY, ENERGY_MAX_INPUT, 0) {
+    private final EnergyBuffer energy =
+            new EnergyBuffer(ENERGY_CAPACITY, ENERGY_MAX_INPUT, 0) {
                 @Override
-                protected void onFinalCommit() {
+                protected void onChanged() {
                     FuelRefineryBlockEntity.this.setChanged();
                 }
             };
@@ -155,43 +149,57 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
      * The feedstock tank as another mod's pipe sees it: somewhere crude oil
      * can be pushed in, a millibucket for a unit, and nothing taken out.
      */
-    private final Storage<FluidVariant> oilInlet = new OilInlet();
+    private final IFluidHandler oilInlet = new OilInlet();
 
-    private final class OilInlet extends SnapshotParticipant<Integer>
-            implements InsertionOnlyStorage<FluidVariant> {
+    private final class OilInlet implements IFluidHandler {
 
         @Override
-        public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-            if (resource.isBlank() || !isCrudeOil(resource)
+        public int getTanks() {
+            return 1;
+        }
+
+        @Override
+        public FluidStack getFluidInTank(int tank) {
+            return FluidStack.EMPTY;
+        }
+
+        @Override
+        public int getTankCapacity(int tank) {
+            return BIOMASS_CAPACITY;
+        }
+
+        @Override
+        public boolean isFluidValid(int tank, FluidStack stack) {
+            return isCrudeOil(stack.getFluid());
+        }
+
+        @Override
+        public int fill(FluidStack resource, FluidAction action) {
+            if (resource.isEmpty() || !isCrudeOil(resource.getFluid())
                     || (FuelRefineryBlockEntity.this.biomass > 0
                             && FuelRefineryBlockEntity.this.feed != FEED_CRUDE)) {
                 return 0;
             }
-            long units = Math.min(maxAmount / ModFluids.UNIT,
-                    BIOMASS_CAPACITY - FuelRefineryBlockEntity.this.biomass);
+            int units = Math.min(resource.getAmount(), BIOMASS_CAPACITY - FuelRefineryBlockEntity.this.biomass);
             if (units <= 0) {
                 return 0;
             }
-            this.updateSnapshots(transaction);
-            FuelRefineryBlockEntity.this.biomass += (int) units;
-            FuelRefineryBlockEntity.this.feed = FEED_CRUDE;
-            return units * ModFluids.UNIT;
+            if (action.execute()) {
+                FuelRefineryBlockEntity.this.biomass += units;
+                FuelRefineryBlockEntity.this.feed = FEED_CRUDE;
+                FuelRefineryBlockEntity.this.setChanged();
+            }
+            return units;
         }
 
         @Override
-        protected Integer createSnapshot() {
-            return FuelRefineryBlockEntity.this.biomass * 2 + FuelRefineryBlockEntity.this.feed;
+        public FluidStack drain(FluidStack resource, FluidAction action) {
+            return FluidStack.EMPTY;
         }
 
         @Override
-        protected void readSnapshot(Integer snapshot) {
-            FuelRefineryBlockEntity.this.biomass = snapshot / 2;
-            FuelRefineryBlockEntity.this.feed = snapshot % 2;
-        }
-
-        @Override
-        protected void onFinalCommit() {
-            FuelRefineryBlockEntity.this.setChanged();
+        public FluidStack drain(int maxDrain, FluidAction action) {
+            return FluidStack.EMPTY;
         }
     }
     private int distillProgress;
@@ -249,19 +257,18 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
     }
 
     /** What other mods' cables talk to. */
-    public EnergyStorage getEnergyStorage() {
+    public IEnergyStorage getEnergyStorage() {
         return this.energy;
     }
 
     /** What other mods' pipes push crude oil into. */
-    public Storage<FluidVariant> getOilInlet() {
+    public IFluidHandler getOilInlet() {
         return this.oilInlet;
     }
 
     /** Both doors at once: crude in, product out. */
-    public Storage<FluidVariant> getFluidStorage() {
-        return new net.fabricmc.fabric.api.transfer.v1.storage.base.CombinedStorage<>(
-                java.util.List.of(this.oilInlet, this.product));
+    public IFluidHandler getFluidStorage() {
+        return new me.trossty.car.fluid.CombinedTanks(this.oilInlet, this.product);
     }
 
     /** The product tank itself, for the hydrotreater drawing from it and for tests. */
@@ -287,8 +294,8 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
     }
 
     /** Whether a fluid is crude oil as far as this machine is concerned. */
-    public static boolean isCrudeOil(FluidVariant fluid) {
-        return fluid.getRegistryEntry().is(ModTags.CRUDE_OIL);
+    public static boolean isCrudeOil(net.minecraft.world.level.material.Fluid fluid) {
+        return fluid.builtInRegistryHolder().is(ModTags.CRUDE_OIL);
     }
 
     /**
@@ -300,13 +307,15 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
         if (stack.isEmpty()) {
             return 0;
         }
-        Storage<FluidVariant> held = ContainerItemContext.withConstant(stack).find(FluidStorage.ITEM);
+        IFluidHandler held = stack.copyWithCount(1).getCapability(
+                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.ITEM);
         if (held == null) {
             return 0;
         }
         long found = 0;
-        for (StorageView<FluidVariant> view : held) {
-            if (!view.isResourceBlank() && isCrudeOil(view.getResource())) {
+        for (int tank = 0; tank < held.getTanks(); tank++) {
+            FluidStack view = held.getFluidInTank(tank);
+            if (!view.isEmpty() && isCrudeOil(view.getFluid())) {
                 found += view.getAmount();
             }
         }
@@ -392,7 +401,7 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
         int carried = oilIn(oil);
         if (carried > 0 && refinery.biomass + carried <= BIOMASS_CAPACITY
                 && (refinery.biomass == 0 || refinery.feed == FEED_CRUDE)) {
-            ItemStack emptied = oil.getItem().getCraftingRemainder();
+            ItemStack emptied = oil.getCraftingRemainingItem();
             if (oil.getCount() == 1 || emptied.isEmpty()) {
                 refinery.biomass += carried;
                 refinery.feed = FEED_CRUDE;
@@ -532,10 +541,11 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
     }
 
     @Override
-    protected void loadAdditional(ValueInput view) {
-        super.loadAdditional(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.inventory = NonNullList.withSize(SIZE, ItemStack.EMPTY);
-        ContainerHelper.loadAllItems(view, this.inventory);
+        ContainerHelper.loadAllItems(view.tag(), this.inventory, view.registries());
         this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, view.getIntOr("Energy", 0)));
         this.temperature = view.getIntOr("Temperature", 0);
         this.distillProgress = view.getIntOr("DistillProgress", 0);
@@ -546,9 +556,10 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view) {
-        super.saveAdditional(view);
-        ContainerHelper.saveAllItems(view, this.inventory);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
+        ContainerHelper.saveAllItems(view.tag(), this.inventory, view.registries());
         view.putInt("Energy", (int) this.energy.amount);
         view.putInt("Temperature", this.temperature);
         view.putInt("DistillProgress", this.distillProgress);

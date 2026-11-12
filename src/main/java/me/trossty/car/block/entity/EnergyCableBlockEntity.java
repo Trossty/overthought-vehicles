@@ -1,18 +1,18 @@
 package me.trossty.car.block.entity;
 
 import me.trossty.car.registry.ModBlockEntities;
-import net.fabricmc.fabric.api.lookup.v1.block.BlockApiCache;
+import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.EnergyStorageUtil;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * One length of cable, and the charge standing in it.
@@ -39,9 +39,9 @@ public class EnergyCableBlockEntity extends BlockEntity {
     /** The most one length passes on, to a machine or along the line, a tick, by default (see {@link #rate()}). */
     public static final int RATE = 250;
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(CAPACITY, RATE, RATE) {
+    private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, RATE, RATE) {
         @Override
-        protected void onFinalCommit() {
+        protected void onChanged() {
             EnergyCableBlockEntity.this.setChanged();
         }
     };
@@ -50,7 +50,7 @@ public class EnergyCableBlockEntity extends BlockEntity {
         super(ModBlockEntities.ENERGY_CABLE, pos, state);
     }
 
-    public EnergyStorage getEnergyStorage() {
+    public IEnergyStorage getEnergyStorage() {
         return this.energy;
     }
 
@@ -79,12 +79,13 @@ public class EnergyCableBlockEntity extends BlockEntity {
      * when the neighbour changes, so a long line costs little more than a short one.
      */
     @SuppressWarnings("unchecked")
-    private final BlockApiCache<EnergyStorage, Direction>[] neighbours = new BlockApiCache[6];
+    private final BlockCapabilityCache<IEnergyStorage, Direction>[] neighbours = new BlockCapabilityCache[6];
 
-    private BlockApiCache<EnergyStorage, Direction> neighbour(ServerLevel world, Direction side) {
-        BlockApiCache<EnergyStorage, Direction> cache = this.neighbours[side.ordinal()];
+    private BlockCapabilityCache<IEnergyStorage, Direction> neighbour(ServerLevel world, Direction side) {
+        BlockCapabilityCache<IEnergyStorage, Direction> cache = this.neighbours[side.ordinal()];
         if (cache == null) {
-            cache = BlockApiCache.create(EnergyStorage.SIDED, world, this.worldPosition.relative(side));
+            cache = BlockCapabilityCache.create(Capabilities.EnergyStorage.BLOCK, world,
+                    this.worldPosition.relative(side), side.getOpposite());
             this.neighbours[side.ordinal()] = cache;
         }
         return cache;
@@ -101,17 +102,17 @@ public class EnergyCableBlockEntity extends BlockEntity {
         // Machines first: whatever stands against the cable and takes power.
         EnergyCableBlockEntity[] cables = new EnergyCableBlockEntity[6];
         for (Direction side : Direction.values()) {
-            BlockApiCache<EnergyStorage, Direction> cache = cable.neighbour(server, side);
-            if (cache.getBlockEntity() instanceof EnergyCableBlockEntity other) {
+            BlockCapabilityCache<IEnergyStorage, Direction> cache = cable.neighbour(server, side);
+            if (server.getBlockEntity(cache.pos()) instanceof EnergyCableBlockEntity other) {
                 cables[side.ordinal()] = other;
                 continue;
             }
             if (cable.energy.amount <= 0) {
                 continue;
             }
-            EnergyStorage target = cache.find(side.getOpposite());
-            if (target != null && target.supportsInsertion()) {
-                EnergyStorageUtil.move(cable.energy, target, rate(), null);
+            IEnergyStorage target = cache.getCapability();
+            if (target != null && target.canReceive()) {
+                EnergyBuffer.move(cable.energy, target, rate());
             }
         }
         // Then level with the cables either side, downhill only.
@@ -143,14 +144,16 @@ public class EnergyCableBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void loadAdditional(ValueInput view) {
-        super.loadAdditional(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getIntOr("Energy", 0)));
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view) {
-        super.saveAdditional(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         view.putInt("Energy", (int) this.energy.amount);
     }
 }

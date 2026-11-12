@@ -3,11 +3,10 @@ package me.trossty.car.item;
 import me.trossty.car.registry.ModComponents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import java.util.function.Consumer;
 
 /**
@@ -29,14 +28,14 @@ public class CarKeyItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context,
-                              TooltipDisplay display,
-                              Consumer<Component> tooltip, TooltipFlag type) {
-        super.appendHoverText(stack, context, display, tooltip, type);
+                                java.util.List<Component> lines, TooltipFlag type) {
+        super.appendHoverText(stack, context, lines, type);
+        Consumer<Component> tooltip = lines::add;
         if (!stack.has(ModComponents.VEHICLE_KEY)) {
             tooltip.accept(Component.translatable("tooltip.car.key_blank").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        Identifier vehicle = stack.get(ModComponents.CAR_VEHICLE);
+        ResourceLocation vehicle = stack.get(ModComponents.CAR_VEHICLE);
         Component name = vehicle == null
                 ? Component.translatable("item.car.car")
                 : me.trossty.car.vehicle.VehicleDefinition.nameOf(vehicle);

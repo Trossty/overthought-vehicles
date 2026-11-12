@@ -10,13 +10,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import java.util.function.Consumer;
@@ -49,13 +48,13 @@ public class CarItem extends Item {
         }
 
         BlockPos pos = context.getClickedPos().relative(context.getClickedFace());
-        CarEntity car = this.type.create(serverWorld, EntitySpawnReason.SPAWN_ITEM_USE);
+        CarEntity car = this.type.create(serverWorld);
         if (car == null) {
             return InteractionResult.PASS;
         }
 
         Direction facing = context.getHorizontalDirection();
-        car.snapTo(
+        car.moveTo(
                 pos.getX() + 0.5,
                 pos.getY(),
                 pos.getZ() + 0.5,
@@ -70,7 +69,7 @@ public class CarItem extends Item {
         // colour you painted it rather than reverting to the default.
         // Which vehicle it is comes first: its size decides whether it fits,
         // and its factory fittings are what the rest then overrides.
-        net.minecraft.resources.Identifier model = context.getItemInHand().get(ModComponents.CAR_VEHICLE);
+        net.minecraft.resources.ResourceLocation model = context.getItemInHand().get(ModComponents.CAR_VEHICLE);
         if (model != null) {
             car.setModel(model);
             me.trossty.car.vehicle.VehicleDefinition defined = car.getDefinition();
@@ -78,7 +77,7 @@ public class CarItem extends Item {
                 car.setSetup(defined.factory().setup());
                 defined.color().ifPresent(car::setColor);
                 car.refreshDimensions();
-                car.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                car.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
                         facing.toYRot(), 0.0F);
                 if (!serverWorld.noCollision(car, car.getBoundingBox())) {
                     return InteractionResult.PASS;
@@ -154,8 +153,8 @@ public class CarItem extends Item {
     }
 
     /** Which vehicle this stack is: the one it names, or what its machine is by default. */
-    public net.minecraft.resources.Identifier modelOf(ItemStack stack) {
-        net.minecraft.resources.Identifier model = stack.get(ModComponents.CAR_VEHICLE);
+    public net.minecraft.resources.ResourceLocation modelOf(ItemStack stack) {
+        net.minecraft.resources.ResourceLocation model = stack.get(ModComponents.CAR_VEHICLE);
         if (model != null) {
             return model;
         }
@@ -181,7 +180,7 @@ public class CarItem extends Item {
     }
 
     /** A new one of these, as it would sit in a showroom. */
-    public static ItemStack stackOf(net.minecraft.resources.Identifier id,
+    public static ItemStack stackOf(net.minecraft.resources.ResourceLocation id,
                                     me.trossty.car.vehicle.VehicleDefinition defined) {
         ItemStack stack = new ItemStack(itemFor(defined.chassis()));
         if (!id.equals(me.trossty.car.vehicle.VehicleDefinition.defaultFor(defined.chassis()))) {
@@ -192,10 +191,10 @@ public class CarItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context,
-                              TooltipDisplay display,
-                              Consumer<Component> tooltip, TooltipFlag type) {
-        super.appendHoverText(stack, context, display, tooltip, type);
-        net.minecraft.resources.Identifier model = this.modelOf(stack);
+                                java.util.List<Component> lines, TooltipFlag type) {
+        super.appendHoverText(stack, context, lines, type);
+        Consumer<Component> tooltip = lines::add;
+        net.minecraft.resources.ResourceLocation model = this.modelOf(stack);
         if (context.registries() != null) {
             context.registries()
                     .lookup(me.trossty.car.vehicle.VehicleDefinition.KEY)
@@ -241,9 +240,9 @@ public class CarItem extends Item {
         Integer cargo = stack.get(ModComponents.TANKER_CARGO);
         if (cargo != null) {
             var liquid = stack.get(ModComponents.TANKER_LIQUID);
-            Component name = liquid == null || liquid.isBlank()
+            Component name = me.trossty.car.fluid.Liquids.isBlank(liquid)
                     ? Component.translatable("fluid.car.petrol")
-                    : net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes.getName(liquid);
+                    : me.trossty.car.fluid.Liquids.name(liquid);
             tooltip.accept(Component.translatable("tooltip.car.cargo", cargo, name)
                     .withStyle(ChatFormatting.GRAY));
         }

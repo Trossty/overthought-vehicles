@@ -250,7 +250,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
         int energyX = kind == GaugeSource.KIND_BATTERY ? BATTERY_X : ENERGY_X;
         int energyWidth = kind == GaugeSource.KIND_BATTERY ? BATTERY_WIDTH : TANK_WIDTH;
         if (this.over(mouseX, mouseY, energyX, energyWidth)) {
-            context.setTooltipForNextFrame(this.font, Component.translatable("tooltip.car.energy",
+            context.renderTooltip(this.font, Component.translatable("tooltip.car.energy",
                     this.menu.energy(), this.menu.energyCapacity()), mouseX, mouseY);
             return;
         }
@@ -258,10 +258,10 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
             return;
         }
         if (this.menu.get(MachineScreenHandler.A_FLUID) >= 0 && this.over(mouseX, mouseY, TANK_A_X, TANK_WIDTH)) {
-            context.setTooltipForNextFrame(this.font, this.tankText(MachineScreenHandler.A_UNITS), mouseX, mouseY);
+            context.renderTooltip(this.font, this.tankText(MachineScreenHandler.A_UNITS), mouseX, mouseY);
         } else if (this.menu.get(MachineScreenHandler.B_FLUID) >= 0
                 && this.over(mouseX, mouseY, TANK_B_X, TANK_WIDTH)) {
-            context.setTooltipForNextFrame(this.font, this.tankText(MachineScreenHandler.B_UNITS), mouseX, mouseY);
+            context.renderTooltip(this.font, this.tankText(MachineScreenHandler.B_UNITS), mouseX, mouseY);
         }
     }
 

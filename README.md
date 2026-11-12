@@ -1,6 +1,7 @@
 # Car
 
-MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. Fabric, Minecraft 1.21.11.
+MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.21.1
+(`neoforge-1.21.1` dalı; `main` dalı Fabric 1.21.11 sürümü).
 
 ## Durum
 
@@ -700,25 +701,21 @@ ancak bu da yetmezse sonu kırpılıyor.
 
 ### Create ile uyum
 
-**Create'in Fabric 1.21.11 sürümü yok.** Modrinth'e göre Create Fabric 1.20.1'de
-kalmış, asıl Create ise yalnızca NeoForge 1.21.1'de. Yani bu mod bugün Create
-ile aynı oyuna yüklenemiyor ve Create'e karşı denenmiş hiçbir şey yok. Yapılan
-şey, Create geldiği gün çalışacak olan kısım:
+Mod NeoForge 1.21.1'e taşındı, yani Create ile aynı oyuna yüklenebiliyor.
+Create'e karşı oyun içinde henüz denenmedi; bağlantı NeoForge'un ortak
+kapılarından (capability) geçiyor, Create'in boruları da tam bunu soruyor:
 
 - **Benzin artık gerçek bir akışkan** (`car:petrol`). Dünyaya dökülmüyor, kovası
   yok, akmıyor — Create'in kendi çayı ve iksirleri gibi yalnızca depolarda
   tutulup sayılıyor.
-- **Yakıt deposu bir akışkan deposu olarak görünüyor** (Fabric Transfer API,
-  `FluidStorage.SIDED`). Create Fabric'in boruları ve pompaları yanındaki bloğa
+- **Yakıt deposu bir akışkan deposu olarak görünüyor** (NeoForge
+  `Capabilities.FluidHandler.BLOCK`). Create'in boruları ve pompaları yanındaki bloğa
   tam olarak bunu soruyor; cevap veren depo, iki mod birbirini hiç duymadan
   tesisata bağlanıyor. Bu, deponun aynı sayısına açılan ikinci bir kapı — modun
   kendi borusu, pompası ve rafinerisi eskisi gibi çalışıyor.
 - **Ölçü:** 1 birim benzin = 1 mB. Araba deposu 1 kova, yakıt deposu 16 kova.
-- **Yalnızca tam birim geçiyor.** Öbür modlar birimin 81'de biriyle sayıyor;
-  deponun alıp geri veremeyeceği bir kesir yakıtı yok etmek, yukarı yuvarlamak
-  ise yoktan var etmek olurdu.
-- **Vazgeçilen aktarım hiçbir iz bırakmıyor.** Öbür modlar aktarımı önce dener,
-  sonra iptal edebilir; depo bunu `SnapshotParticipant` ile geri alıyor.
+- **Deneme aktarımı iz bırakmıyor.** Öbür modlar önce `SIMULATE` ile sorar;
+  depo o zaman hiçbir şeyi değiştirmeden yalnızca ne kadar alacağını söyler.
 
 Bu kapı artık istasyonun her yerinde var (`fluid/PetrolSlot`):
 
@@ -733,7 +730,7 @@ Bu kapı artık istasyonun her yerinde var (`fluid/PetrolSlot`):
 | Biyoyakıt ve dizel jeneratörü | kendi yakıtını koyar |
 
 Ters yön de çalışıyor (`fluid/ForeignFluids`): bu modun borusu yanındaki
-**herhangi bir** Fabric sıvı deposuna — başka modun borusu, tankı, makinesi —
+**herhangi bir** NeoForge sıvı deposuna — başka modun borusu, tankı, makinesi —
 kol uzatıyor ve ona karşı yerli depo gibi yarı dolu oturuyor; valf de tek yönlü
 olarak oraya basıyor ya da oradan çekiyor.
 
@@ -1068,8 +1065,9 @@ I R I
 #### Elektrik ve kolon sıcaklığı
 
 Rafinerinin 10 000 E'lik bir tamponu var (pencerenin sağındaki ölçek), tick
-başına en çok 200 E alıyor. Enerji arayüzü **Team Reborn Energy** — Tech Reborn,
-Modern Industrialization, Powah gibi Fabric modlarının ortak API'si — olduğu
+başına en çok 200 E alıyor. Enerji arayüzü NeoForge'un ortak **Forge Energy** kapısı
+(`Capabilities.EnergyStorage.BLOCK`) — Mekanism, Powah, Create eklentileri gibi
+modların kullandığı — olduğu
 için o modların kablosu tesisin **herhangi bir parçasına** doğrudan bağlanıyor;
 pumpjack ve arıtıcı için de aynısı.
 
@@ -1271,7 +1269,7 @@ dört-dörtlük taban da. Her hücre 16 kova; tank toplamı hücre sayısı × 1
 - Sıvı **alttan yukarı** doluyor: önce en alt kat, katın içinde eşit pay. Her
   hücre kendi içindeki payı saklıyor ve çiziyor, yani kırılan hücre sadece kendi
   içindekini götürüyor.
-- Her hücrenin her yüzü **bütün tankın** kapısı (Fabric Transfer API): Create
+- Her hücrenin her yüzü **bütün tankın** kapısı (NeoForge sıvı kapısı): Create
   borusu nereye bağlanırsa bağlansın aynı sıvıyı görüyor.
 - Bir tankta tek sıvı olur. İki farklı sıvıyı birleştirecek yere hücre
   konulamıyor; suyla dolu tanka lav girmiyor.
@@ -1309,8 +1307,8 @@ Arabadan **%22 daha yavaş**, **8000 mB** (sekiz kova; sekiz dolu araba deposu)
 taşıyor ve modelde arabanın her şeyini aynen kullanıyor — kabin, koltuklar,
 direksiyon, oturma matematiği. Bir `CarEntity` alt sınıfı, ayrı bir araç değil.
 
-**"Herhangi bir sıvı" bir liste değil.** Varil, Fabric'in transfer API'sinde bir
-sıvı deposu (`SingleVariantStorage<FluidVariant>`). Yani transfer API'nin
+**"Herhangi bir sıvı" bir liste değil.** Varil, NeoForge'da bir
+sıvı deposu (`IFluidHandler`). Yani bu kapının
 taşıyabildiği her şeyi alıyor: kova, şişe, kazan, başka bir modun tankı ya da
 kabı. Minecraft'ta sıvı olarak bulunmayan süt ve bal için mod kendi sıvılarını
 kaydediyor (`car:milk`, `car:honey`, yanında `car:diesel`); süt kovası ve bal
@@ -2006,7 +2004,7 @@ oggenc -q 6 -o ../src/main/resources/assets/car/sounds/engine.ogg engine.wav
 ## Elektrik, teşhis ve yol
 
 [GELISTIRME.md](GELISTIRME.md)'deki listenin uygulanan kısmı. Her madde bir
-gametest ile korunuyor (`./gradlew runGametest`, şu an 29 test).
+gametest ile korunuyor (`./gradlew runGameTestServer`, şu an 39 test).
 
 ### Akü bankası ve şarj direği
 
@@ -2104,11 +2102,11 @@ kenarlarda kum → 16 asfalt.
 ### Uyumluluk
 
 - **Jade** kuruluysa araca bakınca yakıt/şarj, kaporta, en kötü parça ve
-  kilometre görünür. Bağımlılık yalnızca derleme için (`modCompileOnly`);
+  kilometre görünür. Bağımlılık yalnızca derleme için (`compileOnly`);
   Jade yoksa eklenti hiç yüklenmez.
 - Yakıtlar `c:` ortak etiketlerinde (`c:crude_oil`, `c:diesel`,
   `c:gasoline`, `c:fuels/…`): başka modların boruları tanır.
-- EMI'nin 1.21.11 sürümü yok; REI var ama rafineri/arıtıcı tarif değil
+- EMI/REI: rafineri/arıtıcı tarif değil
   makine olduğu için şimdilik eklenmedi.
 
 ### Kablo ışığı ve lambalar
@@ -2120,15 +2118,11 @@ karanlıkta da yanar.
 
 ## Derleme
 
-Loom 1.19.4 **Gradle ≥ 9.8** ve Gradle'ı çalıştıran **JVM ≥ 25** istiyor
-(derleme hedefi Java 21 kalıyor). Bu makinede:
+ModDevGradle 2.0 ve NeoForge 21.1; derleme hedefi Java 21. Bu makinede:
 
 ```bash
 JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-26.jdk/Contents/Home ./gradlew build
 ```
-
-IntelliJ kullanıyorsan: Settings → Build Tools → Gradle → **Gradle JVM**'i 25+ bir
-sürüme ayarla, yoksa Loom açılışta hata verir.
 
 Dev istemcisini çalıştırmak:
 
@@ -2141,26 +2135,19 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-26.jdk/Contents/Home ./gradlew 
 İki tür test var:
 
 - **Sunucu gametest'leri** — [`CarMachineTests`](src/gametest/java/me/trossty/car/test/CarMachineTests.java),
-  29 gerçek iddia: pompa kulesi petrol çeker, rafineri 1:1 kırar ve katran
+  39 gerçek iddia: pompa kulesi petrol çeker, rafineri 1:1 kırar ve katran
   bırakır, arıtıcı her birimi temizler, kablo enerji taşır ve parlar, akü
   yalnız önünden verir, şarj direği elektrikli aracı doldurur, OBD en kötüyü
   öne koyar, asfalt kar gibi katmanlanır, boya çizer/döndürür/siler, tablet
   eşleşir ve menzil dışında sinyali keser, ham yakıt hacimce karışır, terk edilmiş araç gerçekten yıpranmış…
+  Hepsi modun boş şablonu `car:empty` üzerinde koşuyor.
 
   ```bash
-  ./gradlew runGametest
+  ./gradlew runGameTestServer
   ```
 
-- **Fotoğraf testi** — [`CarPhotoTest`](src/gametest/java/me/trossty/car/test/client/CarPhotoTest.java)
-  yalnızca bir resmin doğrulayabileceği şeylerin fotoğrafını çeker. Bir kez
-  bakılıp doğrulanan sahneler varsayılan olarak atlanır; hepsi için
-  `-Dcar.photo.all=true`.
-
-  ```bash
-  ./gradlew runClientGametest
-  ```
-
-Görüntüler `build/run/clientGameTest/screenshots/` altına düşüyor.
+- **Fotoğraf testi** (`CarPhotoTest`) Fabric'in istemci test API'sine dayanıyor;
+  NeoForge'da karşılığı olmadığı için yalnızca `main` dalında.
 
 ## 3B eşyalar
 
@@ -2224,4 +2211,4 @@ Henüz yapılmadı, MrCrayfish'te olan katmanlar:
 - **Ertelenenler** ([GELISTIRME.md](GELISTIRME.md)'de nedenleriyle):
   arıtıcının 2×2 yapılması, `CarEntity`'nin bileşenlere bölünmesi, iki
   istemcili çok oyunculu test, EMI/REI tarif gösterimi, WTHIT ve Create
-  uyumu (Create'in Fabric 1.21.11 sürümü yok)
+  uyumunun oyun içinde denenmesi

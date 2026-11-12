@@ -21,7 +21,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A steel drum. Right click with a jerry can, a bucket or anything else that
@@ -93,19 +93,19 @@ public class FuelDrumBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected InteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
+    protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
                                          Player player, InteractionHand hand, BlockHitResult hit) {
         if (world.isClientSide()) {
-            return held.isEmpty() ? InteractionResult.PASS : InteractionResult.SUCCESS;
+            return held.isEmpty() ? net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION : net.minecraft.world.ItemInteractionResult.SUCCESS;
         }
         if (!(world.getBlockEntity(pos) instanceof FuelDrumBlockEntity drum)) {
-            return InteractionResult.PASS;
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (LiquidStores.useWith(world, pos, player, hand, held, drum.getFluidStorage())) {
             report(player, drum);
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
-        return InteractionResult.PASS;   // falls through to onUse, which reads it
+        return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;   // falls through to onUse, which reads it
     }
 
     private static void report(Player player, FuelDrumBlockEntity drum) {
@@ -118,7 +118,7 @@ public class FuelDrumBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
+    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
         return world.getBlockEntity(pos) instanceof FuelDrumBlockEntity drum ? drum.comparatorOutput() : 0;
     }
 }

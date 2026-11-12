@@ -1,6 +1,5 @@
 package me.trossty.car.client.render;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -44,8 +43,8 @@ public final class WorldLabels {
     /** Clears last frame's labels and notes where this frame is being seen from. */
     public static void begin(WorldRenderContext context) {
         LABELS.clear();
-        camera = context.worldState().cameraRenderState.pos;
-        view = new Matrix4f(context.matrices().last().pose());
+        camera = context.camera();
+        view = new Matrix4f(context.view());
     }
 
     public static void add(Vec3 at, Component text, int colour, boolean lit) {

@@ -21,7 +21,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The refinery: a plant, not a block.
@@ -152,10 +152,14 @@ public class FuelRefineryBlock extends MultiblockBlock {
     }
 
     @Override
-    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
-        if (state.getValue(PART) == 0 && world.getBlockEntity(pos) instanceof FuelRefineryBlockEntity refinery) {
-            Containers.dropContents(world, pos, refinery);
+    protected void onRemove(BlockState state, net.minecraft.world.level.Level world, BlockPos pos,
+                            BlockState newState, boolean moved) {
+        // Only when the block really goes, not when its state changes.
+        if (!world.isClientSide() && !state.is(newState.getBlock())) {
+            if (state.getValue(PART) == 0 && world.getBlockEntity(pos) instanceof FuelRefineryBlockEntity refinery) {
+                Containers.dropContents(world, pos, refinery);
+            }
         }
-        super.affectNeighborsAfterRemoval(state, world, pos, moved);
+        super.onRemove(state, world, pos, newState, moved);
     }
 }

@@ -15,7 +15,7 @@ R = '/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
 T = R + 'textures/block/'; M = R + 'models/block/'
 random.seed(23)
 
-# An empty drum's paint, bare steel. CarMainClient.EMPTY_DRUM says the same.
+# An empty drum's paint, bare steel. ItemLooks.EMPTY_DRUM says the same.
 EMPTY_DRUM = 0x9AA1A8
 
 
@@ -147,7 +147,6 @@ json.dump({'variants': {f'facing={f}': ({'model': 'car:block/fuel_drum', 'y': y}
                                          {'model': 'car:block/fuel_drum'})
                         for f, y in (('north', 0), ('east', 90), ('south', 180), ('west', 270))}},
           open(R + 'blockstates/fuel_drum.json', 'w'), indent=2)
-json.dump({'model': {'type': 'minecraft:model', 'model': 'car:block/fuel_drum',
-                     'tints': [{'type': 'car:stored_fluid', 'default': EMPTY_DRUM}]}},
-          open(R + 'items/fuel_drum.json', 'w'), indent=2)
+# The paint takes the colour of what is inside: ItemLooks tints face 0.
+json.dump({'parent': 'car:block/fuel_drum'}, open(R + 'models/item/fuel_drum.json', 'w'), indent=2)
 print('drum written:', len(els), 'elements')

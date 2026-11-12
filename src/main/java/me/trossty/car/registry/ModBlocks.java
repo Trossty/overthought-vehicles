@@ -81,7 +81,7 @@ public final class ModBlocks {
                     .mapColor(net.minecraft.world.level.material.MapColor.COLOR_BLACK)
                     .strength(0.3F)
                     .replaceable()
-                    .noCollision()
+                    .noCollission()
                     .noOcclusion()
                     .speedFactor(0.6F)
                     .sound(SoundType.MUD));
@@ -238,12 +238,12 @@ public final class ModBlocks {
                                   BlockBehaviour.Properties settings) {
         ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, CarMain.id(name));
         Block block = Registry.register(
-                BuiltInRegistries.BLOCK, blockKey, factory.apply(settings.setId(blockKey)));
+                BuiltInRegistries.BLOCK, blockKey, factory.apply(settings));
 
         // Every block here is meant to be carried, so it always gets an item.
         ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, CarMain.id(name));
         Registry.register(BuiltInRegistries.ITEM, itemKey,
-                new BlockItem(block, new Item.Properties().setId(itemKey).useBlockDescriptionPrefix()));
+                new BlockItem(block, new Item.Properties()));
         return block;
     }
 

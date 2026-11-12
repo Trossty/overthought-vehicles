@@ -5,19 +5,21 @@ import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.registry.ModEntities;
 import me.trossty.car.vehicle.VehicleDefinition;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
-import org.jspecify.annotations.Nullable;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.level.ChunkEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.IdentityHashMap;
@@ -46,15 +48,21 @@ public final class AbandonedVehicles {
     }
 
     public static void register() {
-        ServerChunkEvents.CHUNK_GENERATE.register((world, chunk) -> {
+        NeoForge.EVENT_BUS.addListener((ChunkEvent.Load event) -> {
+            if (!event.isNewChunk() || !(event.getLevel() instanceof ServerLevel world)) {
+                return;
+            }
             int rarity = CarConfig.get().abandonedVehicleRarity;
             if (rarity <= 0 || world.dimension() != Level.OVERWORLD
                     || world.getRandom().nextInt(rarity) != 0) {
                 return;
             }
-            PENDING.computeIfAbsent(world, w -> new ArrayDeque<>()).add(chunk.getPos());
+            PENDING.computeIfAbsent(world, w -> new ArrayDeque<>()).add(event.getChunk().getPos());
         });
-        ServerTickEvents.END_WORLD_TICK.register(world -> {
+        NeoForge.EVENT_BUS.addListener((LevelTickEvent.Post event) -> {
+            if (!(event.getLevel() instanceof ServerLevel world)) {
+                return;
+            }
             ArrayDeque<ChunkPos> queue = PENDING.get(world);
             for (int i = 0; queue != null && i < PER_TICK && !queue.isEmpty(); i++) {
                 ChunkPos chunk = queue.poll();
@@ -64,7 +72,7 @@ public final class AbandonedVehicles {
             }
         });
         // Worlds are made afresh on every server start; never hold on to the old ones.
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> PENDING.clear());
+        NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> PENDING.clear());
     }
 
     /** Puts an abandoned car somewhere dry and open in the chunk; null when it found nowhere. */
@@ -82,7 +90,7 @@ public final class AbandonedVehicles {
             if (car == null) {
                 return null;
             }
-            car.snapTo(x + 0.5, y, z + 0.5, random.nextFloat() * 360.0F, 0.0F);
+            car.moveTo(x + 0.5, y, z + 0.5, random.nextFloat() * 360.0F, 0.0F);
             if (!world.noCollision(car, car.getBoundingBox())) {
                 continue;
             }
@@ -94,17 +102,17 @@ public final class AbandonedVehicles {
 
     /** An old car, worn as if it had sat out for years, not yet placed anywhere. */
     public static @Nullable CarEntity abandoned(ServerLevel world, RandomSource random) {
-        CarEntity car = ModEntities.CAR.create(world, EntitySpawnReason.CHUNK_GENERATION);
+        CarEntity car = ModEntities.CAR.create(world);
         if (car == null) {
             return null;
         }
-        List<Identifier> cars = world.registryAccess().lookup(VehicleDefinition.KEY)
+        List<ResourceLocation> cars = world.registryAccess().registry(VehicleDefinition.KEY)
                 .map(registry -> registry.keySet().stream()
                         .filter(id -> {
-                            VehicleDefinition defined = registry.getValue(id);
+                            VehicleDefinition defined = registry.get(id);
                             return defined != null && defined.chassis() == VehicleDefinition.Chassis.CAR;
                         })
-                        .sorted(java.util.Comparator.comparing(Identifier::toString))
+                        .sorted(java.util.Comparator.comparing(ResourceLocation::toString))
                         .toList())
                 .orElse(List.of());
         if (!cars.isEmpty()) {

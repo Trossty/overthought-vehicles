@@ -3,7 +3,6 @@ package me.trossty.car.client.render;
 import me.trossty.car.CarMain;
 import me.trossty.car.vehicle.VehicleDefinition;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
@@ -11,7 +10,7 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.joml.Vector3fc;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -33,7 +32,7 @@ import java.util.Map;
  * <p>The animation is the car's: wheels roll and steer, the body leans into
  * corners, squats under power and trembles at idle.
  */
-public class DefinedVehicleModel extends EntityModel<CarRenderState> {
+public class DefinedVehicleModel extends VehicleModel {
 
     /** The palette is this many pixels square, so a vehicle has this many colours squared. */
     private static final int PALETTE = 16;
@@ -97,10 +96,10 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
     private record Built(VehicleDefinition definition, DefinedVehicleModel model,
                          @org.jetbrains.annotations.Nullable DefinedVehicleModel glass,
                          DefinedVehicleModel wheels,
-                         List<String> colours, Map<Integer, Identifier> textures) {
+                         List<String> colours, Map<Integer, ResourceLocation> textures) {
     }
 
-    private static final Map<Identifier, Built> CACHE = new HashMap<>();
+    private static final Map<ResourceLocation, Built> CACHE = new HashMap<>();
 
     private final ModelPart chassis;
     /** The fork and bars, turned with the front wheel; null if nothing steers. */
@@ -118,8 +117,8 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
     private DefinedVehicleModel(ModelPart root, VehicleDefinition definition, boolean glass) {
         // The bodywork is solid; the glass is its own model, drawn see-through
         // and after everything else, so whoever sits behind it still shows.
-        super(root, glass ? net.minecraft.client.renderer.rendertype.RenderTypes::entityTranslucent
-                : net.minecraft.client.renderer.rendertype.RenderTypes::entityCutoutNoCull);
+        super(root, glass ? net.minecraft.client.renderer.RenderType::entityTranslucent
+                : net.minecraft.client.renderer.RenderType::entityCutoutNoCull);
         this.chassis = root.hasChild("chassis") ? root.getChild("chassis") : null;
         ModelPart turn = null;
         if (this.chassis != null) {
@@ -155,39 +154,39 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
     }
 
     /** The model for this vehicle, built now if it has not been seen before. */
-    public static DefinedVehicleModel of(Identifier id, VehicleDefinition definition) {
+    public static DefinedVehicleModel of(ResourceLocation id, VehicleDefinition definition) {
         return built(id, definition).model();
     }
 
     /** The same vehicle's wheels, which are drawn with a sheet of their own. */
-    public static DefinedVehicleModel wheelsOf(Identifier id, VehicleDefinition definition) {
+    public static DefinedVehicleModel wheelsOf(ResourceLocation id, VehicleDefinition definition) {
         return built(id, definition).wheels();
     }
 
     /** The sheet for a kind of tyre: what is fitted is what is seen. */
-    public static Identifier wheelTexture(String tyre) {
+    public static ResourceLocation wheelTexture(String tyre) {
         return CarMain.id("textures/entity/wheel/" + tyre + ".png");
     }
 
     /** The palette for this vehicle in this paint, made now if it is the first. */
-    public static Identifier textureOf(Identifier id, VehicleDefinition definition, int paint) {
+    public static ResourceLocation textureOf(ResourceLocation id, VehicleDefinition definition, int paint) {
         Built built = built(id, definition);
         return built.textures().computeIfAbsent(paint & 0xFFFFFF, rgb -> {
             NativeImage image = new NativeImage(PALETTE, PALETTE, false);
             for (int index = 0; index < PALETTE * PALETTE; index++) {
                 String colour = built.colours().get(Math.min(index, built.colours().size() - 1));
-                image.setPixel(index % PALETTE, index / PALETTE,
-                        VehicleDefinition.resolve(colour, rgb));
+                image.setPixelRGBA(index % PALETTE, index / PALETTE,
+                        net.minecraft.util.FastColor.ABGR32.fromArgb32(VehicleDefinition.resolve(colour, rgb)));
             }
-            Identifier texture = CarMain.id("dynamic/vehicle/" + id.getNamespace() + "/"
+            ResourceLocation texture = CarMain.id("dynamic/vehicle/" + id.getNamespace() + "/"
                     + id.getPath() + "/" + String.format("%06x", rgb));
             Minecraft.getInstance().getTextureManager().register(
-                    texture, new DynamicTexture(texture::toString, image));
+                    texture, new DynamicTexture(image));
             return texture;
         });
     }
 
-    private static Built built(Identifier id, VehicleDefinition definition) {
+    private static Built built(ResourceLocation id, VehicleDefinition definition) {
         Built known = CACHE.get(id);
         // Compared by identity: joining another world hands out new definitions
         // under the same ids, and they need not say the same thing.
@@ -195,7 +194,7 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
             return known;
         }
         if (known != null) {
-            for (Identifier stale : known.textures().values()) {
+            for (ResourceLocation stale : known.textures().values()) {
                 Minecraft.getInstance().getTextureManager().release(stale);
             }
         }
@@ -265,7 +264,7 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
 
     /** The see-through part of this vehicle, or null if it has none. */
     @org.jetbrains.annotations.Nullable
-    public static DefinedVehicleModel glassOf(Identifier id, VehicleDefinition definition) {
+    public static DefinedVehicleModel glassOf(ResourceLocation id, VehicleDefinition definition) {
         return built(id, definition).glass();
     }
 

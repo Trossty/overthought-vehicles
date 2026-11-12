@@ -13,7 +13,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
@@ -34,12 +34,12 @@ public class ObdScannerItem extends Item {
     }
 
     @Override
-    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+    public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
         if (!(user.getVehicle() instanceof CarEntity car)) {
-            return InteractionResult.PASS;
+            return net.minecraft.world.InteractionResultHolder.pass(user.getItemInHand(hand));
         }
         pair(user.getItemInHand(hand), car, user);
-        return InteractionResult.SUCCESS;
+        return net.minecraft.world.InteractionResultHolder.success(user.getItemInHand(hand));
     }
 
     /** Pairs the tablet with this car: a beep, and the car's name across the screen bottom. */

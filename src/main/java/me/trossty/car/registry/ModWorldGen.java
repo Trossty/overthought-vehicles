@@ -2,18 +2,18 @@ package me.trossty.car.registry;
 
 import me.trossty.car.CarMain;
 import me.trossty.car.world.OilDepositFeature;
-import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
-import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 
-/** Oil deposits in the overworld; the feature's placement is in the data pack. */
+/**
+ * Oil deposits in the overworld. The feature's placement is in the data pack,
+ * and data/car/neoforge/biome_modifier adds it to every overworld biome.
+ */
 public final class ModWorldGen {
 
     public static final Feature<NoneFeatureConfiguration> OIL_DEPOSIT = Registry.register(
@@ -25,8 +25,7 @@ public final class ModWorldGen {
     private ModWorldGen() {
     }
 
+    /** Forces class loading so the feature above is registered. */
     public static void register() {
-        BiomeModifications.addFeature(BiomeSelectors.foundInOverworld(),
-                GenerationStep.Decoration.UNDERGROUND_ORES, OIL_DEPOSIT_PLACED);
     }
 }

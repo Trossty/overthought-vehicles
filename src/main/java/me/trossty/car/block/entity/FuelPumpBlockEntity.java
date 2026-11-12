@@ -7,8 +7,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 
 /**
  * The forecourt tank.
@@ -43,7 +43,7 @@ public class FuelPumpBlockEntity extends BlockEntity {
     private int sentPetrol = -1;
 
     @Override
-    public net.minecraft.network.protocol.@org.jspecify.annotations.Nullable Packet<
+    public net.minecraft.network.protocol.@org.jetbrains.annotations.Nullable Packet<
             net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
         return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
     }
@@ -57,7 +57,7 @@ public class FuelPumpBlockEntity extends BlockEntity {
     private final me.trossty.car.fluid.PetrolSlot fluidStorage = new me.trossty.car.fluid.PetrolSlot(
             () -> this.petrol, value -> this.petrol = value, CAPACITY, true, false, this::setChanged);
 
-    public net.fabricmc.fabric.api.transfer.v1.storage.Storage<net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant> getFluidStorage() {
+    public net.neoforged.neoforge.fluids.capability.IFluidHandler getFluidStorage() {
         return this.fluidStorage;
     }
 
@@ -156,7 +156,7 @@ public class FuelPumpBlockEntity extends BlockEntity {
      * holding anything, the stray nozzle item cleans itself up (see
      * FuelNozzleItem#inventoryTick) and the nozzle is back on the pump.
      */
-    private java.util.@org.jspecify.annotations.Nullable UUID nozzleHolder;
+    private java.util.@org.jetbrains.annotations.Nullable UUID nozzleHolder;
 
     public boolean isHeldBy(net.minecraft.world.entity.Entity entity) {
         return entity.getUUID().equals(this.nozzleHolder);
@@ -208,7 +208,7 @@ public class FuelPumpBlockEntity extends BlockEntity {
         }
         me.trossty.car.block.FuelPumpBlock.setNozzleHung(this.level, this.worldPosition, true);
         this.level.playSound(null, this.worldPosition.above(),
-                snapped ? net.minecraft.sounds.SoundEvents.LEAD_BREAK
+                snapped ? net.minecraft.sounds.SoundEvents.LEASH_KNOT_BREAK
                         : net.minecraft.sounds.SoundEvents.IRON_TRAPDOOR_CLOSE,
                 net.minecraft.sounds.SoundSource.BLOCKS, 0.6F, snapped ? 0.9F : 1.4F);
     }
@@ -240,14 +240,16 @@ public class FuelPumpBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void loadAdditional(ValueInput view) {
-        super.loadAdditional(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.petrol = view.getIntOr("Petrol", 0);
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view) {
-        super.saveAdditional(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         view.putInt("Petrol", this.petrol);
     }
 }

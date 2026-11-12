@@ -10,8 +10,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 
 /**
  * The one-way valve: how you tell a line of pipe where to go first.
@@ -53,7 +53,7 @@ public class FuelValveBlockEntity extends BlockEntity {
     private final me.trossty.car.fluid.PetrolSlot fluidStorage = new me.trossty.car.fluid.PetrolSlot(
             () -> this.petrol, value -> this.petrol = value, CAPACITY, true, true, this::setChanged);
 
-    public net.fabricmc.fabric.api.transfer.v1.storage.Storage<net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant> getFluidStorage() {
+    public net.neoforged.neoforge.fluids.capability.IFluidHandler getFluidStorage() {
         return this.fluidStorage;
     }
 
@@ -132,7 +132,7 @@ public class FuelValveBlockEntity extends BlockEntity {
             valve.drain(next.fill(offer));
         } else {
             var foreign = me.trossty.car.fluid.ForeignFluids.at(world, valve.getBlockPos(),
-                    Direction.getNearest(to.subtract(valve.getBlockPos()), null));
+                    net.minecraft.core.Direction.getNearest(to.subtract(valve.getBlockPos()).getX(), to.subtract(valve.getBlockPos()).getY(), to.subtract(valve.getBlockPos()).getZ()));
             if (foreign != null) {
                 me.trossty.car.fluid.ForeignFluids.move(valve.fluidStorage, foreign, offer);
             }
@@ -166,21 +166,23 @@ public class FuelValveBlockEntity extends BlockEntity {
             return;
         }
         var foreign = me.trossty.car.fluid.ForeignFluids.at(world, valve.getBlockPos(),
-                Direction.getNearest(from.subtract(valve.getBlockPos()), null));
+                net.minecraft.core.Direction.getNearest(from.subtract(valve.getBlockPos()).getX(), from.subtract(valve.getBlockPos()).getY(), from.subtract(valve.getBlockPos()).getZ()));
         if (foreign != null) {
             me.trossty.car.fluid.ForeignFluids.move(foreign, valve.fluidStorage, room);
         }
     }
 
     @Override
-    protected void loadAdditional(ValueInput view) {
-        super.loadAdditional(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.petrol = view.getIntOr("Petrol", 0);
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view) {
-        super.saveAdditional(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         view.putInt("Petrol", this.petrol);
     }
 }

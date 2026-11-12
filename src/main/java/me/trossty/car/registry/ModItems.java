@@ -3,7 +3,6 @@ package me.trossty.car.registry;
 import me.trossty.car.CarMain;
 import me.trossty.car.item.CarItem;
 import me.trossty.car.item.VehiclePartItem;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -152,7 +151,7 @@ public final class ModItems {
 
     private static Item register(String name, Function<Item.Properties, Item> factory, Item.Properties settings) {
         ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, CarMain.id(name));
-        return Registry.register(BuiltInRegistries.ITEM, key, factory.apply(settings.setId(key)));
+        return Registry.register(BuiltInRegistries.ITEM, key, factory.apply(settings));
     }
 
     /** The mod's own tab in the creative inventory, with a car on it. */
@@ -176,30 +175,36 @@ public final class ModItems {
         Registry.register(BuiltInRegistries.RECIPE_SERIALIZER, CarMain.id("spray_can_refill"),
                 me.trossty.car.recipe.SprayCanRefillRecipe.SERIALIZER);
         Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, GROUP,
-                net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup.builder()
+                net.minecraft.world.item.CreativeModeTab.builder()
                         .icon(() -> new net.minecraft.world.item.ItemStack(CAR))
                         .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.vehicles"))
+                        .displayItems(ModItems::vehicles)
                         .build());
         Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, TEST_GROUP,
-                net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup.builder()
+                net.minecraft.world.item.CreativeModeTab.builder()
                         .icon(() -> new net.minecraft.world.item.ItemStack(ModBlocks.FUEL_REFINERY))
                         .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.everything"))
                         .displayItems(ModItems::everything)
                         .build());
-        ItemGroupEvents.modifyEntriesEvent(GROUP).register(entries -> {
+    }
+
+    /** The vehicles tab: every vehicle the data packs describe, then parts, tools and blocks. */
+    private static void vehicles(net.minecraft.world.item.CreativeModeTab.ItemDisplayParameters context,
+                                 net.minecraft.world.item.CreativeModeTab.Output entries) {
+        {
             // Every vehicle the loaded data packs describe, as it leaves the factory.
-            entries.getContext().holders()
+            context.holders()
                     .lookup(me.trossty.car.vehicle.VehicleDefinition.KEY)
                     .ifPresent(registry -> registry.listElements().forEach(entry ->
                             entries.accept(me.trossty.car.item.CarItem.stackOf(
-                                    entry.key().identifier(), entry.value()))));
+                                    entry.key().location(), entry.value()))));
             entries.accept(JERRY_CAN);
             entries.accept(CAR_KEY);
             entries.accept(SPRAY_CAN);
             for (net.minecraft.world.item.DyeColor dye : net.minecraft.world.item.DyeColor.values()) {
                 net.minecraft.world.item.ItemStack can = new net.minecraft.world.item.ItemStack(SPRAY_CAN);
                 can.set(net.minecraft.core.component.DataComponents.DYED_COLOR,
-                        new net.minecraft.world.item.component.DyedItemColor(dye.getTextureDiffuseColor() & 0xFFFFFF));
+                        new net.minecraft.world.item.component.DyedItemColor(dye.getTextureDiffuseColor() & 0xFFFFFF, true));
                 entries.accept(can);
             }
             entries.accept(CAR_BODY);
@@ -255,7 +260,7 @@ public final class ModItems {
             entries.accept(YELLOW_ROAD_PAINT);
             entries.accept(RED_ROAD_PAINT);
             entries.accept(BLUE_ROAD_PAINT);
-        });
+        }
     }
 
     /**
@@ -285,7 +290,7 @@ public final class ModItems {
         context.holders().lookup(me.trossty.car.vehicle.VehicleDefinition.KEY)
                 .ifPresent(registry -> registry.listElements().forEach(entry ->
                         entries.add(me.trossty.car.item.CarItem.stackOf(
-                                entry.key().identifier(), entry.value()))));
+                                entry.key().location(), entry.value()))));
         // Every item of ours, in the order they were registered.
         for (Item item : BuiltInRegistries.ITEM) {
             if (BuiltInRegistries.ITEM.getKey(item).getNamespace().equals(CarMain.MOD_ID) && item != CAR) {
@@ -313,7 +318,7 @@ public final class ModItems {
         for (net.minecraft.world.item.DyeColor dye : net.minecraft.world.item.DyeColor.values()) {
             net.minecraft.world.item.ItemStack can = new net.minecraft.world.item.ItemStack(SPRAY_CAN);
             can.set(net.minecraft.core.component.DataComponents.DYED_COLOR,
-                    new net.minecraft.world.item.component.DyedItemColor(dye.getTextureDiffuseColor() & 0xFFFFFF));
+                    new net.minecraft.world.item.component.DyedItemColor(dye.getTextureDiffuseColor() & 0xFFFFFF, true));
             entries.add(can);
         }
         // What the machines eat: generator fuel, refinery catalysts and organic matter, crude by the bucket.

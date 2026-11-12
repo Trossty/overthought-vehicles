@@ -31,11 +31,35 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  */
 public class TankOnlyFluid extends Fluid {
 
+    private final net.neoforged.neoforge.fluids.FluidType type;
+
+    /** {@code name} is the fluid's id path; its type carries the translated name every other mod shows. */
+    private final Item bucket;
+
+    public TankOnlyFluid(String name) {
+        this(name, Items.AIR);
+    }
+
+    /** A liquid that does have a vanilla bucket, like milk, so an empty bucket can be filled with it. */
+    public TankOnlyFluid(String name, Item bucket) {
+        this.bucket = bucket;
+        this.type = new net.neoforged.neoforge.fluids.FluidType(net.neoforged.neoforge.fluids.FluidType.Properties.create()
+                .descriptionId("fluid.car." + name)
+                .sound(net.neoforged.neoforge.common.SoundActions.BUCKET_FILL, net.minecraft.sounds.SoundEvents.BUCKET_FILL)
+                .sound(net.neoforged.neoforge.common.SoundActions.BUCKET_EMPTY, net.minecraft.sounds.SoundEvents.BUCKET_EMPTY));
+    }
+
+    @Override
+    public net.neoforged.neoforge.fluids.FluidType getFluidType() {
+        return this.type;
+    }
+
     @Override
     public Item getBucket() {
         // The jerry can is this mod's bucket, and it holds a measured amount
-        // rather than "one bucket", so it is not offered as one.
-        return Items.AIR;
+        // rather than "one bucket", so fuel is not offered in one. Milk keeps
+        // the milk bucket.
+        return this.bucket;
     }
 
     @Override

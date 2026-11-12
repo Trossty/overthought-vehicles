@@ -1,8 +1,11 @@
 package me.trossty.car.client.render;
 
-import me.trossty.car.mixin.client.SpriteContentsAccessor;
-import net.fabricmc.fabric.api.transfer.v1.client.fluid.FluidVariantRendering;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import me.trossty.car.fluid.Liquids;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.world.level.material.Fluid;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.util.Map;
@@ -22,14 +25,28 @@ public final class LiquidColours {
     }
 
     /** RGB, no alpha; {@code fallback} for nothing at all. */
-    public static int of(FluidVariant liquid, int fallback) {
-        if (liquid == null || liquid.isBlank()) {
+    public static int of(@Nullable Fluid liquid, int fallback) {
+        if (liquid == null || Liquids.isBlank(liquid)) {
             return fallback;
         }
-        int tint = FluidVariantRendering.getColor(liquid);
-        TextureAtlasSprite sprite = FluidVariantRendering.getSprite(liquid);
+        TextureAtlasSprite sprite = sprite(liquid);
         int base = sprite == null ? 0xFFFFFF : average(sprite);
-        return multiply(base, tint);
+        return multiply(base, tint(liquid));
+    }
+
+    /** The still texture a liquid is drawn with, or null for nothing at all. */
+    public static @Nullable TextureAtlasSprite sprite(Fluid liquid) {
+        if (Liquids.isBlank(liquid)) {
+            return null;
+        }
+        var texture = IClientFluidTypeExtensions.of(liquid).getStillTexture();
+        return texture == null ? null
+                : Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(texture);
+    }
+
+    /** The tint over that texture, RGB. */
+    public static int tint(Fluid liquid) {
+        return IClientFluidTypeExtensions.of(liquid).getTintColor() & 0xFFFFFF;
     }
 
     private static synchronized int average(TextureAtlasSprite sprite) {
@@ -37,7 +54,7 @@ public final class LiquidColours {
     }
 
     private static int measure(TextureAtlasSprite sprite) {
-        NativeImage[] images = ((SpriteContentsAccessor) sprite.contents()).car$getImages();
+        NativeImage[] images = sprite.contents().byMipLevel;
         if (images == null || images.length == 0 || images[0] == null) {
             return 0xFFFFFF;
         }
@@ -48,7 +65,7 @@ public final class LiquidColours {
         long r = 0, g = 0, b = 0, n = 0;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int argb = image.getPixel(x, y);
+                int argb = net.minecraft.util.FastColor.ABGR32.fromArgb32(image.getPixelRGBA(x, y)); // the same swap both ways
                 int alpha = argb >>> 24;
                 if (alpha < 16) {
                     continue;

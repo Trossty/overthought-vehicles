@@ -6,13 +6,11 @@ import me.trossty.car.block.FuelPumpBlock;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.registry.ModComponents;
 import me.trossty.car.registry.ModItems;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.ShapeRenderer;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -20,7 +18,6 @@ import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.Shapes;
 
 /**
  * The two things you see while filling up: the pump's hose, hanging from the
@@ -46,10 +43,10 @@ public final class FuelHoseRenderer {
         if (self == null || client.level == null || consumers == null) {
             return;
         }
-        float delta = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-        Vec3 camera = context.worldState().cameraRenderState.pos;
+        float delta = client.getTimer().getGameTimeDeltaPartialTick(true);
+        Vec3 camera = context.camera();
         PoseStack matrices = context.matrices();
-        VertexConsumer lines = consumers.getBuffer(RenderTypes.lines());
+        VertexConsumer lines = consumers.getBuffer(RenderType.lines());
 
         for (AbstractClientPlayer player : client.level.players()) {
             if (player.distanceToSqr(camera) > 64 * 64) {
@@ -77,10 +74,7 @@ public final class FuelHoseRenderer {
                 boolean lit = car == aimed;
                 double size = lit ? CAP_SIZE * 1.25 : CAP_SIZE;
                 AABB box = AABB.ofSize(cap, size, size, size);
-                ShapeRenderer.renderShape(matrices, lines,
-                        Shapes.create(box.move(-box.minX, -box.minY, -box.minZ)),
-                        box.minX - camera.x, box.minY - camera.y, box.minZ - camera.z,
-                        lit ? CAP_AIMED : CAP_IDLE, lit ? 3.0F : 1.5F);
+                context.outline(lines, box, lit ? CAP_AIMED : CAP_IDLE);
             }
         }
     }
@@ -129,10 +123,8 @@ public final class FuelHoseRenderer {
                 Vec3 along = at.subtract(last);
                 if (along.lengthSqr() > 1.0E-8) {
                     along = along.normalize();
-                    double distance = Math.max(0.5, last.lerp(at, 0.5).distanceTo(camera));
-                    float width = (float) Mth.clamp(9.0 / distance, 1.5, 12.0);
-                    vertex(lines, entry, last, camera, along, width);
-                    vertex(lines, entry, at, camera, along, width);
+                    vertex(lines, entry, last, camera, along);
+                    vertex(lines, entry, at, camera, along);
                 }
             }
             last = at;
@@ -140,10 +132,9 @@ public final class FuelHoseRenderer {
     }
 
     private static void vertex(VertexConsumer lines, PoseStack.Pose entry, Vec3 at, Vec3 camera,
-                               Vec3 along, float width) {
+                               Vec3 along) {
         lines.addVertex(entry, (float) (at.x - camera.x), (float) (at.y - camera.y), (float) (at.z - camera.z))
                 .setColor(HOSE_COLOUR)
-                .setNormal(entry, (float) along.x, (float) along.y, (float) along.z)
-                .setLineWidth(width);
+                .setNormal(entry, (float) along.x, (float) along.y, (float) along.z);
     }
 }

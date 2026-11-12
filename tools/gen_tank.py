@@ -82,5 +82,5 @@ for i,(when,els) in enumerate(parts):
     inv+=els
 json.dump({'parent':'minecraft:block/block','textures':TEX,'elements':inv},open(M+'tank/inventory.json','w'),indent=1)
 json.dump({'multipart':ms},open(R+'blockstates/fuel_tank.json','w'),indent=1)
-json.dump({'model':{'type':'minecraft:model','model':'car:block/tank/inventory'}},open(R+'items/fuel_tank.json','w'),indent=1)
+json.dump({'parent':'car:block/tank/inventory'},open(R+'models/item/fuel_tank.json','w'),indent=1)
 print(len(parts))

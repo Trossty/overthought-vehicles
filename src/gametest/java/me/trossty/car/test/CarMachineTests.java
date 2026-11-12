@@ -20,7 +20,10 @@ import me.trossty.car.block.entity.HydrotreaterBlockEntity;
 import me.trossty.car.block.entity.PumpjackBlockEntity;
 import me.trossty.car.registry.ModBlocks;
 import me.trossty.car.registry.ModFluids;
-import net.fabricmc.fabric.api.gametest.v1.GameTest;
+import me.trossty.car.CarMain;
+import net.minecraft.gametest.framework.GameTest;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -29,7 +32,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import team.reborn.energy.api.EnergyStorage;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 /**
  * Headless checks with real numbers: each one builds a little piece of the
@@ -39,7 +45,12 @@ import team.reborn.energy.api.EnergyStorage;
  *
  * <p>Run with {@code ./gradlew runGametest}.
  */
+/** Every test stands on the mod's own empty template, a plot of air over the test floor. */
+@GameTestHolder(CarMain.MOD_ID)
+@PrefixGameTestTemplate(false)
 public class CarMachineTests {
+
+    private static final int BUCKET = net.neoforged.neoforge.fluids.FluidType.BUCKET_VOLUME;
 
     // ---- helpers ----
 
@@ -60,8 +71,8 @@ public class CarMachineTests {
             BlockPos pos = context.absolutePos(at);
             BlockState state = world.getBlockState(pos);
             for (Direction side : Direction.values()) {
-                state = state.updateShape(world, world, pos, side, pos.relative(side),
-                        world.getBlockState(pos.relative(side)), world.getRandom());
+                state = state.updateShape(side, world.getBlockState(pos.relative(side)), world, pos,
+                        pos.relative(side));
             }
             world.setBlock(pos, state, Block.UPDATE_CLIENTS);
         }
@@ -69,15 +80,15 @@ public class CarMachineTests {
 
     private static GeneratorBlockEntity coalGenerator(GameTestHelper context, BlockPos at, int coal) {
         context.setBlock(at, ModBlocks.GENERATOR);
-        GeneratorBlockEntity generator = context.getBlockEntity(at, GeneratorBlockEntity.class);
+        GeneratorBlockEntity generator = context.<GeneratorBlockEntity>getBlockEntity(at);
         generator.setItem(0, new ItemStack(Items.COAL, coal));
         return generator;
     }
 
     // ---- generators ----
 
-    @GameTest(maxTicks = 40)
-    public void coalGeneratorBurnsAndFills(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void coalGeneratorBurnsAndFills(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         GeneratorBlockEntity generator = coalGenerator(context, at, 4);
         context.runAtTickTime(20, () -> {
@@ -86,17 +97,17 @@ public class CarMachineTests {
             context.assertTrue(context.getBlockState(at).getValue(me.trossty.car.block.GeneratorBlock.LIT),
                     "a burning generator is not lit");
             context.assertTrue(generator.getItem(0).getCount() == 3, "it should have burnt exactly one coal");
-            context.assertTrue(!generator.getEnergyStorage().supportsInsertion(),
+            context.assertTrue(!generator.getEnergyStorage().canReceive(),
                     "a generator must not take energy in");
             context.succeed();
         });
     }
 
-    @GameTest(maxTicks = 40)
-    public void dieselGeneratorDrinksItsTank(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void dieselGeneratorDrinksItsTank(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         context.setBlock(at, ModBlocks.DIESEL_GENERATOR);
-        GeneratorBlockEntity generator = context.getBlockEntity(at, GeneratorBlockEntity.class);
+        GeneratorBlockEntity generator = context.<GeneratorBlockEntity>getBlockEntity(at);
         generator.getTank().set(ModFluids.DIESEL, 100);
         context.runAtTickTime(21, () -> {
             int used = 100 - generator.getTank().getUnits();
@@ -108,8 +119,8 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 30)
-    public void emptyGeneratorStaysCold(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void emptyGeneratorStaysCold(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         GeneratorBlockEntity generator = coalGenerator(context, at, 0);
         context.runAtTickTime(20, () -> {
@@ -121,8 +132,8 @@ public class CarMachineTests {
 
     // ---- cables ----
 
-    @GameTest(maxTicks = 220)
-    public void cablesCarryPowerToAMachine(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 220)
+    public static void cablesCarryPowerToAMachine(GameTestHelper context) {
         coalGenerator(context, new BlockPos(0, 1, 2), 16);
         BlockPos[] run = new BlockPos[6];
         for (int i = 0; i < run.length; i++) {
@@ -131,12 +142,12 @@ public class CarMachineTests {
         cable(context, run);
         BlockPos plantAt = new BlockPos(7, 1, 2);
         machine(context, ModBlocks.HYDROTREATER, plantAt);
-        HydrotreaterBlockEntity plant = context.getBlockEntity(plantAt, HydrotreaterBlockEntity.class);
+        HydrotreaterBlockEntity plant = context.<HydrotreaterBlockEntity>getBlockEntity(plantAt);
         plant.getInput().set(ModFluids.RAW_PETROL, 1000);
 
         context.runAtTickTime(200, () -> {
-            EnergyCableBlockEntity first = context.getBlockEntity(run[0], EnergyCableBlockEntity.class);
-            EnergyCableBlockEntity last = context.getBlockEntity(run[run.length - 1], EnergyCableBlockEntity.class);
+            EnergyCableBlockEntity first = context.<EnergyCableBlockEntity>getBlockEntity(run[0]);
+            EnergyCableBlockEntity last = context.<EnergyCableBlockEntity>getBlockEntity(run[run.length - 1]);
             context.assertTrue(first.getEnergy() >= last.getEnergy(),
                     "charge should fall along the line, got " + first.getEnergy() + " then " + last.getEnergy());
             context.assertTrue(plant.getOutput().getUnits() > 0,
@@ -149,14 +160,14 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 60)
-    public void cableWithNoSourceStaysEmpty(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void cableWithNoSourceStaysEmpty(GameTestHelper context) {
         BlockPos a = new BlockPos(2, 1, 2);
         BlockPos b = new BlockPos(3, 1, 2);
         cable(context, a, b);
         context.runAtTickTime(40, () -> {
-            context.assertTrue(context.getBlockEntity(a, EnergyCableBlockEntity.class).getEnergy() == 0
-                    && context.getBlockEntity(b, EnergyCableBlockEntity.class).getEnergy() == 0,
+            context.assertTrue(context.<EnergyCableBlockEntity>getBlockEntity(a).getEnergy() == 0
+                    && context.<EnergyCableBlockEntity>getBlockEntity(b).getEnergy() == 0,
                     "cable made energy out of nothing");
             context.succeed();
         });
@@ -164,8 +175,8 @@ public class CarMachineTests {
 
     // ---- crude: the pumpjack ----
 
-    @GameTest(maxTicks = 80)
-    public void pumpjackDrawsCrudeFromADeposit(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void pumpjackDrawsCrudeFromADeposit(GameTestHelper context) {
         for (int x = 2; x <= 4; x++) {
             for (int z = 3; z <= 5; z++) {
                 context.setBlock(new BlockPos(x, 0, z), ModBlocks.OIL_DEPOSIT);
@@ -173,7 +184,7 @@ public class CarMachineTests {
         }
         BlockPos at = new BlockPos(3, 1, 5);
         machine(context, ModBlocks.PUMPJACK, at);
-        PumpjackBlockEntity jack = context.getBlockEntity(at, PumpjackBlockEntity.class);
+        PumpjackBlockEntity jack = context.<PumpjackBlockEntity>getBlockEntity(at);
         jack.setEnergy(PumpjackBlockEntity.ENERGY_CAPACITY);
         context.runAtTickTime(60, () -> {
             context.assertTrue(jack.isWorking(), "pumpjack over a deposit with power is not working");
@@ -186,12 +197,12 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 40)
-    public void pumpjackWithoutPowerStands(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void pumpjackWithoutPowerStands(GameTestHelper context) {
         context.setBlock(new BlockPos(3, 0, 4), ModBlocks.OIL_DEPOSIT);
         BlockPos at = new BlockPos(3, 1, 5);
         machine(context, ModBlocks.PUMPJACK, at);
-        PumpjackBlockEntity jack = context.getBlockEntity(at, PumpjackBlockEntity.class);
+        PumpjackBlockEntity jack = context.<PumpjackBlockEntity>getBlockEntity(at);
         context.runAtTickTime(20, () -> {
             context.assertTrue(!jack.isWorking() && jack.getCrude().isEmpty(), "pumpjack ran with no power");
             context.succeed();
@@ -200,11 +211,11 @@ public class CarMachineTests {
 
     // ---- the refinery ----
 
-    @GameTest(maxTicks = 140)
-    public void refineryCracksCrudeOneForOne(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 140)
+    public static void refineryCracksCrudeOneForOne(GameTestHelper context) {
         BlockPos at = new BlockPos(5, 1, 5);
         machine(context, ModBlocks.FUEL_REFINERY, at);
-        FuelRefineryBlockEntity refinery = context.getBlockEntity(at, FuelRefineryBlockEntity.class);
+        FuelRefineryBlockEntity refinery = context.<FuelRefineryBlockEntity>getBlockEntity(at);
         refinery.setFeed(FuelRefineryBlockEntity.FEED_CRUDE, 1000);
         refinery.setItem(FuelRefineryBlockEntity.CATALYST_SLOT, new ItemStack(Items.REDSTONE, 16));
         refinery.setTemperature(FuelRefineryBlockEntity.HOT_TEMPERATURE);
@@ -225,11 +236,11 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 160)
-    public void refineryCansRawFuelAsRaw(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 160)
+    public static void refineryCansRawFuelAsRaw(GameTestHelper context) {
         BlockPos at = new BlockPos(5, 1, 5);
         machine(context, ModBlocks.FUEL_REFINERY, at);
-        FuelRefineryBlockEntity refinery = context.getBlockEntity(at, FuelRefineryBlockEntity.class);
+        FuelRefineryBlockEntity refinery = context.<FuelRefineryBlockEntity>getBlockEntity(at);
         refinery.setFeed(FuelRefineryBlockEntity.FEED_CRUDE, 1000);
         refinery.setItem(FuelRefineryBlockEntity.CATALYST_SLOT, new ItemStack(Items.REDSTONE, 16));
         refinery.setTemperature(FuelRefineryBlockEntity.HOT_TEMPERATURE);
@@ -246,11 +257,11 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 60)
-    public void coldRefineryOnlyWarms(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void coldRefineryOnlyWarms(GameTestHelper context) {
         BlockPos at = new BlockPos(5, 1, 5);
         machine(context, ModBlocks.FUEL_REFINERY, at);
-        FuelRefineryBlockEntity refinery = context.getBlockEntity(at, FuelRefineryBlockEntity.class);
+        FuelRefineryBlockEntity refinery = context.<FuelRefineryBlockEntity>getBlockEntity(at);
         refinery.setFeed(FuelRefineryBlockEntity.FEED_CRUDE, 1000);
         refinery.setItem(FuelRefineryBlockEntity.CATALYST_SLOT, new ItemStack(Items.REDSTONE, 16));
         refinery.setEnergy(FuelRefineryBlockEntity.ENERGY_CAPACITY);
@@ -263,11 +274,11 @@ public class CarMachineTests {
 
     // ---- the hydrotreater and the pipes ----
 
-    @GameTest(maxTicks = 60)
-    public void hydrotreaterCleansEveryUnit(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void hydrotreaterCleansEveryUnit(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         machine(context, ModBlocks.HYDROTREATER, at);
-        HydrotreaterBlockEntity plant = context.getBlockEntity(at, HydrotreaterBlockEntity.class);
+        HydrotreaterBlockEntity plant = context.<HydrotreaterBlockEntity>getBlockEntity(at);
         plant.getInput().set(ModFluids.RAW_DIESEL, 100);
         plant.setEnergy(HydrotreaterBlockEntity.ENERGY_CAPACITY);
         context.runAtTickTime(40, () -> {
@@ -278,11 +289,11 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 160)
-    public void pipesCarryPetrolIntoATank(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 160)
+    public static void pipesCarryPetrolIntoATank(GameTestHelper context) {
         BlockPos at = new BlockPos(1, 1, 3);
         machine(context, ModBlocks.HYDROTREATER, at);
-        HydrotreaterBlockEntity plant = context.getBlockEntity(at, HydrotreaterBlockEntity.class);
+        HydrotreaterBlockEntity plant = context.<HydrotreaterBlockEntity>getBlockEntity(at);
         plant.getOutput().set(ModFluids.PETROL, 400);
         BlockPos p1 = new BlockPos(2, 1, 3);
         BlockPos p2 = new BlockPos(3, 1, 3);
@@ -291,9 +302,9 @@ public class CarMachineTests {
         context.setBlock(p2, ModBlocks.FUEL_PIPE);
         context.setBlock(tankAt, ModBlocks.FUEL_TANK);
         context.runAtTickTime(140, () -> {
-            FuelTankBlockEntity tank = context.getBlockEntity(tankAt, FuelTankBlockEntity.class);
-            int inPipes = context.getBlockEntity(p1, FuelPipeBlockEntity.class).getPetrol()
-                    + context.getBlockEntity(p2, FuelPipeBlockEntity.class).getPetrol();
+            FuelTankBlockEntity tank = context.<FuelTankBlockEntity>getBlockEntity(tankAt);
+            int inPipes = context.<FuelPipeBlockEntity>getBlockEntity(p1).getPetrol()
+                    + context.<FuelPipeBlockEntity>getBlockEntity(p2).getPetrol();
             int total = plant.getOutput().getUnits() + inPipes + tank.getPetrol();
             context.assertTrue(tank.getPetrol() > 0, "no petrol reached the tank");
             context.assertTrue(total == 400, "petrol is not conserved: " + total + " of 400");
@@ -303,15 +314,15 @@ public class CarMachineTests {
 
     // ---- energy API sanity ----
 
-    @GameTest(maxTicks = 20)
-    public void machinesOfferPowerDoors(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void machinesOfferPowerDoors(GameTestHelper context) {
         BlockPos plantAt = new BlockPos(3, 1, 3);
         machine(context, ModBlocks.HYDROTREATER, plantAt);
         context.runAtTickTime(2, () -> {
             for (Direction side : Direction.values()) {
-                EnergyStorage door = EnergyStorage.SIDED.find(context.getLevel(),
+                IEnergyStorage door = context.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK,
                         context.absolutePos(plantAt.above()), side);
-                context.assertTrue(door != null && door.supportsInsertion(),
+                context.assertTrue(door != null && door.canReceive(),
                         "the hydrotreater's upper cell has no power door on " + side);
             }
             context.succeed();
@@ -322,7 +333,7 @@ public class CarMachineTests {
 
     private static BatteryBankBlockEntity battery(GameTestHelper context, BlockPos at, Direction front, long energy) {
         context.setBlock(at, ModBlocks.BATTERY_BANK.defaultBlockState().setValue(BatteryBankBlock.FACING, front));
-        BatteryBankBlockEntity bank = context.getBlockEntity(at, BatteryBankBlockEntity.class);
+        BatteryBankBlockEntity bank = context.<BatteryBankBlockEntity>getBlockEntity(at);
         bank.setEnergy(energy);
         return bank;
     }
@@ -338,17 +349,17 @@ public class CarMachineTests {
         return car;
     }
 
-    @GameTest(maxTicks = 40)
-    public void batteryGivesOnlyOutOfItsFront(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void batteryGivesOnlyOutOfItsFront(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         BatteryBankBlockEntity bank = battery(context, at, Direction.SOUTH, 50_000);
         cable(context, new BlockPos(3, 1, 4), new BlockPos(3, 1, 2));
-        EnergyCableBlockEntity front = context.getBlockEntity(new BlockPos(3, 1, 4), EnergyCableBlockEntity.class);
-        EnergyCableBlockEntity back = context.getBlockEntity(new BlockPos(3, 1, 2), EnergyCableBlockEntity.class);
+        EnergyCableBlockEntity front = context.<EnergyCableBlockEntity>getBlockEntity(new BlockPos(3, 1, 4));
+        EnergyCableBlockEntity back = context.<EnergyCableBlockEntity>getBlockEntity(new BlockPos(3, 1, 2));
         context.runAtTickTime(20, () -> {
-            context.assertTrue(front.getEnergyStorage().getAmount() > 0, "the cable on the front got nothing");
-            context.assertTrue(back.getEnergyStorage().getAmount() == 0,
-                    "the battery gave " + back.getEnergyStorage().getAmount() + " out of its back");
+            context.assertTrue(front.getEnergyStorage().getEnergyStored() > 0, "the cable on the front got nothing");
+            context.assertTrue(back.getEnergyStorage().getEnergyStored() == 0,
+                    "the battery gave " + back.getEnergyStorage().getEnergyStored() + " out of its back");
             context.assertTrue(bank.getEnergy() < 50_000, "the battery did not drain");
             context.assertTrue(context.getBlockState(at).getValue(BatteryBankBlock.LEVEL) == 1,
                     "a quarter-full battery shows " + context.getBlockState(at).getValue(BatteryBankBlock.LEVEL) + " bars");
@@ -356,8 +367,8 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 120)
-    public void batteryFillsFromAGenerator(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void batteryFillsFromAGenerator(GameTestHelper context) {
         coalGenerator(context, new BlockPos(3, 1, 1), 4);
         cable(context, new BlockPos(3, 1, 2));
         BlockPos at = new BlockPos(3, 1, 3);
@@ -369,11 +380,11 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 40)
-    public void chargingPostChargesAnElectricCar(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void chargingPostChargesAnElectricCar(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         context.setBlock(at, ModBlocks.CHARGING_POST);
-        ChargingPostBlockEntity post = context.getBlockEntity(at, ChargingPostBlockEntity.class);
+        ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(at);
         post.setEnergy(ChargingPostBlockEntity.CAPACITY);
         CarEntity car = car(context, new BlockPos(3, 1, 5), true);
         context.runAtTickTime(20, () -> {
@@ -388,11 +399,11 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(maxTicks = 40)
-    public void chargingPostIgnoresAPetrolCar(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void chargingPostIgnoresAPetrolCar(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         context.setBlock(at, ModBlocks.CHARGING_POST);
-        ChargingPostBlockEntity post = context.getBlockEntity(at, ChargingPostBlockEntity.class);
+        ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(at);
         post.setEnergy(ChargingPostBlockEntity.CAPACITY);
         CarEntity car = car(context, new BlockPos(3, 1, 5), false);
         context.runAtTickTime(20, () -> {
@@ -405,8 +416,8 @@ public class CarMachineTests {
 
     // ---- the mechanic's side: mileage and the code reader ----
 
-    @GameTest(maxTicks = 20)
-    public void codeReaderListsWorstFirst(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void codeReaderListsWorstFirst(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         car.setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION * 0.10F);
         car.setCondition(CarPart.WHEELS, CarPart.MAX_CONDITION * 0.30F);
@@ -418,8 +429,8 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest(maxTicks = 20)
-    public void codeReaderSkipsPlugsOnAnElectricCar(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void codeReaderSkipsPlugsOnAnElectricCar(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), true);
         car.setCondition(CarPart.SPARK_PLUGS, CarPart.MAX_CONDITION * 0.05F);
         car.setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.20F);
@@ -428,8 +439,8 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest(maxTicks = 20)
-    public void oldCarsAndTiredPartsWearFaster(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void oldCarsAndTiredPartsWearFaster(GameTestHelper context) {
         CarEntity fresh = car(context, new BlockPos(2, 1, 3), false);
         CarEntity old = car(context, new BlockPos(5, 1, 3), false);
         old.setOdometer(CarEntity.HIGH_MILEAGE * 3);
@@ -444,10 +455,10 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest(maxTicks = 40)
-    public void cableGlowsOnlyWhileCarrying(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void cableGlowsOnlyWhileCarrying(GameTestHelper context) {
         cable(context, new BlockPos(2, 1, 3), new BlockPos(3, 1, 3), new BlockPos(5, 1, 3));
-        context.getBlockEntity(new BlockPos(2, 1, 3), EnergyCableBlockEntity.class).setEnergy(800);
+        context.<EnergyCableBlockEntity>getBlockEntity(new BlockPos(2, 1, 3)).setEnergy(800);
         context.runAtTickTime(25, () -> {
             context.assertTrue(context.getBlockState(new BlockPos(3, 1, 3)).getValue(EnergyCableBlock.POWERED),
                     "a cable carrying power is dark");
@@ -457,8 +468,8 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest
-    public void rawFuelMixesByVolumeAndShowsOnTheReader(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void rawFuelMixesByVolumeAndShowsOnTheReader(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         car.addFuel(10.0F, CarSetup.Fuel.PETROL, false);
         car.addFuel(10.0F, CarSetup.Fuel.PETROL, true);
@@ -472,8 +483,8 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest
-    public void abandonedCarsNeedWork(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void abandonedCarsNeedWork(GameTestHelper context) {
         CarEntity car = me.trossty.car.world.AbandonedVehicles.abandoned(context.getLevel(),
                 net.minecraft.util.RandomSource.create(42));
         context.assertTrue(car != null, "no abandoned car was made");
@@ -488,8 +499,8 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest
-    public void asphaltSparesTheTyres(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void asphaltSparesTheTyres(GameTestHelper context) {
         context.setBlock(new BlockPos(3, 0, 3), ModBlocks.ASPHALT);
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         CarEntity off = car(context, new BlockPos(6, 1, 3), false);
@@ -498,8 +509,8 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest
-    public void electricMotorItemSaves(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void electricMotorItemSaves(GameTestHelper context) {
         var codec = me.trossty.car.registry.ModComponents.PART_VARIANT.codec();
         context.assertTrue(codec != null && codec.encodeStart(com.mojang.serialization.JsonOps.INSTANCE,
                         CarSetup.ELECTRIC_MOTOR).isSuccess(),
@@ -521,8 +532,8 @@ public class CarMachineTests {
         return held.useOn(new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
     }
 
-    @GameTest
-    public void asphaltIsLaidInLayersLikeSnow(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void asphaltIsLaidInLayersLikeSnow(GameTestHelper context) {
         BlockPos ground = new BlockPos(2, 0, 2);
         BlockPos road = ground.above();
         context.setBlock(ground, net.minecraft.world.level.block.Blocks.STONE);
@@ -556,8 +567,8 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest
-    public void roadPaintPaintsTurnsAndErases(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void roadPaintPaintsTurnsAndErases(GameTestHelper context) {
         BlockPos road = new BlockPos(2, 1, 2);
         context.setBlock(road.below(), net.minecraft.world.level.block.Blocks.STONE);
         context.setBlock(road, ModBlocks.ASPHALT);
@@ -606,12 +617,12 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest
-    public void obdTabletPairsAndLosesSignal(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void obdTabletPairsAndLosesSignal(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         BlockPos stand = context.absolutePos(new BlockPos(1, 1, 1));
-        player.snapTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, 0.0F, 0.0F);
+        player.moveTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, 0.0F, 0.0F);
         ItemStack tablet = new ItemStack(me.trossty.car.registry.ModItems.OBD_SCANNER);
         context.assertTrue(me.trossty.car.item.ObdScannerItem.reading(tablet, player) == null,
                 "an unpaired tablet reads a car");
@@ -633,13 +644,13 @@ public class CarMachineTests {
      * a bigger box where it could never be aimed at, and a lorry's engine is
      * not where a hatchback's is.
      */
-    @GameTest
-    public void partBoxesFitEachVehicle(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void partBoxesFitEachVehicle(GameTestHelper context) {
         var registry = context.getLevel().registryAccess()
-                .lookupOrThrow(me.trossty.car.vehicle.VehicleDefinition.KEY);
+                .registryOrThrow(me.trossty.car.vehicle.VehicleDefinition.KEY);
         java.util.Map<String, CarPart.Anchor> engines = new java.util.HashMap<>();
         int checked = 0;
-        for (var entry : registry.asHolderIdMap()) {
+        for (var entry : registry.holders().toList()) {
             me.trossty.car.vehicle.VehicleDefinition definition = entry.value();
             String name = String.valueOf(registry.getKey(definition));
             if (definition.wheels().isEmpty()) {
@@ -699,8 +710,8 @@ public class CarMachineTests {
      * conjure a new one — and the part did not land in the hand you were
      * working with. Holding the spare and clicking puts it back.
      */
-    @GameTest
-    public void removedPartStaysOffUntilRefitted(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void removedPartStaysOffUntilRefitted(GameTestHelper context) {
         BlockPos lift = new BlockPos(2, 1, 2);
         context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState()
                 .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
@@ -742,8 +753,8 @@ public class CarMachineTests {
      * fills the bottom cell first, every face hands out the whole of it, and
      * any liquid goes — water, which is no fuel at all.
      */
-    @GameTest
-    public void tanksMergeAndFillFromTheBottom(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void tanksMergeAndFillFromTheBottom(GameTestHelper context) {
         BlockPos low = new BlockPos(2, 1, 2);
         BlockPos high = low.above();
         BlockPos side = low.east();
@@ -753,37 +764,31 @@ public class CarMachineTests {
         context.runAtTickTime(2, () -> {
             context.assertTrue(context.getBlockState(low).getValue(me.trossty.car.block.FuelTankBlock.UP),
                     "the lower cell does not show itself joined to the one above");
-            var door = net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage.SIDED.find(context.getLevel(),
+            IFluidHandler door = context.getLevel().getCapability(Capabilities.FluidHandler.BLOCK,
                     context.absolutePos(high), Direction.UP);
             context.assertTrue(door != null, "the tank has no fluid door");
-            long bucket = net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET;
-            var water = net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.of(net.minecraft.world.level.material.Fluids.WATER);
-            long in;
-            try (var t = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
-                in = door.insert(water, 40 * bucket, t);
-                t.commit();
-            }
+            int bucket = BUCKET;
+            int in = door.fill(new FluidStack(net.minecraft.world.level.material.Fluids.WATER, 40 * bucket),
+                    IFluidHandler.FluidAction.EXECUTE);
             context.assertTrue(in == 40 * bucket, "three cells did not take forty buckets: " + in / bucket);
-            context.assertTrue(context.getBlockEntity(low, FuelTankBlockEntity.class).getGroup().getCapacity() == 48 * bucket, "three cells are not one tank of 48 buckets");
-            FuelTankBlockEntity bottom = context.getBlockEntity(low, FuelTankBlockEntity.class);
-            FuelTankBlockEntity beside = context.getBlockEntity(side, FuelTankBlockEntity.class);
-            FuelTankBlockEntity top = context.getBlockEntity(high, FuelTankBlockEntity.class);
+            context.assertTrue(context.<FuelTankBlockEntity>getBlockEntity(low).getGroup().getCapacity() == 48 * bucket, "three cells are not one tank of 48 buckets");
+            FuelTankBlockEntity bottom = context.<FuelTankBlockEntity>getBlockEntity(low);
+            FuelTankBlockEntity beside = context.<FuelTankBlockEntity>getBlockEntity(side);
+            FuelTankBlockEntity top = context.<FuelTankBlockEntity>getBlockEntity(high);
             context.assertTrue(bottom.getAmount() == 16 * bucket && beside.getAmount() == 16 * bucket,
                     "the bottom layer did not fill first");
             context.assertTrue(top.getAmount() == 8 * bucket, "the top cell holds " + top.getAmount() / bucket);
             // Lava will not go into a tank of water.
-            try (var t = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
-                long lava = door.insert(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.of(
-                        net.minecraft.world.level.material.Fluids.LAVA), bucket, t);
-                context.assertTrue(lava == 0, "lava mixed into the water");
-            }
+            int lava = door.fill(new FluidStack(net.minecraft.world.level.material.Fluids.LAVA, bucket),
+                    IFluidHandler.FluidAction.SIMULATE);
+            context.assertTrue(lava == 0, "lava mixed into the water");
             context.succeed();
         });
     }
 
     /** Breaking a cell out of a tank loses that cell's share, and the rest is still one tank. */
-    @GameTest
-    public void brokenTankCellSplitsTheTank(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void brokenTankCellSplitsTheTank(GameTestHelper context) {
         BlockPos a = new BlockPos(1, 1, 2);
         BlockPos b = a.east();
         BlockPos c = b.east();
@@ -791,25 +796,25 @@ public class CarMachineTests {
         context.setBlock(b, ModBlocks.FUEL_TANK);
         context.setBlock(c, ModBlocks.FUEL_TANK);
         context.runAtTickTime(2, () -> {
-            FuelTankBlockEntity first = context.getBlockEntity(a, FuelTankBlockEntity.class);
+            FuelTankBlockEntity first = context.<FuelTankBlockEntity>getBlockEntity(a);
             context.assertTrue(first.fill(ModFluids.DIESEL, 30000) == 30000, "the row did not take 30 buckets");
             context.setBlock(b, Block.byItem(Items.AIR).defaultBlockState());
         });
         context.runAtTickTime(4, () -> {
-            FuelTankBlockEntity first = context.getBlockEntity(a, FuelTankBlockEntity.class);
-            FuelTankBlockEntity last = context.getBlockEntity(c, FuelTankBlockEntity.class);
+            FuelTankBlockEntity first = context.<FuelTankBlockEntity>getBlockEntity(a);
+            FuelTankBlockEntity last = context.<FuelTankBlockEntity>getBlockEntity(c);
             context.assertTrue(first.getGroup().size() == 1 && last.getGroup().size() == 1,
                     "the two ends are still one tank");
             context.assertTrue(first.getGroup().getAmount() + last.getGroup().getAmount() == 20
-                            * net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET,
+                            * BUCKET,
                     "the ends do not hold the 20 buckets that were in them");
             context.succeed();
         });
     }
 
     /** A trailer has no engine: nothing about one can be worked on, read or worn. */
-    @GameTest
-    public void trailerHasNoEngine(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void trailerHasNoEngine(GameTestHelper context) {
         CarEntity trailer = context.spawn(ModEntities.TRAILER, new BlockPos(2, 1, 2));
         context.assertFalse(trailer.hasPart(CarPart.ENGINE), "a trailer has an engine");
         context.assertFalse(trailer.canReach(CarPart.ENGINE), "a trailer's engine can be reached");
@@ -826,12 +831,12 @@ public class CarMachineTests {
     }
 
     /** A survival player's punch dents a car; it does not turn it back into an item. */
-    @GameTest
-    public void punchDentsInsteadOfPocketing(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void punchDentsInsteadOfPocketing(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         float before = car.getHealth();
-        car.hurtServer(context.getLevel(), context.getLevel().damageSources().playerAttack(player), 2.0F);
+        car.hurt(context.getLevel().damageSources().playerAttack(player), 2.0F);
         context.assertFalse(car.isRemoved(), "a punch took the car away");
         context.assertTrue(car.getHealth() < before, "a punch did not dent the car");
         context.assertTrue(itemsAround(context, car, me.trossty.car.registry.ModItems.CAR) == 0,
@@ -841,11 +846,11 @@ public class CarMachineTests {
     }
 
     /** A creative player clears a car away, and nothing comes back from it. */
-    @GameTest
-    public void creativeClearsWithoutAnItem(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void creativeClearsWithoutAnItem(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.CREATIVE);
-        car.hurtServer(context.getLevel(), context.getLevel().damageSources().playerAttack(player), 1.0F);
+        car.hurt(context.getLevel().damageSources().playerAttack(player), 1.0F);
         context.assertTrue(car.isRemoved(), "a creative hit left the car standing");
         context.assertTrue(itemsAround(context, car, me.trossty.car.registry.ModItems.CAR) == 0,
                 "a creative hit dropped the car as an item");
@@ -853,8 +858,8 @@ public class CarMachineTests {
     }
 
     /** A locked car keeps its parts, however the request to take one arrives. */
-    @GameTest
-    public void lockedCarRefusesService(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void lockedCarRefusesService(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         car.setLockCode(77L);
@@ -877,11 +882,11 @@ public class CarMachineTests {
     }
 
     /** A wrecked pickup tips its bed out, the way a broken chest does. */
-    @GameTest
-    public void wreckedPickupSpillsItsBed(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void wreckedPickupSpillsItsBed(GameTestHelper context) {
         var pickup = context.spawn(ModEntities.PICKUP, new BlockPos(3, 1, 3));
         pickup.getBed().setItem(0, new ItemStack(Items.DIAMOND, 5));
-        pickup.hurtServer(context.getLevel(), context.getLevel().damageSources().generic(), 1000.0F);
+        pickup.hurt(context.getLevel().damageSources().generic(), 1000.0F);
         context.assertTrue(pickup.isRemoved(), "the pickup was not wrecked");
         context.assertTrue(itemsAround(context, pickup, Items.DIAMOND) > 0, "the bed did not spill");
         context.assertTrue(itemsAround(context, pickup, me.trossty.car.registry.ModItems.CAR) == 0,
@@ -893,14 +898,14 @@ public class CarMachineTests {
      * A hitched trailer is dragged, not teleported: towed at a wall, it stops
      * against it instead of passing through.
      */
-    @GameTest(maxTicks = 60)
-    public void towedTrailerStopsAtAWall(GameTestHelper context) {
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void towedTrailerStopsAtAWall(GameTestHelper context) {
         CarEntity tractor = car(context, new BlockPos(3, 1, 5), false);
         var trailer = context.spawn(ModEntities.TRAILER, new BlockPos(3, 1, 1));
         net.minecraft.world.phys.Vec3 ball = tractor.hitchPoint();
         // Coupler right on the tow ball, both facing the same way.
-        tractor.snapTo(tractor.getX(), tractor.getY(), tractor.getZ(), 0.0F, 0.0F);
-        trailer.snapTo(ball.x, trailer.getY(), ball.z - 2.0, 0.0F, 0.0F);
+        tractor.moveTo(tractor.getX(), tractor.getY(), tractor.getZ(), 0.0F, 0.0F);
+        trailer.moveTo(ball.x, trailer.getY(), ball.z - 2.0, 0.0F, 0.0F);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         trailer.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
@@ -937,7 +942,7 @@ public class CarMachineTests {
         BlockState state = context.getLevel().getBlockState(at);
         ItemStack held = player.getMainHandItem();
         if (state.useItemOn(held, context.getLevel(), player, net.minecraft.world.InteractionHand.MAIN_HAND, hit)
-                == net.minecraft.world.InteractionResult.PASS) {
+                == net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION) {
             state.useWithoutItem(context.getLevel(), player, hit);
         }
     }
@@ -947,20 +952,20 @@ public class CarMachineTests {
      * a comparator, and is carried away full: broken and put down again it
      * holds what it held.
      */
-    @GameTest
-    public void drumFillsAndTravelsFull(GameTestHelper context) {
+    @GameTest(template = "empty")
+    public static void drumFillsAndTravelsFull(GameTestHelper context) {
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         BlockPos water = new BlockPos(1, 1, 1);
         BlockPos petrol = new BlockPos(3, 1, 1);
         context.setBlock(water, me.trossty.car.registry.ModBlocks.FUEL_DRUM);
         context.setBlock(petrol, me.trossty.car.registry.ModBlocks.FUEL_DRUM);
-        var wet = context.getBlockEntity(water, me.trossty.car.block.entity.FuelDrumBlockEntity.class);
-        var fuel = context.getBlockEntity(petrol, me.trossty.car.block.entity.FuelDrumBlockEntity.class);
+        var wet = context.<me.trossty.car.block.entity.FuelDrumBlockEntity>getBlockEntity(water);
+        var fuel = context.<me.trossty.car.block.entity.FuelDrumBlockEntity>getBlockEntity(petrol);
 
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.WATER_BUCKET));
         clickDrum(context, player, water);
-        context.assertTrue(wet.getAmount() == net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET
-                && wet.getFluid().isOf(net.minecraft.world.level.material.Fluids.WATER), "a bucket of water did not go in");
+        context.assertTrue(wet.getAmount() == BUCKET
+                && wet.getFluid().isSame(net.minecraft.world.level.material.Fluids.WATER), "a bucket of water did not go in");
         context.assertTrue(player.getMainHandItem().is(Items.BUCKET), "the bucket did not come back empty");
 
         ItemStack can = new ItemStack(me.trossty.car.registry.ModItems.JERRY_CAN);
@@ -968,13 +973,13 @@ public class CarMachineTests {
         me.trossty.car.item.JerryCans.setUnits(can, me.trossty.car.item.JerryCans.CAPACITY);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, can);
         clickDrum(context, player, water);
-        context.assertTrue(wet.getFluid().isOf(net.minecraft.world.level.material.Fluids.WATER)
+        context.assertTrue(wet.getFluid().isSame(net.minecraft.world.level.material.Fluids.WATER)
                         && me.trossty.car.item.JerryCans.isFull(can), "petrol went into a drum of water");
         clickDrum(context, player, petrol);
         long poured = fuel.getAmount();
-        context.assertTrue(poured > 0 && fuel.getFluid().isOf(ModFluids.PETROL), "the can did not pour petrol in");
+        context.assertTrue(poured > 0 && fuel.getFluid().isSame(ModFluids.PETROL), "the can did not pour petrol in");
         context.assertTrue(context.getBlockState(petrol).getAnalogOutputSignal(context.getLevel(),
-                context.absolutePos(petrol), Direction.NORTH) > 0, "a comparator reads an empty drum");
+                context.absolutePos(petrol)) > 0, "a comparator reads an empty drum");
 
         context.getLevel().destroyBlock(context.absolutePos(petrol), true);
         var drops = context.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
@@ -984,15 +989,14 @@ public class CarMachineTests {
         ItemStack carried = drops.get(0).getItem().copy();
         drops.get(0).discard();
         var held = carried.get(me.trossty.car.registry.ModComponents.STORED_FLUID);
-        context.assertTrue(held != null && held.amount() == poured && held.fluid().isOf(ModFluids.PETROL),
+        context.assertTrue(held != null && held.amount() == poured && held.fluid().isSame(ModFluids.PETROL),
                 "the drum item does not carry the petrol");
 
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, carried);
         context.setBlock(new BlockPos(5, 0, 3), net.minecraft.world.level.block.Blocks.STONE);
         clickTop(context, player, new BlockPos(5, 0, 3));
-        var again = context.getBlockEntity(new BlockPos(5, 1, 3),
-                me.trossty.car.block.entity.FuelDrumBlockEntity.class);
-        context.assertTrue(again.getAmount() == poured && again.getFluid().isOf(ModFluids.PETROL),
+        var again = context.<me.trossty.car.block.entity.FuelDrumBlockEntity>getBlockEntity(new BlockPos(5, 1, 3));
+        context.assertTrue(again.getAmount() == poured && again.getFluid().isSame(ModFluids.PETROL),
                 "put down again, the drum holds " + again.getAmount() + " of " + poured);
         context.succeed();
     }

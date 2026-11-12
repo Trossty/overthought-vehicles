@@ -31,7 +31,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The hydrotreater: a reactor vessel two blocks tall on a skid, with the
@@ -90,13 +90,13 @@ public class HydrotreaterBlock extends MultiblockBlock {
 
     /** A jerry can held against it fills with whatever clean fuel it has. */
     @Override
-    protected InteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
+    protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
                                          Player player, InteractionHand hand, BlockHitResult hit) {
         if (!held.is(ModItems.JERRY_CAN)) {
-            return InteractionResult.TRY_WITH_EMPTY_HAND;
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (world.isClientSide()) {
-            return InteractionResult.SUCCESS;
+            return net.minecraft.world.ItemInteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(this.controllerOf(pos, state)) instanceof HydrotreaterBlockEntity plant
                 && !JerryCans.isEmpty(held) && CarEntity.isRaw(held)) {
@@ -113,7 +113,7 @@ public class HydrotreaterBlock extends MultiblockBlock {
                     world.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 0.6F, 0.9F);
                 }
             }
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
         if (world.getBlockEntity(this.controllerOf(pos, state)) instanceof HydrotreaterBlockEntity plant) {
             UnitTank out = plant.getOutput();
@@ -131,7 +131,7 @@ public class HydrotreaterBlock extends MultiblockBlock {
                 }
             }
         }
-        return InteractionResult.CONSUME;
+        return net.minecraft.world.ItemInteractionResult.CONSUME;
     }
 
     @Override

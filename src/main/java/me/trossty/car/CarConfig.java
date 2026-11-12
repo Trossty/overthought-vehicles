@@ -6,7 +6,7 @@ import com.google.gson.JsonParseException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import net.fabricmc.loader.api.FabricLoader;
+import net.neoforged.fml.loading.FMLPaths;
 
 /**
  * The few balance knobs a server owner might want to turn, in
@@ -45,7 +45,7 @@ public final class CarConfig {
 
     /** Reads the file, or writes one with the defaults when there is none. */
     public static void load() {
-        Path file = FabricLoader.getInstance().getConfigDir().resolve("car.json");
+        Path file = FMLPaths.CONFIGDIR.get().resolve("car.json");
         try {
             if (Files.exists(file)) {
                 CarConfig read = GSON.fromJson(Files.readString(file), CarConfig.class);

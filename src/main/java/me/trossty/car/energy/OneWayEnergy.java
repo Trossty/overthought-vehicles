@@ -1,7 +1,6 @@
 package me.trossty.car.energy;
 
-import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
-import team.reborn.energy.api.EnergyStorage;
+import net.neoforged.neoforge.energy.IEnergyStorage;
 
 /**
  * One face of a store that only lets energy one way: an input face that takes
@@ -9,51 +8,51 @@ import team.reborn.energy.api.EnergyStorage;
  * bank shows the first on five sides and the second on its front, so a cable
  * on the front is fed and never pushes back into it.
  */
-public final class OneWayEnergy implements EnergyStorage {
+public final class OneWayEnergy implements IEnergyStorage {
 
-    private final EnergyStorage store;
+    private final IEnergyStorage store;
     private final boolean in;
 
-    private OneWayEnergy(EnergyStorage store, boolean in) {
+    private OneWayEnergy(IEnergyStorage store, boolean in) {
         this.store = store;
         this.in = in;
     }
 
-    public static EnergyStorage in(EnergyStorage store) {
+    public static IEnergyStorage in(IEnergyStorage store) {
         return new OneWayEnergy(store, true);
     }
 
-    public static EnergyStorage out(EnergyStorage store) {
+    public static IEnergyStorage out(IEnergyStorage store) {
         return new OneWayEnergy(store, false);
     }
 
     @Override
-    public boolean supportsInsertion() {
-        return this.in;
+    public int receiveEnergy(int toReceive, boolean simulate) {
+        return this.in ? this.store.receiveEnergy(toReceive, simulate) : 0;
     }
 
     @Override
-    public long insert(long maxAmount, TransactionContext transaction) {
-        return this.in ? this.store.insert(maxAmount, transaction) : 0;
+    public int extractEnergy(int toExtract, boolean simulate) {
+        return this.in ? 0 : this.store.extractEnergy(toExtract, simulate);
     }
 
     @Override
-    public boolean supportsExtraction() {
-        return !this.in;
+    public int getEnergyStored() {
+        return this.store.getEnergyStored();
     }
 
     @Override
-    public long extract(long maxAmount, TransactionContext transaction) {
-        return this.in ? 0 : this.store.extract(maxAmount, transaction);
+    public int getMaxEnergyStored() {
+        return this.store.getMaxEnergyStored();
     }
 
     @Override
-    public long getAmount() {
-        return this.store.getAmount();
+    public boolean canExtract() {
+        return !this.in && this.store.canExtract();
     }
 
     @Override
-    public long getCapacity() {
-        return this.store.getCapacity();
+    public boolean canReceive() {
+        return this.in && this.store.canReceive();
     }
 }

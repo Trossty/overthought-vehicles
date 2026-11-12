@@ -4,15 +4,12 @@ import me.trossty.car.CarMain;
 import me.trossty.car.block.AsphaltBlock.Marking;
 import me.trossty.car.item.RoadPaintItem;
 import me.trossty.car.network.RoadMarkingC2SPayload;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -27,7 +24,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public class RoadMarkingScreen extends Screen {
 
-    private static final Identifier ASPHALT = CarMain.id("textures/block/asphalt.png");
+    private static final ResourceLocation ASPHALT = CarMain.id("textures/block/asphalt.png");
     private static final int COLUMNS = 5;
     private static final int TILE = 32;
     private static final int CELL = 38;
@@ -135,15 +132,16 @@ public class RoadMarkingScreen extends Screen {
             if (ring != 0) {
                 context.fill(x - 2, y - 2, x + TILE + 2, y + TILE + 2, ring);
             }
-            context.blit(RenderPipelines.GUI_TEXTURED, ASPHALT, x, y, 0, 0, TILE, TILE, 16, 16, 16, 16);
+            context.blit(ASPHALT, x, y, TILE, TILE, 0, 0, 16, 16, 16, 16);
             if (marking == Marking.NONE) {
                 this.cross(context, x, y);
             } else {
                 // An empty tin shows what it would paint, faded.
                 int colour = empty ? 0x60000000 | item.paint.rgb : paint;
-                context.blit(RenderPipelines.GUI_TEXTURED,
-                        CarMain.id("textures/block/marking/" + marking.getSerializedName() + ".png"),
-                        x, y, 0, 0, TILE, TILE, 16, 16, 16, 16, colour);
+                context.setColor(((colour >> 16) & 0xFF) / 255.0F, ((colour >> 8) & 0xFF) / 255.0F,
+                        (colour & 0xFF) / 255.0F, (colour >>> 24) / 255.0F);
+                context.blit(CarMain.id("textures/block/marking/" + marking.getSerializedName() + ".png"), x, y, TILE, TILE, 0, 0, 16, 16, 16, 16);
+                context.setColor(1.0F, 1.0F, 1.0F, 1.0F);
             }
             if (i < 9) {
                 context.drawString(this.font, Component.literal(String.valueOf(i + 1)), x + 2, y + 2, 0xC0FFFFFF, true);
@@ -176,18 +174,18 @@ public class RoadMarkingScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        int cell = this.cellAt(click.x(), click.y());
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int cell = this.cellAt(mouseX, mouseY);
         if (cell >= 0) {
             this.pick(cell);
             return true;
         }
-        return super.mouseClicked(click, doubled);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean keyPressed(KeyEvent input) {
-        int key = input.key();
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        int key = keyCode;
         int count = Marking.values().length;
         if (key >= GLFW.GLFW_KEY_1 && key <= GLFW.GLFW_KEY_9) {
             this.pick(key - GLFW.GLFW_KEY_1);
@@ -201,11 +199,11 @@ public class RoadMarkingScreen extends Screen {
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER, GLFW.GLFW_KEY_SPACE -> this.pick(this.cursor);
             default -> {
                 // The inventory key closes it too, the way it closes a container.
-                if (this.minecraft != null && this.minecraft.options.keyInventory.matches(input)) {
+                if (this.minecraft != null && this.minecraft.options.keyInventory.matches(keyCode, scanCode)) {
                     this.onClose();
                     return true;
                 }
-                return super.keyPressed(input);
+                return super.keyPressed(keyCode, scanCode, modifiers);
             }
         }
         return true;
@@ -215,7 +213,7 @@ public class RoadMarkingScreen extends Screen {
         if (index < 0 || index >= Marking.values().length) {
             return;
         }
-        ClientPlayNetworking.send(new RoadMarkingC2SPayload(this.hand == InteractionHand.OFF_HAND, index));
+        PacketDistributor.sendToServer(new RoadMarkingC2SPayload(this.hand == InteractionHand.OFF_HAND, index));
         if (this.minecraft != null && this.minecraft.player != null) {
             // Show the choice at once, before the server's copy comes back.
             RoadPaintItem.select(this.tin(), Marking.values()[index]);

@@ -6,8 +6,8 @@ import me.trossty.car.registry.ModBlocks;
 import me.trossty.car.workbench.BenchWork;
 import me.trossty.car.workbench.ModVehicleRecipes;
 import me.trossty.car.workbench.VehicleRecipe;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,61 +21,43 @@ public final class CarNetworking {
     private CarNetworking() {
     }
 
-    /** Payload types must be known to both sides, so this runs in the common initializer. */
-    public static void registerPayloads() {
-        PayloadTypeRegistry.playC2S().register(HornC2SPayload.ID, HornC2SPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(CrashC2SPayload.ID, CrashC2SPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(
-                ServicePartC2SPayload.ID, ServicePartC2SPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(
-                BenchBuildC2SPayload.ID, BenchBuildC2SPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(
-                RoadMarkingC2SPayload.ID, RoadMarkingC2SPayload.CODEC);
-    }
+    /**
+     * Every packet the client sends. The handlers run on the server thread
+     * (NeoForge's default), so they act on the world directly.
+     */
+    public static void register(RegisterPayloadHandlersEvent event) {
+        PayloadRegistrar registrar = event.registrar("1");
 
-    public static void registerServerReceivers() {
-        ServerPlayNetworking.registerGlobalReceiver(HornC2SPayload.ID, (payload, context) -> {
-            ServerPlayer player = context.player();
-            context.server().execute(() -> {
-                // Only the driver may sound the horn, and only of the car they are in.
-                if (player.getVehicle() instanceof CarEntity car
-                        && car.getControllingPassenger() == player) {
-                    car.honk();
-                }
-            });
+        registrar.playToServer(HornC2SPayload.ID, HornC2SPayload.CODEC, (payload, context) -> {
+            // Only the driver may sound the horn, and only of the car they are in.
+            if (context.player().getVehicle() instanceof CarEntity car
+                    && car.getControllingPassenger() == context.player()) {
+                car.honk();
+            }
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(ServicePartC2SPayload.ID, (payload, context) -> {
-            ServerPlayer player = context.player();
-            int car = payload.car();
-            String part = payload.part();
-            context.server().execute(() -> serviceByHand(player, car, part));
+        registrar.playToServer(ServicePartC2SPayload.ID, ServicePartC2SPayload.CODEC, (payload, context) ->
+                serviceByHand(context.player(), payload.car(), payload.part()));
+
+        registrar.playToServer(BenchBuildC2SPayload.ID, BenchBuildC2SPayload.CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player) {
+                buildAtBench(player, payload.bench(), payload.recipe(), payload.quality());
+            }
         });
 
-        ServerPlayNetworking.registerGlobalReceiver(BenchBuildC2SPayload.ID, (payload, context) -> {
-            ServerPlayer player = context.player();
-            context.server().execute(() -> buildAtBench(
-                    player, payload.bench(), payload.recipe(), payload.quality()));
-        });
+        registrar.playToServer(RoadMarkingC2SPayload.ID, RoadMarkingC2SPayload.CODEC, (payload, context) ->
+                me.trossty.car.item.RoadPaintItem.choose(context.player(),
+                        payload.offHand() ? net.minecraft.world.InteractionHand.OFF_HAND
+                                : net.minecraft.world.InteractionHand.MAIN_HAND,
+                        payload.marking()));
 
-        ServerPlayNetworking.registerGlobalReceiver(RoadMarkingC2SPayload.ID, (payload, context) -> {
-            ServerPlayer player = context.player();
-            context.server().execute(() -> me.trossty.car.item.RoadPaintItem.choose(player,
-                    payload.offHand() ? net.minecraft.world.InteractionHand.OFF_HAND : net.minecraft.world.InteractionHand.MAIN_HAND,
-                    payload.marking()));
-        });
-
-        ServerPlayNetworking.registerGlobalReceiver(CrashC2SPayload.ID, (payload, context) -> {
-            ServerPlayer player = context.player();
-            float severity = payload.severity();
-            context.server().execute(() -> {
-                // Only the driver can crash the car they are driving.
-                if (player.getVehicle() instanceof CarEntity car
-                        && car.getControllingPassenger() == player
-                        && car.level() instanceof ServerLevel world) {
-                    car.applyReportedCrash(world, severity);
-                }
-            });
+        registrar.playToServer(CrashC2SPayload.ID, CrashC2SPayload.CODEC, (payload, context) -> {
+            // Only the driver can crash the car they are driving.
+            if (context.player().getVehicle() instanceof CarEntity car
+                    && car.getControllingPassenger() == context.player()
+                    && car.level() instanceof ServerLevel world) {
+                car.applyReportedCrash(world, payload.severity());
+            }
         });
     }
 

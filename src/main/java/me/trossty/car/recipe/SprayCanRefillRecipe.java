@@ -23,10 +23,15 @@ import java.util.List;
 public class SprayCanRefillRecipe extends CustomRecipe {
 
     public static final RecipeSerializer<SprayCanRefillRecipe> SERIALIZER =
-            new Serializer<>(SprayCanRefillRecipe::new);
+            new net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer<>(SprayCanRefillRecipe::new);
 
     public SprayCanRefillRecipe(CraftingBookCategory category) {
         super(category);
+    }
+
+    @Override
+    public boolean canCraftInDimensions(int width, int height) {
+        return width * height >= 2;
     }
 
     private record Parts(ItemStack can, List<DyeItem> dyes) {
@@ -67,7 +72,7 @@ public class SprayCanRefillRecipe extends CustomRecipe {
         }
         ItemStack result = parts.can().copyWithCount(1);
         Integer old = SprayCanItem.isEmpty(result) ? null : SprayCanItem.colourOf(result);
-        result.set(DataComponents.DYED_COLOR, new DyedItemColor(mix(old, parts.dyes())));
+        result.set(DataComponents.DYED_COLOR, new DyedItemColor(mix(old, parts.dyes()), true));
         result.setDamageValue(0);
         return result;
     }

@@ -9,9 +9,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import java.util.function.Consumer;
 
@@ -50,10 +49,10 @@ public class JerryCanItem extends Item {
     }
 
     @Override
-    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+    public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
         CarEntity car = CarEntity.fillerInSight(user);
         if (car == null) {
-            return InteractionResult.PASS;
+            return net.minecraft.world.InteractionResultHolder.pass(user.getItemInHand(hand));
         }
         ItemStack can = user.getItemInHand(hand);
         boolean siphon = JerryCans.isEmpty(can);
@@ -61,7 +60,7 @@ public class JerryCanItem extends Item {
             if (!world.isClientSide()) {
                 car.fillingStopped(user);
             }
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.InteractionResultHolder.consume(user.getItemInHand(hand));
         }
         if (siphon) {
             siphoning(world).add(user.getUUID());
@@ -69,7 +68,7 @@ public class JerryCanItem extends Item {
             siphoning(world).remove(user.getUUID());
         }
         user.startUsingItem(hand);
-        return InteractionResult.CONSUME;
+        return net.minecraft.world.InteractionResultHolder.consume(user.getItemInHand(hand));
     }
 
     @Override
@@ -100,9 +99,8 @@ public class JerryCanItem extends Item {
     }
 
     @Override
-    public boolean releaseUsing(ItemStack can, Level world, LivingEntity user, int remainingUseTicks) {
+    public void releaseUsing(ItemStack can, Level world, LivingEntity user, int remainingUseTicks) {
         siphoning(world).remove(user.getUUID());
-        return false;
     }
 
     @Override
@@ -111,22 +109,21 @@ public class JerryCanItem extends Item {
     }
 
     @Override
-    public ItemUseAnimation getUseAnimation(ItemStack stack) {
-        return ItemUseAnimation.NONE;
+    public UseAnim getUseAnimation(ItemStack stack) {
+        return UseAnim.NONE;
     }
 
     /** The gauge moves every tick of a pour; the hand should not bob with it. */
     @Override
-    public boolean allowComponentsUpdateAnimation(Player player, InteractionHand hand,
-                                                  ItemStack oldStack, ItemStack newStack) {
+    public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
         return false;
     }
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context,
-                              TooltipDisplay display,
-                              Consumer<Component> tooltip, TooltipFlag type) {
-        super.appendHoverText(stack, context, display, tooltip, type);
+                                java.util.List<Component> lines, TooltipFlag type) {
+        super.appendHoverText(stack, context, lines, type);
+        Consumer<Component> tooltip = lines::add;
         if (JerryCans.isEmpty(stack)) {
             tooltip.accept(Component.translatable("tooltip.car.can_empty").withStyle(ChatFormatting.DARK_GRAY));
             return;

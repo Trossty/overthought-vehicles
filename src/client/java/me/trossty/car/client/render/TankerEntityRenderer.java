@@ -5,12 +5,10 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.TankerEntity;
 import me.trossty.car.vehicle.VehicleDefinition;
-import net.fabricmc.fabric.api.transfer.v1.client.fluid.FluidVariantRendering;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -46,8 +44,8 @@ public class TankerEntityRenderer extends CarEntityRenderer {
     }
 
     @Override
-    protected void submitExtras(CarRenderState state, PoseStack matrices, SubmitNodeCollector queue) {
-        if (!(state instanceof TankerRenderState load) || load.liquid.isBlank() || load.fill <= 0.0F
+    protected void submitExtras(CarRenderState state, PoseStack matrices, MultiBufferSource buffers) {
+        if (!(state instanceof TankerRenderState load) || me.trossty.car.fluid.Liquids.isBlank(load.liquid) || load.fill <= 0.0F
                 || state.vehicle == null) {
             return;
         }
@@ -77,19 +75,20 @@ public class TankerEntityRenderer extends CarEntityRenderer {
             }
         }
 
-        TextureAtlasSprite sprite = FluidVariantRendering.getSprite(load.liquid);
+        TextureAtlasSprite sprite = LiquidColours.sprite(load.liquid);
         if (sprite == null) {
             return;
         }
-        int colour = 0xFF000000 | FluidVariantRendering.getColor(load.liquid);
+        int colour = 0xFF000000 | LiquidColours.tint(load.liquid);
         int light = TankerEntity.glows(load.liquid) ? LightTexture.FULL_BRIGHT : state.lightCoords;
         VehicleDefinition.Box drawnSurface = surface;
         float drawnLevel = level;
 
         matrices.pushPose();
         DefinedVehicleModel.applyBody(matrices, state);
-        queue.submitCustomGeometry(matrices, RenderTypes.entityCutoutNoCull(TextureAtlas.LOCATION_BLOCKS),
-                (entry, consumer) -> {
+        PoseStack.Pose entry = matrices.last();
+        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(TextureAtlas.LOCATION_BLOCKS));
+                {
                     int order = 0;
                     for (VehicleDefinition.Box box : inside) {
                         float low = Math.min(box.from().y(), box.to().y());
@@ -102,7 +101,7 @@ public class TankerEntityRenderer extends CarEntityRenderer {
                                     box == drawnSurface);
                         }
                     }
-                });
+                }
         matrices.popPose();
     }
 
@@ -174,7 +173,7 @@ public class TankerEntityRenderer extends CarEntityRenderer {
 
     /** A car's render state, with what is in the barrel. */
     public static class TankerRenderState extends CarRenderState {
-        public FluidVariant liquid = FluidVariant.blank();
+        public net.minecraft.world.level.material.Fluid liquid = net.minecraft.world.level.material.Fluids.EMPTY;
         public float fill;
     }
 }

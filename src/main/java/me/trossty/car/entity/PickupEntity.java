@@ -20,8 +20,8 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 import net.minecraft.world.phys.AABB;
 import java.util.List;
 
@@ -202,15 +202,17 @@ public class PickupEntity extends CarEntity {
     }
 
     @Override
-    protected void readAdditionalSaveData(ValueInput view) {
-        super.readAdditionalSaveData(view);
-        ContainerHelper.loadAllItems(view, this.bed.getItems());
+    protected void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueInput view = ValueInput.of(tag, this.registryAccess());
+        super.readAdditionalSaveData(tag);
+        ContainerHelper.loadAllItems(view.tag(), this.bed.getItems(), view.registries());
     }
 
     @Override
-    protected void addAdditionalSaveData(ValueOutput view) {
-        super.addAdditionalSaveData(view);
-        ContainerHelper.saveAllItems(view, this.bed.getItems());
+    protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueOutput view = ValueOutput.of(tag, this.registryAccess());
+        super.addAdditionalSaveData(tag);
+        ContainerHelper.saveAllItems(view.tag(), this.bed.getItems(), view.registries());
     }
 
     @Override

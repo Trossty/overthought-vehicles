@@ -101,7 +101,7 @@ public class BatteryBankBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
+    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
         if (world.getBlockEntity(pos) instanceof BatteryBankBlockEntity bank) {
             return (int) Math.round(bank.getEnergy() * 15.0 / BatteryBankBlockEntity.CAPACITY);
         }

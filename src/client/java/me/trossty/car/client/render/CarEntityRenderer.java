@@ -4,36 +4,34 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import me.trossty.car.CarMain;
 import me.trossty.car.entity.CarEntity;
-import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.DyeColor;
 
-public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState> {
+public class CarEntityRenderer extends EntityRenderer<CarEntity> {
 
     /**
      * One texture per dye colour, indexed by {@code DyeColor.getIndex()}. The car
      * is painted by swapping the texture rather than tinting the model, because a
      * tint would colour the tyres, glass and lights along with the bodywork.
      */
-    private static final Identifier[] TEXTURES = buildTextures();
+    private static final ResourceLocation[] TEXTURES = buildTextures();
 
-    private static Identifier[] buildTextures() {
+    private static ResourceLocation[] buildTextures() {
         DyeColor[] colors = DyeColor.values();
-        Identifier[] textures = new Identifier[colors.length];
+        ResourceLocation[] textures = new ResourceLocation[colors.length];
         for (DyeColor color : colors) {
             textures[color.getId()] = CarMain.id("textures/entity/car/car_" + color.getName() + ".png");
         }
         return textures;
     }
 
-    private final EntityModel<CarRenderState> model;
+    private final VehicleModel model;
 
     /** Speed, in blocks a tick, at which a two-wheeler leans all the way. */
     private static final float LEAN_FULL_SPEED = 0.4F;
@@ -71,15 +69,15 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
         return t * t * (3.0F - 2.0F * t);
     }
 
-    @Override
+    /** A fresh state to fill; a subclass with more to draw returns its own kind. */
     public CarRenderState createRenderState() {
         return new CarRenderState();
     }
 
-    @Override
+    /** Everything the frame needs from the car, read once. */
     public void extractRenderState(CarEntity car, CarRenderState state, float tickProgress) {
-        super.extractRenderState(car, state, tickProgress);
-        state.yaw = car.getYRot(tickProgress);
+        state.ageInTicks = car.tickCount + tickProgress;
+        state.yaw = car.getViewYRot(tickProgress);
         state.color = car.getColor();
         state.paint = car.getPaint();
         state.vehicle = car.getDefinition();
@@ -103,12 +101,20 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
      * Anything else drawn on the body, in the body's own frame (model space,
      * already turned and flipped): nothing for most vehicles.
      */
-    protected void submitExtras(CarRenderState state, PoseStack matrices, SubmitNodeCollector queue) {
+    protected void submitExtras(CarRenderState state, PoseStack matrices, MultiBufferSource buffers) {
     }
 
     @Override
-    public void submit(CarRenderState state, PoseStack matrices, SubmitNodeCollector queue,
-                       CameraRenderState cameraState) {
+    public ResourceLocation getTextureLocation(CarEntity car) {
+        return TEXTURES[car.getColor().getId()];
+    }
+
+    @Override
+    public void render(CarEntity car, float entityYaw, float tickProgress, PoseStack matrices,
+                       MultiBufferSource buffers, int light) {
+        CarRenderState state = this.createRenderState();
+        this.extractRenderState(car, state, tickProgress);
+        state.lightCoords = light;
         matrices.pushPose();
         matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
 
@@ -152,8 +158,8 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
 
         // A vehicle a data pack describes brings its own shape and palette;
         // everything else here — the turn, the wobble, the light — is shared.
-        EntityModel<CarRenderState> model = this.model;
-        Identifier texture = TEXTURES[state.color.getId()];
+        VehicleModel model = this.model;
+        ResourceLocation texture = TEXTURES[state.color.getId()];
         if (state.vehicle != null && state.vehicleId != null) {
             model = DefinedVehicleModel.of(state.vehicleId, state.vehicle);
             texture = DefinedVehicleModel.textureOf(state.vehicleId, state.vehicle,
@@ -161,48 +167,30 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
         }
 
         matrices.scale(-1.0F, -1.0F, 1.0F);
-        queue.submitModel(
-                model,
-                state,
-                matrices,
-                model.renderType(texture),
-                state.lightCoords,
-                OverlayTexture.NO_OVERLAY,
-                state.outlineColor,
-                null);
+        draw(model, state, matrices, buffers, model.renderType(texture));
         if (state.vehicle != null && state.vehicleId != null) {
             // The glass goes in a later batch: drawn before the people inside,
             // it would hide them from anyone looking in.
-            EntityModel<CarRenderState> glass = DefinedVehicleModel.glassOf(state.vehicleId, state.vehicle);
+            VehicleModel glass = DefinedVehicleModel.glassOf(state.vehicleId, state.vehicle);
             if (glass != null) {
-                queue.order(1).submitModel(
-                        glass,
-                        state,
-                        matrices,
-                        glass.renderType(texture),
-                        state.lightCoords,
-                        OverlayTexture.NO_OVERLAY,
-                        state.outlineColor,
-                        null);
+                draw(glass, state, matrices, buffers, glass.renderType(texture));
             }
         }
-        this.submitExtras(state, matrices, queue);
+        this.submitExtras(state, matrices, buffers);
         if (state.vehicle != null && state.vehicleId != null) {
-            EntityModel<CarRenderState> wheels = DefinedVehicleModel.wheelsOf(state.vehicleId, state.vehicle);
-            queue.submitModel(
-                    wheels,
-                    state,
-                    matrices,
-                    wheels.renderType(DefinedVehicleModel.wheelTexture(state.tyre)),
-                    state.lightCoords,
-                    OverlayTexture.NO_OVERLAY,
-                    state.outlineColor,
-                    null);
+            VehicleModel wheels = DefinedVehicleModel.wheelsOf(state.vehicleId, state.vehicle);
+            draw(wheels, state, matrices, buffers, wheels.renderType(DefinedVehicleModel.wheelTexture(state.tyre)));
         }
         matrices.popPose();
 
-        this.submitPlates(state, matrices, queue, cameraState);
-        super.submit(state, matrices, queue, cameraState);
+        this.submitPlates(state, matrices, buffers);
+        super.render(car, entityYaw, tickProgress, matrices, buffers, light);
+    }
+
+    private static void draw(VehicleModel model, CarRenderState state, PoseStack matrices,
+                             MultiBufferSource buffers, net.minecraft.client.renderer.RenderType type) {
+        model.setupAnim(state);
+        model.renderToBuffer(matrices, buffers.getBuffer(type), state.lightCoords, OverlayTexture.NO_OVERLAY, -1);
     }
 
     private static final int PLATE_BACKGROUND = 0xA0101418;
@@ -212,8 +200,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
      * to face the camera, through the body so the bonnet does not hide the
      * one for the part under it.
      */
-    private void submitPlates(CarRenderState state, PoseStack matrices, SubmitNodeCollector queue,
-                              CameraRenderState cameraState) {
+    private void submitPlates(CarRenderState state, PoseStack matrices, MultiBufferSource buffers) {
         if (state.labels.isEmpty()) {
             return;
         }
@@ -221,13 +208,12 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
         for (CarServiceOverlay.PartLabel label : state.labels) {
             matrices.pushPose();
             matrices.translate(label.offset().x, label.offset().y, label.offset().z);
-            matrices.mulPose(cameraState.orientation);
+            matrices.mulPose(this.entityRenderDispatcher.cameraOrientation());
             matrices.scale(CarServiceOverlay.PLATE_SCALE, -CarServiceOverlay.PLATE_SCALE, CarServiceOverlay.PLATE_SCALE);
             net.minecraft.util.FormattedCharSequence text = label.text().getVisualOrderText();
-            queue.submitText(matrices, -font.width(text) / 2.0F, -font.lineHeight / 2.0F, text, false,
-                    net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH,
-                    net.minecraft.client.renderer.LightTexture.FULL_BRIGHT,
-                    label.colour(), PLATE_BACKGROUND, 0);
+            font.drawInBatch(text, -font.width(text) / 2.0F, -font.lineHeight / 2.0F, label.colour(), false,
+                    matrices.last().pose(), buffers, net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH,
+                    PLATE_BACKGROUND, net.minecraft.client.renderer.LightTexture.FULL_BRIGHT);
             matrices.popPose();
         }
     }

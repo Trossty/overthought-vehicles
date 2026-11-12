@@ -5,7 +5,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import me.trossty.car.CarMain;
 import me.trossty.car.entity.CarSetup;
 import net.minecraft.core.Registry;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.item.DyeColor;
@@ -90,7 +90,7 @@ public record VehicleDefinition(
     }
 
     /** One wheel: where its centre is, how big it is, and whether it steers. */
-    public record Wheel(org.joml.Vector3fc at, float radius, float width, boolean steers) {
+    public record Wheel(org.joml.Vector3f at, float radius, float width, boolean steers) {
         public static final Codec<Wheel> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 ExtraCodecs.VECTOR3F.fieldOf("at").forGetter(Wheel::at),
                 Codec.floatRange(0.5F, 16.0F).optionalFieldOf("radius", 3.0F).forGetter(Wheel::radius),
@@ -171,7 +171,7 @@ public record VehicleDefinition(
      * what a windscreen does, and negative towards the front. {@code steers}
      * turns the box with the front wheel — a fork, handlebars, a headset.
      */
-    public record Box(org.joml.Vector3fc from, org.joml.Vector3fc to, String color, float tilt, boolean steers) {
+    public record Box(org.joml.Vector3f from, org.joml.Vector3f to, String color, float tilt, boolean steers) {
         public static final Codec<Box> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 ExtraCodecs.VECTOR3F.fieldOf("from").forGetter(Box::from),
                 ExtraCodecs.VECTOR3F.fieldOf("to").forGetter(Box::to),
@@ -201,7 +201,7 @@ public record VehicleDefinition(
      * What each machine is when nothing says otherwise. There is no "plain"
      * car any more: a car is a Corolla, a pickup a Hilux, a tanker an Atego.
      */
-    public static Identifier defaultFor(Chassis chassis) {
+    public static ResourceLocation defaultFor(Chassis chassis) {
         return CarMain.id(switch (chassis) {
             case PICKUP -> "toyota_hilux";
             case TANKER -> "mercedes_atego";
@@ -212,7 +212,7 @@ public record VehicleDefinition(
     }
 
     /** The key a vehicle's name is looked up under, and what to call it otherwise. */
-    public static net.minecraft.network.chat.Component nameOf(Identifier id) {
+    public static net.minecraft.network.chat.Component nameOf(ResourceLocation id) {
         StringBuilder plain = new StringBuilder();
         for (String word : id.getPath().split("[_/]")) {
             if (word.isEmpty()) {

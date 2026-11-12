@@ -10,12 +10,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 import net.minecraft.world.phys.AABB;
-import org.jspecify.annotations.Nullable;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import org.jetbrains.annotations.Nullable;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * Takes power off a cable into a small buffer and pours it into the nearest
@@ -32,9 +32,9 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
     /** How far its lead reaches, from the post's centre. */
     public static final double REACH = 3.5;
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(CAPACITY, INPUT, 0) {
+    private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, INPUT, 0) {
         @Override
-        protected void onFinalCommit() {
+        protected void onChanged() {
             ChargingPostBlockEntity.this.setChanged();
         }
     };
@@ -47,7 +47,7 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
         super(ModBlockEntities.CHARGING_POST, pos, state);
     }
 
-    public EnergyStorage getEnergyStorage() {
+    public IEnergyStorage getEnergyStorage() {
         return this.energy;
     }
 
@@ -131,14 +131,16 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
     }
 
     @Override
-    protected void loadAdditional(ValueInput view) {
-        super.loadAdditional(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getLongOr("Energy", 0L)));
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view) {
-        super.saveAdditional(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         view.putLong("Energy", this.energy.amount);
     }
 }

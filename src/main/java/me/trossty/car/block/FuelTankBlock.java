@@ -3,7 +3,6 @@ package me.trossty.car.block;
 import com.mojang.serialization.MapCodec;
 import me.trossty.car.block.entity.FuelTankBlockEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -16,7 +15,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.PipeBlock;
@@ -27,7 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A tank cell: a steel frame round glass walls, and whatever liquid it is
@@ -109,17 +107,17 @@ public class FuelTankBlock extends BaseEntityBlock {
         // A cell between two tanks of different liquids would have to make
         // one tank of them; it is refused instead.
         if (!world.isClientSide()) {
-            FluidVariant liquid = FluidVariant.blank();
+            net.minecraft.world.level.material.Fluid liquid = net.minecraft.world.level.material.Fluids.EMPTY;
             for (Direction side : Direction.values()) {
                 FuelTankBlockEntity next = tankAt(world, pos.relative(side));
                 if (next == null) {
                     continue;
                 }
-                FluidVariant held = next.getGroup().getResource();
-                if (held.isBlank()) {
+                net.minecraft.world.level.material.Fluid held = next.getGroup().getResource();
+                if (me.trossty.car.fluid.Liquids.isBlank(held)) {
                     continue;
                 }
-                if (!liquid.isBlank() && !liquid.equals(held)) {
+                if (!me.trossty.car.fluid.Liquids.isBlank(liquid) && liquid != held) {
                     if (context.getPlayer() != null) {
                         context.getPlayer().displayClientMessage(Component.translatable("message.car.tank_mixed"), true);
                     }
@@ -132,10 +130,8 @@ public class FuelTankBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected BlockState updateShape(BlockState state, LevelReader world,
-                                                   ScheduledTickAccess tickView, BlockPos pos,
-                                                   Direction direction, BlockPos neighborPos,
-                                                   BlockState neighborState, RandomSource random) {
+    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
+                                     net.minecraft.world.level.LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
         return state.setValue(PipeBlock.PROPERTY_BY_DIRECTION.get(direction), neighborState.is(this));
     }
 
@@ -146,11 +142,15 @@ public class FuelTankBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
-        // Breaking a cell out of a tank loses only the share that was in that
-        // cell, which is what was really in it.
-        FuelTankBlockEntity.reshape();
-        super.affectNeighborsAfterRemoval(state, world, pos, moved);
+    protected void onRemove(BlockState state, net.minecraft.world.level.Level world, BlockPos pos,
+                            BlockState newState, boolean moved) {
+        // Only when the block really goes, not when its state changes.
+        if (!world.isClientSide() && !state.is(newState.getBlock())) {
+            // Breaking a cell out of a tank loses only the share that was in that
+            // cell, which is what was really in it.
+            FuelTankBlockEntity.reshape();
+        }
+        super.onRemove(state, world, pos, newState, moved);
     }
 
     // ---- using it ----
@@ -168,19 +168,19 @@ public class FuelTankBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected InteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
+    protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
                                          Player player, InteractionHand hand, BlockHitResult hit) {
         if (world.isClientSide()) {
-            return held.isEmpty() ? InteractionResult.PASS : InteractionResult.SUCCESS;
+            return held.isEmpty() ? net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION : net.minecraft.world.ItemInteractionResult.SUCCESS;
         }
         if (!(world.getBlockEntity(pos) instanceof FuelTankBlockEntity tank)) {
-            return InteractionResult.PASS;
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (LiquidStores.useWith(world, pos, player, hand, held, tank.getFluidStorage())) {
             report(player, tank);
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
-        return InteractionResult.PASS;   // falls through to onUse, which reads the gauge
+        return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;   // falls through to onUse, which reads the gauge
     }
 
     /** "Petrol · 12.5 / 32 B · 2 cells", or "Empty tank · 32 B · 2 cells". */
@@ -197,7 +197,7 @@ public class FuelTankBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
+    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
         FuelTankBlockEntity tank = tankAt(world, pos);
         return tank == null ? 0 : tank.comparatorOutput();
     }

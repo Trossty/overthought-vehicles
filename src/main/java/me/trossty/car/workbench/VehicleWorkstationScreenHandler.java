@@ -10,7 +10,7 @@ import me.trossty.car.registry.ModItems;
 import me.trossty.car.registry.ModScreenHandlers;
 import me.trossty.car.vehicle.VehicleDefinition;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Inventory;
@@ -55,7 +55,7 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
 
     private final ContainerLevelAccess context;
     private final Player player;
-    private final List<Identifier> vehicles;
+    private final List<ResourceLocation> vehicles;
     private final DataSlot selected = DataSlot.standalone();
     /** -1 for the factory paint, else a dye index. */
     private final DataSlot paint = DataSlot.standalone();
@@ -85,15 +85,15 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
     }
 
     /** Every vehicle there is, in a fixed order both sides agree on. */
-    public static List<Identifier> vehiclesIn(RegistryAccess registries) {
-        return registries.lookup(VehicleDefinition.KEY)
+    public static List<ResourceLocation> vehiclesIn(RegistryAccess registries) {
+        return registries.registry(VehicleDefinition.KEY)
                 .map(registry -> registry.keySet().stream()
-                        .sorted(java.util.Comparator.comparing(Identifier::toString))
+                        .sorted(java.util.Comparator.comparing(ResourceLocation::toString))
                         .toList())
                 .orElse(List.of());
     }
 
-    public List<Identifier> getVehicles() {
+    public List<ResourceLocation> getVehicles() {
         return this.vehicles;
     }
 
@@ -101,19 +101,19 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
         return this.vehicles.isEmpty() ? -1 : Math.floorMod(this.selected.get(), this.vehicles.size());
     }
 
-    public Identifier getSelectedId() {
+    public ResourceLocation getSelectedId() {
         int index = this.getSelectedIndex();
         return index < 0 ? null : this.vehicles.get(index);
     }
 
     public VehicleDefinition getSelected() {
-        Identifier id = this.getSelectedId();
+        ResourceLocation id = this.getSelectedId();
         if (id == null) {
             return null;
         }
         return this.player.level().registryAccess()
-                .lookup(VehicleDefinition.KEY)
-                .map(registry -> registry.getValue(id))
+                .registry(VehicleDefinition.KEY)
+                .map(registry -> registry.get(id))
                 .orElse(null);
     }
 
@@ -204,7 +204,7 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
         if (!this.canBuild()) {
             return ItemStack.EMPTY;
         }
-        Identifier id = this.getSelectedId();
+        ResourceLocation id = this.getSelectedId();
         VehicleDefinition definition = this.getSelected();
         Inventory pockets = this.player.getInventory();
         ItemStack result = CarItem.stackOf(id, definition);

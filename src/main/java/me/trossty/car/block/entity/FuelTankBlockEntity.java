@@ -3,13 +3,6 @@ package me.trossty.car.block.entity;
 import me.trossty.car.block.FuelPumpBlock;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModFluids;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.ResourceAmount;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
-import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
-import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -21,9 +14,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import org.jspecify.annotations.Nullable;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -51,7 +48,7 @@ import java.util.Set;
 public class FuelTankBlockEntity extends BlockEntity {
 
     /** Sixteen buckets a cell. */
-    public static final long CELL_CAPACITY = 16 * FluidConstants.BUCKET;
+    public static final long CELL_CAPACITY = 16 * 1000L;
 
     /** The old measure, in this mod's units (millibuckets): one cell. */
     public static final int CAPACITY = (int) (CELL_CAPACITY / ModFluids.UNIT);
@@ -73,11 +70,11 @@ public class FuelTankBlockEntity extends BlockEntity {
     private static final java.util.concurrent.atomic.AtomicLong SHAPE_VERSION =
             new java.util.concurrent.atomic.AtomicLong();
 
-    private FluidVariant fluid = FluidVariant.blank();
+    private Fluid fluid = Fluids.EMPTY;
     private long amount;
 
     /** What the clients were last told, so they are not told it every tick. */
-    private FluidVariant sentFluid = FluidVariant.blank();
+    private Fluid sentFluid = Fluids.EMPTY;
     private long sentAmount = -1;
 
     private @Nullable Group group;
@@ -93,11 +90,11 @@ public class FuelTankBlockEntity extends BlockEntity {
 
     // ---- this cell ----
 
-    public FluidVariant getFluid() {
+    public Fluid getFluid() {
         return this.fluid;
     }
 
-    /** What this cell holds, in droplets. */
+    /** What this cell holds, in millibuckets. */
     public long getAmount() {
         return this.amount;
     }
@@ -107,8 +104,8 @@ public class FuelTankBlockEntity extends BlockEntity {
         return Math.min(1.0F, (float) this.amount / CELL_CAPACITY);
     }
 
-    private void setContents(FluidVariant fluid, long amount) {
-        FluidVariant now = amount <= 0 ? FluidVariant.blank() : fluid;
+    private void setContents(Fluid fluid, long amount) {
+        Fluid now = amount <= 0 ? Fluids.EMPTY : fluid;
         long held = Math.max(0, amount);
         if (!now.equals(this.fluid) || held != this.amount) {
             this.fluid = now;
@@ -128,14 +125,14 @@ public class FuelTankBlockEntity extends BlockEntity {
     }
 
     /** Every face of every cell is a door into the whole tank. */
-    public SingleSlotStorage<FluidVariant> getFluidStorage() {
+    public IFluidHandler getFluidStorage() {
         return this.getGroup();
     }
 
     /** The tank's petrol in units, or nought if it holds something else. */
     public int getPetrol() {
         Group tank = this.getGroup();
-        return tank.fluid.isOf(ModFluids.PETROL) ? (int) (tank.amount / ModFluids.UNIT) : 0;
+        return tank.fluid == ModFluids.PETROL ? (int) (tank.amount / ModFluids.UNIT) : 0;
     }
 
     /** The whole tank's room, in units. */
@@ -153,30 +150,18 @@ public class FuelTankBlockEntity extends BlockEntity {
         return this.drain(ModFluids.PETROL, units);
     }
 
-    public int fill(net.minecraft.world.level.material.Fluid liquid, int units) {
+    public int fill(Fluid liquid, int units) {
         if (units <= 0) {
             return 0;
         }
-        return (int) (this.move(FluidVariant.of(liquid), units * ModFluids.UNIT, true) / ModFluids.UNIT);
+        return this.getGroup().fill(new FluidStack(liquid, units), IFluidHandler.FluidAction.EXECUTE);
     }
 
-    public int drain(net.minecraft.world.level.material.Fluid liquid, int units) {
+    public int drain(Fluid liquid, int units) {
         if (units <= 0) {
             return 0;
         }
-        return (int) (this.move(FluidVariant.of(liquid), units * ModFluids.UNIT, false) / ModFluids.UNIT);
-    }
-
-    private long move(FluidVariant liquid, long droplets, boolean in) {
-        if (Transaction.isOpen()) {
-            return 0;
-        }
-        try (Transaction transaction = Transaction.openOuter()) {
-            Group tank = this.getGroup();
-            long moved = in ? tank.insert(liquid, droplets, transaction) : tank.extract(liquid, droplets, transaction);
-            transaction.commit();
-            return moved;
-        }
+        return this.getGroup().drain(new FluidStack(liquid, units), IFluidHandler.FluidAction.EXECUTE).getAmount();
     }
 
     /** The whole tank's fill, nought to fifteen, as a comparator reads it. */
@@ -189,7 +174,7 @@ public class FuelTankBlockEntity extends BlockEntity {
 
     public static void tick(Level world, BlockPos pos, BlockState state, FuelTankBlockEntity tank) {
         Group whole = tank.getGroup();
-        boolean petrol = whole.fluid.isBlank() || whole.fluid.isOf(ModFluids.PETROL);
+        boolean petrol = whole.fluid == Fluids.EMPTY || whole.fluid == ModFluids.PETROL;
         if (petrol) {
             for (Direction side : Direction.values()) {
                 BlockPos next = pos.relative(side);
@@ -205,7 +190,7 @@ public class FuelTankBlockEntity extends BlockEntity {
                     continue;
                 }
                 FuelPumpBlockEntity pump = FuelPumpBlock.tankAt(world, next);
-                if (pump != null && whole.fluid.isOf(ModFluids.PETROL)) {
+                if (pump != null && whole.fluid == ModFluids.PETROL) {
                     int offer = Math.min(FEED_RATE, tank.getPetrol());
                     if (offer > 0) {
                         tank.drain(pump.fill(offer));
@@ -228,27 +213,29 @@ public class FuelTankBlockEntity extends BlockEntity {
     // ---- saving and syncing ----
 
     @Override
-    protected void loadAdditional(ValueInput view) {
-        super.loadAdditional(view);
-        this.fluid = view.read("Fluid", FluidVariant.CODEC).orElse(FluidVariant.blank());
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
+        this.fluid = view.read("Fluid", me.trossty.car.fluid.Liquids.CODEC).orElse(Fluids.EMPTY);
         this.amount = view.getLongOr("Amount", 0L);
         // A tank from before it could hold anything but petrol.
         int petrol = view.getIntOr("Petrol", 0);
         if (this.amount <= 0 && petrol > 0) {
-            this.fluid = FluidVariant.of(ModFluids.PETROL);
+            this.fluid = ModFluids.PETROL;
             this.amount = petrol * ModFluids.UNIT;
         }
         if (this.amount <= 0) {
-            this.fluid = FluidVariant.blank();
+            this.fluid = Fluids.EMPTY;
             this.amount = 0;
         }
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view) {
-        super.saveAdditional(view);
-        if (!this.fluid.isBlank() && this.amount > 0) {
-            view.store("Fluid", FluidVariant.CODEC, this.fluid);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
+        if (this.fluid != Fluids.EMPTY && this.amount > 0) {
+            view.store("Fluid", me.trossty.car.fluid.Liquids.CODEC, this.fluid);
             view.putLong("Amount", this.amount);
         }
     }
@@ -282,20 +269,19 @@ public class FuelTankBlockEntity extends BlockEntity {
      * every face of every cell hands out, so whichever door a pipe uses, it is
      * the same liquid it is moving.
      */
-    public static final class Group extends SnapshotParticipant<ResourceAmount<FluidVariant>>
-            implements SingleSlotStorage<FluidVariant> {
+    public static final class Group implements IFluidHandler {
 
         private final List<FuelTankBlockEntity> cells;
         private final long version;
         private final long capacity;
-        private FluidVariant fluid;
+        private Fluid fluid;
         private long amount;
 
-        private Group(List<FuelTankBlockEntity> cells, FluidVariant fluid, long amount) {
+        private Group(List<FuelTankBlockEntity> cells, Fluid fluid, long amount) {
             this.cells = cells;
             this.version = SHAPE_VERSION.get();
             this.capacity = cells.size() * CELL_CAPACITY;
-            this.fluid = amount > 0 ? fluid : FluidVariant.blank();
+            this.fluid = amount > 0 ? fluid : Fluids.EMPTY;
             this.amount = Math.min(amount, this.capacity);
         }
 
@@ -329,10 +315,10 @@ public class FuelTankBlockEntity extends BlockEntity {
 
             // One liquid in a tank. Cells are never put up between two
             // different ones, so this only sorts out an odd old world.
-            FluidVariant liquid = FluidVariant.blank();
+            Fluid liquid = Fluids.EMPTY;
             long most = 0;
             for (FuelTankBlockEntity cell : cells) {
-                if (!cell.fluid.isBlank() && cell.amount > most) {
+                if (cell.fluid != Fluids.EMPTY && cell.amount > most) {
                     liquid = cell.fluid;
                     most = cell.amount;
                 }
@@ -383,75 +369,86 @@ public class FuelTankBlockEntity extends BlockEntity {
             }
         }
 
-        @Override
-        public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-            if (resource.isBlank() || maxAmount <= 0) {
-                return 0;
-            }
-            if (!this.fluid.isBlank() && !this.fluid.equals(resource)) {
-                return 0;
-            }
-            long taken = Math.min(maxAmount, this.capacity - this.amount);
-            if (taken <= 0) {
-                return 0;
-            }
-            this.updateSnapshots(transaction);
-            this.fluid = resource;
-            this.amount += taken;
-            return taken;
-        }
-
-        @Override
-        public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-            if (resource.isBlank() || maxAmount <= 0 || !resource.equals(this.fluid)) {
-                return 0;
-            }
-            long given = Math.min(maxAmount, this.amount);
-            if (given <= 0) {
-                return 0;
-            }
-            this.updateSnapshots(transaction);
-            this.amount -= given;
-            if (this.amount <= 0) {
-                this.fluid = FluidVariant.blank();
-            }
-            return given;
-        }
-
-        @Override
-        public boolean isResourceBlank() {
-            return this.fluid.isBlank();
-        }
-
-        @Override
-        public FluidVariant getResource() {
+        public Fluid getResource() {
             return this.fluid;
         }
 
-        @Override
+        public boolean isResourceBlank() {
+            return this.fluid == Fluids.EMPTY;
+        }
+
         public long getAmount() {
             return this.amount;
         }
 
-        @Override
         public long getCapacity() {
             return this.capacity;
         }
 
         @Override
-        protected ResourceAmount<FluidVariant> createSnapshot() {
-            return new ResourceAmount<>(this.fluid, this.amount);
+        public int getTanks() {
+            return 1;
         }
 
         @Override
-        protected void readSnapshot(ResourceAmount<FluidVariant> snapshot) {
-            this.fluid = snapshot.resource();
-            this.amount = snapshot.amount();
+        public FluidStack getFluidInTank(int tank) {
+            return this.isResourceBlank() || this.amount <= 0 ? FluidStack.EMPTY
+                    : new FluidStack(this.fluid, (int) Math.min(Integer.MAX_VALUE, this.amount));
         }
 
         @Override
-        protected void onFinalCommit() {
-            this.settle();
+        public int getTankCapacity(int tank) {
+            return (int) Math.min(Integer.MAX_VALUE, this.capacity);
+        }
+
+        @Override
+        public boolean isFluidValid(int tank, FluidStack stack) {
+            return this.isResourceBlank() || stack.is(this.fluid);
+        }
+
+        @Override
+        public int fill(FluidStack resource, FluidAction action) {
+            if (resource.isEmpty() || !resource.isComponentsPatchEmpty()) {
+                return 0;
+            }
+            if (!this.isResourceBlank() && !resource.is(this.fluid)) {
+                return 0;
+            }
+            int taken = (int) Math.min(resource.getAmount(), this.capacity - this.amount);
+            if (taken <= 0) {
+                return 0;
+            }
+            if (action.execute()) {
+                this.fluid = resource.getFluid();
+                this.amount += taken;
+                this.settle();
+            }
+            return taken;
+        }
+
+        @Override
+        public FluidStack drain(FluidStack resource, FluidAction action) {
+            if (resource.isEmpty() || !resource.is(this.fluid)) {
+                return FluidStack.EMPTY;
+            }
+            return this.drain(resource.getAmount(), action);
+        }
+
+        @Override
+        public FluidStack drain(int maxDrain, FluidAction action) {
+            Fluid held = this.fluid;
+            int given = (int) Math.min(maxDrain, this.amount);
+            if (given <= 0 || held == Fluids.EMPTY) {
+                return FluidStack.EMPTY;
+            }
+            if (action.execute()) {
+                this.amount -= given;
+                if (this.amount <= 0) {
+                    this.fluid = Fluids.EMPTY;
+                }
+                this.settle();
+            }
+            return new FluidStack(held, given);
         }
     }
 }

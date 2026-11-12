@@ -44,10 +44,10 @@ public final class ModComponents {
                     .build());
 
     /** What that load is: any fluid at all. A load with no liquid named is petrol, as every load once was. */
-    public static final DataComponentType<net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant> TANKER_LIQUID =
-            register("liquid", DataComponentType.<net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant>builder()
-                    .persistent(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.CODEC)
-                    .networkSynchronized(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.PACKET_CODEC)
+    public static final DataComponentType<net.minecraft.world.level.material.Fluid> TANKER_LIQUID =
+            register("liquid", DataComponentType.<net.minecraft.world.level.material.Fluid>builder()
+                    .persistent(me.trossty.car.fluid.Liquids.CODEC)
+                    .networkSynchronized(me.trossty.car.fluid.Liquids.STREAM_CODEC)
                     .build());
 
     /**
@@ -122,10 +122,10 @@ public final class ModComponents {
 
     /** What a jerry can holds, as a {@code CarSetup.Fuel} ordinal. Absent is petrol. */
     /** Which data-pack vehicle a car item is; absent for the plain machines. */
-    public static final DataComponentType<net.minecraft.resources.Identifier> CAR_VEHICLE = register("vehicle",
-            DataComponentType.<net.minecraft.resources.Identifier>builder()
-                    .persistent(net.minecraft.resources.Identifier.CODEC)
-                    .networkSynchronized(net.minecraft.resources.Identifier.STREAM_CODEC)
+    public static final DataComponentType<net.minecraft.resources.ResourceLocation> CAR_VEHICLE = register("vehicle",
+            DataComponentType.<net.minecraft.resources.ResourceLocation>builder()
+                    .persistent(net.minecraft.resources.ResourceLocation.CODEC)
+                    .networkSynchronized(net.minecraft.resources.ResourceLocation.STREAM_CODEC)
                     .build());
 
     public static final DataComponentType<Integer> FUEL_KIND = register("fuel_kind",
@@ -190,16 +190,16 @@ public final class ModComponents {
      * What a drum held when it was broken: a drum is carried full, the way a
      * shulker box is carried with its things in it.
      */
-    public record StoredFluid(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant fluid, long amount) {
+    public record StoredFluid(net.minecraft.world.level.material.Fluid fluid, long amount) {
         public static final Codec<StoredFluid> CODEC =
                 com.mojang.serialization.codecs.RecordCodecBuilder.create(instance -> instance.group(
-                        net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.CODEC.fieldOf("fluid")
+                        me.trossty.car.fluid.Liquids.CODEC.fieldOf("fluid")
                                 .forGetter(StoredFluid::fluid),
                         Codec.LONG.fieldOf("amount").forGetter(StoredFluid::amount))
                         .apply(instance, StoredFluid::new));
         public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, StoredFluid>
                 PACKET_CODEC = net.minecraft.network.codec.StreamCodec.composite(
-                        net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.PACKET_CODEC, StoredFluid::fluid,
+                        me.trossty.car.fluid.Liquids.STREAM_CODEC, StoredFluid::fluid,
                         ByteBufCodecs.VAR_LONG, StoredFluid::amount,
                         StoredFluid::new);
     }

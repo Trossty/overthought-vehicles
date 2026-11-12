@@ -9,7 +9,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import java.util.function.Consumer;
 
 /**
@@ -57,9 +56,9 @@ public class VehiclePartItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context,
-                              TooltipDisplay display,
-                              Consumer<Component> tooltip, TooltipFlag type) {
-        super.appendHoverText(stack, context, display, tooltip, type);
+                                java.util.List<Component> lines, TooltipFlag type) {
+        super.appendHoverText(stack, context, lines, type);
+        Consumer<Component> tooltip = lines::add;
         // The grade is always shown, even on a standard part: three grades you
         // cannot compare at a glance may as well be one.
         CarPart part = CarPart.forItem(this);

@@ -6,12 +6,12 @@ import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.workbench.BenchWork;
 import me.trossty.car.workbench.VehicleRecipe;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
+import net.minecraft.client.gui.LayeredDraw;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector4f;
@@ -31,7 +31,7 @@ import java.util.List;
  * machine — a tooltip box slid in beside the crosshair, with the thing itself
  * drawn at its head, saying what state it is in and what the click will do.
  */
-public class ServiceHud implements HudElement {
+public class ServiceHud implements LayeredDraw.Layer {
 
     /** The edge Create gives its value-box labels. */
     private static final int LABEL_EDGE = 0xFF333333;
@@ -108,8 +108,8 @@ public class ServiceHud implements HudElement {
 
         double left = 1.0 - Math.min(1.0,
                 (Util.getMillis() - tooltip.since()) / SLIDE_MS);
-        context.pose().pushMatrix();
-        context.pose().translate((float) (left * left * left * SLIDE_PIXELS), 0.0F);
+        context.pose().pushPose();
+        context.pose().translate((float) (left * left * left * SLIDE_PIXELS), 0.0F, 0.0F);
 
         tooltipBox(context, x, y, width, height);
         // The thing itself at the head of the box, where the goggles draw
@@ -122,7 +122,7 @@ public class ServiceHud implements HudElement {
             line += LINE;
         }
 
-        context.pose().popMatrix();
+        context.pose().popPose();
     }
 
     /** The part of a car under the crosshair, or null if there is none. */

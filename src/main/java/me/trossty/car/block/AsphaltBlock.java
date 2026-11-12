@@ -8,7 +8,6 @@ import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -20,7 +19,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Laid road. It goes down a layer at a time the way snow does, an eighth of a
@@ -40,8 +39,14 @@ public class AsphaltBlock extends Block {
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<Paint> PAINT = EnumProperty.create("paint", Paint.class);
 
-    private static final VoxelShape[] SHAPES = Block.boxes(MAX_LAYERS,
-            layers -> Block.column(16.0, 0.0, layers * 2));
+    /** The shape of each depth, by layers laid; index 0 is unused. */
+    private static final VoxelShape[] SHAPES = new VoxelShape[MAX_LAYERS + 1];
+
+    static {
+        for (int layers = 0; layers <= MAX_LAYERS; layers++) {
+            SHAPES[layers] = Block.box(0.0, 0.0, 0.0, 16.0, layers * 2, 16.0);
+        }
+    }
 
     /** What can be painted on a road. The texture of each is drawn running north, the way it was painted facing. */
     public enum Marking implements StringRepresentable {
@@ -166,12 +171,11 @@ public class AsphaltBlock extends Block {
     }
 
     @Override
-    protected BlockState updateShape(BlockState state, LevelReader world, ScheduledTickAccess tickView,
-                                                   BlockPos pos, Direction direction, BlockPos neighborPos,
-                                                   BlockState neighborState, RandomSource random) {
+    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
+                                     net.minecraft.world.level.LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
         return !state.canSurvive(world, pos)
                 ? Blocks.AIR.defaultBlockState()
-                : super.updateShape(state, world, tickView, pos, direction, neighborPos, neighborState, random);
+                : super.updateShape(state, direction, neighborState, world, pos, neighborPos);
     }
 
     /** Another layer of asphalt goes on top of a part-laid block, as snow does; nothing else replaces it. */

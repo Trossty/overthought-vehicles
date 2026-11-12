@@ -9,9 +9,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
@@ -30,9 +29,9 @@ import java.util.List;
  */
 public final class ObdTabletRenderer {
 
-    private static final RenderType FRAME = RenderTypes.text(CarMain.id("textures/gui/obd_tablet.png"));
-    private static final RenderType FILL = RenderTypes.text(CarMain.id("textures/gui/obd_tablet_fill.png"));
-    private static final RenderType BACK = RenderTypes.text(CarMain.id("textures/gui/obd_tablet_back.png"));
+    private static final RenderType FRAME = RenderType.text(CarMain.id("textures/gui/obd_tablet.png"));
+    private static final RenderType FILL = RenderType.text(CarMain.id("textures/gui/obd_tablet_fill.png"));
+    private static final RenderType BACK = RenderType.text(CarMain.id("textures/gui/obd_tablet_back.png"));
     private static final int GLOW = LightTexture.FULL_BRIGHT;
 
     private static final int WHITE = 0xFFFFFFFF;
@@ -61,7 +60,7 @@ public final class ObdTabletRenderer {
     private ObdTabletRenderer() {
     }
 
-    public static void draw(PoseStack matrices, SubmitNodeCollector queue, int light, ItemStack stack) {
+    public static void draw(PoseStack matrices, MultiBufferSource queue, int light, ItemStack stack) {
         // Placed exactly as the map's paper is.
         matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
         matrices.mulPose(Axis.ZP.rotationDegrees(180.0F));
@@ -203,21 +202,25 @@ public final class ObdTabletRenderer {
     }
 
     /** Drawing on the screen's 128-unit square. */
-    private record Screen(PoseStack matrices, SubmitNodeCollector queue) {
+    private record Screen(PoseStack matrices, MultiBufferSource queue) {
 
         void quad(RenderType layer, float x0, float y0, float x1, float y1, float z,
                   float u0, float v0, float u1, float v1, int colour, int light) {
-            this.queue.submitCustomGeometry(this.matrices, layer, (entry, vertices) -> {
+            {
+                PoseStack.Pose entry = this.matrices.last();
+                com.mojang.blaze3d.vertex.VertexConsumer vertices = this.queue.getBuffer(layer);
                 vertices.addVertex(entry, x0, y1, z).setColor(colour).setUv(u0, v1).setLight(light);
                 vertices.addVertex(entry, x1, y1, z).setColor(colour).setUv(u1, v1).setLight(light);
                 vertices.addVertex(entry, x1, y0, z).setColor(colour).setUv(u1, v0).setLight(light);
                 vertices.addVertex(entry, x0, y0, z).setColor(colour).setUv(u0, v0).setLight(light);
-            });
+            }
         }
 
         /** An edge strip from (x0, y0) to (x1, y1), running back from z0 to z1; seen from either side. */
         void side(float x0, float y0, float x1, float y1, float z0, float z1, int colour, int light) {
-            this.queue.submitCustomGeometry(this.matrices, FILL, (entry, vertices) -> {
+            {
+                PoseStack.Pose entry = this.matrices.last();
+                com.mojang.blaze3d.vertex.VertexConsumer vertices = this.queue.getBuffer(FILL);
                 vertices.addVertex(entry, x0, y0, z0).setColor(colour).setUv(0, 0).setLight(light);
                 vertices.addVertex(entry, x1, y1, z0).setColor(colour).setUv(1, 0).setLight(light);
                 vertices.addVertex(entry, x1, y1, z1).setColor(colour).setUv(1, 1).setLight(light);
@@ -226,7 +229,7 @@ public final class ObdTabletRenderer {
                 vertices.addVertex(entry, x1, y1, z1).setColor(colour).setUv(1, 1).setLight(light);
                 vertices.addVertex(entry, x1, y1, z0).setColor(colour).setUv(1, 0).setLight(light);
                 vertices.addVertex(entry, x0, y0, z0).setColor(colour).setUv(0, 0).setLight(light);
-            });
+            }
         }
 
         void fill(float x0, float y0, float x1, float y1, float z, int colour) {
@@ -272,8 +275,7 @@ public final class ObdTabletRenderer {
             this.matrices.translate(x, y, -0.025F);
             this.matrices.scale(scale, scale, -1.0F);
             this.matrices.translate(0.0F, 0.0F, 0.1F);
-            this.queue.order(1).submitText(this.matrices, 0.0F, 0.0F, text, false,
-                    Font.DisplayMode.NORMAL, GLOW, colour, 0, 0);
+            net.minecraft.client.Minecraft.getInstance().font.drawInBatch(text, 0.0F, 0.0F, colour, false, this.matrices.last().pose(), this.queue, Font.DisplayMode.NORMAL, 0, GLOW);
             this.matrices.popPose();
         }
     }

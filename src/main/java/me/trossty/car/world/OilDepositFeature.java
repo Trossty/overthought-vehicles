@@ -30,7 +30,7 @@ public class OilDepositFeature extends Feature<NoneFeatureConfiguration> {
         BlockPos origin = context.origin();
 
         int surface = world.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, origin.getX(), origin.getZ());
-        int floor = world.getMinY() + 12;
+        int floor = world.getMinBuildHeight() + 12;
         int ceiling = Math.min(surface - 12, 48);
         if (ceiling <= floor) {
             return false;

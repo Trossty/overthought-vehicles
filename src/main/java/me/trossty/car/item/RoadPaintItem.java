@@ -16,7 +16,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -64,11 +63,11 @@ public class RoadPaintItem extends Item {
 
     /** Used in the air, or sneaking anywhere: the marking menu. */
     @Override
-    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+    public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
         if (world.isClientSide()) {
             openMenu.accept(hand);
         }
-        return InteractionResult.SUCCESS;
+        return net.minecraft.world.InteractionResultHolder.success(user.getItemInHand(hand));
     }
 
     /** The choice made in the menu, checked against what is really in the hand. */
@@ -146,9 +145,10 @@ public class RoadPaintItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
-                              Consumer<Component> tooltip, TooltipFlag type) {
-        super.appendHoverText(stack, context, display, tooltip, type);
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+                                java.util.List<Component> lines, TooltipFlag type) {
+        super.appendHoverText(stack, context, lines, type);
+        Consumer<Component> tooltip = lines::add;
         Marking marking = selected(stack);
         tooltip.accept(Component.translatable("tooltip.car.marking",
                 Component.translatable(marking.translationKey()).withStyle(ChatFormatting.WHITE)).withStyle(ChatFormatting.GRAY));

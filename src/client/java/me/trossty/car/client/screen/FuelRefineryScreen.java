@@ -210,13 +210,13 @@ public class FuelRefineryScreen extends AbstractContainerScreen<FuelRefineryScre
     /** Hovering a tank says how much is in it, since a bar alone does not. */
     private void drawTankTooltips(GuiGraphics context, int mouseX, int mouseY) {
         if (overTank(mouseX, mouseY, this.leftPos + BIOMASS_TANK_X)) {
-            context.setTooltipForNextFrame(this.font,
+            context.renderTooltip(this.font,
                     Component.translatable(this.menu.getFeed() == FuelRefineryBlockEntity.FEED_CRUDE
                                     && this.menu.getBiomass() > 0 ? "tooltip.car.crude" : "tooltip.car.biomass",
                             this.menu.getBiomass(), FuelRefineryBlockEntity.BIOMASS_CAPACITY),
                     mouseX, mouseY);
         } else if (overTank(mouseX, mouseY, this.leftPos + ENERGY_X)) {
-            context.setTooltipForNextFrame(this.font,
+            context.renderTooltip(this.font,
                     Component.translatable("tooltip.car.energy",
                             this.menu.getEnergy(), FuelRefineryBlockEntity.ENERGY_CAPACITY),
                     mouseX, mouseY);
@@ -225,11 +225,11 @@ public class FuelRefineryScreen extends AbstractContainerScreen<FuelRefineryScre
             int temperature = this.menu.getTemperature();
             String state = temperature >= FuelRefineryBlockEntity.HOT_TEMPERATURE ? "hot"
                     : temperature >= FuelRefineryBlockEntity.WORKING_TEMPERATURE ? "working" : "cold";
-            context.setTooltipForNextFrame(this.font,
+            context.renderTooltip(this.font,
                     Component.translatable("tooltip.car.column_" + state, 20 + temperature * 2 / 5),
                     mouseX, mouseY);
         } else if (overTank(mouseX, mouseY, this.leftPos + PETROL_TANK_X)) {
-            context.setTooltipForNextFrame(this.font,
+            context.renderTooltip(this.font,
                     Component.translatable(this.menu.getPetrol() == 0 ? "tooltip.car.product_empty"
                                     : switch (this.menu.getOutput()) {
                                         case FuelRefineryBlockEntity.PRODUCT_RAW_DIESEL -> "tooltip.car.raw_diesel";

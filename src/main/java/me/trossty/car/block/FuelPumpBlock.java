@@ -20,7 +20,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -136,18 +135,15 @@ public class FuelPumpBlock extends BaseEntityBlock {
      * end was hit: the mined half drops it, or the half that vanishes does.
      */
     @Override
-    protected BlockState updateShape(BlockState state, LevelReader world,
-                                                   ScheduledTickAccess tickView, BlockPos pos,
-                                                   Direction direction, BlockPos neighborPos,
-                                                   BlockState neighborState, RandomSource random) {
+    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
+                                     net.minecraft.world.level.LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
         DoubleBlockHalf half = state.getValue(HALF);
         boolean towardsOtherHalf = direction.getAxis() == Direction.Axis.Y
                 && (half == DoubleBlockHalf.LOWER) == (direction == Direction.UP);
         if (towardsOtherHalf && (!neighborState.is(this) || neighborState.getValue(HALF) == half)) {
             return Blocks.AIR.defaultBlockState();
         }
-        return super.updateShape(
-                state, world, tickView, pos, direction, neighborPos, neighborState, random);
+        return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
     }
 
     // ---- the block entity lives downstairs ----
@@ -205,12 +201,12 @@ public class FuelPumpBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected InteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
+    protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
                                          Player player, InteractionHand hand, BlockHitResult hit) {
         if (held.is(ModItems.FUEL_NOZZLE)) {
             BlockPos base = state.getValue(HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
             if (!me.trossty.car.item.FuelNozzleItem.isFrom(held, base)) {
-                return InteractionResult.PASS;
+                return net.minecraft.world.ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
             }
             if (!world.isClientSide()) {
                 FuelPumpBlockEntity pump = tankOf(world, pos, state);
@@ -219,27 +215,27 @@ public class FuelPumpBlock extends BaseEntityBlock {
                     report(player, pump);
                 }
             }
-            return InteractionResult.SUCCESS;
+            return net.minecraft.world.ItemInteractionResult.SUCCESS;
         }
         if (!held.is(ModItems.JERRY_CAN)) {
-            return InteractionResult.TRY_WITH_EMPTY_HAND;   // a bare hand reaches onUse
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;   // a bare hand reaches onUse
         }
         if (world.isClientSide()) {
-            return InteractionResult.SUCCESS;
+            return net.minecraft.world.ItemInteractionResult.SUCCESS;
         }
         FuelPumpBlockEntity pump = tankOf(world, pos, state);
         if (pump == null) {
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
 
         if (me.trossty.car.entity.CarEntity.holdsDiesel(held)) {
             player.displayClientMessage(Component.translatable("message.car.petrol_only"), true);
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
         if (!me.trossty.car.item.JerryCans.isEmpty(held) && me.trossty.car.entity.CarEntity.isRaw(held)) {
             // Raw petrol goes through the hydrotreater, not into a station's tank.
             player.displayClientMessage(Component.translatable("message.car.pump_raw"), true);
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
 
         if (!me.trossty.car.item.JerryCans.isFull(held)) {
@@ -254,7 +250,7 @@ public class FuelPumpBlock extends BaseEntityBlock {
             playPumpSound(world, pos, 0.8F);
         }
         report(player, pump);
-        return InteractionResult.CONSUME;
+        return net.minecraft.world.ItemInteractionResult.CONSUME;
     }
 
     /**
@@ -278,7 +274,7 @@ public class FuelPumpBlock extends BaseEntityBlock {
     }
 
     /** The hose outlet of the pump whose lower half is at {@code base}, or null if it is gone. */
-    public static net.minecraft.world.phys.@org.jspecify.annotations.Nullable Vec3 hoseOutlet(
+    public static net.minecraft.world.phys.@org.jetbrains.annotations.Nullable Vec3 hoseOutlet(
             net.minecraft.world.level.BlockGetter world, BlockPos base) {
         BlockState state = world.getBlockState(base);
         if (!(state.getBlock() instanceof FuelPumpBlock)) {
@@ -315,7 +311,7 @@ public class FuelPumpBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
+    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
         FuelPumpBlockEntity pump = tankOf(world, pos, state);
         if (pump == null || pump.getPetrol() <= 0) {
             return 0;

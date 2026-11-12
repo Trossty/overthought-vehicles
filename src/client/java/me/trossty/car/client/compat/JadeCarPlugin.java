@@ -5,7 +5,7 @@ import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import snownee.jade.api.EntityAccessor;
 import snownee.jade.api.IEntityComponentProvider;
 import snownee.jade.api.ITooltip;
@@ -31,10 +31,10 @@ public class JadeCarPlugin implements IWailaPlugin {
     enum CarInfo implements IEntityComponentProvider {
         INSTANCE;
 
-        private static final Identifier UID = CarMain.id("car_info");
+        private static final ResourceLocation UID = CarMain.id("car_info");
 
         @Override
-        public Identifier getUid() {
+        public ResourceLocation getUid() {
             return UID;
         }
 

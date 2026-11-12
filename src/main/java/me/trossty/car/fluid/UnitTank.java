@@ -1,21 +1,18 @@
 package me.trossty.car.fluid;
 
-import me.trossty.car.registry.ModFluids;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
-import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
-import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import java.util.function.Predicate;
 
 /**
  * A machine's tank: one liquid at a time, counted in the mod's units (a
- * millibucket each), and open to the transfer API in whichever directions
+ * millibucket each), and open to NeoForge's fluid handlers in whichever directions
  * the machine allows.
  *
  * <p>The production line's machines all hold their liquids in one of these —
@@ -23,10 +20,7 @@ import java.util.function.Predicate;
  * a tanker's hose, a bucket or another mod's pipe all reach them the same way.
  * Like the petrol holders, it only lets whole units across.
  */
-public final class UnitTank extends SnapshotParticipant<UnitTank.State> implements SingleSlotStorage<FluidVariant> {
-
-    record State(Fluid fluid, int amount) {
-    }
+public final class UnitTank implements IFluidHandler {
 
     private final int capacity;
     private final Predicate<Fluid> accepts;
@@ -109,85 +103,78 @@ public final class UnitTank extends SnapshotParticipant<UnitTank.State> implemen
     }
 
     public void read(ValueInput view, String key) {
-        Identifier id = Identifier.tryParse(view.getStringOr(key + "Fluid", "minecraft:empty"));
-        Fluid stored = id == null ? Fluids.EMPTY : BuiltInRegistries.FLUID.getValue(id);
+        ResourceLocation id = ResourceLocation.tryParse(view.getStringOr(key + "Fluid", "minecraft:empty"));
+        Fluid stored = id == null ? Fluids.EMPTY : BuiltInRegistries.FLUID.get(id);
         this.set(stored == null ? Fluids.EMPTY : stored, view.getIntOr(key + "Amount", 0));
     }
 
     // ---- what a pipe sees ----
 
-    @Override
-    public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-        if (!this.insertable || resource.isBlank() || resource.hasComponents() || !this.canTake(resource.getFluid())) {
-            return 0;
-        }
-        int units = (int) Math.min(maxAmount / ModFluids.UNIT, this.room());
-        if (units <= 0) {
-            return 0;
-        }
-        this.updateSnapshots(transaction);
-        this.fluid = resource.getFluid();
-        this.amount += units;
-        return units * ModFluids.UNIT;
-    }
-
-    @Override
-    public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-        if (!this.extractable || this.isEmpty() || !resource.isOf(this.fluid)) {
-            return 0;
-        }
-        int units = (int) Math.min(maxAmount / ModFluids.UNIT, this.amount);
-        if (units <= 0) {
-            return 0;
-        }
-        this.updateSnapshots(transaction);
-        this.drain(units);
-        return units * ModFluids.UNIT;
-    }
-
-    @Override
     public boolean supportsInsertion() {
         return this.insertable;
     }
 
-    @Override
     public boolean supportsExtraction() {
         return this.extractable;
     }
 
     @Override
-    public boolean isResourceBlank() {
-        return this.isEmpty();
+    public int getTanks() {
+        return 1;
     }
 
     @Override
-    public FluidVariant getResource() {
-        return this.isEmpty() ? FluidVariant.blank() : FluidVariant.of(this.fluid);
+    public FluidStack getFluidInTank(int tank) {
+        return this.isEmpty() ? FluidStack.EMPTY : new FluidStack(this.fluid, this.amount);
     }
 
     @Override
-    public long getAmount() {
-        return this.amount * ModFluids.UNIT;
+    public int getTankCapacity(int tank) {
+        return this.capacity;
     }
 
     @Override
-    public long getCapacity() {
-        return this.capacity * ModFluids.UNIT;
+    public boolean isFluidValid(int tank, FluidStack stack) {
+        return this.insertable && this.accepts.test(stack.getFluid());
     }
 
     @Override
-    protected State createSnapshot() {
-        return new State(this.fluid, this.amount);
+    public int fill(FluidStack resource, FluidAction action) {
+        if (!this.insertable || resource.isEmpty() || !resource.isComponentsPatchEmpty()
+                || !this.canTake(resource.getFluid())) {
+            return 0;
+        }
+        int units = Math.min(resource.getAmount(), this.room());
+        if (units > 0 && action.execute()) {
+            this.fluid = resource.getFluid();
+            this.amount += units;
+            this.changed.run();
+        }
+        return Math.max(0, units);
     }
 
     @Override
-    protected void readSnapshot(State snapshot) {
-        this.fluid = snapshot.fluid();
-        this.amount = snapshot.amount();
+    public FluidStack drain(FluidStack resource, FluidAction action) {
+        if (resource.isEmpty() || resource.getFluid() != this.fluid) {
+            return FluidStack.EMPTY;
+        }
+        return this.drain(resource.getAmount(), action);
     }
 
     @Override
-    protected void onFinalCommit() {
-        this.changed.run();
+    public FluidStack drain(int maxDrain, FluidAction action) {
+        if (!this.extractable || this.isEmpty()) {
+            return FluidStack.EMPTY;
+        }
+        Fluid held = this.fluid;
+        int units = Math.min(maxDrain, this.amount);
+        if (units <= 0) {
+            return FluidStack.EMPTY;
+        }
+        if (action.execute()) {
+            this.drain(units);
+            this.changed.run();
+        }
+        return new FluidStack(held, units);
     }
 }

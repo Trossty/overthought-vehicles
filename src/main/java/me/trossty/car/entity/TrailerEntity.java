@@ -22,10 +22,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.UUID;
@@ -314,16 +314,18 @@ public class TrailerEntity extends CarEntity {
     }
 
     @Override
-    protected void readAdditionalSaveData(ValueInput view) {
-        super.readAdditionalSaveData(view);
-        ContainerHelper.loadAllItems(view, this.load.getItems());
+    protected void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueInput view = ValueInput.of(tag, this.registryAccess());
+        super.readAdditionalSaveData(tag);
+        ContainerHelper.loadAllItems(view.tag(), this.load.getItems(), view.registries());
         this.tractorUuid = view.read("Tractor", UUIDUtil.CODEC).orElse(null);
     }
 
     @Override
-    protected void addAdditionalSaveData(ValueOutput view) {
-        super.addAdditionalSaveData(view);
-        ContainerHelper.saveAllItems(view, this.load.getItems());
+    protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueOutput view = ValueOutput.of(tag, this.registryAccess());
+        super.addAdditionalSaveData(tag);
+        ContainerHelper.saveAllItems(view.tag(), this.load.getItems(), view.registries());
         if (this.tractorUuid != null && this.isHitched()) {
             view.store("Tractor", UUIDUtil.CODEC, this.tractorUuid);
         }

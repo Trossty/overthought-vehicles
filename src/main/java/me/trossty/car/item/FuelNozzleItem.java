@@ -17,10 +17,10 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The pump's nozzle, on the end of its hose.
@@ -60,7 +60,10 @@ public class FuelNozzleItem extends Item {
     }
 
     @Override
-    public void inventoryTick(ItemStack stack, ServerLevel world, Entity entity, @Nullable EquipmentSlot slot) {
+    public void inventoryTick(ItemStack stack, Level world, Entity entity, int slot, boolean selected) {
+        if (world.isClientSide()) {
+            return;
+        }
         FuelPumpBlockEntity pump = pumpOf(world, stack);
         if (pump == null || !pump.isHeldBy(entity)) {
             stack.setCount(0);
@@ -68,19 +71,19 @@ public class FuelNozzleItem extends Item {
     }
 
     @Override
-    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+    public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
         CarEntity car = CarEntity.fillerInSight(user);
         if (car == null) {
-            return InteractionResult.PASS;
+            return net.minecraft.world.InteractionResultHolder.pass(user.getItemInHand(hand));
         }
         if (car.isTankFull()) {
             if (!world.isClientSide()) {
                 car.fillingStopped(user);
             }
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.InteractionResultHolder.consume(user.getItemInHand(hand));
         }
         user.startUsingItem(hand);
-        return InteractionResult.CONSUME;
+        return net.minecraft.world.InteractionResultHolder.consume(user.getItemInHand(hand));
     }
 
     @Override
@@ -135,14 +138,13 @@ public class FuelNozzleItem extends Item {
     }
 
     @Override
-    public ItemUseAnimation getUseAnimation(ItemStack stack) {
-        return ItemUseAnimation.NONE;
+    public UseAnim getUseAnimation(ItemStack stack) {
+        return UseAnim.NONE;
     }
 
     /** The gauge on the nozzle's own stack never changes, but don't bob the hand if it does. */
     @Override
-    public boolean allowComponentsUpdateAnimation(Player player, InteractionHand hand,
-                                                  ItemStack oldStack, ItemStack newStack) {
+    public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
         return false;
     }
 }

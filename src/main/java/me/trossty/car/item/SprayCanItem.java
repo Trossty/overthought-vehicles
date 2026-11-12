@@ -8,7 +8,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.DyedItemColor;
-import net.minecraft.world.item.component.TooltipDisplay;
 
 /**
  * A can of car paint. Filled at a crafting table with dyes, which mix the way
@@ -44,9 +43,9 @@ public class SprayCanItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context,
-                              TooltipDisplay display,
-                              Consumer<Component> tooltip, TooltipFlag type) {
-        super.appendHoverText(stack, context, display, tooltip, type);
+                                java.util.List<Component> lines, TooltipFlag type) {
+        super.appendHoverText(stack, context, lines, type);
+        Consumer<Component> tooltip = lines::add;
         Integer colour = colourOf(stack);
         if (colour == null || isEmpty(stack)) {
             tooltip.accept(Component.translatable("tooltip.car.spray_empty").withStyle(ChatFormatting.DARK_GRAY));

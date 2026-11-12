@@ -2,14 +2,12 @@ package me.trossty.car.client.hud;
 
 import me.trossty.car.CarMain;
 import me.trossty.car.entity.CarEntity;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
+import net.minecraft.client.gui.LayeredDraw;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import org.joml.Matrix3x2fStack;
 
 /**
  * Two analogue dials either side of the hotbar: road speed on the left, fuel on
@@ -24,12 +22,12 @@ import org.joml.Matrix3x2fStack;
  * Geometry constants must agree with the generator; they are repeated there
  * under the same names.
  */
-public class DashboardHud implements HudElement {
+public class DashboardHud implements LayeredDraw.Layer {
 
-    private static final Identifier SPEED_FACE = CarMain.id("textures/gui/gauge_speed.png");
-    private static final Identifier FUEL_FACE = CarMain.id("textures/gui/gauge_fuel.png");
-    private static final Identifier TEMP_FACE = CarMain.id("textures/gui/gauge_temp.png");
-    private static final Identifier RPM_FACE = CarMain.id("textures/gui/gauge_rpm.png");
+    private static final ResourceLocation SPEED_FACE = CarMain.id("textures/gui/gauge_speed.png");
+    private static final ResourceLocation FUEL_FACE = CarMain.id("textures/gui/gauge_fuel.png");
+    private static final ResourceLocation TEMP_FACE = CarMain.id("textures/gui/gauge_temp.png");
+    private static final ResourceLocation RPM_FACE = CarMain.id("textures/gui/gauge_rpm.png");
 
     // ---- geometry (mirrored in tools/GenGaugeTextures.java) ----
     private static final int TEX = 72;
@@ -205,9 +203,9 @@ public class DashboardHud implements HudElement {
         float rpmStep = 1.0F - (float) Math.pow(1.0F - 0.55F, delta);
         this.rpmNeedle = Mth.lerp(rpmStep, this.rpmNeedle, targetRpm);
 
-        Matrix3x2fStack matrices = context.pose();
-        matrices.pushMatrix();
-        matrices.scale(scale, scale);
+        com.mojang.blaze3d.vertex.PoseStack matrices = context.pose();
+        matrices.pushPose();
+        matrices.scale(scale, scale, 1.0F);
         // From here on in the dials' own units: the screen is that much bigger.
         int centerX = Math.round(width / 2.0F / scale);
         int bottom = Math.round(height / scale);
@@ -227,7 +225,7 @@ public class DashboardHud implements HudElement {
         drawFuelGauge(context, client, centerX + reach, cy, targetFuel, car, this.rangeShown);
         drawTemperatureGauge(context, centerX + reach + RADIUS + DIAL_GAP + TEMP_RADIUS,
                 bottom - BOTTOM_MARGIN - TEMP_RADIUS, car.isOverheating());
-        matrices.popMatrix();
+        matrices.popPose();
     }
 
     /**
@@ -290,13 +288,13 @@ public class DashboardHud implements HudElement {
     /** A rectangle in half-pixel units along the dial's radius at fraction {@code t}. */
     private static void dialRect(GuiGraphics context, int cx, int cy, float t,
                                  int x0, int y0, int x1, int y1, int color) {
-        Matrix3x2fStack matrices = context.pose();
-        matrices.pushMatrix();
-        matrices.translate(cx, cy);
-        matrices.rotate((float) Math.toRadians(angleAt(t)));
-        matrices.scale(0.5F, 0.5F);
+        com.mojang.blaze3d.vertex.PoseStack matrices = context.pose();
+        matrices.pushPose();
+        matrices.translate(cx, cy, 0.0F);
+        matrices.mulPose(com.mojang.math.Axis.ZP.rotation((float) Math.toRadians(angleAt(t))));
+        matrices.scale(0.5F, 0.5F, 1.0F);
         context.fill(x0, y0, x1, y1, color);
-        matrices.popMatrix();
+        matrices.popPose();
     }
 
     private void drawSpeedometer(GuiGraphics context, Minecraft client, int cx, int cy,
@@ -346,14 +344,13 @@ public class DashboardHud implements HudElement {
         drawNeedle(context, cx, cy, this.fuelNeedle);
     }
 
-    private static void drawFace(GuiGraphics context, Identifier face, int cx, int cy) {
+    private static void drawFace(GuiGraphics context, ResourceLocation face, int cx, int cy) {
         drawFace(context, face, cx, cy, TEX, TEX_CENTER);
     }
 
-    private static void drawFace(GuiGraphics context, Identifier face, int cx, int cy,
+    private static void drawFace(GuiGraphics context, ResourceLocation face, int cx, int cy,
                                  int tex, int texCenter) {
-        context.blit(RenderPipelines.GUI_TEXTURED, face,
-                cx - texCenter, cy - texCenter, 0.0F, 0.0F, tex, tex, tex, tex);
+        context.blit(face, cx - texCenter, cy - texCenter, 0.0F, 0.0F, tex, tex, tex, tex);
     }
 
     private static void drawLabel(GuiGraphics context, Minecraft client,
@@ -376,11 +373,11 @@ public class DashboardHud implements HudElement {
 
     private static void drawNeedle(GuiGraphics context, int cx, int cy, float t,
                                    int needleLength, int needleTail, int hubRadius) {
-        Matrix3x2fStack matrices = context.pose();
-        matrices.pushMatrix();
-        matrices.translate(cx, cy);
-        matrices.rotate((float) Math.toRadians(angleAt(Mth.clamp(t, 0.0F, 1.0F))));
-        matrices.scale(0.5F, 0.5F);
+        com.mojang.blaze3d.vertex.PoseStack matrices = context.pose();
+        matrices.pushPose();
+        matrices.translate(cx, cy, 0.0F);
+        matrices.mulPose(com.mojang.math.Axis.ZP.rotation((float) Math.toRadians(angleAt(Mth.clamp(t, 0.0F, 1.0F)))));
+        matrices.scale(0.5F, 0.5F, 1.0F);
 
         int length = needleLength * 2;
         int third = length / 3;
@@ -389,7 +386,7 @@ public class DashboardHud implements HudElement {
         context.fill(third, -2, third * 2, 2, NEEDLE);
         context.fill(third * 2, -1, length, 1, NEEDLE);
 
-        matrices.popMatrix();
+        matrices.popPose();
 
         fillDisc(context, cx, cy, hubRadius, HUB_RIM);
         fillDisc(context, cx, cy, hubRadius - 1, HUB);

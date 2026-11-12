@@ -148,30 +148,30 @@ public class GeneratorBlock extends BaseEntityBlock {
 
     /** Something that burns goes in the firebox; anything else reads the gauge. */
     @Override
-    protected InteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
+    protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
                                          Player player, InteractionHand hand, BlockHitResult hit) {
         if (this.kind.burnsLiquid()) {
             if (!held.is(me.trossty.car.registry.ModItems.JERRY_CAN)) {
-                return InteractionResult.TRY_WITH_EMPTY_HAND;
+                return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
             }
             if (world.isClientSide()) {
-                return InteractionResult.SUCCESS;
+                return net.minecraft.world.ItemInteractionResult.SUCCESS;
             }
             if (world.getBlockEntity(pos) instanceof GeneratorBlockEntity generator) {
                 pour(generator, held, player);
             }
-            return InteractionResult.CONSUME;
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
         if (GeneratorBlockEntity.burnTicks(held, world) <= 0) {
-            return InteractionResult.TRY_WITH_EMPTY_HAND;
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (world.isClientSide()) {
-            return InteractionResult.SUCCESS;
+            return net.minecraft.world.ItemInteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(pos) instanceof GeneratorBlockEntity generator) {
             feed(generator, held, player, hand);
         }
-        return InteractionResult.CONSUME;
+        return net.minecraft.world.ItemInteractionResult.CONSUME;
     }
 
     /** Empties a can of the right fuel into a liquid generator's tank. */
@@ -241,10 +241,14 @@ public class GeneratorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
-        if (world.getBlockEntity(pos) instanceof GeneratorBlockEntity generator) {
-            Containers.dropContents(world, pos, generator);
+    protected void onRemove(BlockState state, net.minecraft.world.level.Level world, BlockPos pos,
+                            BlockState newState, boolean moved) {
+        // Only when the block really goes, not when its state changes.
+        if (!world.isClientSide() && !state.is(newState.getBlock())) {
+            if (world.getBlockEntity(pos) instanceof GeneratorBlockEntity generator) {
+                Containers.dropContents(world, pos, generator);
+            }
         }
-        super.affectNeighborsAfterRemoval(state, world, pos, moved);
+        super.onRemove(state, world, pos, newState, moved);
     }
 }

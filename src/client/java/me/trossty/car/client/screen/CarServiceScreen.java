@@ -6,7 +6,6 @@ import me.trossty.car.service.CarServiceScreenHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
@@ -138,7 +137,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         for (int index = 0; index < this.lines.size(); index++) {
             Line line = this.lines.get(index);
             if (line.isHeading()) {
@@ -148,13 +147,13 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
             if (rowY == Integer.MIN_VALUE) {
                 continue;
             }
-            if (click.x() >= this.leftPos + LIST_X && click.x() < this.leftPos + LIST_X + LIST_WIDTH
-                    && click.y() >= rowY && click.y() < rowY + ROW_HEIGHT) {
+            if (mouseX >= this.leftPos + LIST_X && mouseX < this.leftPos + LIST_X + LIST_WIDTH
+                    && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT) {
                 this.send(line.part().ordinal());
                 return true;
             }
         }
-        return super.mouseClicked(click, doubled);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     // ---- drawing ----

@@ -14,7 +14,6 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.PipeBlock;
@@ -135,10 +134,8 @@ public class FuelPipeBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected BlockState updateShape(BlockState state, LevelReader world,
-                                                   ScheduledTickAccess tickView, BlockPos pos,
-                                                   Direction direction, BlockPos neighborPos,
-                                                   BlockState neighborState, RandomSource random) {
+    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
+                                     net.minecraft.world.level.LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
         return withFitting(state.setValue(PipeBlock.PROPERTY_BY_DIRECTION.get(direction),
                 connectsTo(world, neighborPos, direction)));
     }
@@ -235,7 +232,7 @@ public class FuelPipeBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
+    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
         if (!(world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) || pipe.getPetrol() <= 0) {
             return 0;
         }

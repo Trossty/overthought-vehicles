@@ -21,10 +21,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.InterpolationHandler;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
-import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.VehicleEntity;
 import net.minecraft.world.item.DyeColor;
@@ -33,11 +31,11 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.gamerules.GameRules;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.level.GameRules;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -397,7 +395,13 @@ public class CarEntity extends VehicleEntity {
     /** Minimum ticks between two horn blasts. */
     private static final int HORN_COOLDOWN_TICKS = 12;
 
-    private final InterpolationHandler interpolator = new InterpolationHandler(this, 3);
+    /** Where the server last put the car, eased into over a few ticks on clients. */
+    private double lerpX;
+    private double lerpY;
+    private double lerpZ;
+    private float lerpYRot;
+    private float lerpXRot;
+    private int lerpSteps;
 
     private boolean pressingForward;
     private boolean pressingBack;
@@ -471,14 +475,14 @@ public class CarEntity extends VehicleEntity {
                 : me.trossty.car.vehicle.VehicleDefinition.nameOf(this.getModelId());
     }
 
-    public net.minecraft.resources.Identifier getModelId() {
+    public net.minecraft.resources.ResourceLocation getModelId() {
         String key = this.entityData.get(MODEL);
         return key.isEmpty()
                 ? me.trossty.car.vehicle.VehicleDefinition.defaultFor(this.chassis())
-                : net.minecraft.resources.Identifier.tryParse(key);
+                : net.minecraft.resources.ResourceLocation.tryParse(key);
     }
 
-    public void setModel(net.minecraft.resources.Identifier id) {
+    public void setModel(net.minecraft.resources.ResourceLocation id) {
         this.entityData.set(MODEL, id == null ? "" : id.toString());
     }
 
@@ -492,13 +496,13 @@ public class CarEntity extends VehicleEntity {
         if (!key.equals(this.definitionKey) || (this.definition == null && this.tickCount < 40)) {
             this.definitionKey = key;
             this.definition = null;
-            net.minecraft.resources.Identifier id = key.isEmpty()
+            net.minecraft.resources.ResourceLocation id = key.isEmpty()
                     ? me.trossty.car.vehicle.VehicleDefinition.defaultFor(this.chassis())
-                    : net.minecraft.resources.Identifier.tryParse(key);
+                    : net.minecraft.resources.ResourceLocation.tryParse(key);
             if (id != null) {
                 this.definition = this.level().registryAccess()
-                        .lookup(me.trossty.car.vehicle.VehicleDefinition.KEY)
-                        .map(registry -> registry.getValue(id))
+                        .registry(me.trossty.car.vehicle.VehicleDefinition.KEY)
+                        .map(registry -> registry.get(id))
                         .orElse(null);
             }
         }
@@ -572,8 +576,47 @@ public class CarEntity extends VehicleEntity {
     }
 
     @Override
-    public InterpolationHandler getInterpolation() {
-        return this.interpolator;
+    public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        this.lerpX = x;
+        this.lerpY = y;
+        this.lerpZ = z;
+        this.lerpYRot = yRot;
+        this.lerpXRot = xRot;
+        this.lerpSteps = 3;
+    }
+
+    @Override
+    public double lerpTargetX() {
+        return this.lerpSteps > 0 ? this.lerpX : this.getX();
+    }
+
+    @Override
+    public double lerpTargetY() {
+        return this.lerpSteps > 0 ? this.lerpY : this.getY();
+    }
+
+    @Override
+    public double lerpTargetZ() {
+        return this.lerpSteps > 0 ? this.lerpZ : this.getZ();
+    }
+
+    @Override
+    public float lerpTargetYRot() {
+        return this.lerpSteps > 0 ? this.lerpYRot : this.getYRot();
+    }
+
+    @Override
+    public float lerpTargetXRot() {
+        return this.lerpSteps > 0 ? this.lerpXRot : this.getXRot();
+    }
+
+    /** Takes one step towards where the server put the car. */
+    private void stepLerp() {
+        if (this.lerpSteps > 0) {
+            this.lerpPositionAndRotationStep(this.lerpSteps, this.lerpX, this.lerpY, this.lerpZ,
+                    this.lerpYRot, this.lerpXRot);
+            this.lerpSteps--;
+        }
     }
 
     @Override
@@ -608,14 +651,14 @@ public class CarEntity extends VehicleEntity {
         }
 
         super.tick();
-        this.interpolator.interpolate();
+        this.stepLerp();
 
         if (!this.level().isClientSide()) {
             this.wearParts();
             this.tickTemperature();
         }
 
-        boolean logicalSide = this.isLocalInstanceAuthoritative();
+        boolean logicalSide = this.isControlledByLocalInstance();
         if (logicalSide) {
             // Control just moved to this side (somebody mounted or dismounted), so
             // pick up the speed the other side had instead of lurching to a stop.
@@ -669,7 +712,7 @@ public class CarEntity extends VehicleEntity {
         this.hasLastTickPos = true;
 
         this.animateWheels();
-        this.applyEffectsFromBlocks();
+        this.checkInsideBlocks();
         this.pushNearbyEntities();
 
         // The trailer may already have ticked this tick, a step behind where
@@ -935,12 +978,12 @@ public class CarEntity extends VehicleEntity {
     }
 
     /** Called on the controlling client every tick with that player's held keys. */
-    public void setInputs(Input input) {
-        this.pressingForward = input.forward();
-        this.pressingBack = input.backward();
-        this.pressingLeft = input.left();
-        this.pressingRight = input.right();
-        this.pressingBrake = input.jump();
+    public void setInputs(boolean forward, boolean back, boolean left, boolean right, boolean brake) {
+        this.pressingForward = forward;
+        this.pressingBack = back;
+        this.pressingLeft = left;
+        this.pressingRight = right;
+        this.pressingBrake = brake;
     }
 
     /**
@@ -1231,7 +1274,7 @@ public class CarEntity extends VehicleEntity {
 
     /** Signed speed in blocks per tick, valid on both sides. */
     public float getEngineSpeed() {
-        return this.isLocalInstanceAuthoritative()
+        return this.isControlledByLocalInstance()
                 ? this.flyDist
                 : this.entityData.get(ENGINE_SPEED);
     }
@@ -1287,7 +1330,7 @@ public class CarEntity extends VehicleEntity {
         }
         if (status == STATUS_SPUTTER) {
             // The driver's client is the one moving the car: it feels the cough.
-            if (this.isLocalInstanceAuthoritative()) {
+            if (this.isControlledByLocalInstance()) {
                 this.flyDist *= STARVE_STUMBLE;
             }
             this.coughExhaust();
@@ -1305,7 +1348,7 @@ public class CarEntity extends VehicleEntity {
         Level world = this.level();
         float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
         net.minecraft.core.particles.DustParticleOptions amber =
-                new net.minecraft.core.particles.DustParticleOptions(0xFFA51F, 0.8F);
+                new net.minecraft.core.particles.DustParticleOptions(net.minecraft.world.phys.Vec3.fromRGB24(0xFFA51F).toVector3f(), 0.8F);
         List<Vec3> lamps = new java.util.ArrayList<>();
         me.trossty.car.vehicle.VehicleDefinition definition = this.getDefinition();
         if (definition != null) {
@@ -1963,7 +2006,7 @@ public class CarEntity extends VehicleEntity {
      */
     private void handAside(Player player, ItemStack stack) {
         net.minecraft.world.entity.player.Inventory inventory = player.getInventory();
-        int hand = inventory.getSelectedSlot();
+        int hand = inventory.selected;
         int size = net.minecraft.world.entity.player.Inventory.INVENTORY_SIZE;
         // Onto a stack of the same first, then into the first empty pocket,
         // the backpack before the hotbar.
@@ -1977,14 +2020,14 @@ public class CarEntity extends VehicleEntity {
             }
         }
         for (int i = 0; i < size && !stack.isEmpty(); i++) {
-            int slot = (i + net.minecraft.world.entity.player.Inventory.SELECTION_SIZE) % size;
+            int slot = (i + net.minecraft.world.entity.player.Inventory.getSelectionSize()) % size;
             if (slot != hand && inventory.getItem(slot).isEmpty()) {
                 inventory.setItem(slot, stack.copy());
                 stack.setCount(0);
             }
         }
         if (!stack.isEmpty() && this.level() instanceof ServerLevel world) {
-            this.spawnAtLocation(world, stack);
+            this.spawnAtLocation(stack);
         }
     }
 
@@ -2305,7 +2348,7 @@ public class CarEntity extends VehicleEntity {
     private void cutKey(Player player, ItemStack blanks, String message) {
         ItemStack cut = blanks.split(1);
         cut.set(ModComponents.VEHICLE_KEY, this.lockCode);
-        net.minecraft.resources.Identifier model = this.getModelId();
+        net.minecraft.resources.ResourceLocation model = this.getModelId();
         if (model != null) {
             cut.set(ModComponents.CAR_VEHICLE, model);
         }
@@ -2425,10 +2468,15 @@ public class CarEntity extends VehicleEntity {
     }
 
     @Override
-    public boolean canBeCollidedWith(@Nullable Entity entity) {
+    public boolean canBeCollidedWith() {
+        return true;
+    }
+
+    @Override
+    public boolean canCollideWith(Entity entity) {
         // A car and the trailer on its hitch overlap on a tight turn; they
         // must not shove each other apart.
-        return entity == null || !this.hitchedWith(entity);
+        return !this.hitchedWith(entity) && super.canCollideWith(entity);
     }
 
     @Override
@@ -2748,7 +2796,7 @@ public class CarEntity extends VehicleEntity {
         }
         if (world instanceof ServerLevel server) {
             net.minecraft.core.particles.DustParticleOptions dust =
-                    new net.minecraft.core.particles.DustParticleOptions(colour, 1.4F);
+                    new net.minecraft.core.particles.DustParticleOptions(net.minecraft.world.phys.Vec3.fromRGB24(colour).toVector3f(), 1.4F);
             server.sendParticles(dust, this.getX(), this.getY() + this.getBbHeight() * 0.6,
                     this.getZ(), 40, this.getBbWidth() * 0.45, this.getBbHeight() * 0.35,
                     this.getBbWidth() * 0.45, 0.0);
@@ -2764,11 +2812,11 @@ public class CarEntity extends VehicleEntity {
      * stood. Unloading and changing dimension keep it, as they should.
      */
     @Override
-    public void onRemoval(Entity.RemovalReason reason) {
+    public void remove(Entity.RemovalReason reason) {
         if (reason.shouldDestroy() && this.level() instanceof ServerLevel world) {
             this.spillCargo(world);
         }
-        super.onRemoval(reason);
+        super.remove(reason);
     }
 
     /** Puts whatever the vehicle carries on the ground. Nothing, for a plain car. */
@@ -2909,11 +2957,11 @@ public class CarEntity extends VehicleEntity {
      * away without giving anything back.
      */
     @Override
-    public boolean hurtServer(ServerLevel world, DamageSource source, float amount) {
-        if (this.isRemoved()) {
+    public boolean hurt(DamageSource source, float amount) {
+        if (!(this.level() instanceof ServerLevel world) || this.isRemoved()) {
             return true;
         }
-        if (this.isInvulnerableToBase(source)) {
+        if (this.isInvulnerableTo(source)) {
             return false;
         }
         // A car once put down stays a car: nobody picks it back up. A
@@ -2931,7 +2979,7 @@ public class CarEntity extends VehicleEntity {
     }
 
     @Override
-    public boolean causeFallDamage(double fallDistance, float damagePerDistance, DamageSource damageSource) {
+    public boolean causeFallDamage(float fallDistance, float damagePerDistance, DamageSource damageSource) {
         if (fallDistance > SAFE_FALL_BLOCKS && this.level() instanceof ServerLevel world) {
             this.applyCarDamage(world, (float) (fallDistance - SAFE_FALL_BLOCKS) * FALL_DAMAGE_PER_BLOCK);
         }
@@ -3025,7 +3073,7 @@ public class CarEntity extends VehicleEntity {
                         (amount - PUNCTURE_MIN_DAMAGE + 1.0F) / PUNCTURE_SPREAD)) {
             this.setLeaking(true);
             world.playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
-                    SoundEvents.ITEM_BREAK.value(), SoundSource.NEUTRAL, 0.9F, 0.6F);
+                    SoundEvents.ITEM_BREAK, SoundSource.NEUTRAL, 0.9F, 0.6F);
             if (this.getControllingPassenger() instanceof Player driver) {
                 driver.displayClientMessage(Component.translatable("message.car.tank_holed"), true);
             }
@@ -3049,9 +3097,9 @@ public class CarEntity extends VehicleEntity {
                 SoundEvents.ANVIL_DESTROY, SoundSource.NEUTRAL, 0.9F, 0.8F);
         world.sendParticles(ParticleTypes.LARGE_SMOKE,
                 this.getX(), this.getY() + 0.9, this.getZ(), 30, 0.5, 0.4, 0.5, 0.02);
-        this.kill(world);
-        if (world.getGameRules().get(GameRules.ENTITY_DROPS)) {
-            this.spawnAtLocation(world, new ItemStack(Items.IRON_INGOT, WRECK_SCRAP));
+        this.kill();
+        if (world.getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS)) {
+            this.spawnAtLocation(new ItemStack(Items.IRON_INGOT, WRECK_SCRAP));
         }
     }
 
@@ -3180,7 +3228,8 @@ public class CarEntity extends VehicleEntity {
     }
 
     @Override
-    protected void readAdditionalSaveData(ValueInput view) {
+    protected void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueInput view = ValueInput.of(tag, this.registryAccess());
         // The model first: it says how big the tank is that the fuel goes into.
         this.entityData.set(MODEL, view.getStringOr("Model", ""));
         float savedFuel = view.getFloatOr("Fuel", FACTORY_FULL);
@@ -3216,7 +3265,8 @@ public class CarEntity extends VehicleEntity {
     }
 
     @Override
-    protected void addAdditionalSaveData(ValueOutput view) {
+    protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueOutput view = ValueOutput.of(tag, this.registryAccess());
         view.putFloat("Fuel", this.getFuel());
         view.putBoolean("Leaking", this.isLeaking());
         view.putInt("Color", this.getColor().getId());

@@ -3,18 +3,15 @@ package me.trossty.car.client.render;
 import me.trossty.car.block.VehicleLiftBlock;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.ShapeRenderer;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.Shapes;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
@@ -53,7 +50,6 @@ public final class CarServiceOverlay {
     private static final double LABEL_LIFT = 0.22;
 
     /** Leaders are drawn thinner than an outline: they are not the subject. */
-    private static final float LEADER_WIDTH = 1.0F;
 
     // Create marks the thing you can set on a block with a frame and a label,
     // not with a pane of light, and these are its colours: the label white of
@@ -62,8 +58,6 @@ public final class CarServiceOverlay {
     private static final int LINE_FITTED = 0x99EDEDED;
     private static final int LINE_ABSENT = 0xCCFF5D6C;
     private static final int LINE_AIMED = 0xFFFFFFFF;
-    private static final float PASSIVE_WIDTH = 1.5F;
-    private static final float AIMED_WIDTH = 3.0F;
 
     /**
      * How far the frame under the crosshair starts out from its mark, and how
@@ -140,7 +134,7 @@ public final class CarServiceOverlay {
         // tells you what a menu used to have to.
         boolean servicing = VehicleLiftBlock.isServicing(player.level(), car);
 
-        float tickProgress = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+        float tickProgress = client.getTimer().getGameTimeDeltaPartialTick(true);
 
         // The game's own pick decides whether anything can be aimed at. It is
         // the same pick the right click will use, so a lit mark is a promise.
@@ -186,7 +180,7 @@ public final class CarServiceOverlay {
 
         MultiBufferSource consumers = context.consumers();
         if (consumers != null) {
-            Vec3 camera = context.worldState().cameraRenderState.pos;
+            Vec3 camera = context.camera();
             PoseStack matrices = context.matrices();
             for (CarPart part : CarPart.values()) {
                 if (!servicing || !car.canReach(part)) {
@@ -197,22 +191,15 @@ public final class CarServiceOverlay {
                 AABB box = boxOf(car, part, tickProgress);
                 AABB frame = lit ? box.inflate(chase(part)) : box;
 
-                ShapeRenderer.renderShape(
-                        matrices,
-                        consumers.getBuffer(RenderTypes.lines()),
-                        Shapes.create(frame.move(-frame.minX, -frame.minY, -frame.minZ)),
-                        frame.minX - camera.x,
-                        frame.minY - camera.y,
-                        frame.minZ - camera.z,
-                        lit ? LINE_AIMED : (fitted ? LINE_FITTED : LINE_ABSENT),
-                        lit ? AIMED_WIDTH : PASSIVE_WIDTH);
+                context.outline(consumers.getBuffer(RenderType.lines()), frame,
+                        lit ? LINE_AIMED : (fitted ? LINE_FITTED : LINE_ABSENT));
             }
             // Each plate hangs on a short leader from its own mark; the car's
             // renderer writes the plate itself (see labelsFor).
             Vec3 pos = car.getPosition(tickProgress);
             for (PartLabel label : labelsFor(car, tickProgress)) {
                 if (label.mark() != null) {
-                    drawLeader(matrices, consumers.getBuffer(RenderTypes.lines()),
+                    drawLeader(matrices, consumers.getBuffer(RenderType.lines()),
                             pos.add(label.mark()), pos.add(label.offset()), camera, label.line());
                 }
             }
@@ -225,7 +212,7 @@ public final class CarServiceOverlay {
     /** The box you aim at for one part, in world space. */
     public static AABB boxOf(CarEntity car, CarPart part, float tickProgress) {
         return car.anchorOf(part).box(
-                car.getPosition(tickProgress), car.getYRot(tickProgress));
+                car.getPosition(tickProgress), car.getViewYRot(tickProgress));
     }
 
     /** One plate hanging over a car: where, relative to the car, and what it says. */
@@ -268,7 +255,7 @@ public final class CarServiceOverlay {
             return List.of();
         }
         Vec3 pos = car.getPosition(tickProgress);
-        float yaw = car.getYRot(tickProgress);
+        float yaw = car.getViewYRot(tickProgress);
         List<PartLabel> labels = new ArrayList<>();
         readings(car, pos, yaw, labels);
         if (servicing) {
@@ -419,10 +406,10 @@ public final class CarServiceOverlay {
         PoseStack.Pose entry = matrices.last();
         lines.addVertex(entry, (float) (from.x - camera.x), (float) (from.y - camera.y),
                         (float) (from.z - camera.z))
-                .setColor(colour).setNormal(entry, 0.0F, 1.0F, 0.0F).setLineWidth(LEADER_WIDTH);
+                .setColor(colour).setNormal(entry, 0.0F, 1.0F, 0.0F);
         lines.addVertex(entry, (float) (to.x - camera.x), (float) (to.y - camera.y),
                         (float) (to.z - camera.z))
-                .setColor(colour).setNormal(entry, 0.0F, 1.0F, 0.0F).setLineWidth(LEADER_WIDTH);
+                .setColor(colour).setNormal(entry, 0.0F, 1.0F, 0.0F);
     }
 
     /** The nearest car in sight, or null. */

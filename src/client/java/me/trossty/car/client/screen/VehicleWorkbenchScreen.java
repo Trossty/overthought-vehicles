@@ -7,7 +7,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
@@ -167,15 +166,15 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        int index = this.entryUnder(click.x(), click.y());
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int index = this.entryUnder(mouseX, mouseY);
         if (index >= 0) {
             if (index != this.menu.getSelectedRecipeIndex()) {
                 this.sendSelect(index);
             }
             return true;
         }
-        return super.mouseClicked(click, doubled);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -293,11 +292,11 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
     private void drawTierIcons(GuiGraphics context) {
         for (CarPart.Quality quality : CarPart.Quality.values()) {
             Button button = this.qualityButtons.get(quality.ordinal());
-            context.pose().pushMatrix();
-            context.pose().translate(button.getX() + 1.5F, button.getY() + 1.0F);
-            context.pose().scale(0.75F, 0.75F);
+            context.pose().pushPose();
+            context.pose().translate(button.getX() + 1.5F, button.getY() + 1.0F, 0.0F);
+            context.pose().scale(0.75F, 0.75F, 1.0F);
             context.renderItem(new ItemStack(quality.material()), 0, 0);
-            context.pose().popMatrix();
+            context.pose().popPose();
         }
     }
 
@@ -333,7 +332,7 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
             int slotY = this.topPos + MATERIALS_Y + (index / MATERIALS_COLUMNS) * 18;
             if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
                 VehicleRecipe.Material material = materials.get(index);
-                context.setTooltipForNextFrame(this.font,
+                context.renderTooltip(this.font,
                         new ItemStack(material.item(), material.count()),
                         mouseX, mouseY);
                 return;
@@ -341,7 +340,7 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
         }
         int hovered = this.entryUnder(mouseX, mouseY);
         if (hovered >= 0) {
-            context.setTooltipForNextFrame(this.font,
+            context.renderTooltip(this.font,
                     this.menu.getRecipes().get(hovered).createResult(), mouseX, mouseY);
         }
     }

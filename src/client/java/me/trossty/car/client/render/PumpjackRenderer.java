@@ -5,25 +5,23 @@ import me.trossty.car.block.MultiblockBlock;
 import me.trossty.car.block.PumpjackBlock;
 import me.trossty.car.block.entity.PumpjackBlockEntity;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
-import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
-import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Draws the two moving pieces of a pumpjack: the walking beam rocking on its
  * bearing, horse head up and down, and the crank turning its counterweights
  * round behind it. The rest of the jack is ordinary block models.
  */
-public class PumpjackRenderer implements BlockEntityRenderer<PumpjackBlockEntity, PumpjackRenderer.State> {
+public class PumpjackRenderer implements BlockEntityRenderer<PumpjackBlockEntity> {
 
     /** One stroke every four seconds, about what a real one does. */
     private static final float SPEED = (float) (Math.PI * 2 / 80);
@@ -40,15 +38,11 @@ public class PumpjackRenderer implements BlockEntityRenderer<PumpjackBlockEntity
     public PumpjackRenderer(BlockEntityRendererProvider.Context context) {
     }
 
-    @Override
     public State createRenderState() {
         return new State();
     }
 
-    @Override
-    public void extractRenderState(PumpjackBlockEntity jack, State state, float tickProgress, Vec3 cameraPos,
-                                  net.minecraft.client.renderer.feature.ModelFeatureRenderer.@Nullable CrumblingOverlay crumbling) {
-        BlockEntityRenderer.super.extractRenderState(jack, state, tickProgress, cameraPos, crumbling);
+    private void extractRenderState(PumpjackBlockEntity jack, State state, float tickProgress) {
         BlockState block = state.blockState;
         if (!(block.getBlock() instanceof PumpjackBlock)) {
             state.beam = null;
@@ -66,7 +60,17 @@ public class PumpjackRenderer implements BlockEntityRenderer<PumpjackBlockEntity
     }
 
     @Override
-    public void submit(State state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState camera) {
+    public void render(PumpjackBlockEntity blockEntity, float tickProgress, PoseStack matrices, MultiBufferSource buffers,
+                       int light, int overlay) {
+        State state = this.createRenderState();
+        state.blockState = blockEntity.getBlockState();
+        state.blockPos = blockEntity.getBlockPos();
+        state.lightCoords = light;
+        this.extractRenderState(blockEntity, state, tickProgress);
+        this.submit(state, matrices, buffers);
+    }
+
+    private void submit(State state, PoseStack matrices, MultiBufferSource queue) {
         if (state.beam == null || state.crank == null) {
             return;
         }
@@ -84,18 +88,18 @@ public class PumpjackRenderer implements BlockEntityRenderer<PumpjackBlockEntity
     }
 
     /** Draws a piece's model at a cell, turned about a level axis through the cell's middle. */
-    private static void drawTurned(PoseStack matrices, SubmitNodeCollector queue, BlockState piece, int light,
+    private static void drawTurned(PoseStack matrices, MultiBufferSource queue, BlockState piece, int light,
                                    Direction axis, int dx, int dy, int dz, float pivotY, float angle) {
         matrices.pushPose();
         matrices.translate(dx + 0.5F, dy + pivotY, dz + 0.5F);
         matrices.mulPose(new Quaternionf().rotationAxis(angle, axis.getStepX(), 0, axis.getStepZ()));
         matrices.translate(-0.5F, -pivotY, -0.5F);
-        queue.submitBlock(matrices, piece, light, OverlayTexture.NO_OVERLAY, 0);
+        net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(piece, matrices, queue, light, OverlayTexture.NO_OVERLAY);
         matrices.popPose();
     }
 
     @Override
-    public boolean shouldRenderOffScreen() {
+    public boolean shouldRenderOffScreen(PumpjackBlockEntity blockEntity) {
         return true;
     }
 

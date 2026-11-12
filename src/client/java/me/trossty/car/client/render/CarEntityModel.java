@@ -1,6 +1,5 @@
 package me.trossty.car.client.render;
 
-import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
@@ -46,7 +45,7 @@ import net.minecraft.util.Mth;
  * spins would spin about the cabin's axis rather than the column's. Below a
  * tilted parent, the child's roll is the column's own axis.
  */
-public class CarEntityModel extends EntityModel<CarRenderState> {
+public class CarEntityModel extends VehicleModel {
 
     private static final String CHASSIS = "chassis";
     private static final String FRAME = "frame";
@@ -128,7 +127,7 @@ public class CarEntityModel extends EntityModel<CarRenderState> {
     private final ModelPart backRightWheel;
 
     public CarEntityModel(ModelPart root) {
-        super(root);
+        super(root, net.minecraft.client.renderer.RenderType::entityCutoutNoCull);
         this.chassis = root.getChild(CHASSIS);
         this.steeringWheel = this.chassis
                 .getChild(FRAME)

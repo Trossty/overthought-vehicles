@@ -4,7 +4,7 @@ import me.trossty.car.CarMain;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 
 /**
@@ -59,12 +59,12 @@ public final class ModSounds {
     }
 
     private static SoundEvent register(String path) {
-        Identifier id = CarMain.id(path);
+        ResourceLocation id = CarMain.id(path);
         return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
     }
 
     private static Holder.Reference<SoundEvent> registerReference(String path) {
-        Identifier id = CarMain.id(path);
+        ResourceLocation id = CarMain.id(path);
         return Registry.registerForHolder(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
     }
 

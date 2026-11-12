@@ -10,13 +10,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.minecraft.util.Util;
-import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.Util;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
@@ -71,9 +69,9 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
     private long builtAt = -1L;
     /** When the vehicle on the stand last changed, so the new one can settle on. */
     private long shownAt = -1L;
-    private Identifier shown;
+    private ResourceLocation shown;
     private boolean dragging;
-    private final Map<Identifier, CarEntity> stands = new HashMap<>();
+    private final Map<ResourceLocation, CarEntity> stands = new HashMap<>();
 
     public VehicleWorkstationScreen(VehicleWorkstationScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title);
@@ -112,18 +110,18 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
 
     /** Dragging across the stand turns the vehicle on it, to look it over. */
     @Override
-    public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double offsetX, double offsetY) {
         if (this.dragging) {
             this.standTurn += (float) offsetX * 0.03F;
             return true;
         }
-        return super.mouseDragged(click, offsetX, offsetY);
+        return super.mouseDragged(mouseX, mouseY, button, offsetX, offsetY);
     }
 
     @Override
-    public boolean mouseReleased(MouseButtonEvent click) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
         this.dragging = false;
-        return super.mouseReleased(click);
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     private int maxScroll() {
@@ -164,23 +162,23 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        if (this.overStand(click.x(), click.y())) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (this.overStand(mouseX, mouseY)) {
             this.dragging = true;
             return true;
         }
-        int row = this.rowUnder(click.x(), click.y());
+        int row = this.rowUnder(mouseX, mouseY);
         if (row >= 0) {
             this.click(row);
             return true;
         }
-        int swatch = this.swatchUnder(click.x(), click.y());
+        int swatch = this.swatchUnder(mouseX, mouseY);
         if (swatch >= -1) {
             this.click(swatch < 0 ? VehicleWorkstationScreenHandler.FACTORY_PAINT_ID
                     : VehicleWorkstationScreenHandler.DYE_ID + swatch);
             return true;
         }
-        return super.mouseClicked(click, doubled);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -237,7 +235,7 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
         int left = this.leftPos + LIST_X;
         int top = this.topPos + LIST_Y;
         inset(context, left, top, LIST_WIDTH, ROWS * ROW, SLOT_BODY);
-        List<Identifier> vehicles = this.menu.getVehicles();
+        List<ResourceLocation> vehicles = this.menu.getVehicles();
         int hovered = this.rowUnder(mouseX, mouseY);
         for (int row = 0; row < ROWS && this.scroll + row < vehicles.size(); row++) {
             int index = this.scroll + row;
@@ -253,11 +251,11 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
             int room = LIST_WIDTH - 8;
             float scale = Math.max(0.7F, Math.min(1.0F, (float) room / this.font.width(name)));
             name = this.font.plainSubstrByWidth(name, (int) (room / scale));
-            context.pose().pushMatrix();
-            context.pose().translate(left + 3.0F, rowTop + 2.0F + (1.0F - scale) * 4.0F);
-            context.pose().scale(scale, scale);
+            context.pose().pushPose();
+            context.pose().translate(left + 3.0F, rowTop + 2.0F + (1.0F - scale) * 4.0F, 0.0F);
+            context.pose().scale(scale, scale, 1.0F);
             context.drawString(this.font, name, 0, 0, 0xFFFFFFFF, true);
-            context.pose().popMatrix();
+            context.pose().popPose();
         }
         if (this.maxScroll() > 0) {
             int trackHeight = ROWS * ROW;
@@ -274,7 +272,7 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
         inset(context, left, top, PREVIEW_WIDTH, PREVIEW_HEIGHT, STAND_BOTTOM);
         context.fillGradient(left, top, left + PREVIEW_WIDTH, top + PREVIEW_HEIGHT, STAND_TOP, STAND_BOTTOM);
 
-        Identifier id = this.menu.getSelectedId();
+        ResourceLocation id = this.menu.getSelectedId();
         VehicleDefinition definition = this.menu.getSelected();
         if (id == null || definition == null) {
             return;
@@ -288,10 +286,6 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
         car.setColor(paint >= 0 ? DyeColor.byId(paint) : definition.color().orElse(CarEntity.DEFAULT_COLOR));
 
         Minecraft client = Minecraft.getInstance();
-        EntityRenderState state = client.getEntityRenderDispatcher().getRenderer(car)
-                .createRenderState(car, 1.0F);
-        state.lightCoords = 0xF000F0;
-        state.outlineColor = 0;
         long now = Util.getMillis();
         long since = this.lastFrame < 0L ? 0L : Math.min(100L, now - this.lastFrame);
         this.lastFrame = now;
@@ -315,7 +309,7 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
         float length = Math.max(2.0F, definition.width() * 2.6F);
         float scale = Math.min(PREVIEW_WIDTH * 0.62F / length, (PREVIEW_HEIGHT - 14) / (definition.height() + 0.4F));
         scale *= 0.8F + 0.2F * settle;
-        context.submitEntityRenderState(state, scale, new Vector3f(0.0F, car.getBbHeight() / 2.0F, 0.0F), rotation, tilt,
+        drawOnStand(context, car, scale, new Vector3f(0.0F, car.getBbHeight() / 2.0F, 0.0F), rotation, tilt,
                 left, top + 10, left + PREVIEW_WIDTH, top + PREVIEW_HEIGHT);
         if (built < 1.0F) {
             // The finished vehicle comes off the stand in a flash of light
@@ -337,13 +331,13 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
         }
     }
 
-    private CarEntity standFor(Identifier id, VehicleDefinition definition) {
+    private CarEntity standFor(ResourceLocation id, VehicleDefinition definition) {
         return this.stands.computeIfAbsent(id, key -> {
             if (this.minecraft == null || this.minecraft.level == null
                     || !(CarItem.itemFor(definition.chassis()) instanceof CarItem item)) {
                 return null;
             }
-            CarEntity car = item.entityType().create(this.minecraft.level, EntitySpawnReason.LOAD);
+            CarEntity car = item.entityType().create(this.minecraft.level);
             if (car != null) {
                 car.setModel(key);
                 car.refreshDimensions();
@@ -405,15 +399,40 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
                 if (VehicleWorkstationScreenHandler.isOptional(material.item())) {
                     lines.add(Component.translatable("gui.car.workstation.optional").withStyle(ChatFormatting.YELLOW));
                 }
-                context.setComponentTooltipForNextFrame(this.font, lines, mouseX, mouseY);
+                context.renderComponentTooltip(this.font, lines, mouseX, mouseY);
                 return;
             }
         }
         int swatch = this.swatchUnder(mouseX, mouseY);
         if (swatch >= -1) {
-            context.setTooltipForNextFrame(this.font, swatch < 0
+            context.renderTooltip(this.font, swatch < 0
                     ? Component.translatable("gui.car.workstation.factory_paint")
                     : Component.translatable("color.minecraft." + DyeColor.byId(swatch).getName()), mouseX, mouseY);
         }
+    }
+
+    /**
+     * Draws a vehicle centred in a box of the screen, the way the inventory
+     * draws the player: lit as an item is, at the given scale and turn.
+     */
+    private static void drawOnStand(GuiGraphics context, CarEntity car, float scale, Vector3f offset,
+                                    Quaternionf rotation, Quaternionf tilt, int x1, int y1, int x2, int y2) {
+        context.enableScissor(x1, y1, x2, y2);
+        context.pose().pushPose();
+        context.pose().translate((x1 + x2) / 2.0F, (y1 + y2) / 2.0F, 50.0F);
+        context.pose().scale(scale, scale, -scale);
+        context.pose().translate(offset.x(), offset.y(), offset.z());
+        context.pose().mulPose(rotation);
+        com.mojang.blaze3d.platform.Lighting.setupForEntityInInventory();
+        net.minecraft.client.renderer.entity.EntityRenderDispatcher dispatcher =
+                Minecraft.getInstance().getEntityRenderDispatcher();
+        dispatcher.overrideCameraOrientation(new Quaternionf(tilt).conjugate());
+        dispatcher.setRenderShadow(false);
+        dispatcher.render(car, 0.0, 0.0, 0.0, 0.0F, 1.0F, context.pose(), context.bufferSource(), 0xF000F0);
+        context.flush();
+        dispatcher.setRenderShadow(true);
+        context.pose().popPose();
+        com.mojang.blaze3d.platform.Lighting.setupFor3DItems();
+        context.disableScissor();
     }
 }

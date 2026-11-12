@@ -11,11 +11,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.EnergyStorageUtil;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * Where the electricity comes from, if nothing better is about.
@@ -60,9 +59,9 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
         /** Ticks one unit of liquid lasts; 0 for the coal one. */
         public final int ticksPerUnit;
         /** What liquid it runs on; null for the coal one. */
-        public final me.trossty.car.entity.CarSetup.@org.jspecify.annotations.Nullable Fuel fuel;
+        public final me.trossty.car.entity.CarSetup.@org.jetbrains.annotations.Nullable Fuel fuel;
 
-        Kind(int output, int ticksPerUnit, me.trossty.car.entity.CarSetup.@org.jspecify.annotations.Nullable Fuel fuel) {
+        Kind(int output, int ticksPerUnit, me.trossty.car.entity.CarSetup.@org.jetbrains.annotations.Nullable Fuel fuel) {
             this.output = output;
             this.ticksPerUnit = ticksPerUnit;
             this.fuel = fuel;
@@ -86,9 +85,9 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
     private int burnTime;
     private int burnTimeTotal;
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(CAPACITY, 0, MAX_TRANSFER) {
+    private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, 0, MAX_TRANSFER) {
         @Override
-        protected void onFinalCommit() {
+        protected void onChanged() {
             GeneratorBlockEntity.this.setChanged();
         }
     };
@@ -110,7 +109,7 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
         return this.tank;
     }
 
-    public EnergyStorage getEnergyStorage() {
+    public IEnergyStorage getEnergyStorage() {
         return this.energy;
     }
 
@@ -135,7 +134,7 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
         if (stack.isEmpty() || stack.is(ModItems.JERRY_CAN)) {
             return 0;
         }
-        return world == null ? 0 : world.fuelValues().burnDuration(stack);
+        return world == null ? 0 : stack.getBurnTime(null);
     }
 
     public static void tick(Level world, BlockPos pos, BlockState state, GeneratorBlockEntity generator) {
@@ -163,7 +162,7 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
             if (ticks > 0) {
                 generator.burnTime = ticks;
                 generator.burnTimeTotal = ticks;
-                ItemStack left = generator.fuel.getItem().getCraftingRemainder();
+                ItemStack left = generator.fuel.getCraftingRemainingItem();
                 generator.fuel.shrink(1);
                 if (generator.fuel.isEmpty()) {
                     generator.fuel = left;
@@ -175,10 +174,9 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
         // Offer what is in the buffer to everything standing against the block.
         if (generator.energy.amount > 0) {
             for (Direction side : Direction.values()) {
-                EnergyStorage target = EnergyStorage.SIDED.find(
-                        world, pos.relative(side), side.getOpposite());
-                if (target != null && target.supportsInsertion()) {
-                    if (EnergyStorageUtil.move(generator.energy, target, MAX_TRANSFER, null) > 0) {
+                IEnergyStorage target = world.getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos.relative(side), side.getOpposite());
+                if (target != null && target.canReceive()) {
+                    if (EnergyBuffer.move(generator.energy, target, MAX_TRANSFER) > 0) {
                         dirty = true;
                     }
                 }
@@ -216,7 +214,7 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
     }
 
     @Override
-    public me.trossty.car.fluid.@org.jspecify.annotations.Nullable UnitTank gaugeTankA() {
+    public me.trossty.car.fluid.@org.jetbrains.annotations.Nullable UnitTank gaugeTankA() {
         return this.kind.burnsLiquid() ? this.tank : null;
     }
 
@@ -310,8 +308,9 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
     }
 
     @Override
-    protected void loadAdditional(ValueInput view) {
-        super.loadAdditional(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.fuel = view.read("Fuel", ItemStack.CODEC).orElse(ItemStack.EMPTY);
         this.burnTime = view.getIntOr("BurnTime", 0);
         this.burnTimeTotal = view.getIntOr("BurnTimeTotal", 0);
@@ -320,8 +319,9 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view) {
-        super.saveAdditional(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         if (!this.fuel.isEmpty()) {
             view.store("Fuel", ItemStack.CODEC, this.fuel);
         }

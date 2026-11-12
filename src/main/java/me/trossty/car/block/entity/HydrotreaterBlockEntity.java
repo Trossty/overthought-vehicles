@@ -6,9 +6,6 @@ import me.trossty.car.fluid.PetrolSource;
 import me.trossty.car.fluid.UnitTank;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModFluids;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.CombinedStorage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
@@ -16,9 +13,9 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import me.trossty.car.energy.EnergyBuffer;
 
 import java.util.List;
 
@@ -51,9 +48,9 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
             fluid -> fluid == ModFluids.PETROL || fluid == ModFluids.DIESEL,
             false, true, this::setChanged);
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(ENERGY_CAPACITY, 200, 0) {
+    private final EnergyBuffer energy = new EnergyBuffer(ENERGY_CAPACITY, 200, 0) {
         @Override
-        protected void onFinalCommit() {
+        protected void onChanged() {
             HydrotreaterBlockEntity.this.setChanged();
         }
     };
@@ -166,11 +163,11 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
 
     // ---- what the world sees ----
 
-    public Storage<FluidVariant> getFluidStorage() {
-        return new CombinedStorage<>(List.of(this.input, this.output));
+    public net.neoforged.neoforge.fluids.capability.IFluidHandler getFluidStorage() {
+        return new me.trossty.car.fluid.CombinedTanks(this.input, this.output);
     }
 
-    public SimpleEnergyStorage getEnergyStorage() {
+    public EnergyBuffer getEnergyStorage() {
         return this.energy;
     }
 
@@ -209,8 +206,9 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
     }
 
     @Override
-    protected void loadAdditional(ValueInput view) {
-        super.loadAdditional(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.input.read(view, "In");
         this.output.read(view, "Out");
         this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, view.getIntOr("Energy", 0)));
@@ -218,8 +216,9 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view) {
-        super.saveAdditional(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         this.input.write(view, "In");
         this.output.write(view, "Out");
         view.putInt("Energy", (int) this.energy.amount);

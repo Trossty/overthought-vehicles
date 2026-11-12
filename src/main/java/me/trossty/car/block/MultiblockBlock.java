@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A machine bigger than a block.
@@ -177,19 +177,23 @@ public abstract class MultiblockBlock extends BaseEntityBlock {
      * contents first and then call this.
      */
     @Override
-    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
-        if (this.isController(state)) {
-            Direction facing = state.getValue(FACING);
-            int[][] cells = this.cells();
-            for (int i = 1; i < cells.length; i++) {
-                BlockPos at = cellPos(pos, facing, cells[i]);
-                BlockState there = world.getBlockState(at);
-                if (there.is(this) && this.partOf(there) == i) {
-                    world.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+    protected void onRemove(BlockState state, net.minecraft.world.level.Level world, BlockPos pos,
+                            BlockState newState, boolean moved) {
+        // Only when the block really goes, not when its state changes.
+        if (!world.isClientSide() && !state.is(newState.getBlock())) {
+            if (this.isController(state)) {
+                Direction facing = state.getValue(FACING);
+                int[][] cells = this.cells();
+                for (int i = 1; i < cells.length; i++) {
+                    BlockPos at = cellPos(pos, facing, cells[i]);
+                    BlockState there = world.getBlockState(at);
+                    if (there.is(this) && this.partOf(there) == i) {
+                        world.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                    }
                 }
             }
         }
-        super.affectNeighborsAfterRemoval(state, world, pos, moved);
+        super.onRemove(state, world, pos, newState, moved);
     }
 
     @Override
