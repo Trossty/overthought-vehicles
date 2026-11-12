@@ -2196,14 +2196,17 @@ değil.
 Araba ve eşya dokuları kodla üretiliyor, böylece renk değiştirmek kolay:
 
 - [`tools/GenCarTextures.java`](tools/GenCarTextures.java) — 256×256 varlık dokusu (oyuk kabin daha çok UV alanı istiyor)
-- [`tools/GenIcon.java`](tools/GenIcon.java) — mod ikonu
 - [`tools/GenJerryCan.java`](tools/GenJerryCan.java) — benzin bidonu eşya dokusu
 - [`tools/GenWorkbenchTextures.java`](tools/GenWorkbenchTextures.java) — tezgâh blok dokuları
 - [`tools/GenItemModels.java`](tools/GenItemModels.java) — bütün eşyaların 3B modelleri, ortak malzeme dokusu (`item/materials.png`) ve eşya tanımları; dosya adı verilirse envanter görünümünün önizlemesini de çizer
 - [`tools/GenGaugeTextures.java`](tools/GenGaugeTextures.java) — gösterge kadranı yüzleri
-- [`tools/GenPartTextures.java`](tools/GenPartTextures.java) — lift, rafineri, pompa, depo ve boru blok dokuları, boru, valf ve lift modelleri. Dikkat: pompa, depo ve lift dosyalarının bir kısmını sonradan Python üreticileri değiştirdi; bunu çalıştırınca yalnızca istediğin dosyaları tut, gerisini geri al.
+- [`tools/GenPartTextures.java`](tools/GenPartTextures.java) — lift, rafineri, pompa, depo ve boru blok dokuları, boru, valf ve lift modelleri.
 - [`tools/gen_paint_tar.py`](tools/gen_paint_tar.py) — boya kutuları, katran, petrol sızıntısı (blok ve eşya), asfalt eşyası
-- [`tools/GenMachineModels.java`](tools/GenMachineModels.java) — pompa, rafineri, jeneratör ve deponun 3B blok modelleri
+- [`tools/gen_pump_lift.py`](tools/gen_pump_lift.py) — yakıt pompası ve lift modelleri
+- [`tools/gen_tank.py`](tools/gen_tank.py) — sıvı tankı
+- [`tools/GenPlantModels.java`](tools/GenPlantModels.java) — rafineri, jeneratörler, akü dolabı, şarj direği, pumpjack
+
+Her dosyanın tek bir sahibi var: hangi üreticiyi çalıştırırsan çalıştır, başka bir üreticinin dosyasını değiştirmez.
 - [`tools/GenWheelTextures.java`](tools/GenWheelTextures.java) — lastik tipine göre teker dokuları
 - [`tools/pickup.bbmodel`](tools/pickup.bbmodel) — kamyonetin Blockbench projesi (Modded Entity, 256×256)
 - [`tools/GenEvItems.java`](tools/GenEvItems.java) — elektrik motorunun 3B modeli

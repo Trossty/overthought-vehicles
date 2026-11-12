@@ -258,73 +258,6 @@ public class GenPartTextures {
         rect(11, 2, 1, 12, COPPER);
     }
 
-    /** Pump, upper half: the display, the brand band and the nozzle holster. */
-    static void pumpTopFront() {
-        fresh();
-        rect(0, 0, 16, 16, PAINT_DARK);
-        rect(1, 1, 14, 14, PAINT);
-        rect(1, 1, 14, 1, 0xFFD9594A);
-        rect(1, 2, 14, 3, STEEL_DARK);          // brand band
-        rect(2, 3, 12, 1, HAZARD);
-
-        rect(3, 6, 10, 6, 0xFF0E1A12);          // the readout
-        rect(3, 6, 10, 1, 0xFF06100A);
-        rect(4, 7, 3, 1, 0xFF4CE07A);           // digits, abstracted
-        rect(8, 7, 2, 1, 0xFF4CE07A);
-        rect(11, 7, 1, 1, 0xFF4CE07A);
-        rect(4, 9, 2, 1, 0xFF4CE07A);
-        rect(7, 9, 4, 1, 0xFF4CE07A);
-
-        rect(12, 12, 2, 3, STEEL_DARK);         // nozzle in its holster
-        rect(13, 13, 1, 2, STEEL_LIGHT);
-    }
-
-    /** Pump, lower half: the pedestal, the hose and a kerb stripe. */
-    static void pumpBottomFront() {
-        fresh();
-        rect(0, 0, 16, 16, PAINT_DARK);
-        rect(1, 0, 14, 14, PAINT);
-        rect(1, 13, 14, 1, 0xFF7E2619);
-        rect(0, 14, 16, 2, STEEL_DARK);         // kerb
-        for (int x = 0; x < 16; x += 4) {
-            rect(x, 14, 2, 2, HAZARD_DARK);
-        }
-        // the hose, looping down from the holster above
-        rect(12, 0, 2, 4, 0xFF1A1A1A);
-        rect(10, 3, 3, 2, 0xFF1A1A1A);
-        rect(9, 4, 2, 5, 0xFF1A1A1A);
-        rect(9, 8, 3, 2, 0xFF262626);
-        rect(3, 4, 5, 6, STEEL_DARK);           // meter plate
-        rect(4, 5, 3, 4, STEEL);
-    }
-
-    /** Pump sides and back: plain panelling with a seam. */
-    static void pumpSide(boolean upper) {
-        fresh();
-        rect(0, 0, 16, 16, PAINT_DARK);
-        rect(1, upper ? 1 : 0, 14, upper ? 14 : 14, PAINT);
-        if (upper) {
-            rect(1, 1, 14, 1, 0xFFD9594A);
-            rect(1, 2, 14, 2, STEEL_DARK);
-        } else {
-            rect(0, 14, 16, 2, STEEL_DARK);
-            for (int x = 0; x < 16; x += 4) {
-                rect(x, 14, 2, 2, HAZARD_DARK);
-            }
-        }
-        rect(7, upper ? 5 : 0, 1, upper ? 9 : 13, PAINT_DARK);   // panel seam
-    }
-
-    /** Pump roof. */
-    static void pumpTop() {
-        fresh();
-        rect(0, 0, 16, 16, STEEL_DARK);
-        rect(1, 1, 14, 14, STEEL);
-        rect(1, 1, 14, 1, STEEL_LIGHT);
-        rect(5, 5, 6, 6, PAINT_DARK);
-        rect(6, 6, 4, 4, PAINT);
-    }
-
 
     // ---- the fuel line ----
 
@@ -588,61 +521,6 @@ public class GenPartTextures {
      * {@code marks}. Five of these are drawn and the blockstate picks one, so
      * the level is a plain model swap rather than anything rendered per frame.
      */
-    static void tankSide(int level, int marks) {
-        fresh();
-        rect(0, 0, 16, 16, STEEL_DARK);
-        rect(1, 1, 14, 14, STEEL);
-        rect(1, 1, 14, 1, STEEL_LIGHT);
-        rect(1, 2, 14, 2, STEEL_DARK);          // top band
-        rect(1, 12, 14, 2, STEEL_DARK);         // bottom band
-        for (int x = 2; x < 15; x += 3) {       // rivets along the bands
-            px(x, 2, STEEL_LIGHT);
-            px(x, 13, STEEL_LIGHT);
-        }
-
-        int glassTop = 4;
-        int glassHeight = 8;
-        rect(10, glassTop - 1, 4, glassHeight + 2, STEEL_DARK);
-        rect(11, glassTop, 2, glassHeight, GLASS_DARK);
-
-        int filled = glassHeight * level / marks;
-        if (filled > 0) {
-            int from = glassTop + glassHeight - filled;
-            rect(11, from, 2, filled, PETROL);
-            rect(11, from, 2, 1, PETROL_DARK);  // the meniscus
-        }
-
-        // A ladder up the other side, so the thing reads as yard equipment.
-        rect(3, 3, 1, 10, STEEL_DARK);
-        rect(6, 3, 1, 10, STEEL_DARK);
-        for (int y = 4; y < 13; y += 2) {
-            rect(4, y, 2, 1, STEEL_DARK);
-        }
-    }
-
-    /** The tank's lid: a bolted hatch with a copper filler neck. */
-    static void tankTop() {
-        fresh();
-        rect(0, 0, 16, 16, STEEL_DARK);
-        rect(1, 1, 14, 14, STEEL);
-        rect(1, 1, 14, 1, STEEL_LIGHT);
-        rect(5, 5, 6, 6, STEEL_DARK);
-        rect(6, 6, 4, 4, COPPER);
-        rect(6, 6, 4, 1, 0xFFE09265);
-        px(3, 3, STEEL_LIGHT);
-        px(12, 3, STEEL_LIGHT);
-        px(3, 12, STEEL_LIGHT);
-        px(12, 12, STEEL_LIGHT);
-    }
-
-    /** And its floor: a plain plate on a frame. */
-    static void tankBottom() {
-        fresh();
-        rect(0, 0, 16, 16, STEEL_DARK);
-        rect(2, 2, 12, 12, STEEL);
-        rect(0, 7, 16, 2, STEEL_DARK);
-        rect(7, 0, 2, 16, STEEL_DARK);
-    }
 
     // ---- the parts a diagnosis sends you shopping for ----
 
@@ -1006,19 +884,6 @@ public class GenPartTextures {
     }
 
 
-    /** Marks on the tank's sight glass; must match FuelTankBlock.MAX_LEVEL. */
-    static final int TANK_MARKS = 4;
-
-    static String tankBlockstate() {
-        StringBuilder b = new StringBuilder("{\n  \"variants\": {\n");
-        for (int level = 0; level <= TANK_MARKS; level++) {
-            b.append("    \"level=").append(level).append("\": { \"model\": \"car:block/fuel_tank_")
-                    .append(level).append("\" }");
-            b.append(level == TANK_MARKS ? "\n" : ",\n");
-        }
-        return b.append("  }\n}").toString();
-    }
-
     // ---- the lift, which now actually lifts ----
 
     /** Must match {@code VehicleLiftBlockEntity.MAX_LEVEL}. */
@@ -1048,42 +913,6 @@ public class GenPartTextures {
         return value == Math.rint(value) ? String.valueOf((int) value) : String.valueOf(value);
     }
 
-    /**
-     * The raised lift: the floor plate it is always made of, the ram coming out
-     * of it and the deck the car ends up standing on. A block model may reach
-     * 16 units above its own block and no further, which is exactly why the
-     * lift travels one block and not two.
-     */
-    static String liftModel(int level) {
-        double deck = 12.0 + 4.0 * level;
-        return """
-                {
-                  "textures": {
-                    "particle": "car:block/vehicle_lift_side",
-                    "top": "car:block/vehicle_lift_top",
-                    "bottom": "car:block/vehicle_lift_bottom",
-                    "side": "car:block/vehicle_lift_side"
-                  },
-                  "elements": [
-                %s,
-                %s,
-                %s
-                  ]
-                }
-                """.formatted(
-                        liftBox(0, 0, 0, 16, 16, 16, "side", "top", "bottom"),
-                        liftBox(6, 16, 6, 10, deck, 10, "side", "side", "side"),
-                        liftBox(1, deck, 1, 15, deck + 4.0, 15, "side", "top", "side"));
-    }
-
-    static String liftBlockstate() {
-        StringBuilder variants = new StringBuilder();
-        for (int level = 0; level <= LIFT_LEVELS; level++) {
-            variants.append("    \"level=%d\": {\n      \"model\": \"car:block/vehicle_lift%s\"\n    }%s\n"
-                    .formatted(level, level == 0 ? "" : "_" + level, level == LIFT_LEVELS ? "" : ","));
-        }
-        return "{\n  \"variants\": {\n" + variants + "  }\n}";
-    }
 
     public static void main(String[] args) throws Exception {
         carBody();
@@ -1132,16 +961,7 @@ public class GenPartTextures {
         liftBottom();
         save(ASSETS + "textures/block/vehicle_lift_bottom.png");
 
-        write(ASSETS + "blockstates/vehicle_lift.json", liftBlockstate());
-        for (int level = 1; level <= LIFT_LEVELS; level++) {
-            write(ASSETS + "models/block/vehicle_lift_" + level + ".json", liftModel(level));
-        }
-        write(ASSETS + "models/block/vehicle_lift.json",
-                "{\n  \"parent\": \"minecraft:block/cube_bottom_top\",\n  \"textures\": {\n"
-                        + "    \"particle\": \"car:block/vehicle_lift_side\",\n"
-                        + "    \"top\": \"car:block/vehicle_lift_top\",\n"
-                        + "    \"bottom\": \"car:block/vehicle_lift_bottom\",\n"
-                        + "    \"side\": \"car:block/vehicle_lift_side\"\n  }\n}");
+        // The lift's blockstate and models are tools/gen_pump_lift.py's.
         refineryTop();
         save(ASSETS + "textures/block/fuel_refinery_top.png");
         refineryFront(false);
@@ -1151,16 +971,6 @@ public class GenPartTextures {
         refinerySide();
         save(ASSETS + "textures/block/fuel_refinery_side.png");
 
-        pumpTopFront();
-        save(ASSETS + "textures/block/fuel_pump_top_front.png");
-        pumpBottomFront();
-        save(ASSETS + "textures/block/fuel_pump_bottom_front.png");
-        pumpSide(true);
-        save(ASSETS + "textures/block/fuel_pump_top_side.png");
-        pumpSide(false);
-        save(ASSETS + "textures/block/fuel_pump_bottom_side.png");
-        pumpTop();
-        save(ASSETS + "textures/block/fuel_pump_top.png");
 
         pipeSkin();
         save(ASSETS + "textures/block/fuel_pipe.png");
@@ -1176,19 +986,7 @@ public class GenPartTextures {
                 "{\n  \"model\": {\n    \"type\": \"minecraft:model\",\n"
                         + "    \"model\": \"car:block/fuel_pipe_inventory\"\n  }\n}");
 
-        for (int level = 0; level <= TANK_MARKS; level++) {
-            tankSide(level, TANK_MARKS);
-            save(ASSETS + "textures/block/fuel_tank_side_" + level + ".png");
-            // The tank's model itself is shaped by tools/GenMachineModels.java.
-        }
-        tankTop();
-        save(ASSETS + "textures/block/fuel_tank_top.png");
-        tankBottom();
-        save(ASSETS + "textures/block/fuel_tank_bottom.png");
-        write(ASSETS + "blockstates/fuel_tank.json", tankBlockstate());
-        write(ASSETS + "items/fuel_tank.json",
-                "{\n  \"model\": {\n    \"type\": \"minecraft:model\",\n"
-                        + "    \"model\": \"car:block/fuel_tank_0\"\n  }\n}");
+        // The yard tank is tools/gen_tank.py's.
 
         barrelIcon();
         save(ASSETS + "textures/item/tanker_barrel.png");

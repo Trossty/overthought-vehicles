@@ -25,7 +25,6 @@ public class GenAsphalt {
     static final String[] MARKINGS = {"dashed", "solid", "double", "edge", "corner", "stop", "crosswalk",
             "arrow", "arrow_left", "arrow_right", "parking", "hatch"};
     static final String[] PAINTS = {"white", "yellow", "red", "blue"};
-    static final int[] PAINT_RGB = {0xF0F0EA, 0xF2C12E, 0xC93A2F, 0x2F66C9};
     static final String[] DYES = {"white_dye", "yellow_dye", "red_dye", "blue_dye"};
     static final String[] FACINGS = {"north", "east", "south", "west"};
 
@@ -162,48 +161,6 @@ public class GenAsphalt {
         return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
-    /** A paint tin: a tinplate can with a wire handle, a paint label and paint run down from the lid. */
-    static void tin(int rgb) {
-        img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        int outline = 0xFF2A2C30;
-        int metal = 0xFFA7ABB2;
-        int metalLight = 0xFFC9CDD3;
-        int metalDark = 0xFF7B8088;
-        // Handle.
-        for (int x = 5; x <= 10; x++) {
-            px(x, 1, outline);
-        }
-        px(4, 2, outline);
-        px(11, 2, outline);
-        px(4, 3, outline);
-        px(11, 3, outline);
-        // Body.
-        rect(3, 4, 12, 14, metal);
-        for (int y = 4; y <= 14; y++) {
-            px(3, y, outline);
-            px(12, y, outline);
-            px(4, y, metalLight);
-            px(11, y, metalDark);
-        }
-        for (int x = 3; x <= 12; x++) {
-            px(x, 15, outline);
-            px(x, 3, outline);
-        }
-        // Lid rim, with paint on it.
-        rect(4, 4, 11, 4, metalLight);
-        rect(5, 4, 9, 4, rgb | 0xFF000000);
-        // Label in the paint colour.
-        rect(4, 7, 11, 11, rgb | 0xFF000000);
-        rect(4, 7, 11, 7, shade(rgb, 1.15));
-        rect(4, 11, 11, 11, shade(rgb, 0.7));
-        px(4, 8, shade(rgb, 1.1));
-        // A white stripe on the label, the road-paint sign.
-        rect(6, 9, 9, 9, rgb == 0xF0F0EA ? 0xFF3A3C40 : 0xFFF4F4F0);
-        // A run of paint down from the rim.
-        px(9, 5, rgb | 0xFF000000);
-        px(9, 6, shade(rgb, 0.85));
-    }
-
     static void write(String path) throws Exception {
         File file = new File(ASSETS + "textures/" + path + ".png");
         file.getParentFile().mkdirs();
@@ -220,16 +177,6 @@ public class GenAsphalt {
         Files.deleteIfExists(Path.of(path));
     }
 
-    static String itemDef(String model) {
-        return """
-                {
-                  "model": {
-                    "type": "minecraft:model",
-                    "model": "%s"
-                  }
-                }
-                """.formatted(model);
-    }
 
     /** Asphalt this many sixteenths high, with its sides cut to fit. */
     static String layerModel(int h) {
@@ -290,11 +237,8 @@ public class GenAsphalt {
             marking(name);
             write("block/marking/" + name);
         }
-        for (int i = 0; i < PAINTS.length; i++) {
-            tin(PAINT_RGB[i]);
-            write("item/" + PAINTS[i] + "_road_paint");
-        }
-        writeTar();
+        // The paint tins and the tar, their textures, models and item
+        // definitions, and the asphalt item, are tools/gen_paint_tar.py's.
 
         // ---- models ----
         String models = ASSETS + "models/";
@@ -312,21 +256,6 @@ public class GenAsphalt {
                 json(models + "block/marking/" + name + "_" + layers + ".json", markingModel(name, layers * 2));
             }
         }
-        json(models + "item/tar.json", """
-                {
-                  "parent": "minecraft:item/generated",
-                  "textures": {"layer0": "car:item/tar"}
-                }
-                """);
-        for (String paint : PAINTS) {
-            json(models + "item/" + paint + "_road_paint.json", """
-                    {
-                      "parent": "minecraft:item/generated",
-                      "textures": {"layer0": "car:item/%s_road_paint"}
-                    }
-                    """.formatted(paint));
-        }
-
         // ---- blockstate: the layer, then the marking over it ----
         List<String> parts = new ArrayList<>();
         for (int layers = 1; layers <= 8; layers++) {
@@ -346,11 +275,6 @@ public class GenAsphalt {
         json(ASSETS + "blockstates/asphalt.json", "{\n  \"multipart\": [\n" + String.join(",\n", parts) + "\n  ]\n}\n");
 
         // ---- item definitions ----
-        json(ASSETS + "items/asphalt.json", itemDef("car:block/asphalt_height2"));
-        json(ASSETS + "items/tar.json", itemDef("car:item/tar"));
-        for (String paint : PAINTS) {
-            json(ASSETS + "items/" + paint + "_road_paint.json", itemDef("car:item/" + paint + "_road_paint"));
-        }
 
         // ---- loot: a layer back for every layer laid ----
         List<String> counts = new ArrayList<>();
@@ -447,38 +371,4 @@ public class GenAsphalt {
                 + PAINTS.length + " road paints and tar (" + parts.size() + " blockstate parts)");
     }
 
-    static void writeTar() throws Exception {
-        img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        int outline = 0xFF0B0B0C;
-        int body = 0xFF1A1A1C;
-        int mid = 0xFF26262A;
-        int shine = 0xFF5A5C66;
-        int[][] lump = {
-                {5, 4, 6}, {4, 5, 8}, {3, 6, 10}, {3, 7, 10}, {2, 8, 12}, {2, 9, 12},
-                {3, 10, 11}, {3, 11, 10}, {4, 12, 8}
-        };
-        for (int[] row : lump) {
-            int y = row[1];
-            for (int x = row[0]; x < row[0] + row[2]; x++) {
-                px(x, y, body);
-            }
-            px(row[0], y, outline);
-            px(row[0] + row[2] - 1, y, outline);
-        }
-        for (int x = 5; x < 11; x++) {
-            px(x, 3, outline);
-            px(x, 13, outline);
-        }
-        for (int x = 6; x < 11; x++) {
-            px(x, 10, mid);
-            px(x - 1, 11, mid);
-        }
-        px(6, 5, shine);
-        px(5, 6, shine);
-        px(6, 6, 0xFF3C3E46);
-        px(5, 7, 0xFF3C3E46);
-        px(9, 14, body);
-        px(9, 15, outline);
-        write("item/tar");
-    }
 }

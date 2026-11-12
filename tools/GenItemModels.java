@@ -1175,6 +1175,15 @@ public class GenItemModels {
         System.out.println("preview " + path);
     }
 
+    /**
+     * Items whose definitions other tools have taken over: the three vehicles
+     * pick their model per vehicle in tools/GenVehicles.java, the engine has the
+     * electric motor as variant 8 (tools/GenEvItems.java) and the jerry can a
+     * biofuel case of its own. Their models are still written here.
+     */
+    static final java.util.Set<String> DEFINED_ELSEWHERE =
+            java.util.Set.of("car", "pickup", "fuel_tanker", "engine", "jerry_can");
+
     public static void main(String[] args) throws Exception {
         airFilter();
         airFilterOpen();
@@ -1224,7 +1233,7 @@ public class GenItemModels {
             fits.add(fit);
             boxes += model.boxes.size();
             write(ASSETS + "models/item/" + model.name + ".json", json(model, largest, fit));
-            if (!isKind(model.name)) {
+            if (!isKind(model.name) && !DEFINED_ELSEWHERE.contains(model.name)) {
                 write(ASSETS + "items/" + model.name + ".json", definition(model));
             }
         }
