@@ -1,9 +1,9 @@
 package me.trossty.car.client.render;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
@@ -31,11 +31,11 @@ public final class WorldLabels {
      * @param lit    whether the tooltip beside the crosshair is speaking for it
      * @param icon   an item to draw over the words, or an empty stack for none
      */
-    public record Label(Vec3d at, Text text, int colour, boolean lit, ItemStack icon) {
+    public record Label(Vec3 at, Component text, int colour, boolean lit, ItemStack icon) {
     }
 
     private static final List<Label> LABELS = new ArrayList<>();
-    private static Vec3d camera = Vec3d.ZERO;
+    private static Vec3 camera = Vec3.ZERO;
     private static Matrix4f view = new Matrix4f();
 
     private WorldLabels() {
@@ -45,14 +45,14 @@ public final class WorldLabels {
     public static void begin(WorldRenderContext context) {
         LABELS.clear();
         camera = context.worldState().cameraRenderState.pos;
-        view = new Matrix4f(context.matrices().peek().getPositionMatrix());
+        view = new Matrix4f(context.matrices().last().pose());
     }
 
-    public static void add(Vec3d at, Text text, int colour, boolean lit) {
+    public static void add(Vec3 at, Component text, int colour, boolean lit) {
         LABELS.add(new Label(at, text, colour, lit, ItemStack.EMPTY));
     }
 
-    public static void add(Vec3d at, Text text, int colour, ItemStack icon) {
+    public static void add(Vec3 at, Component text, int colour, ItemStack icon) {
         LABELS.add(new Label(at, text, colour, false, icon));
     }
 
@@ -60,7 +60,7 @@ public final class WorldLabels {
         return Collections.unmodifiableList(LABELS);
     }
 
-    public static Vec3d camera() {
+    public static Vec3 camera() {
         return camera;
     }
 

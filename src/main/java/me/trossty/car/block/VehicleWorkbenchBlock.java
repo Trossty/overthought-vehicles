@@ -2,17 +2,17 @@ package me.trossty.car.block;
 
 import com.mojang.serialization.MapCodec;
 import me.trossty.car.workbench.VehicleWorkbenchScreenHandler;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.screen.ScreenHandlerContext;
-import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * The bench you build vehicles at. It holds nothing of its own: the window's
@@ -21,43 +21,43 @@ import net.minecraft.world.World;
  */
 public class VehicleWorkbenchBlock extends Block {
 
-    public static final MapCodec<VehicleWorkbenchBlock> CODEC = createCodec(VehicleWorkbenchBlock::new);
+    public static final MapCodec<VehicleWorkbenchBlock> CODEC = simpleCodec(VehicleWorkbenchBlock::new);
 
-    private static final Text TITLE = Text.translatable("container.car.vehicle_workbench");
+    private static final Component TITLE = Component.translatable("container.car.vehicle_workbench");
 
-    public VehicleWorkbenchBlock(Settings settings) {
+    public VehicleWorkbenchBlock(Properties settings) {
         super(settings);
     }
 
     @Override
-    protected MapCodec<? extends Block> getCodec() {
+    protected MapCodec<? extends Block> codec() {
         return CODEC;
     }
 
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
-                                 PlayerEntity player, BlockHitResult hit) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
+                                 Player player, BlockHitResult hit) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        player.openHandledScreen(this.createFactory(world, pos));
-        return ActionResult.CONSUME;
+        player.openMenu(this.createFactory(world, pos));
+        return InteractionResult.CONSUME;
     }
 
     /**
-     * Declared as well as used in {@link #onUse}, so anything that asks the
+     * Declared as well as used in {@link #useWithoutItem}, so anything that asks the
      * block for its screen — a test, a mod, a command — gets the same window a
      * right click would open instead of nothing.
      */
     @Override
-    protected NamedScreenHandlerFactory createScreenHandlerFactory(BlockState state, World world, BlockPos pos) {
+    protected MenuProvider getMenuProvider(BlockState state, Level world, BlockPos pos) {
         return this.createFactory(world, pos);
     }
 
-    private NamedScreenHandlerFactory createFactory(World world, BlockPos pos) {
-        return new SimpleNamedScreenHandlerFactory(
+    private MenuProvider createFactory(Level world, BlockPos pos) {
+        return new SimpleMenuProvider(
                 (syncId, inventory, player) -> new VehicleWorkbenchScreenHandler(
-                        syncId, inventory, ScreenHandlerContext.create(world, pos)),
+                        syncId, inventory, ContainerLevelAccess.create(world, pos)),
                 TITLE);
     }
 }

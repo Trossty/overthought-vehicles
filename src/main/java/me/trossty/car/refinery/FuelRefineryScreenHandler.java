@@ -2,23 +2,23 @@ package me.trossty.car.refinery;
 
 import me.trossty.car.block.entity.FuelRefineryBlockEntity;
 import me.trossty.car.registry.ModScreenHandlers;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.ArrayPropertyDelegate;
-import net.minecraft.screen.PropertyDelegate;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.world.World;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.SimpleContainerData;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 /**
  * The refinery's window. Four slots, two tanks and two timers; the tanks and
  * timers come across as properties, because they are the only part of this
  * machine the client has to draw and none of them lives in an item stack.
  */
-public class FuelRefineryScreenHandler extends ScreenHandler {
+public class FuelRefineryScreenHandler extends AbstractContainerMenu {
 
     public static final int ORGANIC_X = 18;
     public static final int ORGANIC_Y = 17;
@@ -39,26 +39,26 @@ public class FuelRefineryScreenHandler extends ScreenHandler {
     private static final int PLAYER_INVENTORY_TOP = 84;
     private static final int HOTBAR_TOP = 142;
 
-    private final Inventory inventory;
-    private final PropertyDelegate properties;
-    private final World world;
+    private final Container inventory;
+    private final ContainerData properties;
+    private final Level world;
 
     /** Client-side constructor: scratch inventory, zeroed properties, filled by sync. */
-    public FuelRefineryScreenHandler(int syncId, PlayerInventory playerInventory) {
+    public FuelRefineryScreenHandler(int syncId, Inventory playerInventory) {
         this(syncId, playerInventory,
-                new SimpleInventory(FuelRefineryBlockEntity.SIZE),
-                new ArrayPropertyDelegate(FuelRefineryBlockEntity.PROPERTY_COUNT));
+                new SimpleContainer(FuelRefineryBlockEntity.SIZE),
+                new SimpleContainerData(FuelRefineryBlockEntity.PROPERTY_COUNT));
     }
 
-    public FuelRefineryScreenHandler(int syncId, PlayerInventory playerInventory,
-                                     Inventory inventory, PropertyDelegate properties) {
+    public FuelRefineryScreenHandler(int syncId, Inventory playerInventory,
+                                     Container inventory, ContainerData properties) {
         super(ModScreenHandlers.FUEL_REFINERY, syncId);
-        checkSize(inventory, FuelRefineryBlockEntity.SIZE);
-        checkDataCount(properties, FuelRefineryBlockEntity.PROPERTY_COUNT);
+        checkContainerSize(inventory, FuelRefineryBlockEntity.SIZE);
+        checkContainerDataCount(properties, FuelRefineryBlockEntity.PROPERTY_COUNT);
         this.inventory = inventory;
         this.properties = properties;
-        this.world = playerInventory.player.getEntityWorld();
-        inventory.onOpen(playerInventory.player);
+        this.world = playerInventory.player.level();
+        inventory.startOpen(playerInventory.player);
 
         this.addSlot(refinerySlot(FuelRefineryBlockEntity.ORGANIC_SLOT, ORGANIC_X, ORGANIC_Y));
         this.addSlot(refinerySlot(FuelRefineryBlockEntity.OIL_SLOT, HEAT_X, HEAT_Y));
@@ -76,7 +76,7 @@ public class FuelRefineryScreenHandler extends ScreenHandler {
             this.addSlot(new Slot(playerInventory, column, 8 + column * 18, HOTBAR_TOP));
         }
 
-        this.addProperties(properties);
+        this.addDataSlots(properties);
     }
 
     /**
@@ -87,7 +87,7 @@ public class FuelRefineryScreenHandler extends ScreenHandler {
     private Slot refinerySlot(int index, int x, int y) {
         return new Slot(this.inventory, index, x, y) {
             @Override
-            public boolean canInsert(ItemStack stack) {
+            public boolean mayPlace(ItemStack stack) {
                 return FuelRefineryBlockEntity.isValidFor(index, stack,
                         FuelRefineryScreenHandler.this.world);
             }
@@ -131,39 +131,39 @@ public class FuelRefineryScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public boolean canUse(PlayerEntity player) {
-        return this.inventory.canPlayerUse(player);
+    public boolean stillValid(Player player) {
+        return this.inventory.stillValid(player);
     }
 
     @Override
-    public ItemStack quickMove(PlayerEntity player, int slotIndex) {
+    public ItemStack quickMoveStack(Player player, int slotIndex) {
         Slot slot = this.slots.get(slotIndex);
-        if (!slot.hasStack()) {
+        if (!slot.hasItem()) {
             return ItemStack.EMPTY;
         }
-        ItemStack stack = slot.getStack();
+        ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
         int machineEnd = FuelRefineryBlockEntity.SIZE;
 
         if (slotIndex < machineEnd) {
-            if (!this.insertItem(stack, machineEnd, this.slots.size(), true)) {
+            if (!this.moveItemStackTo(stack, machineEnd, this.slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
         } else if (!this.insertIntoMachine(stack)) {
             int inventoryEnd = machineEnd + 27;
             if (slotIndex < inventoryEnd) {
-                if (!this.insertItem(stack, inventoryEnd, this.slots.size(), false)) {
+                if (!this.moveItemStackTo(stack, inventoryEnd, this.slots.size(), false)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (!this.insertItem(stack, machineEnd, inventoryEnd, false)) {
+            } else if (!this.moveItemStackTo(stack, machineEnd, inventoryEnd, false)) {
                 return ItemStack.EMPTY;
             }
         }
 
         if (stack.isEmpty()) {
-            slot.setStack(ItemStack.EMPTY);
+            slot.setByPlayer(ItemStack.EMPTY);
         } else {
-            slot.markDirty();
+            slot.setChanged();
         }
         return original;
     }
@@ -171,8 +171,8 @@ public class FuelRefineryScreenHandler extends ScreenHandler {
     /** Shift-click puts a stack wherever it actually belongs, one slot at a time. */
     private boolean insertIntoMachine(ItemStack stack) {
         for (int index = 0; index < FuelRefineryBlockEntity.SIZE; index++) {
-            if (this.slots.get(index).canInsert(stack)
-                    && this.insertItem(stack, index, index + 1, false)) {
+            if (this.slots.get(index).mayPlace(stack)
+                    && this.moveItemStackTo(stack, index, index + 1, false)) {
                 return true;
             }
         }
@@ -180,8 +180,8 @@ public class FuelRefineryScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public void onClosed(PlayerEntity player) {
-        super.onClosed(player);
-        this.inventory.onClose(player);
+    public void removed(Player player) {
+        super.removed(player);
+        this.inventory.stopOpen(player);
     }
 }

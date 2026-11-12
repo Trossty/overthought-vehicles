@@ -1,11 +1,11 @@
 package me.trossty.car.sound;
 
 import me.trossty.car.CarMain;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
 
 /**
  * Sounds the car uses.
@@ -29,7 +29,7 @@ public final class ModSounds {
     public static final SoundEvent CAR_ENGINE = register("engine");
 
     /** One-shot horn blast: a 440 Hz / 554.37 Hz two-tone chord. */
-    public static final RegistryEntry<SoundEvent> CAR_HORN = registerReference("horn");
+    public static final Holder<SoundEvent> CAR_HORN = registerReference("horn");
 
     /** Tyre squeal for a car sliding sideways: a wavering whine over hiss. */
     public static final SoundEvent TYRE_SKID = register("skid");
@@ -60,12 +60,12 @@ public final class ModSounds {
 
     private static SoundEvent register(String path) {
         Identifier id = CarMain.id(path);
-        return Registry.register(Registries.SOUND_EVENT, id, SoundEvent.of(id));
+        return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
     }
 
-    private static RegistryEntry.Reference<SoundEvent> registerReference(String path) {
+    private static Holder.Reference<SoundEvent> registerReference(String path) {
         Identifier id = CarMain.id(path);
-        return Registry.registerReference(Registries.SOUND_EVENT, id, SoundEvent.of(id));
+        return Registry.registerForHolder(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
     }
 
     /** Forces class loading so the static fields above are registered. */

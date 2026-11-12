@@ -1,10 +1,10 @@
 package me.trossty.car.entity;
 
 import me.trossty.car.registry.ModItems;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.Item;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Two wheels: a scooter or a motorbike. Underneath it is the car — the same
@@ -14,7 +14,7 @@ import net.minecraft.world.World;
  */
 public class MotorcycleEntity extends CarEntity {
 
-    public MotorcycleEntity(EntityType<?> type, World world) {
+    public MotorcycleEntity(EntityType<?> type, Level world) {
         super(type, world);
     }
 
@@ -25,19 +25,19 @@ public class MotorcycleEntity extends CarEntity {
 
     /** Rider in front, pillion behind, both on the centre line. */
     @Override
-    protected Vec3d plainSeatPosition(int seat) {
-        return new Vec3d(0.0, 0.75, seat == 0 ? -0.15 : -0.6);
+    protected Vec3 plainSeatPosition(int seat) {
+        return new Vec3(0.0, 0.75, seat == 0 ? -0.15 : -0.6);
     }
 
     @Override
-    protected Item asItem() {
+    protected Item getDropItem() {
         return ModItems.MOTORCYCLE;
     }
 
     /** Nobody aboard: down on its side stand. */
     @Override
     protected float restPoseTarget() {
-        return this.hasPassengers() ? 0.0F : 1.0F;
+        return this.isVehicle() ? 0.0F : 1.0F;
     }
 
     @Override

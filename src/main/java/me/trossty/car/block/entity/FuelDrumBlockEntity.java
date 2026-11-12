@@ -7,13 +7,13 @@ import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.base.SingleFluidStorage;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.component.ComponentMap;
-import net.minecraft.component.ComponentsAccess;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponentGetter;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * A drum: one liquid, eight buckets of it, and nothing else going on. It does
@@ -66,12 +66,12 @@ public class FuelDrumBlockEntity extends BlockEntity
     }
 
     private void changed() {
-        this.markDirty();
+        this.setChanged();
         FluidVariant now = (FluidVariant) this.getRenderData();
-        if (!now.equals(this.shown) && this.world != null && !this.world.isClient()) {
+        if (!now.equals(this.shown) && this.level != null && !this.level.isClientSide()) {
             this.shown = now;
-            this.world.updateListeners(this.pos, this.getCachedState(), this.getCachedState(),
-                    net.minecraft.block.Block.NOTIFY_LISTENERS);
+            this.level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(),
+                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
         }
     }
 
@@ -88,45 +88,45 @@ public class FuelDrumBlockEntity extends BlockEntity
     // ---- saving, and travelling in the item ----
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
+    protected void loadAdditional(ValueInput view) {
+        super.loadAdditional(view);
         this.setContents(view.read("Fluid", FluidVariant.CODEC).orElse(FluidVariant.blank()),
-                view.getLong("Amount", 0L));
+                view.getLongOr("Amount", 0L));
         FluidVariant now = (FluidVariant) this.getRenderData();
         if (!now.equals(this.shown)) {
             this.shown = now;
             // The client has just been told of a new liquid: repaint.
-            if (this.world != null && this.world.isClient()) {
-                this.world.updateListeners(this.pos, this.getCachedState(), this.getCachedState(),
-                        net.minecraft.block.Block.NOTIFY_LISTENERS);
+            if (this.level != null && this.level.isClientSide()) {
+                this.level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(),
+                        net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
             }
         }
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(ValueOutput view) {
+        super.saveAdditional(view);
         if (!this.storage.isResourceBlank() && this.storage.amount > 0) {
-            view.put("Fluid", FluidVariant.CODEC, this.storage.variant);
+            view.store("Fluid", FluidVariant.CODEC, this.storage.variant);
             view.putLong("Amount", this.storage.amount);
         }
     }
 
     @Override
-    public net.minecraft.network.packet.@org.jspecify.annotations.Nullable Packet<
-            net.minecraft.network.listener.ClientPlayPacketListener> toUpdatePacket() {
-        return net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket.create(this);
+    public net.minecraft.network.protocol.@org.jspecify.annotations.Nullable Packet<
+            net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public net.minecraft.nbt.NbtCompound toInitialChunkDataNbt(
-            net.minecraft.registry.RegistryWrapper.WrapperLookup registries) {
-        return this.createNbt(registries);
+    public net.minecraft.nbt.CompoundTag getUpdateTag(
+            net.minecraft.core.HolderLookup.Provider registries) {
+        return this.saveWithoutMetadata(registries);
     }
 
     @Override
-    protected void readComponents(ComponentsAccess components) {
-        super.readComponents(components);
+    protected void applyImplicitComponents(DataComponentGetter components) {
+        super.applyImplicitComponents(components);
         ModComponents.StoredFluid held = components.get(ModComponents.STORED_FLUID);
         if (held != null) {
             this.setContents(held.fluid(), held.amount());
@@ -136,19 +136,19 @@ public class FuelDrumBlockEntity extends BlockEntity
     }
 
     @Override
-    protected void addComponents(ComponentMap.Builder builder) {
-        super.addComponents(builder);
+    protected void collectImplicitComponents(DataComponentMap.Builder builder) {
+        super.collectImplicitComponents(builder);
         if (!this.storage.isResourceBlank() && this.storage.amount > 0) {
-            builder.add(ModComponents.STORED_FLUID,
+            builder.set(ModComponents.STORED_FLUID,
                     new ModComponents.StoredFluid(this.storage.variant, this.storage.amount));
         }
     }
 
     /** The liquid travels in the component; the item's copy of the block data leaves it out. */
     @Override
-    public void removeFromCopiedStackData(WriteView view) {
-        super.removeFromCopiedStackData(view);
-        view.remove("Fluid");
-        view.remove("Amount");
+    public void removeComponentsFromTag(ValueOutput view) {
+        super.removeComponentsFromTag(view);
+        view.discard("Fluid");
+        view.discard("Amount");
     }
 }

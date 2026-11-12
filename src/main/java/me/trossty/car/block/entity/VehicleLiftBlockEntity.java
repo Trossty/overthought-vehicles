@@ -3,18 +3,17 @@ package me.trossty.car.block.entity;
 import me.trossty.car.block.VehicleLiftBlock;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-
+import net.minecraft.core.BlockPos;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import java.util.List;
 
 /**
@@ -76,30 +75,30 @@ public class VehicleLiftBlockEntity extends BlockEntity {
     /** Flips the hand latch and reports which way it now points. */
     public boolean toggle() {
         this.wantUp = !this.wantUp;
-        this.markDirty();
+        this.setChanged();
         return this.wantUp;
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, VehicleLiftBlockEntity lift) {
-        int level = state.get(VehicleLiftBlock.LEVEL);
-        int target = lift.wantUp || world.isReceivingRedstonePower(pos) ? MAX_LEVEL : 0;
+    public static void tick(Level world, BlockPos pos, BlockState state, VehicleLiftBlockEntity lift) {
+        int level = state.getValue(VehicleLiftBlock.LEVEL);
+        int target = lift.wantUp || world.hasNeighborSignal(pos) ? MAX_LEVEL : 0;
 
         if (level != target) {
             lift.stepTimer++;
             if (lift.stepTimer >= TICKS_PER_STEP) {
                 lift.stepTimer = 0;
                 level += Integer.signum(target - level);
-                world.setBlockState(pos, state.with(VehicleLiftBlock.LEVEL, level), Block.NOTIFY_ALL);
+                world.setBlock(pos, state.setValue(VehicleLiftBlock.LEVEL, level), Block.UPDATE_ALL);
                 world.playSound(null, pos,
-                        target > 0 ? SoundEvents.BLOCK_PISTON_EXTEND : SoundEvents.BLOCK_PISTON_CONTRACT,
-                        SoundCategory.BLOCKS, 0.3F, 0.6F);
+                        target > 0 ? SoundEvents.PISTON_EXTEND : SoundEvents.PISTON_CONTRACT,
+                        SoundSource.BLOCKS, 0.3F, 0.6F);
             }
         } else {
             lift.stepTimer = 0;
         }
 
         if (level > 0) {
-            hold(world, pos, level, state.get(VehicleLiftBlock.FACING));
+            hold(world, pos, level, state.getValue(VehicleLiftBlock.FACING));
         }
     }
 
@@ -108,28 +107,28 @@ public class VehicleLiftBlockEntity extends BlockEntity {
      * every tick rather than once per step, because a car that is only moved
      * when the platform moves drifts away between steps under its own gravity.
      */
-    private static void hold(World world, BlockPos pos, int level, net.minecraft.util.math.Direction facing) {
+    private static void hold(Level world, BlockPos pos, int level, net.minecraft.core.Direction facing) {
         double top = pos.getY() + 1.0 + RAISE_PER_LEVEL * level;
-        boolean alongX = facing.getAxis() == net.minecraft.util.math.Direction.Axis.X;
+        boolean alongX = facing.getAxis() == net.minecraft.core.Direction.Axis.X;
         double reachX = alongX ? HOLD_LENGTH : HOLD_WIDTH;
         double reachZ = alongX ? HOLD_WIDTH : HOLD_LENGTH;
-        Box over = new Box(
+        AABB over = new AABB(
                 pos.getX() + 0.5 - reachX, pos.getY(), pos.getZ() + 0.5 - reachZ,
                 pos.getX() + 0.5 + reachX, pos.getY() + 3.0, pos.getZ() + 0.5 + reachZ);
 
         // A car counts as on the platform when its middle is over it, so one
         // parked alongside is left where it is.
-        List<CarEntity> parked = world.getEntitiesByClass(CarEntity.class, over,
+        List<CarEntity> parked = world.getEntitiesOfClass(CarEntity.class, over,
                 car -> !car.isRemoved() && over.contains(car.getX(), over.minY + 0.1, car.getZ()));
         for (CarEntity car : parked) {
             // Nobody drives a car that is up on a lift. While somebody sits
             // at the wheel their game moves the car, not the server, so the
             // lift could not hold it: they are asked to get out.
             if (car.getControllingPassenger() != null) {
-                car.removeAllPassengers();
+                car.ejectPassengers();
             }
-            car.setPosition(car.getX(), top, car.getZ());
-            car.setVelocity(Vec3d.ZERO);
+            car.setPos(car.getX(), top, car.getZ());
+            car.setDeltaMovement(Vec3.ZERO);
             car.fallDistance = 0.0;
             // Wheels off the ground: the engine can run, but nothing happens.
             car.setSpeed(0.0F);
@@ -137,14 +136,14 @@ public class VehicleLiftBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        this.wantUp = view.getBoolean("WantUp", false);
+    protected void loadAdditional(ValueInput view) {
+        super.loadAdditional(view);
+        this.wantUp = view.getBooleanOr("WantUp", false);
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(ValueOutput view) {
+        super.saveAdditional(view);
         view.putBoolean("WantUp", this.wantUp);
     }
 }

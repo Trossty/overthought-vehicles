@@ -4,112 +4,112 @@ import com.mojang.serialization.MapCodec;
 import me.trossty.car.block.entity.ChargingPostBlockEntity;
 import me.trossty.car.machine.MachineScreenHandler;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * A kerbside post with a screen and a plug in its holster. Fed by a cable, it
  * charges the nearest electric vehicle parked beside it; the screen lights
  * while one is drawing.
  */
-public class ChargingPostBlock extends BlockWithEntity {
+public class ChargingPostBlock extends BaseEntityBlock {
 
-    public static final MapCodec<ChargingPostBlock> CODEC = createCodec(ChargingPostBlock::new);
-    public static final EnumProperty<Direction> FACING = Properties.HORIZONTAL_FACING;
-    public static final BooleanProperty LIT = Properties.LIT;
+    public static final MapCodec<ChargingPostBlock> CODEC = simpleCodec(ChargingPostBlock::new);
+    public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final BooleanProperty LIT = BlockStateProperties.LIT;
 
-    private static final VoxelShape SHAPE = createCuboidShape(3.5, 0, 3.5, 12.5, 23.8, 12.5);
+    private static final VoxelShape SHAPE = box(3.5, 0, 3.5, 12.5, 23.8, 12.5);
 
-    public ChargingPostBlock(Settings settings) {
+    public ChargingPostBlock(Properties settings) {
         super(settings);
-        this.setDefaultState(this.getStateManager().getDefaultState().with(FACING, Direction.NORTH).with(LIT, false));
+        this.registerDefaultState(this.getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(LIT, false));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
+    protected MapCodec<? extends BaseEntityBlock> codec() {
         return CODEC;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING, LIT);
     }
 
     @Override
-    public BlockState getPlacementState(ItemPlacementContext context) {
-        return this.getDefaultState().with(FACING, context.getHorizontalPlayerFacing().getOpposite());
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
     @Override
-    protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPE;
     }
 
     @Override
-    protected BlockRenderType getRenderType(BlockState state) {
-        return BlockRenderType.MODEL;
+    protected RenderShape getRenderShape(BlockState state) {
+        return RenderShape.MODEL;
     }
 
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new ChargingPostBlockEntity(pos, state);
     }
 
     @Override
-    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state,
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state,
                                                                   BlockEntityType<T> type) {
-        return world.isClient() ? null : validateTicker(type, ModBlockEntities.CHARGING_POST, ChargingPostBlockEntity::tick);
+        return world.isClientSide() ? null : createTickerHelper(type, ModBlockEntities.CHARGING_POST, ChargingPostBlockEntity::tick);
     }
 
     /** A spark at the plug now and then while a car is drawing. */
     @Override
-    public void randomDisplayTick(BlockState state, World world, BlockPos pos, Random random) {
-        if (!state.get(LIT)) {
+    public void animateTick(BlockState state, Level world, BlockPos pos, RandomSource random) {
+        if (!state.getValue(LIT)) {
             return;
         }
-        world.playSoundClient(pos.getX() + 0.5, pos.getY() + 0.7, pos.getZ() + 0.5,
-                me.trossty.car.sound.ModSounds.CHARGER_HUM, net.minecraft.sound.SoundCategory.BLOCKS, 0.3F, 1.0F, false);
+        world.playLocalSound(pos.getX() + 0.5, pos.getY() + 0.7, pos.getZ() + 0.5,
+                me.trossty.car.sound.ModSounds.CHARGER_HUM, net.minecraft.sounds.SoundSource.BLOCKS, 0.3F, 1.0F, false);
         if (random.nextInt(3) != 0) {
             return;
         }
-        Direction front = state.get(FACING);
-        world.addParticleClient(ParticleTypes.ELECTRIC_SPARK,
-                pos.getX() + 0.5 + front.getOffsetX() * 0.3, pos.getY() + 0.55,
-                pos.getZ() + 0.5 + front.getOffsetZ() * 0.3, 0.0, 0.02, 0.0);
+        Direction front = state.getValue(FACING);
+        world.addParticle(ParticleTypes.ELECTRIC_SPARK,
+                pos.getX() + 0.5 + front.getStepX() * 0.3, pos.getY() + 0.55,
+                pos.getZ() + 0.5 + front.getStepZ() * 0.3, 0.0, 0.02, 0.0);
     }
 
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(pos) instanceof ChargingPostBlockEntity post) {
-            player.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+            player.openMenu(new SimpleMenuProvider(
                     (syncId, inventory, who) -> MachineScreenHandler.of(syncId, inventory, post, null),
                     this.getName()));
         }
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 }

@@ -5,17 +5,17 @@ import me.trossty.car.block.AsphaltBlock.Marking;
 import me.trossty.car.item.RoadPaintItem;
 import me.trossty.car.network.RoadMarkingC2SPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -40,19 +40,19 @@ public class RoadMarkingScreen extends Screen {
     private static final int HOVER = 0xFFB8C0C8;
     private static final int ERASE = 0xFFE0473B;
 
-    private final Hand hand;
+    private final InteractionHand hand;
     private int cursor;
     private int left;
     private int top;
 
-    public RoadMarkingScreen(Hand hand) {
-        super(Text.translatable("screen.car.road_paint"));
+    public RoadMarkingScreen(InteractionHand hand) {
+        super(Component.translatable("screen.car.road_paint"));
         this.hand = hand;
     }
 
     private ItemStack tin() {
-        return this.client == null || this.client.player == null ? ItemStack.EMPTY
-                : this.client.player.getStackInHand(this.hand);
+        return this.minecraft == null || this.minecraft.player == null ? ItemStack.EMPTY
+                : this.minecraft.player.getItemInHand(this.hand);
     }
 
     private static int rows() {
@@ -62,7 +62,7 @@ public class RoadMarkingScreen extends Screen {
     /** Wide enough for the grid, or for the hint line under it if that is wider. */
     private int panelWidth() {
         int grid = COLUMNS * CELL + PAD * 2 - (CELL - TILE);
-        return Math.max(grid, this.textRenderer.getWidth(Text.translatable("screen.car.road_paint.hint")) + PAD * 2);
+        return Math.max(grid, this.font.width(Component.translatable("screen.car.road_paint.hint")) + PAD * 2);
     }
 
     private int panelHeight() {
@@ -80,7 +80,7 @@ public class RoadMarkingScreen extends Screen {
     public void tick() {
         // Put away, dropped or swapped: there is nothing left to choose for.
         if (!(this.tin().getItem() instanceof RoadPaintItem)) {
-            this.close();
+            this.onClose();
         }
     }
 
@@ -108,7 +108,7 @@ public class RoadMarkingScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         super.render(context, mouseX, mouseY, deltaTicks);
         ItemStack tin = this.tin();
         if (!(tin.getItem() instanceof RoadPaintItem item)) {
@@ -122,7 +122,7 @@ public class RoadMarkingScreen extends Screen {
         // A stripe of the tin's paint along the top, like the label on the tin.
         context.fill(this.left, this.top, this.left + w, this.top + 2, paint);
 
-        context.drawCenteredTextWithShadow(this.textRenderer, tin.getName(), this.left + w / 2, this.top + 9, paint);
+        context.drawCenteredString(this.font, tin.getHoverName(), this.left + w / 2, this.top + 9, paint);
 
         int hovered = this.cellAt(mouseX, mouseY);
         int current = RoadPaintItem.selected(tin).ordinal();
@@ -135,40 +135,40 @@ public class RoadMarkingScreen extends Screen {
             if (ring != 0) {
                 context.fill(x - 2, y - 2, x + TILE + 2, y + TILE + 2, ring);
             }
-            context.drawTexture(RenderPipelines.GUI_TEXTURED, ASPHALT, x, y, 0, 0, TILE, TILE, 16, 16, 16, 16);
+            context.blit(RenderPipelines.GUI_TEXTURED, ASPHALT, x, y, 0, 0, TILE, TILE, 16, 16, 16, 16);
             if (marking == Marking.NONE) {
                 this.cross(context, x, y);
             } else {
                 // An empty tin shows what it would paint, faded.
                 int colour = empty ? 0x60000000 | item.paint.rgb : paint;
-                context.drawTexture(RenderPipelines.GUI_TEXTURED,
-                        CarMain.id("textures/block/marking/" + marking.asString() + ".png"),
+                context.blit(RenderPipelines.GUI_TEXTURED,
+                        CarMain.id("textures/block/marking/" + marking.getSerializedName() + ".png"),
                         x, y, 0, 0, TILE, TILE, 16, 16, 16, 16, colour);
             }
             if (i < 9) {
-                context.drawText(this.textRenderer, Text.literal(String.valueOf(i + 1)), x + 2, y + 2, 0xC0FFFFFF, true);
+                context.drawString(this.font, Component.literal(String.valueOf(i + 1)), x + 2, y + 2, 0xC0FFFFFF, true);
             }
         }
 
         int shown = hovered >= 0 ? hovered : this.cursor;
         Marking name = Marking.values()[shown];
-        Text label = Text.translatable(name.translationKey());
+        Component label = Component.translatable(name.translationKey());
         if (name == Marking.NONE) {
-            label = label.copy().append(Text.literal(" · ").formatted(Formatting.DARK_GRAY))
-                    .append(Text.translatable("screen.car.road_paint.erase_note").formatted(Formatting.GRAY));
+            label = label.copy().append(Component.literal(" · ").withStyle(ChatFormatting.DARK_GRAY))
+                    .append(Component.translatable("screen.car.road_paint.erase_note").withStyle(ChatFormatting.GRAY));
         }
         int footer = this.top + h - FOOTER - PAD + 6;
-        context.drawCenteredTextWithShadow(this.textRenderer, label, this.left + w / 2, footer, 0xFFFFFFFF);
-        int left = tin.getMaxDamage() - tin.getDamage();
-        context.drawCenteredTextWithShadow(this.textRenderer,
-                Text.translatable("screen.car.road_paint.left", left, tin.getMaxDamage()),
+        context.drawCenteredString(this.font, label, this.left + w / 2, footer, 0xFFFFFFFF);
+        int left = tin.getMaxDamage() - tin.getDamageValue();
+        context.drawCenteredString(this.font,
+                Component.translatable("screen.car.road_paint.left", left, tin.getMaxDamage()),
                 this.left + w / 2, footer + 12, empty ? ERASE : 0xFFA0A8B0);
-        context.drawCenteredTextWithShadow(this.textRenderer, Text.translatable("screen.car.road_paint.hint"),
+        context.drawCenteredString(this.font, Component.translatable("screen.car.road_paint.hint"),
                 this.left + w / 2, footer + 24, 0xFF707880);
     }
 
     /** "Erase": a red cross over bare road. */
-    private void cross(DrawContext context, int x, int y) {
+    private void cross(GuiGraphics context, int x, int y) {
         for (int k = 6; k < TILE - 6; k++) {
             context.fill(x + k, y + k, x + k + 3, y + k + 2, ERASE);
             context.fill(x + TILE - k - 3, y + k, x + TILE - k, y + k + 2, ERASE);
@@ -176,7 +176,7 @@ public class RoadMarkingScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         int cell = this.cellAt(click.x(), click.y());
         if (cell >= 0) {
             this.pick(cell);
@@ -186,7 +186,7 @@ public class RoadMarkingScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         int key = input.key();
         int count = Marking.values().length;
         if (key >= GLFW.GLFW_KEY_1 && key <= GLFW.GLFW_KEY_9) {
@@ -201,8 +201,8 @@ public class RoadMarkingScreen extends Screen {
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER, GLFW.GLFW_KEY_SPACE -> this.pick(this.cursor);
             default -> {
                 // The inventory key closes it too, the way it closes a container.
-                if (this.client != null && this.client.options.inventoryKey.matchesKey(input)) {
-                    this.close();
+                if (this.minecraft != null && this.minecraft.options.keyInventory.matches(input)) {
+                    this.onClose();
                     return true;
                 }
                 return super.keyPressed(input);
@@ -215,17 +215,17 @@ public class RoadMarkingScreen extends Screen {
         if (index < 0 || index >= Marking.values().length) {
             return;
         }
-        ClientPlayNetworking.send(new RoadMarkingC2SPayload(this.hand == Hand.OFF_HAND, index));
-        if (this.client != null && this.client.player != null) {
+        ClientPlayNetworking.send(new RoadMarkingC2SPayload(this.hand == InteractionHand.OFF_HAND, index));
+        if (this.minecraft != null && this.minecraft.player != null) {
             // Show the choice at once, before the server's copy comes back.
             RoadPaintItem.select(this.tin(), Marking.values()[index]);
-            this.client.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.4F, 1.4F);
+            this.minecraft.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.4F, 1.4F);
         }
-        this.close();
+        this.onClose();
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

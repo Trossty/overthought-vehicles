@@ -10,11 +10,11 @@ import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
-import net.minecraft.block.Block;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
 
 /**
  * The other side of the bargain: this mod's pipes and valves working with
@@ -36,8 +36,8 @@ public final class ForeignFluids {
      * Another mod's fluid storage on the far side of {@code side}, or null. Our
      * own blocks are left out: they are reached by their own code.
      */
-    public static Storage<FluidVariant> at(World world, BlockPos pos, Direction side) {
-        BlockPos next = pos.offset(side);
+    public static Storage<FluidVariant> at(Level world, BlockPos pos, Direction side) {
+        BlockPos next = pos.relative(side);
         if (isOurs(world.getBlockState(next).getBlock())) {
             return null;
         }
@@ -45,9 +45,9 @@ public final class ForeignFluids {
     }
 
     /** Whether a pipe should reach out to whatever is at {@code pos}: anything with a fluid door on that face. */
-    public static boolean connects(WorldView view, BlockPos pos, Direction from) {
-        return view instanceof World world
-                && !world.isClient()
+    public static boolean connects(LevelReader view, BlockPos pos, Direction from) {
+        return view instanceof Level world
+                && !world.isClientSide()
                 && FluidStorage.SIDED.find(world, pos, from.getOpposite()) != null;
     }
 

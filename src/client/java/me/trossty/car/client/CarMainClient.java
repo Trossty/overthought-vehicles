@@ -1,5 +1,6 @@
 package me.trossty.car.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import me.trossty.car.CarMain;
 import me.trossty.car.client.hud.DashboardHud;
 import me.trossty.car.client.hud.ServiceHud;
@@ -35,22 +36,21 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
-import net.minecraft.client.gui.screen.ingame.HandledScreens;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import org.lwjgl.glfw.GLFW;
 
 public class CarMainClient implements ClientModInitializer {
 
-    public static final KeyBinding HORN_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+    public static final KeyMapping HORN_KEY = KeyBindingHelper.registerKeyBinding(new KeyMapping(
             "key.car.horn",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_H,
-            KeyBinding.Category.MISC));
+            KeyMapping.Category.MISC));
 
     /** Bare steel: an empty drum's paint. The drum's item definition says the same. */
     private static final int EMPTY_DRUM = 0x9AA1A8;
@@ -63,30 +63,30 @@ public class CarMainClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         // A road paint tin used in the air opens its marking menu.
-        me.trossty.car.item.RoadPaintItem.openMenu = hand -> net.minecraft.client.MinecraftClient.getInstance()
+        me.trossty.car.item.RoadPaintItem.openMenu = hand -> net.minecraft.client.Minecraft.getInstance()
                 .setScreen(new me.trossty.car.client.screen.RoadMarkingScreen(hand));
         // Road markings are painted on with holes in them, and tinted the colour of the paint.
         net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlock(
-                me.trossty.car.registry.ModBlocks.ASPHALT, net.minecraft.client.render.BlockRenderLayer.CUTOUT);
+                me.trossty.car.registry.ModBlocks.ASPHALT, net.minecraft.client.renderer.chunk.ChunkSectionLayer.CUTOUT);
         net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.BLOCK.register(
                 (state, world, pos, tint) -> tint == 0
-                        ? 0xFF000000 | state.get(me.trossty.car.block.AsphaltBlock.PAINT).rgb
+                        ? 0xFF000000 | state.getValue(me.trossty.car.block.AsphaltBlock.PAINT).rgb
                         : -1,
                 me.trossty.car.registry.ModBlocks.ASPHALT);
         // A battery bank picked up with charge in it says how much.
         net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
             Long stored = stack.get(me.trossty.car.registry.ModComponents.STORED_ENERGY);
             if (stored != null) {
-                lines.add(net.minecraft.text.Text.translatable("tooltip.car.stored_energy",
+                lines.add(net.minecraft.network.chat.Component.translatable("tooltip.car.stored_energy",
                                 String.format(java.util.Locale.ROOT, "%,d", stored),
                                 String.format(java.util.Locale.ROOT, "%,d",
                                         me.trossty.car.block.entity.BatteryBankBlockEntity.CAPACITY))
-                        .formatted(net.minecraft.util.Formatting.AQUA));
+                        .withStyle(net.minecraft.ChatFormatting.AQUA));
             }
         });
         // A drum is painted the colour of what is in it, standing or carried.
         net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlock(
-                me.trossty.car.registry.ModBlocks.FUEL_DRUM, net.minecraft.client.render.BlockRenderLayer.CUTOUT);
+                me.trossty.car.registry.ModBlocks.FUEL_DRUM, net.minecraft.client.renderer.chunk.ChunkSectionLayer.CUTOUT);
         net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.BLOCK.register(
                 (state, world, pos, tint) -> {
                     if (tint != 0) {
@@ -119,19 +119,19 @@ public class CarMainClient implements ClientModInitializer {
         // Give every car that comes into view its own looping engine sound.
         ClientEntityEvents.ENTITY_LOAD.register((entity, world) -> {
             if (entity instanceof CarEntity car && !(car instanceof me.trossty.car.entity.TrailerEntity)) {
-                MinecraftClient.getInstance()
+                Minecraft.getInstance()
                         .getSoundManager()
-                        .playNextTick(new CarEngineSoundInstance(car));
+                        .queueTickingSound(new CarEngineSoundInstance(car));
             }
         });
 
-        HandledScreens.register(ModScreenHandlers.VEHICLE_WORKBENCH, VehicleWorkbenchScreen::new);
-        HandledScreens.register(ModScreenHandlers.FUEL_REFINERY, FuelRefineryScreen::new);
-        HandledScreens.register(ModScreenHandlers.MACHINE, me.trossty.car.client.screen.MachineScreen::new);
-        HandledScreens.register(ModScreenHandlers.FUELLED_MACHINE, me.trossty.car.client.screen.MachineScreen::new);
-        HandledScreens.register(ModScreenHandlers.VEHICLE_WORKSTATION,
+        MenuScreens.register(ModScreenHandlers.VEHICLE_WORKBENCH, VehicleWorkbenchScreen::new);
+        MenuScreens.register(ModScreenHandlers.FUEL_REFINERY, FuelRefineryScreen::new);
+        MenuScreens.register(ModScreenHandlers.MACHINE, me.trossty.car.client.screen.MachineScreen::new);
+        MenuScreens.register(ModScreenHandlers.FUELLED_MACHINE, me.trossty.car.client.screen.MachineScreen::new);
+        MenuScreens.register(ModScreenHandlers.VEHICLE_WORKSTATION,
                 me.trossty.car.client.screen.VehicleWorkstationScreen::new);
-        HandledScreens.register(ModScreenHandlers.CAR_SERVICE,
+        MenuScreens.register(ModScreenHandlers.CAR_SERVICE,
                 me.trossty.car.client.screen.CarServiceScreen::new);
 
         // These never stand in the world, but the tanker's sight glass draws
@@ -141,7 +141,7 @@ public class CarMainClient implements ClientModInitializer {
         tankOnlyLook(ModFluids.DIESEL, 0x9A7B2C);
         // Milk on the water texture comes out grey, the water being dark;
         // snow is the whitest thing in the block atlas.
-        net.minecraft.util.Identifier snow = net.minecraft.util.Identifier.ofVanilla("block/snow");
+        net.minecraft.resources.Identifier snow = net.minecraft.resources.Identifier.withDefaultNamespace("block/snow");
         FluidRenderHandlerRegistry.INSTANCE.register(ModFluids.MILK,
                 new SimpleFluidRenderHandler(snow, snow, 0xFFFBF0));
         tankOnlyLook(ModFluids.HONEY, 0xF0A21E);
@@ -152,19 +152,19 @@ public class CarMainClient implements ClientModInitializer {
 
         // An oil seep is a ragged puddle: the ground shows through its gaps.
         net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlock(
-                me.trossty.car.registry.ModBlocks.OIL_SEEP, net.minecraft.client.render.BlockRenderLayer.CUTOUT);
+                me.trossty.car.registry.ModBlocks.OIL_SEEP, net.minecraft.client.renderer.chunk.ChunkSectionLayer.CUTOUT);
         // A tank's glass is see-through, and the liquid behind it is drawn by the cell.
         net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlock(
-                me.trossty.car.registry.ModBlocks.FUEL_TANK, net.minecraft.client.render.BlockRenderLayer.TRANSLUCENT);
+                me.trossty.car.registry.ModBlocks.FUEL_TANK, net.minecraft.client.renderer.chunk.ChunkSectionLayer.TRANSLUCENT);
         net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlock(
-                me.trossty.car.registry.ModBlocks.FUEL_PUMP, net.minecraft.client.render.BlockRenderLayer.TRANSLUCENT);
-        net.minecraft.client.render.block.entity.BlockEntityRendererFactories.register(
+                me.trossty.car.registry.ModBlocks.FUEL_PUMP, net.minecraft.client.renderer.chunk.ChunkSectionLayer.TRANSLUCENT);
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
                 me.trossty.car.registry.ModBlockEntities.FUEL_TANK,
                 me.trossty.car.client.render.FuelTankRenderer::new);
-        net.minecraft.client.render.block.entity.BlockEntityRendererFactories.register(
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
                 me.trossty.car.registry.ModBlockEntities.PUMPJACK,
                 me.trossty.car.client.render.PumpjackRenderer::new);
-        net.minecraft.client.render.block.entity.BlockEntityRendererFactories.register(
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
                 me.trossty.car.registry.ModBlockEntities.FUEL_PUMP,
                 me.trossty.car.client.render.FuelPumpRenderer::new);
 
@@ -210,11 +210,11 @@ public class CarMainClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(CarMainClient::onClientTick);
     }
 
-    private static void onClientTick(MinecraftClient client) {
-        ClientPlayerEntity player = client.player;
+    private static void onClientTick(Minecraft client) {
+        LocalPlayer player = client.player;
         if (player == null || !(player.getVehicle() instanceof CarEntity car)) {
             // Drain any presses made outside a car so they do not fire on entry.
-            while (HORN_KEY.wasPressed()) {
+            while (HORN_KEY.consumeClick()) {
                 // discard
             }
             return;
@@ -222,11 +222,11 @@ public class CarMainClient implements ClientModInitializer {
 
         // The controlling client simulates the car, so feed it that player's keys.
         if (car.getControllingPassenger() == player) {
-            car.setInputs(player.input.playerInput);
+            car.setInputs(player.input.keyPresses);
         }
 
         boolean honked = false;
-        while (HORN_KEY.wasPressed()) {
+        while (HORN_KEY.consumeClick()) {
             honked = true;
         }
         if (honked) {
@@ -234,24 +234,24 @@ public class CarMainClient implements ClientModInitializer {
         }
     }
 
-    private static void tankOnlyLook(net.minecraft.fluid.Fluid fluid, int tint) {
+    private static void tankOnlyLook(net.minecraft.world.level.material.Fluid fluid, int tint) {
         FluidRenderHandlerRegistry.INSTANCE.register(fluid, new SimpleFluidRenderHandler(
                 SimpleFluidRenderHandler.WATER_STILL, SimpleFluidRenderHandler.WATER_FLOWING, tint));
     }
 
     /** A right click while a mark on a raised car is aimed at: that part, by hand. */
-    private static ActionResult servicePart(net.minecraft.entity.player.PlayerEntity player,
-                                            net.minecraft.world.World world, Hand hand) {
-        if (!world.isClient() || hand != Hand.MAIN_HAND) {
-            return ActionResult.PASS;
+    private static InteractionResult servicePart(net.minecraft.world.entity.player.Player player,
+                                            net.minecraft.world.level.Level world, InteractionHand hand) {
+        if (!world.isClientSide() || hand != InteractionHand.MAIN_HAND) {
+            return InteractionResult.PASS;
         }
         CarEntity car = CarServiceOverlay.aimedCar();
         CarPart part = CarServiceOverlay.aimedPart();
         if (car == null || part == null) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
         ClientPlayNetworking.send(new ServicePartC2SPayload(car.getId(), part.key()));
-        player.swingHand(hand);
-        return ActionResult.FAIL;
+        player.swing(hand);
+        return InteractionResult.FAIL;
     }
 }

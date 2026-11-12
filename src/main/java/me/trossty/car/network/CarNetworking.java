@@ -8,13 +8,12 @@ import me.trossty.car.workbench.ModVehicleRecipes;
 import me.trossty.car.workbench.VehicleRecipe;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import java.util.List;
 
 public final class CarNetworking {
@@ -36,7 +35,7 @@ public final class CarNetworking {
 
     public static void registerServerReceivers() {
         ServerPlayNetworking.registerGlobalReceiver(HornC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
+            ServerPlayer player = context.player();
             context.server().execute(() -> {
                 // Only the driver may sound the horn, and only of the car they are in.
                 if (player.getVehicle() instanceof CarEntity car
@@ -47,33 +46,33 @@ public final class CarNetworking {
         });
 
         ServerPlayNetworking.registerGlobalReceiver(ServicePartC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
+            ServerPlayer player = context.player();
             int car = payload.car();
             String part = payload.part();
             context.server().execute(() -> serviceByHand(player, car, part));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(BenchBuildC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
+            ServerPlayer player = context.player();
             context.server().execute(() -> buildAtBench(
                     player, payload.bench(), payload.recipe(), payload.quality()));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(RoadMarkingC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
+            ServerPlayer player = context.player();
             context.server().execute(() -> me.trossty.car.item.RoadPaintItem.choose(player,
-                    payload.offHand() ? net.minecraft.util.Hand.OFF_HAND : net.minecraft.util.Hand.MAIN_HAND,
+                    payload.offHand() ? net.minecraft.world.InteractionHand.OFF_HAND : net.minecraft.world.InteractionHand.MAIN_HAND,
                     payload.marking()));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(CrashC2SPayload.ID, (payload, context) -> {
-            ServerPlayerEntity player = context.player();
+            ServerPlayer player = context.player();
             float severity = payload.severity();
             context.server().execute(() -> {
                 // Only the driver can crash the car they are driving.
                 if (player.getVehicle() instanceof CarEntity car
                         && car.getControllingPassenger() == player
-                        && car.getEntityWorld() instanceof ServerWorld world) {
+                        && car.level() instanceof ServerLevel world) {
                     car.applyReportedCrash(world, severity);
                 }
             });
@@ -91,14 +90,14 @@ public final class CarNetworking {
      * can run exactly what the packet runs, without a network, which is also
      * why it takes any player rather than only a connected one.
      */
-    public static void serviceByHand(PlayerEntity player, int carId, String partKey) {
+    public static void serviceByHand(Player player, int carId, String partKey) {
         CarPart part = CarPart.byKey(partKey);
         if (part == null) {
             return;
         }
-        if (!(player.getEntityWorld().getEntityById(carId) instanceof CarEntity car)
+        if (!(player.level().getEntity(carId) instanceof CarEntity car)
                 || car.isRemoved()
-                || car.squaredDistanceTo(player) > SERVICE_RANGE_SQUARED) {
+                || car.distanceToSqr(player) > SERVICE_RANGE_SQUARED) {
             return;
         }
         car.serviceByHand(player, part);
@@ -110,7 +109,7 @@ public final class CarNetworking {
      * the two cannot disagree about what a ramp makes.
      */
     public static List<VehicleRecipe> catalogueOf(BlockState state) {
-        if (state.isOf(ModBlocks.VEHICLE_WORKBENCH)) {
+        if (state.is(ModBlocks.VEHICLE_WORKBENCH)) {
             return ModVehicleRecipes.WORKBENCH;
         }
         return null;
@@ -123,12 +122,12 @@ public final class CarNetworking {
      *
      * @return whether anything was built
      */
-    public static boolean buildAtBench(PlayerEntity player, BlockPos bench, int recipe,
+    public static boolean buildAtBench(Player player, BlockPos bench, int recipe,
                                        int quality) {
-        if (player.squaredDistanceTo(Vec3d.ofCenter(bench)) > SERVICE_RANGE_SQUARED) {
+        if (player.distanceToSqr(Vec3.atCenterOf(bench)) > SERVICE_RANGE_SQUARED) {
             return false;
         }
-        List<VehicleRecipe> catalogue = catalogueOf(player.getEntityWorld().getBlockState(bench));
+        List<VehicleRecipe> catalogue = catalogueOf(player.level().getBlockState(bench));
         if (catalogue == null) {
             return false;
         }

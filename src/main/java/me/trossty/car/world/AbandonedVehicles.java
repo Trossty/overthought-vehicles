@@ -7,16 +7,16 @@ import me.trossty.car.registry.ModEntities;
 import me.trossty.car.vehicle.VehicleDefinition;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayDeque;
@@ -37,7 +37,7 @@ import java.util.Map;
 public final class AbandonedVehicles {
 
     /** Chunks waiting for their car, per world. Server thread only. */
-    private static final Map<ServerWorld, ArrayDeque<ChunkPos>> PENDING = new IdentityHashMap<>();
+    private static final Map<ServerLevel, ArrayDeque<ChunkPos>> PENDING = new IdentityHashMap<>();
 
     /** Most chunks dealt with a tick, so a burst of exploring never stalls one. */
     private static final int PER_TICK = 4;
@@ -48,7 +48,7 @@ public final class AbandonedVehicles {
     public static void register() {
         ServerChunkEvents.CHUNK_GENERATE.register((world, chunk) -> {
             int rarity = CarConfig.get().abandonedVehicleRarity;
-            if (rarity <= 0 || world.getRegistryKey() != World.OVERWORLD
+            if (rarity <= 0 || world.dimension() != Level.OVERWORLD
                     || world.getRandom().nextInt(rarity) != 0) {
                 return;
             }
@@ -58,7 +58,7 @@ public final class AbandonedVehicles {
             ArrayDeque<ChunkPos> queue = PENDING.get(world);
             for (int i = 0; queue != null && i < PER_TICK && !queue.isEmpty(); i++) {
                 ChunkPos chunk = queue.poll();
-                if (world.isChunkLoaded(chunk.x, chunk.z)) {
+                if (world.hasChunk(chunk.x, chunk.z)) {
                     place(world, chunk, world.getRandom());
                 }
             }
@@ -68,40 +68,40 @@ public final class AbandonedVehicles {
     }
 
     /** Puts an abandoned car somewhere dry and open in the chunk; null when it found nowhere. */
-    public static @Nullable CarEntity place(ServerWorld world, ChunkPos chunk, Random random) {
+    public static @Nullable CarEntity place(ServerLevel world, ChunkPos chunk, RandomSource random) {
         for (int attempt = 0; attempt < 6; attempt++) {
-            int x = chunk.getStartX() + 2 + random.nextInt(12);
-            int z = chunk.getStartZ() + 2 + random.nextInt(12);
-            int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+            int x = chunk.getMinBlockX() + 2 + random.nextInt(12);
+            int z = chunk.getMinBlockZ() + 2 + random.nextInt(12);
+            int y = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
             BlockPos ground = new BlockPos(x, y - 1, z);
             BlockState below = world.getBlockState(ground);
-            if (!below.getFluidState().isEmpty() || !below.isSideSolidFullSquare(world, ground, net.minecraft.util.math.Direction.UP)) {
+            if (!below.getFluidState().isEmpty() || !below.isFaceSturdy(world, ground, net.minecraft.core.Direction.UP)) {
                 continue;
             }
             CarEntity car = abandoned(world, random);
             if (car == null) {
                 return null;
             }
-            car.refreshPositionAndAngles(x + 0.5, y, z + 0.5, random.nextFloat() * 360.0F, 0.0F);
-            if (!world.isSpaceEmpty(car, car.getBoundingBox())) {
+            car.snapTo(x + 0.5, y, z + 0.5, random.nextFloat() * 360.0F, 0.0F);
+            if (!world.noCollision(car, car.getBoundingBox())) {
                 continue;
             }
-            world.spawnEntity(car);
+            world.addFreshEntity(car);
             return car;
         }
         return null;
     }
 
     /** An old car, worn as if it had sat out for years, not yet placed anywhere. */
-    public static @Nullable CarEntity abandoned(ServerWorld world, Random random) {
-        CarEntity car = ModEntities.CAR.create(world, SpawnReason.CHUNK_GENERATION);
+    public static @Nullable CarEntity abandoned(ServerLevel world, RandomSource random) {
+        CarEntity car = ModEntities.CAR.create(world, EntitySpawnReason.CHUNK_GENERATION);
         if (car == null) {
             return null;
         }
-        List<Identifier> cars = world.getRegistryManager().getOptional(VehicleDefinition.KEY)
-                .map(registry -> registry.getIds().stream()
+        List<Identifier> cars = world.registryAccess().lookup(VehicleDefinition.KEY)
+                .map(registry -> registry.keySet().stream()
                         .filter(id -> {
-                            VehicleDefinition defined = registry.get(id);
+                            VehicleDefinition defined = registry.getValue(id);
                             return defined != null && defined.chassis() == VehicleDefinition.Chassis.CAR;
                         })
                         .sorted(java.util.Comparator.comparing(Identifier::toString))
@@ -112,7 +112,7 @@ public final class AbandonedVehicles {
             VehicleDefinition defined = car.getDefinition();
             if (defined != null) {
                 car.setSetup(defined.factory().setup());
-                car.calculateDimensions();
+                car.refreshDimensions();
             }
         }
         // The colours old cars are left in: nobody abandons the bright pink one.
@@ -124,7 +124,7 @@ public final class AbandonedVehicles {
     }
 
     /** Years out in the weather: dents, tired parts, a couple gone, stale fuel. */
-    public static void wear(CarEntity car, Random random) {
+    public static void wear(CarEntity car, RandomSource random) {
         car.setHealth(CarEntity.MAX_HEALTH * (0.3F + 0.4F * random.nextFloat()));
         car.setOdometer(CarEntity.HIGH_MILEAGE * (1.2F + 2.8F * random.nextFloat()));
         for (CarPart part : CarPart.values()) {

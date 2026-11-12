@@ -10,7 +10,7 @@ import me.trossty.car.registry.ModItems;
 import me.trossty.car.registry.ModScreenHandlers;
 import me.trossty.car.sound.ModSounds;
 import net.fabricmc.api.ModInitializer;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public class CarMain implements ModInitializer {
 
@@ -18,7 +18,7 @@ public class CarMain implements ModInitializer {
     public static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(MOD_ID);
 
     public static Identifier id(String path) {
-        return Identifier.of(MOD_ID, path);
+        return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
 
     @Override

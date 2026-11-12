@@ -3,8 +3,8 @@ package me.trossty.car.entity;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,13 +22,13 @@ public final class FaultCodes {
     public static final float CRITICAL = 0.15F;
 
     public enum Severity {
-        CRITICAL(Formatting.RED),
-        WARNING(Formatting.GOLD),
-        ADVISORY(Formatting.YELLOW);
+        CRITICAL(ChatFormatting.RED),
+        WARNING(ChatFormatting.GOLD),
+        ADVISORY(ChatFormatting.YELLOW);
 
-        public final Formatting colour;
+        public final ChatFormatting colour;
 
-        Severity(Formatting colour) {
+        Severity(ChatFormatting colour) {
             this.colour = colour;
         }
 
@@ -43,12 +43,12 @@ public final class FaultCodes {
      */
     public record Fault(String code, @Nullable CarPart part, String key, Severity severity, int percent) {
 
-        public Text describe() {
-            Text what = this.part == null
-                    ? Text.translatable(this.key)
-                    : Text.translatable(this.key, Text.translatable("part.car." + this.part.key()), this.percent);
-            return Text.literal(this.code + "  ").formatted(Formatting.BOLD, this.severity.colour)
-                    .append(what.copy().formatted(Formatting.RESET, this.severity.colour));
+        public Component describe() {
+            Component what = this.part == null
+                    ? Component.translatable(this.key)
+                    : Component.translatable(this.key, Component.translatable("part.car." + this.part.key()), this.percent);
+            return Component.literal(this.code + "  ").withStyle(ChatFormatting.BOLD, this.severity.colour)
+                    .append(what.copy().withStyle(ChatFormatting.RESET, this.severity.colour));
         }
     }
 

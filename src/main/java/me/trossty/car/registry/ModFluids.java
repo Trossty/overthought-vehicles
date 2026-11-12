@@ -4,16 +4,16 @@ import me.trossty.car.CarMain;
 import me.trossty.car.fluid.TankOnlyFluid;
 import net.fabricmc.fabric.api.transfer.v1.fluid.base.EmptyItemFluidStorage;
 import net.fabricmc.fabric.api.transfer.v1.fluid.base.FullItemFluidStorage;
-import net.minecraft.item.Items;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluid;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributeHandler;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
 
 /**
  * Petrol, and the door it comes and goes through.
@@ -65,7 +65,7 @@ public final class ModFluids {
     }
 
     private static Fluid tankOnly(String name) {
-        return Registry.register(Registries.FLUID, CarMain.id(name), new TankOnlyFluid());
+        return Registry.register(BuiltInRegistries.FLUID, CarMain.id(name), new TankOnlyFluid());
     }
 
     /** The fuel a fluid is, or null for anything that will not run an engine. */
@@ -166,7 +166,7 @@ public final class ModFluids {
         team.reborn.energy.api.EnergyStorage.SIDED.registerForBlockEntity(
                 (cable, side) -> cable.getEnergyStorage(), ModBlockEntities.ENERGY_CABLE);
         team.reborn.energy.api.EnergyStorage.SIDED.registerForBlockEntity(
-                (bank, side) -> bank.sideStorage(side == null ? net.minecraft.util.math.Direction.UP : side),
+                (bank, side) -> bank.sideStorage(side == null ? net.minecraft.core.Direction.UP : side),
                 ModBlockEntities.BATTERY_BANK);
         team.reborn.energy.api.EnergyStorage.SIDED.registerForBlockEntity(
                 (post, side) -> post.getEnergyStorage(), ModBlockEntities.CHARGING_POST);
@@ -177,8 +177,8 @@ public final class ModFluids {
         // tooltips, after the block it does not have.
         FluidVariantAttributes.register(fluid, new FluidVariantAttributeHandler() {
             @Override
-            public Text getName(FluidVariant variant) {
-                return Text.translatable("fluid.car." + key);
+            public Component getName(FluidVariant variant) {
+                return Component.translatable("fluid.car." + key);
             }
         });
     }

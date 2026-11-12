@@ -2,21 +2,19 @@ package me.trossty.car.client.render;
 
 import me.trossty.car.CarMain;
 import me.trossty.car.vehicle.VehicleDefinition;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.model.ModelData;
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.model.ModelPartBuilder;
-import net.minecraft.client.model.ModelPartData;
-import net.minecraft.client.model.ModelTransform;
-import net.minecraft.client.model.TexturedModelData;
-import net.minecraft.client.render.entity.model.EntityModel;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 import org.joml.Vector3fc;
-
+import com.mojang.blaze3d.platform.NativeImage;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -120,8 +118,8 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
     private DefinedVehicleModel(ModelPart root, VehicleDefinition definition, boolean glass) {
         // The bodywork is solid; the glass is its own model, drawn see-through
         // and after everything else, so whoever sits behind it still shows.
-        super(root, glass ? net.minecraft.client.render.RenderLayers::entityTranslucent
-                : net.minecraft.client.render.RenderLayers::entityCutoutNoCull);
+        super(root, glass ? net.minecraft.client.renderer.rendertype.RenderTypes::entityTranslucent
+                : net.minecraft.client.renderer.rendertype.RenderTypes::entityCutoutNoCull);
         this.chassis = root.hasChild("chassis") ? root.getChild("chassis") : null;
         ModelPart turn = null;
         if (this.chassis != null) {
@@ -178,13 +176,13 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
             NativeImage image = new NativeImage(PALETTE, PALETTE, false);
             for (int index = 0; index < PALETTE * PALETTE; index++) {
                 String colour = built.colours().get(Math.min(index, built.colours().size() - 1));
-                image.setColorArgb(index % PALETTE, index / PALETTE,
+                image.setPixel(index % PALETTE, index / PALETTE,
                         VehicleDefinition.resolve(colour, rgb));
             }
             Identifier texture = CarMain.id("dynamic/vehicle/" + id.getNamespace() + "/"
                     + id.getPath() + "/" + String.format("%06x", rgb));
-            MinecraftClient.getInstance().getTextureManager().registerTexture(
-                    texture, new NativeImageBackedTexture(texture::toString, image));
+            Minecraft.getInstance().getTextureManager().register(
+                    texture, new DynamicTexture(texture::toString, image));
             return texture;
         });
     }
@@ -198,7 +196,7 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
         }
         if (known != null) {
             for (Identifier stale : known.textures().values()) {
-                MinecraftClient.getInstance().getTextureManager().destroyTexture(stale);
+                Minecraft.getInstance().getTextureManager().release(stale);
             }
         }
         List<String> colours = new ArrayList<>();
@@ -238,18 +236,18 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
      * swaying as the body does in {@link #setAngles}: for drawing something
      * that has to stay inside the bodywork, a tanker's load.
      */
-    public static void applyBody(net.minecraft.client.util.math.MatrixStack matrices, CarRenderState state) {
-        float pitch = MathHelper.clamp(-state.acceleration * PITCH_PER_ACCELERATION, -MAX_PITCH, MAX_PITCH);
+    public static void applyBody(com.mojang.blaze3d.vertex.PoseStack matrices, CarRenderState state) {
+        float pitch = Mth.clamp(-state.acceleration * PITCH_PER_ACCELERATION, -MAX_PITCH, MAX_PITCH);
         float speedFraction = Math.min(1.0F, Math.abs(state.speed) / 0.4F);
         float roll = state.steerAngle * LEAN_PER_STEER_DEGREE * speedFraction;
         float idle = state.engineRunning
                 ? 1.0F - Math.min(1.0F, Math.abs(state.speed) / IDLE_FADE_SPEED)
                 : 0.0F;
         float shake = idle * IDLE_SHAKE;
-        float originX = MathHelper.cos(state.age * 2.3F) * shake * 0.6F;
-        float originY = BODY_PIVOT_Y + MathHelper.sin(state.age * 1.9F) * shake;
+        float originX = Mth.cos(state.ageInTicks * 2.3F) * shake * 0.6F;
+        float originY = BODY_PIVOT_Y + Mth.sin(state.ageInTicks * 1.9F) * shake;
         matrices.translate(originX / 16.0F, originY / 16.0F, 0.0F);
-        matrices.multiply(new org.joml.Quaternionf().rotationZYX(roll, 0.0F, pitch));
+        matrices.mulPose(new org.joml.Quaternionf().rotationZYX(roll, 0.0F, pitch));
         matrices.translate(0.0F, -BODY_PIVOT_Y / 16.0F, 0.0F);
     }
 
@@ -276,7 +274,7 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
      * usual reach, or less if the dashboard comes closer than that, so the
      * rim stands just proud of it rather than buried in it.
      */
-    private static float wheelReach(VehicleDefinition definition, net.minecraft.util.math.Vec3d seat) {
+    private static float wheelReach(VehicleDefinition definition, net.minecraft.world.phys.Vec3 seat) {
         float wheelY = (float) seat.y + WHEEL_RISE;
         float reach = WHEEL_REACH;
         for (VehicleDefinition.Box box : definition.shape()) {
@@ -297,19 +295,19 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
     }
 
     private static ModelPart build(VehicleDefinition definition, List<String> colours, boolean glass) {
-        ModelData data = new ModelData();
-        ModelPartData root = data.getRoot();
-        ModelPartData chassis = root.addChild(
-                "chassis", ModelPartBuilder.create(), ModelTransform.origin(0.0F, BODY_PIVOT_Y, 0.0F));
+        MeshDefinition data = new MeshDefinition();
+        PartDefinition root = data.getRoot();
+        PartDefinition chassis = root.addOrReplaceChild(
+                "chassis", CubeListBuilder.create(), PartPose.offset(0.0F, BODY_PIVOT_Y, 0.0F));
         // Undoes the pivot, so the boxes below are written where they are.
-        ModelPartData frame = chassis.addChild(
-                "frame", ModelPartBuilder.create(), ModelTransform.origin(0.0F, -BODY_PIVOT_Y, 0.0F));
+        PartDefinition frame = chassis.addOrReplaceChild(
+                "frame", CubeListBuilder.create(), PartPose.offset(0.0F, -BODY_PIVOT_Y, 0.0F));
 
         // The fork, bars and headset turn about the steering head: the line
         // from the front wheel's hub up through the highest of them, raked
         // back as the fork is. Three parts so the turn happens about that
         // line: tip onto it, turn, tip back.
-        ModelPartData steerTurn = null;
+        PartDefinition steerTurn = null;
         float hubX = 0.0F;
         float hubY = 0.0F;
         float hubZ = 0.0F;
@@ -326,7 +324,7 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
                 top = box;
             }
         }
-        ModelPartData steerHead = null;
+        PartDefinition steerHead = null;
         if (front != null && top != null) {
             hubX = front.at().x();
             hubY = front.at().y();
@@ -334,11 +332,11 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
             float rise = (top.from().y() + top.to().y()) / 2.0F - hubY;
             float back = (top.from().z() + top.to().z()) / 2.0F - hubZ;
             float rake = (float) Math.atan2(back, Math.max(rise, 0.1F));
-            ModelPartData axis = frame.addChild("steer_axis", ModelPartBuilder.create(),
-                    ModelTransform.of(hubX, -hubY, -hubZ, rake, 0.0F, 0.0F));
-            steerTurn = axis.addChild("steer", ModelPartBuilder.create(), ModelTransform.NONE);
-            steerHead = steerTurn.addChild("steer_head", ModelPartBuilder.create(),
-                    ModelTransform.of(0.0F, 0.0F, 0.0F, -rake, 0.0F, 0.0F));
+            PartDefinition axis = frame.addOrReplaceChild("steer_axis", CubeListBuilder.create(),
+                    PartPose.offsetAndRotation(hubX, -hubY, -hubZ, rake, 0.0F, 0.0F));
+            steerTurn = axis.addOrReplaceChild("steer", CubeListBuilder.create(), PartPose.ZERO);
+            steerHead = steerTurn.addOrReplaceChild("steer_head", CubeListBuilder.create(),
+                    PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, -rake, 0.0F, 0.0F));
         }
 
         // Anything with a cabin gets a steering wheel in front of the driver,
@@ -347,44 +345,44 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
         if (!glass && !definition.seats().isEmpty()
                 && definition.chassis() != VehicleDefinition.Chassis.MOTORCYCLE
                 && definition.chassis() != VehicleDefinition.Chassis.TRAILER) {
-            net.minecraft.util.math.Vec3d seat = definition.seats().get(0);
+            net.minecraft.world.phys.Vec3 seat = definition.seats().get(0);
             int[] rim = uv(colours, STEERING_WHEEL_COLOUR);
             int[] badge = uv(colours, "#C9CDD2");
-            ModelPartData mount = frame.addChild(STEERING_WHEEL, ModelPartBuilder.create(),
-                    ModelTransform.of((float) seat.x, -(float) seat.y - WHEEL_RISE,
+            PartDefinition mount = frame.addOrReplaceChild(STEERING_WHEEL, CubeListBuilder.create(),
+                    PartPose.offsetAndRotation((float) seat.x, -(float) seat.y - WHEEL_RISE,
                             -(float) seat.z - wheelReach(definition, seat), WHEEL_RAKE * DEGREES, 0.0F, 0.0F));
             int[] spoke = uv(colours, "#3A3A3E");
             int[] shroud = uv(colours, "#2A2A2D");
-            mount.addChild("shroud", ModelPartBuilder.create().uv(shroud[0], shroud[1])
-                            .cuboid(-0.9F, -0.9F, -3.4F, 1.8F, 1.8F, 1.9F),
-                    ModelTransform.NONE);
-            ModelPartData turn = mount.addChild("turn", ModelPartBuilder.create().uv(rim[0], rim[1])
+            mount.addOrReplaceChild("shroud", CubeListBuilder.create().texOffs(shroud[0], shroud[1])
+                            .addBox(-0.9F, -0.9F, -3.4F, 1.8F, 1.8F, 1.9F),
+                    PartPose.ZERO);
+            PartDefinition turn = mount.addOrReplaceChild("turn", CubeListBuilder.create().texOffs(rim[0], rim[1])
                             // the column, into the dash
-                            .cuboid(-0.45F, -0.45F, -3.5F, 0.9F, 0.9F, 3.2F),
-                    ModelTransform.NONE);
+                            .addBox(-0.45F, -0.45F, -3.5F, 0.9F, 0.9F, 3.2F),
+                    PartPose.ZERO);
             // The rim: sixteen short pieces round a circle, each a touch
             // longer than its share so the joins close up.
             float r = WHEEL_RIM;
             float piece = (float) (2.0 * r * Math.tan(Math.PI / RIM_PIECES)) + 0.25F;
             for (int i = 0; i < RIM_PIECES; i++) {
-                turn.addChild("rim" + i, ModelPartBuilder.create().uv(rim[0], rim[1])
-                                .cuboid(-piece / 2.0F, -r, -0.35F, piece, RIM_THICK, 0.7F),
-                        ModelTransform.of(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, i * (360.0F / RIM_PIECES) * DEGREES));
+                turn.addOrReplaceChild("rim" + i, CubeListBuilder.create().texOffs(rim[0], rim[1])
+                                .addBox(-piece / 2.0F, -r, -0.35F, piece, RIM_THICK, 0.7F),
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, i * (360.0F / RIM_PIECES) * DEGREES));
             }
             // Three spokes, left, right and down, a little behind the rim.
-            turn.addChild("spokes", ModelPartBuilder.create().uv(spoke[0], spoke[1])
-                            .cuboid(-r + 0.4F, -0.35F, -0.15F, r * 2.0F - 0.8F, 0.7F, 0.4F)
-                            .cuboid(-0.35F, 0.0F, -0.15F, 0.7F, r - 0.4F, 0.4F),
-                    ModelTransform.NONE);
+            turn.addOrReplaceChild("spokes", CubeListBuilder.create().texOffs(spoke[0], spoke[1])
+                            .addBox(-r + 0.4F, -0.35F, -0.15F, r * 2.0F - 0.8F, 0.7F, 0.4F)
+                            .addBox(-0.35F, 0.0F, -0.15F, 0.7F, r - 0.4F, 0.4F),
+                    PartPose.ZERO);
             // An eight-sided boss, and a bright badge on it so the turn can be seen.
             for (int i = 0; i < 2; i++) {
-                turn.addChild("boss" + i, ModelPartBuilder.create().uv(rim[0], rim[1])
-                                .cuboid(-0.95F, -0.95F, -0.45F, 1.9F, 1.9F, 0.9F),
-                        ModelTransform.of(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, i * 45.0F * DEGREES));
+                turn.addOrReplaceChild("boss" + i, CubeListBuilder.create().texOffs(rim[0], rim[1])
+                                .addBox(-0.95F, -0.95F, -0.45F, 1.9F, 1.9F, 0.9F),
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, i * 45.0F * DEGREES));
             }
-            turn.addChild("badge", ModelPartBuilder.create().uv(badge[0], badge[1])
-                            .cuboid(-0.5F, -0.5F, 0.45F, 1.0F, 1.0F, 0.15F),
-                    ModelTransform.of(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 45.0F * DEGREES));
+            turn.addOrReplaceChild("badge", CubeListBuilder.create().texOffs(badge[0], badge[1])
+                            .addBox(-0.5F, -0.5F, 0.45F, 1.0F, 1.0F, 0.15F),
+                    PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 45.0F * DEGREES));
         }
 
         int count = 0;
@@ -403,16 +401,16 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
             int[] at = uv(colours, box.color());
             // Written about its own middle, so that a tilt turns it in place.
             boolean turns = box.steers() && steerHead != null;
-            (turns ? steerHead : frame).addChild("box" + count++,
-                    ModelPartBuilder.create().uv(at[0], at[1])
-                            .cuboid(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ),
-                    ModelTransform.of(x + sizeX / 2.0F - (turns ? hubX : 0.0F),
+            (turns ? steerHead : frame).addOrReplaceChild("box" + count++,
+                    CubeListBuilder.create().texOffs(at[0], at[1])
+                            .addBox(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ),
+                    PartPose.offsetAndRotation(x + sizeX / 2.0F - (turns ? hubX : 0.0F),
                             -(y + sizeY / 2.0F) + (turns ? hubY : 0.0F),
                             -(z + sizeZ / 2.0F) + (turns ? hubZ : 0.0F),
                             -box.tilt() * DEGREES, 0.0F, 0.0F));
         }
 
-        return TexturedModelData.of(data, PALETTE * CELL, PALETTE * CELL).createModel();
+        return LayerDefinition.create(data, PALETTE * CELL, PALETTE * CELL).bakeRoot();
     }
 
     /**
@@ -423,60 +421,60 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
      * standing out of the middle — scaled to the size the definition asks for.
      */
     private static ModelPart buildWheels(VehicleDefinition definition) {
-        ModelData data = new ModelData();
-        ModelPartData root = data.getRoot();
+        MeshDefinition data = new MeshDefinition();
+        PartDefinition root = data.getRoot();
         for (int index = 0; index < definition.wheels().size(); index++) {
             VehicleDefinition.Wheel wheel = definition.wheels().get(index);
-            ModelPartData hub = root.addChild("wheel" + index, ModelPartBuilder.create(),
-                    ModelTransform.origin(wheel.at().x(), -wheel.at().y(), -wheel.at().z()));
-            hub.addChild("face",
-                    ModelPartBuilder.create().uv(0, 0)
-                            .cuboid(-2.0F, -8.0F, -8.0F, 4.0F, 16.0F, 16.0F,
-                                    java.util.Set.of(net.minecraft.util.math.Direction.EAST,
-                                            net.minecraft.util.math.Direction.WEST)),
-                    ModelTransform.NONE);
+            PartDefinition hub = root.addOrReplaceChild("wheel" + index, CubeListBuilder.create(),
+                    PartPose.offset(wheel.at().x(), -wheel.at().y(), -wheel.at().z()));
+            hub.addOrReplaceChild("face",
+                    CubeListBuilder.create().texOffs(0, 0)
+                            .addBox(-2.0F, -8.0F, -8.0F, 4.0F, 16.0F, 16.0F,
+                                    java.util.Set.of(net.minecraft.core.Direction.EAST,
+                                            net.minecraft.core.Direction.WEST)),
+                    PartPose.ZERO);
             // The sidewall: a ring of slabs just proud of the face, a little
             // short of the tread, so the tyre has a shoulder and a bulge.
             for (int slab = 0; slab < TREAD_SLABS; slab++) {
-                hub.addChild("wall" + slab,
-                        ModelPartBuilder.create().uv(40, 22)
-                                .cuboid(-WALL_HALF, -WALL_REACH, -WALL_FLAT / 2.0F,
+                hub.addOrReplaceChild("wall" + slab,
+                        CubeListBuilder.create().texOffs(40, 22)
+                                .addBox(-WALL_HALF, -WALL_REACH, -WALL_FLAT / 2.0F,
                                         WALL_HALF * 2.0F, WALL_REACH * 2.0F, WALL_FLAT),
-                        ModelTransform.of(0.0F, 0.0F, 0.0F, (slab * 22.5F + 11.25F) * DEGREES, 0.0F, 0.0F));
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, (slab * 22.5F + 11.25F) * DEGREES, 0.0F, 0.0F));
             }
             // The hub: a thick grey disc standing out of the tyre, with a gear's
             // teeth round its edge. Real depth, so its sides catch the shade.
             for (int slab = 0; slab < HUB_SLABS; slab++) {
-                hub.addChild("hub" + slab,
-                        ModelPartBuilder.create().uv(0, 34)
-                                .cuboid(-HUB_HALF, -HUB_REACH, -HUB_FLAT / 2.0F,
+                hub.addOrReplaceChild("hub" + slab,
+                        CubeListBuilder.create().texOffs(0, 34)
+                                .addBox(-HUB_HALF, -HUB_REACH, -HUB_FLAT / 2.0F,
                                         HUB_HALF * 2.0F, HUB_REACH * 2.0F, HUB_FLAT),
-                        ModelTransform.of(0.0F, 0.0F, 0.0F, slab * (180.0F / HUB_SLABS) * DEGREES, 0.0F, 0.0F));
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, slab * (180.0F / HUB_SLABS) * DEGREES, 0.0F, 0.0F));
             }
             for (int tooth = 0; tooth < HUB_TEETH; tooth++) {
-                hub.addChild("tooth" + tooth,
-                        ModelPartBuilder.create().uv(20, 34)
-                                .cuboid(-HUB_HALF, -HUB_REACH - TOOTH_HEIGHT, -TOOTH_WIDTH / 2.0F,
+                hub.addOrReplaceChild("tooth" + tooth,
+                        CubeListBuilder.create().texOffs(20, 34)
+                                .addBox(-HUB_HALF, -HUB_REACH - TOOTH_HEIGHT, -TOOTH_WIDTH / 2.0F,
                                         HUB_HALF * 2.0F, TOOTH_HEIGHT + 0.3F, TOOTH_WIDTH),
-                        ModelTransform.of(0.0F, 0.0F, 0.0F,
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F,
                                 (tooth + 0.5F) * (360.0F / HUB_TEETH) * DEGREES, 0.0F, 0.0F));
             }
             for (int slab = 0; slab < TREAD_SLABS; slab++) {
-                hub.addChild("tread" + slab,
-                        ModelPartBuilder.create().uv(40, 0)
-                                .cuboid(-1.95F, -TREAD_REACH, -TREAD_FLAT / 2.0F,
+                hub.addOrReplaceChild("tread" + slab,
+                        CubeListBuilder.create().texOffs(40, 0)
+                                .addBox(-1.95F, -TREAD_REACH, -TREAD_FLAT / 2.0F,
                                         3.9F, TREAD_REACH * 2.0F, TREAD_FLAT),
-                        ModelTransform.of(0.0F, 0.0F, 0.0F, slab * 22.5F * DEGREES, 0.0F, 0.0F));
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, slab * 22.5F * DEGREES, 0.0F, 0.0F));
             }
         }
-        return TexturedModelData.of(data, 64, 64).createModel();
+        return LayerDefinition.create(data, 64, 64).bakeRoot();
     }
 
     @Override
-    public void setAngles(CarRenderState state) {
+    public void setupAnim(CarRenderState state) {
         // This resets every part, scale included, so the wheels' sizes are
         // set again below; set only once, every wheel was drawn the same size.
-        super.setAngles(state);
+        super.setupAnim(state);
 
         // Taken off on the lift, a tyre is gone from the car; what is left on
         // the hub is the brake disc, and with that off too, nothing.
@@ -494,34 +492,34 @@ public class DefinedVehicleModel extends EntityModel<CarRenderState> {
             wheel.xScale = scale[0];
             wheel.yScale = scale[1];
             wheel.zScale = scale[1];
-            wheel.pitch = roll;
+            wheel.xRot = roll;
         }
         float steer = state.steerAngle * DEGREES;
         for (ModelPart wheel : this.steered) {
-            wheel.yaw = steer;
+            wheel.yRot = steer;
         }
 
         if (this.chassis == null) {
             return;
         }
         if (this.steerTurn != null) {
-            this.steerTurn.yaw = steer;
+            this.steerTurn.yRot = steer;
         }
         if (this.steeringWheel != null) {
             // Turning right swings the top of the rim to the right, which is
             // the model's minus x.
-            this.steeringWheel.roll = -steer * WHEEL_RATIO;
+            this.steeringWheel.zRot = -steer * WHEEL_RATIO;
         }
-        this.chassis.pitch = MathHelper.clamp(
+        this.chassis.xRot = Mth.clamp(
                 -state.acceleration * PITCH_PER_ACCELERATION, -MAX_PITCH, MAX_PITCH);
         float speedFraction = Math.min(1.0F, Math.abs(state.speed) / 0.4F);
-        this.chassis.roll = state.steerAngle * LEAN_PER_STEER_DEGREE * speedFraction;
+        this.chassis.zRot = state.steerAngle * LEAN_PER_STEER_DEGREE * speedFraction;
 
         float idle = state.engineRunning
                 ? 1.0F - Math.min(1.0F, Math.abs(state.speed) / IDLE_FADE_SPEED)
                 : 0.0F;
         float shake = idle * IDLE_SHAKE;
-        this.chassis.originX = MathHelper.cos(state.age * 2.3F) * shake * 0.6F;
-        this.chassis.originY = BODY_PIVOT_Y + MathHelper.sin(state.age * 1.9F) * shake;
+        this.chassis.x = Mth.cos(state.ageInTicks * 2.3F) * shake * 0.6F;
+        this.chassis.y = BODY_PIVOT_Y + Mth.sin(state.ageInTicks * 1.9F) * shake;
     }
 }

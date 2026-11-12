@@ -1,18 +1,18 @@
 package me.trossty.car.client.render;
 
 import me.trossty.car.CarMain;
-import net.minecraft.client.render.entity.model.EntityModelLayer;
+import net.minecraft.client.model.geom.ModelLayerLocation;
 
 public final class ModEntityModelLayers {
 
-    public static final EntityModelLayer CAR = new EntityModelLayer(CarMain.id("car"), "main");
+    public static final ModelLayerLocation CAR = new ModelLayerLocation(CarMain.id("car"), "main");
 
     /** Same texture, one more axle and a barrel. */
-    public static final EntityModelLayer FUEL_TANKER =
-            new EntityModelLayer(CarMain.id("fuel_tanker"), "main");
+    public static final ModelLayerLocation FUEL_TANKER =
+            new ModelLayerLocation(CarMain.id("fuel_tanker"), "main");
 
-    public static final EntityModelLayer PICKUP =
-            new EntityModelLayer(CarMain.id("pickup"), "main");
+    public static final ModelLayerLocation PICKUP =
+            new ModelLayerLocation(CarMain.id("pickup"), "main");
 
     private ModEntityModelLayers() {
     }

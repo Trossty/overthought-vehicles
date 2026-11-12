@@ -2,11 +2,11 @@ package me.trossty.car.client.sound;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.sound.ModSounds;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.sound.MovingSoundInstance;
-import net.minecraft.client.sound.SoundInstance;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * A looping engine drone that follows one car, so everybody nearby hears it and
@@ -18,7 +18,7 @@ import net.minecraft.util.math.MathHelper;
  * at a standstill, and the fours and sixes share the plain drone, the sixes a
  * little lower. Swap the engine and the sound swaps with it.
  */
-public class CarEngineSoundInstance extends MovingSoundInstance {
+public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
 
     private static final float IDLE_PITCH = 1.0F;
     private static final float MAX_PITCH = 2.0F;
@@ -41,11 +41,11 @@ public class CarEngineSoundInstance extends MovingSoundInstance {
     }
 
     private CarEngineSoundInstance(CarEntity car, Voice voice) {
-        super(voice.sound, SoundCategory.NEUTRAL, SoundInstance.createRandom());
+        super(voice.sound, SoundSource.NEUTRAL, SoundInstance.createUnseededRandom());
         this.car = car;
         this.voice = voice;
-        this.repeat = true;
-        this.repeatDelay = 0;
+        this.looping = true;
+        this.delay = 0;
         this.volume = 0.0F;
         this.pitch = IDLE_PITCH;
         this.x = car.getX();
@@ -54,7 +54,7 @@ public class CarEngineSoundInstance extends MovingSoundInstance {
     }
 
     @Override
-    public boolean canPlay() {
+    public boolean canPlaySound() {
         return !this.car.isSilent();
     }
 
@@ -71,23 +71,23 @@ public class CarEngineSoundInstance extends MovingSoundInstance {
      * {@code AttenuationType.NONE} because it belongs to the rider alone.
      */
     @Override
-    public boolean shouldAlwaysPlay() {
+    public boolean canStartSilent() {
         return true;
     }
 
     @Override
     public void tick() {
         if (this.car.isRemoved()) {
-            this.setDone();
+            this.stop();
             return;
         }
 
         Voice now = Voice.of(this.car);
         if (now != this.voice) {
             // A different engine went in: hand over to a loop of the new one.
-            this.setDone();
-            net.minecraft.client.MinecraftClient.getInstance().getSoundManager()
-                    .playNextTick(new CarEngineSoundInstance(this.car, now));
+            this.stop();
+            net.minecraft.client.Minecraft.getInstance().getSoundManager()
+                    .queueTickingSound(new CarEngineSoundInstance(this.car, now));
             return;
         }
 
@@ -99,18 +99,18 @@ public class CarEngineSoundInstance extends MovingSoundInstance {
         // The note follows the revs, so it climbs through each gear and drops
         // at the change, and a car with a higher top speed simply revs on.
         float revs = running
-                ? MathHelper.clamp(this.car.getEngineRpm() / this.car.getRedlineRpm(), 0.0F, 1.0F)
+                ? Mth.clamp(this.car.getEngineRpm() / this.car.getRedlineRpm(), 0.0F, 1.0F)
                 : 0.0F;
 
-        this.throttle = MathHelper.lerp(0.45F, this.throttle, revs);
+        this.throttle = Mth.lerp(0.45F, this.throttle, revs);
         this.road();
-        this.pitch = MathHelper.lerp(this.throttle, IDLE_PITCH * this.voice.idlePitch, MAX_PITCH * this.voice.maxPitch);
+        this.pitch = Mth.lerp(this.throttle, IDLE_PITCH * this.voice.idlePitch, MAX_PITCH * this.voice.maxPitch);
         if (this.car.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.MOTORCYCLE) {
             // A small engine spinning fast: the same note, an octave-ish up.
             this.pitch *= MOTORCYCLE_PITCH;
         }
         this.volume = running
-                ? MathHelper.lerp(this.throttle, IDLE_VOLUME * this.voice.idleVolume, MAX_VOLUME * this.voice.maxVolume)
+                ? Mth.lerp(this.throttle, IDLE_VOLUME * this.voice.idleVolume, MAX_VOLUME * this.voice.maxVolume)
                 : 0.0F;
     }
 
@@ -123,13 +123,13 @@ public class CarEngineSoundInstance extends MovingSoundInstance {
         /** Near silent at rest; the whine climbs a long way with speed. */
         ELECTRIC(ModSounds.ENGINE_ELECTRIC, 0.55F, 1.05F, 0.25F, 0.7F);
 
-        final net.minecraft.sound.SoundEvent sound;
+        final net.minecraft.sounds.SoundEvent sound;
         final float idlePitch;
         final float maxPitch;
         final float idleVolume;
         final float maxVolume;
 
-        Voice(net.minecraft.sound.SoundEvent sound, float idlePitch, float maxPitch, float idleVolume, float maxVolume) {
+        Voice(net.minecraft.sounds.SoundEvent sound, float idlePitch, float maxPitch, float idleVolume, float maxVolume) {
             this.sound = sound;
             this.idlePitch = idlePitch;
             this.maxPitch = maxPitch;
@@ -158,7 +158,7 @@ public class CarEngineSoundInstance extends MovingSoundInstance {
      */
     private void road() {
         float speed = Math.abs(this.car.getEngineSpeed());
-        if (!this.car.isOnGround() || speed < 0.02F) {
+        if (!this.car.onGround() || speed < 0.02F) {
             this.rolled = 0.0F;
             return;
         }
@@ -166,17 +166,17 @@ public class CarEngineSoundInstance extends MovingSoundInstance {
         BlockState under = RoadSurface.under(this.car);
         float roughness = RoadSurface.roughness(under);
         // Rough ground is a stream of crunches; smooth road an occasional hiss.
-        float every = MathHelper.lerp(roughness, 1.6F, 0.55F);
+        float every = Mth.lerp(roughness, 1.6F, 0.55F);
         if (this.rolled < every || under.isAir()) {
             return;
         }
         this.rolled = 0.0F;
-        float speedFraction = MathHelper.clamp(speed / CarEntity.MAX_SPEED, 0.0F, 1.0F);
-        var group = under.getSoundGroup();
+        float speedFraction = Mth.clamp(speed / CarEntity.MAX_SPEED, 0.0F, 1.0F);
+        var group = under.getSoundType();
         float volume = group.getVolume() * (0.08F + 0.42F * roughness) * (0.4F + 0.6F * speedFraction);
         float pitch = group.getPitch() * (0.75F + 0.3F * speedFraction)
                 + (this.car.getRandom().nextFloat() - 0.5F) * 0.15F;
-        this.car.getEntityWorld().playSoundClient(this.car.getX(), this.car.getY(), this.car.getZ(),
-                group.getStepSound(), SoundCategory.NEUTRAL, volume, pitch, false);
+        this.car.level().playLocalSound(this.car.getX(), this.car.getY(), this.car.getZ(),
+                group.getStepSound(), SoundSource.NEUTRAL, volume, pitch, false);
     }
 }

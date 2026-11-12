@@ -6,32 +6,32 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import me.trossty.car.block.entity.EnergyCableBlockEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.StringIdentifiable;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
-import net.minecraft.world.tick.ScheduledTickView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.util.StringRepresentable;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * Power line: an insulated cable from a generator to the machines it runs.
@@ -45,12 +45,12 @@ import net.minecraft.world.tick.ScheduledTickView;
  * junction marks the bends, tees and ends. What moves is decided in
  * {@link EnergyCableBlockEntity}; right-clicking says what is in that length.
  */
-public class EnergyCableBlock extends BlockWithEntity {
+public class EnergyCableBlock extends BaseEntityBlock {
 
-    public static final MapCodec<EnergyCableBlock> CODEC = createCodec(EnergyCableBlock::new);
+    public static final MapCodec<EnergyCableBlock> CODEC = simpleCodec(EnergyCableBlock::new);
 
     /** What a side of a cable meets. */
-    public enum Side implements StringIdentifiable {
+    public enum Side implements StringRepresentable {
         NONE("none"),
         CABLE("cable"),
         DEVICE("device");
@@ -62,7 +62,7 @@ public class EnergyCableBlock extends BlockWithEntity {
         }
 
         @Override
-        public String asString() {
+        public String getSerializedName() {
             return this.name;
         }
 
@@ -75,15 +75,15 @@ public class EnergyCableBlock extends BlockWithEntity {
 
     static {
         for (Direction side : Direction.values()) {
-            SIDES.put(side, EnumProperty.of(side.asString(), Side.class));
+            SIDES.put(side, EnumProperty.create(side.getSerializedName(), Side.class));
         }
     }
 
     /** Whether this length wears a junction: everywhere but the middle of a straight run. */
-    public static final BooleanProperty FITTING = BooleanProperty.of("fitting");
+    public static final BooleanProperty FITTING = BooleanProperty.create("fitting");
 
     /** Lit while the run carries power: a thin copper stripe glows along it. */
-    public static final BooleanProperty POWERED = net.minecraft.state.property.Properties.POWERED;
+    public static final BooleanProperty POWERED = net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED;
 
     /** Where the cable starts, in sixteenths: a 4x4 run, centred. */
     private static final double EDGE = 6.0;
@@ -93,18 +93,18 @@ public class EnergyCableBlock extends BlockWithEntity {
     private static final double PLATE_EDGE = 3.0;
     private static final double PLATE_DEPTH = 1.5;
 
-    private static final VoxelShape CORE = Block.createCuboidShape(EDGE, EDGE, EDGE, FAR, FAR, FAR);
+    private static final VoxelShape CORE = Block.box(EDGE, EDGE, EDGE, FAR, FAR, FAR);
     private static final VoxelShape[] ARMS = new VoxelShape[6];
     private static final VoxelShape[] PLATES = new VoxelShape[6];
 
     static {
         for (Direction side : Direction.values()) {
-            double x = side.getOffsetX();
-            double y = side.getOffsetY();
-            double z = side.getOffsetZ();
-            ARMS[side.ordinal()] = Block.createCuboidShape(
+            double x = side.getStepX();
+            double y = side.getStepY();
+            double z = side.getStepZ();
+            ARMS[side.ordinal()] = Block.box(
                     armMin(x), armMin(y), armMin(z), armMax(x), armMax(y), armMax(z));
-            PLATES[side.ordinal()] = Block.createCuboidShape(
+            PLATES[side.ordinal()] = Block.box(
                     plateMin(x), plateMin(y), plateMin(z), plateMax(x), plateMax(y), plateMax(z));
         }
     }
@@ -112,22 +112,22 @@ public class EnergyCableBlock extends BlockWithEntity {
     /** Shapes by the twelve bits of arms and plates, made when first needed. */
     private static final Map<Integer, VoxelShape> SHAPES = new ConcurrentHashMap<>();
 
-    public EnergyCableBlock(Settings settings) {
+    public EnergyCableBlock(Properties settings) {
         super(settings);
-        BlockState state = this.getStateManager().getDefaultState();
+        BlockState state = this.getStateDefinition().any();
         for (EnumProperty<Side> side : SIDES.values()) {
-            state = state.with(side, Side.NONE);
+            state = state.setValue(side, Side.NONE);
         }
-        this.setDefaultState(state.with(FITTING, true).with(POWERED, false));
+        this.registerDefaultState(state.setValue(FITTING, true).setValue(POWERED, false));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
+    protected MapCodec<? extends BaseEntityBlock> codec() {
         return CODEC;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         for (Direction side : Direction.values()) {
             builder.add(SIDES.get(side));
         }
@@ -137,22 +137,22 @@ public class EnergyCableBlock extends BlockWithEntity {
     // ---- joining up ----
 
     /** What a cable meets on one side: more cable, a machine with a power door there, or nothing. */
-    private static Side sideTowards(WorldView world, BlockPos pos, Direction side) {
+    private static Side sideTowards(LevelReader world, BlockPos pos, Direction side) {
         BlockState state = world.getBlockState(pos);
         if (state.getBlock() instanceof EnergyCableBlock) {
             return Side.CABLE;
         }
-        if (world instanceof World level
+        if (world instanceof Level level
                 && team.reborn.energy.api.EnergyStorage.SIDED.find(level, pos, side.getOpposite()) != null) {
             return Side.DEVICE;
         }
         return Side.NONE;
     }
 
-    private static BlockState connect(BlockState state, WorldView world, BlockPos pos) {
+    private static BlockState connect(BlockState state, LevelReader world, BlockPos pos) {
         BlockState joined = state;
         for (Direction side : Direction.values()) {
-            joined = joined.with(SIDES.get(side), sideTowards(world, pos.offset(side), side));
+            joined = joined.setValue(SIDES.get(side), sideTowards(world, pos.relative(side), side));
         }
         return withFitting(joined);
     }
@@ -162,7 +162,7 @@ public class EnergyCableBlock extends BlockWithEntity {
         Direction first = null;
         Direction second = null;
         for (Direction side : Direction.values()) {
-            if (state.get(SIDES.get(side)).connected()) {
+            if (state.getValue(SIDES.get(side)).connected()) {
                 count++;
                 if (first == null) {
                     first = side;
@@ -172,20 +172,20 @@ public class EnergyCableBlock extends BlockWithEntity {
             }
         }
         boolean straight = count == 2 && first.getOpposite() == second;
-        return state.with(FITTING, !straight);
+        return state.setValue(FITTING, !straight);
     }
 
     @Override
-    public BlockState getPlacementState(ItemPlacementContext context) {
-        return connect(this.getDefaultState(), context.getWorld(), context.getBlockPos());
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return connect(this.defaultBlockState(), context.getLevel(), context.getClickedPos());
     }
 
     @Override
-    protected BlockState getStateForNeighborUpdate(BlockState state, WorldView world,
-                                                   ScheduledTickView tickView, BlockPos pos,
+    protected BlockState updateShape(BlockState state, LevelReader world,
+                                                   ScheduledTickAccess tickView, BlockPos pos,
                                                    Direction direction, BlockPos neighborPos,
-                                                   BlockState neighborState, Random random) {
-        return withFitting(state.with(SIDES.get(direction), sideTowards(world, neighborPos, direction)));
+                                                   BlockState neighborState, RandomSource random) {
+        return withFitting(state.setValue(SIDES.get(direction), sideTowards(world, neighborPos, direction)));
     }
 
     // ---- the hitbox follows the arms and plates ----
@@ -209,7 +209,7 @@ public class EnergyCableBlock extends BlockWithEntity {
     private static VoxelShape shapeOf(BlockState state) {
         int key = 0;
         for (Direction side : Direction.values()) {
-            Side meets = state.get(SIDES.get(side));
+            Side meets = state.getValue(SIDES.get(side));
             if (meets.connected()) {
                 key |= 1 << side.ordinal();
             }
@@ -221,10 +221,10 @@ public class EnergyCableBlock extends BlockWithEntity {
             VoxelShape shape = CORE;
             for (Direction side : Direction.values()) {
                 if ((bits & (1 << side.ordinal())) != 0) {
-                    shape = VoxelShapes.union(shape, ARMS[side.ordinal()]);
+                    shape = Shapes.or(shape, ARMS[side.ordinal()]);
                 }
                 if ((bits & (1 << (side.ordinal() + 6))) != 0) {
-                    shape = VoxelShapes.union(shape, PLATES[side.ordinal()]);
+                    shape = Shapes.or(shape, PLATES[side.ordinal()]);
                 }
             }
             return shape;
@@ -232,57 +232,57 @@ public class EnergyCableBlock extends BlockWithEntity {
     }
 
     @Override
-    protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return shapeOf(state);
     }
 
     @Override
-    protected VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return shapeOf(state);
     }
 
     // ---- what is in it ----
 
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new EnergyCableBlockEntity(pos, state);
     }
 
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
-            World world, BlockState state, BlockEntityType<T> type) {
-        if (world.isClient()) {
+            Level world, BlockState state, BlockEntityType<T> type) {
+        if (world.isClientSide()) {
             return null;
         }
-        return validateTicker(type, ModBlockEntities.ENERGY_CABLE, EnergyCableBlockEntity::tick);
+        return createTickerHelper(type, ModBlockEntities.ENERGY_CABLE, EnergyCableBlockEntity::tick);
     }
 
     /** Right-clicking a length says how much charge is standing in it. */
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
-                                 PlayerEntity player, BlockHitResult hit) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
+                                 Player player, BlockHitResult hit) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(pos) instanceof EnergyCableBlockEntity cable) {
-            player.sendMessage(Text.translatable("message.car.cable_level",
+            player.displayClientMessage(Component.translatable("message.car.cable_level",
                     cable.getEnergy(), EnergyCableBlockEntity.CAPACITY), true);
         }
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     // ---- redstone ----
 
     @Override
-    protected boolean hasComparatorOutput(BlockState state) {
+    protected boolean hasAnalogOutputSignal(BlockState state) {
         return true;
     }
 
     @Override
-    protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
+    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
         if (!(world.getBlockEntity(pos) instanceof EnergyCableBlockEntity cable) || cable.getEnergy() <= 0) {
             return 0;
         }
-        return MathHelper.clamp(1 + cable.getEnergy() * 14 / EnergyCableBlockEntity.CAPACITY, 1, 15);
+        return Mth.clamp(1 + cable.getEnergy() * 14 / EnergyCableBlockEntity.CAPACITY, 1, 15);
     }
 }

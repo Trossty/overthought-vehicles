@@ -4,14 +4,14 @@ import me.trossty.car.block.FuelPumpBlock;
 import me.trossty.car.block.FuelTankBlock;
 import me.trossty.car.block.FuelValveBlock;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * The one-way valve: how you tell a line of pipe where to go first.
@@ -51,7 +51,7 @@ public class FuelValveBlockEntity extends BlockEntity {
 
     /** This holder as other mods' pipes see it. */
     private final me.trossty.car.fluid.PetrolSlot fluidStorage = new me.trossty.car.fluid.PetrolSlot(
-            () -> this.petrol, value -> this.petrol = value, CAPACITY, true, true, this::markDirty);
+            () -> this.petrol, value -> this.petrol = value, CAPACITY, true, true, this::setChanged);
 
     public net.fabricmc.fabric.api.transfer.v1.storage.Storage<net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant> getFluidStorage() {
         return this.fluidStorage;
@@ -71,14 +71,14 @@ public class FuelValveBlockEntity extends BlockEntity {
 
     public void setPetrol(int petrol) {
         this.petrol = Math.max(0, Math.min(CAPACITY, petrol));
-        this.markDirty();
+        this.setChanged();
     }
 
     public int fill(int amount) {
         int accepted = Math.min(amount, CAPACITY - this.petrol);
         if (accepted > 0) {
             this.petrol += accepted;
-            this.markDirty();
+            this.setChanged();
         }
         return accepted;
     }
@@ -87,29 +87,29 @@ public class FuelValveBlockEntity extends BlockEntity {
         int given = Math.min(amount, this.petrol);
         if (given > 0) {
             this.petrol -= given;
-            this.markDirty();
+            this.setChanged();
         }
         return given;
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, FuelValveBlockEntity valve) {
-        boolean shut = world.isReceivingRedstonePower(pos);
-        if (state.get(FuelValveBlock.POWERED) != shut) {
-            world.setBlockState(pos, state.with(FuelValveBlock.POWERED, shut), Block.NOTIFY_ALL);
+    public static void tick(Level world, BlockPos pos, BlockState state, FuelValveBlockEntity valve) {
+        boolean shut = world.hasNeighborSignal(pos);
+        if (state.getValue(FuelValveBlock.POWERED) != shut) {
+            world.setBlock(pos, state.setValue(FuelValveBlock.POWERED, shut), Block.UPDATE_ALL);
         }
         if (shut) {
             return;
         }
 
-        Direction facing = state.get(FuelValveBlock.FACING);
+        Direction facing = state.getValue(FuelValveBlock.FACING);
         // Out before in, so a tick's worth passes straight through rather than
         // sitting in the valve until the next one.
-        push(world, pos.offset(facing), valve);
-        pull(world, pos.offset(facing.getOpposite()), valve);
+        push(world, pos.relative(facing), valve);
+        pull(world, pos.relative(facing.getOpposite()), valve);
     }
 
     /** Shoves what it is holding into whatever is in front of it. */
-    private static void push(World world, BlockPos to, FuelValveBlockEntity valve) {
+    private static void push(Level world, BlockPos to, FuelValveBlockEntity valve) {
         if (valve.petrol <= 0) {
             return;
         }
@@ -131,8 +131,8 @@ public class FuelValveBlockEntity extends BlockEntity {
         } else if (ahead instanceof FuelValveBlockEntity next) {
             valve.drain(next.fill(offer));
         } else {
-            var foreign = me.trossty.car.fluid.ForeignFluids.at(world, valve.getPos(),
-                    Direction.fromVector(to.subtract(valve.getPos()), null));
+            var foreign = me.trossty.car.fluid.ForeignFluids.at(world, valve.getBlockPos(),
+                    Direction.getNearest(to.subtract(valve.getBlockPos()), null));
             if (foreign != null) {
                 me.trossty.car.fluid.ForeignFluids.move(valve.fluidStorage, foreign, offer);
             }
@@ -140,7 +140,7 @@ public class FuelValveBlockEntity extends BlockEntity {
     }
 
     /** Drags fuel out of whatever is behind it, whatever its level. */
-    private static void pull(World world, BlockPos from, FuelValveBlockEntity valve) {
+    private static void pull(Level world, BlockPos from, FuelValveBlockEntity valve) {
         int room = Math.min(PUMP_RATE, CAPACITY - valve.petrol);
         if (room <= 0) {
             return;
@@ -165,22 +165,22 @@ public class FuelValveBlockEntity extends BlockEntity {
             valve.fill(pump.drain(room));
             return;
         }
-        var foreign = me.trossty.car.fluid.ForeignFluids.at(world, valve.getPos(),
-                Direction.fromVector(from.subtract(valve.getPos()), null));
+        var foreign = me.trossty.car.fluid.ForeignFluids.at(world, valve.getBlockPos(),
+                Direction.getNearest(from.subtract(valve.getBlockPos()), null));
         if (foreign != null) {
             me.trossty.car.fluid.ForeignFluids.move(foreign, valve.fluidStorage, room);
         }
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        this.petrol = view.getInt("Petrol", 0);
+    protected void loadAdditional(ValueInput view) {
+        super.loadAdditional(view);
+        this.petrol = view.getIntOr("Petrol", 0);
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(ValueOutput view) {
+        super.saveAdditional(view);
         view.putInt("Petrol", this.petrol);
     }
 }

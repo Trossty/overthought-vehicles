@@ -5,19 +5,19 @@ import java.util.function.Predicate;
 import me.trossty.car.fluid.UnitTank;
 import me.trossty.car.registry.ModFluids;
 import me.trossty.car.registry.ModScreenHandlers;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.ArrayPropertyDelegate;
-import net.minecraft.screen.PropertyDelegate;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.SimpleContainerData;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -30,7 +30,7 @@ import org.jspecify.annotations.Nullable;
  * properties, and properties travel as shorts, so the big numbers (a
  * battery's charge, the crude left in the ground) are sent in two halves.
  */
-public class MachineScreenHandler extends ScreenHandler {
+public class MachineScreenHandler extends AbstractContainerMenu {
 
     public static final int KIND = 0;
     public static final int ENERGY_LO = 1;
@@ -61,46 +61,46 @@ public class MachineScreenHandler extends ScreenHandler {
     private static final int HOTBAR_TOP = 142;
     private static final int HALF = 1 << 15;
 
-    private final PropertyDelegate properties;
-    private final Predicate<PlayerEntity> canUse;
+    private final ContainerData properties;
+    private final Predicate<Player> canUse;
     private final boolean fuelled;
 
     /** Client side, no firebox. */
-    public static MachineScreenHandler plain(int syncId, PlayerInventory playerInventory) {
+    public static MachineScreenHandler plain(int syncId, Inventory playerInventory) {
         return new MachineScreenHandler(ModScreenHandlers.MACHINE, syncId, playerInventory, null,
-                new ArrayPropertyDelegate(COUNT), player -> true);
+                new SimpleContainerData(COUNT), player -> true);
     }
 
     /** Client side, with the firebox slot. */
-    public static MachineScreenHandler fuelled(int syncId, PlayerInventory playerInventory) {
+    public static MachineScreenHandler fuelled(int syncId, Inventory playerInventory) {
         return new MachineScreenHandler(ModScreenHandlers.FUELLED_MACHINE, syncId, playerInventory,
-                new SimpleInventory(1), new ArrayPropertyDelegate(COUNT), player -> true);
+                new SimpleContainer(1), new SimpleContainerData(COUNT), player -> true);
     }
 
     /** Server side: live gauges off the machine itself. */
-    public static MachineScreenHandler of(int syncId, PlayerInventory playerInventory, BlockEntity machine,
-                                          @Nullable Inventory firebox) {
+    public static MachineScreenHandler of(int syncId, Inventory playerInventory, BlockEntity machine,
+                                          @Nullable Container firebox) {
         GaugeSource source = (GaugeSource) machine;
         return new MachineScreenHandler(firebox == null ? ModScreenHandlers.MACHINE : ModScreenHandlers.FUELLED_MACHINE,
                 syncId, playerInventory, firebox, delegate(source),
-                player -> !machine.isRemoved() && player.squaredDistanceTo(
-                        machine.getPos().toCenterPos()) <= 64.0);
+                player -> !machine.isRemoved() && player.distanceToSqr(
+                        machine.getBlockPos().getCenter()) <= 64.0);
     }
 
-    private MachineScreenHandler(ScreenHandlerType<?> type, int syncId, PlayerInventory playerInventory,
-                                 @Nullable Inventory firebox, PropertyDelegate properties,
-                                 Predicate<PlayerEntity> canUse) {
+    private MachineScreenHandler(MenuType<?> type, int syncId, Inventory playerInventory,
+                                 @Nullable Container firebox, ContainerData properties,
+                                 Predicate<Player> canUse) {
         super(type, syncId);
-        checkDataCount(properties, COUNT);
+        checkContainerDataCount(properties, COUNT);
         this.properties = properties;
         this.canUse = canUse;
         this.fuelled = firebox != null;
         if (firebox != null) {
             this.addSlot(new Slot(firebox, 0, FUEL_SLOT_X, FUEL_SLOT_Y) {
                 @Override
-                public boolean canInsert(ItemStack stack) {
+                public boolean mayPlace(ItemStack stack) {
                     return me.trossty.car.block.entity.GeneratorBlockEntity.burnTicks(stack,
-                            playerInventory.player.getEntityWorld()) > 0;
+                            playerInventory.player.level()) > 0;
                 }
             });
         }
@@ -113,12 +113,12 @@ public class MachineScreenHandler extends ScreenHandler {
         for (int column = 0; column < 9; column++) {
             this.addSlot(new Slot(playerInventory, column, 8 + column * 18, HOTBAR_TOP));
         }
-        this.addProperties(properties);
+        this.addDataSlots(properties);
     }
 
     /** The properties a machine's gauges are read through, live, every sync. */
-    private static PropertyDelegate delegate(GaugeSource source) {
-        return new PropertyDelegate() {
+    private static ContainerData delegate(GaugeSource source) {
+        return new ContainerData() {
             @Override
             public int get(int index) {
                 return switch (index) {
@@ -147,7 +147,7 @@ public class MachineScreenHandler extends ScreenHandler {
             }
 
             @Override
-            public int size() {
+            public int getCount() {
                 return COUNT;
             }
         };
@@ -216,39 +216,39 @@ public class MachineScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public boolean canUse(PlayerEntity player) {
+    public boolean stillValid(Player player) {
         return this.canUse.test(player);
     }
 
     @Override
-    public ItemStack quickMove(PlayerEntity player, int slotIndex) {
+    public ItemStack quickMoveStack(Player player, int slotIndex) {
         Slot slot = this.slots.get(slotIndex);
-        if (!slot.hasStack()) {
+        if (!slot.hasItem()) {
             return ItemStack.EMPTY;
         }
-        ItemStack stack = slot.getStack();
+        ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
         int machineEnd = this.fuelled ? 1 : 0;
         int inventoryEnd = machineEnd + 27;
         if (slotIndex < machineEnd) {
-            if (!this.insertItem(stack, machineEnd, this.slots.size(), true)) {
+            if (!this.moveItemStackTo(stack, machineEnd, this.slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
-        } else if (this.fuelled && this.slots.get(0).canInsert(stack)) {
-            if (!this.insertItem(stack, 0, 1, false)) {
+        } else if (this.fuelled && this.slots.get(0).mayPlace(stack)) {
+            if (!this.moveItemStackTo(stack, 0, 1, false)) {
                 return ItemStack.EMPTY;
             }
         } else if (slotIndex < inventoryEnd) {
-            if (!this.insertItem(stack, inventoryEnd, this.slots.size(), false)) {
+            if (!this.moveItemStackTo(stack, inventoryEnd, this.slots.size(), false)) {
                 return ItemStack.EMPTY;
             }
-        } else if (!this.insertItem(stack, machineEnd, inventoryEnd, false)) {
+        } else if (!this.moveItemStackTo(stack, machineEnd, inventoryEnd, false)) {
             return ItemStack.EMPTY;
         }
         if (stack.isEmpty()) {
-            slot.setStack(ItemStack.EMPTY);
+            slot.setByPlayer(ItemStack.EMPTY);
         } else {
-            slot.markDirty();
+            slot.setChanged();
         }
         return original;
     }

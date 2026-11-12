@@ -3,9 +3,8 @@ package me.trossty.car.client.render;
 import me.trossty.car.mixin.client.SpriteContentsAccessor;
 import net.fabricmc.fabric.api.transfer.v1.client.fluid.FluidVariantRendering;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.Sprite;
-
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import com.mojang.blaze3d.platform.NativeImage;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -17,7 +16,7 @@ import java.util.WeakHashMap;
 public final class LiquidColours {
 
     /** Keyed by sprite, so a resource reload, which makes new sprites, starts afresh. */
-    private static final Map<Sprite, Integer> AVERAGES = new WeakHashMap<>();
+    private static final Map<TextureAtlasSprite, Integer> AVERAGES = new WeakHashMap<>();
 
     private LiquidColours() {
     }
@@ -28,28 +27,28 @@ public final class LiquidColours {
             return fallback;
         }
         int tint = FluidVariantRendering.getColor(liquid);
-        Sprite sprite = FluidVariantRendering.getSprite(liquid);
+        TextureAtlasSprite sprite = FluidVariantRendering.getSprite(liquid);
         int base = sprite == null ? 0xFFFFFF : average(sprite);
         return multiply(base, tint);
     }
 
-    private static synchronized int average(Sprite sprite) {
+    private static synchronized int average(TextureAtlasSprite sprite) {
         return AVERAGES.computeIfAbsent(sprite, LiquidColours::measure);
     }
 
-    private static int measure(Sprite sprite) {
-        NativeImage[] images = ((SpriteContentsAccessor) sprite.getContents()).car$getImages();
+    private static int measure(TextureAtlasSprite sprite) {
+        NativeImage[] images = ((SpriteContentsAccessor) sprite.contents()).car$getImages();
         if (images == null || images.length == 0 || images[0] == null) {
             return 0xFFFFFF;
         }
         NativeImage image = images[0];
         // Only the first frame of an animated strip: the rest are the same liquid.
-        int width = sprite.getContents().getWidth();
-        int height = Math.min(sprite.getContents().getHeight(), image.getHeight());
+        int width = sprite.contents().width();
+        int height = Math.min(sprite.contents().height(), image.getHeight());
         long r = 0, g = 0, b = 0, n = 0;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int argb = image.getColorArgb(x, y);
+                int argb = image.getPixel(x, y);
                 int alpha = argb >>> 24;
                 if (alpha < 16) {
                     continue;

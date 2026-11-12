@@ -4,13 +4,12 @@ import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.entity.CarSetup;
 import me.trossty.car.registry.ModComponents;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import java.util.function.Consumer;
 
 /**
@@ -23,7 +22,7 @@ import java.util.function.Consumer;
  */
 public class VehiclePartItem extends Item {
 
-    public VehiclePartItem(Settings settings) {
+    public VehiclePartItem(Properties settings) {
         super(settings);
     }
 
@@ -32,7 +31,7 @@ public class VehiclePartItem extends Item {
      * parts counter for "an engine".
      */
     @Override
-    public Text getName(ItemStack stack) {
+    public Component getName(ItemStack stack) {
         CarPart part = CarPart.forItem(this);
         int variant = CarEntity.variantOf(stack);
         if (part == null || CarSetup.variantsOf(part) == 1) {
@@ -42,25 +41,25 @@ public class VehiclePartItem extends Item {
     }
 
     /** What a part of this kind is called, on the item and on the car alike. */
-    public static Text nameOf(CarPart part, int variant) {
+    public static Component nameOf(CarPart part, int variant) {
         return switch (part) {
-            case ENGINE -> variant == CarSetup.ELECTRIC_MOTOR ? Text.translatable("item.car.engine.electric")
-                    : Text.translatable("item.car.engine.kind",
-                    Text.translatable("engine.car." + CarSetup.layoutOf(variant).key()),
-                    Text.translatable("fuel.car." + CarSetup.fuelOf(variant).key() + ".short"));
-            case WHEELS -> Text.translatable("item.car.wheel.kind",
-                    Text.translatable("tyre.car." + CarSetup.Tyre.byOrdinal(variant).key()));
-            case AIR_FILTER -> Text.translatable(
+            case ENGINE -> variant == CarSetup.ELECTRIC_MOTOR ? Component.translatable("item.car.engine.electric")
+                    : Component.translatable("item.car.engine.kind",
+                    Component.translatable("engine.car." + CarSetup.layoutOf(variant).key()),
+                    Component.translatable("fuel.car." + CarSetup.fuelOf(variant).key() + ".short"));
+            case WHEELS -> Component.translatable("item.car.wheel.kind",
+                    Component.translatable("tyre.car." + CarSetup.Tyre.byOrdinal(variant).key()));
+            case AIR_FILTER -> Component.translatable(
                     variant == 1 ? "item.car.air_filter.open" : "item.car.air_filter");
-            default -> Text.translatable("part.car." + part.key());
+            default -> Component.translatable("part.car." + part.key());
         };
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context,
-                              TooltipDisplayComponent display,
-                              Consumer<Text> tooltip, TooltipType type) {
-        super.appendTooltip(stack, context, display, tooltip, type);
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+                              TooltipDisplay display,
+                              Consumer<Component> tooltip, TooltipFlag type) {
+        super.appendHoverText(stack, context, display, tooltip, type);
         // The grade is always shown, even on a standard part: three grades you
         // cannot compare at a glance may as well be one.
         CarPart part = CarPart.forItem(this);
@@ -69,39 +68,39 @@ public class VehiclePartItem extends Item {
             int variant = CarEntity.variantOf(stack);
             switch (part) {
                 case ENGINE -> {
-                    tooltip.accept(Text.translatable("tooltip.car.layout."
-                            + CarSetup.layoutOf(variant).key()).formatted(Formatting.DARK_AQUA));
-                    tooltip.accept(Text.translatable("tooltip.car.fuel."
-                            + CarSetup.fuelOf(variant).key()).formatted(Formatting.DARK_AQUA));
+                    tooltip.accept(Component.translatable("tooltip.car.layout."
+                            + CarSetup.layoutOf(variant).key()).withStyle(ChatFormatting.DARK_AQUA));
+                    tooltip.accept(Component.translatable("tooltip.car.fuel."
+                            + CarSetup.fuelOf(variant).key()).withStyle(ChatFormatting.DARK_AQUA));
                 }
-                case WHEELS -> tooltip.accept(Text.translatable("tooltip.car.tyre."
-                        + CarSetup.Tyre.byOrdinal(variant).key()).formatted(Formatting.DARK_AQUA));
-                default -> tooltip.accept(Text.translatable(variant == 1
+                case WHEELS -> tooltip.accept(Component.translatable("tooltip.car.tyre."
+                        + CarSetup.Tyre.byOrdinal(variant).key()).withStyle(ChatFormatting.DARK_AQUA));
+                default -> tooltip.accept(Component.translatable(variant == 1
                         ? "tooltip.car.filter.open" : "tooltip.car.filter.paper")
-                        .formatted(Formatting.DARK_AQUA));
+                        .withStyle(ChatFormatting.DARK_AQUA));
             }
         }
         CarPart.Quality quality = CarEntity.qualityOf(stack);
-        tooltip.accept(Text.translatable("tooltip.car.part_quality",
-                        Text.translatable("quality.car." + quality.key()))
-                .formatted(colorOf(quality)));
+        tooltip.accept(Component.translatable("tooltip.car.part_quality",
+                        Component.translatable("quality.car." + quality.key()))
+                .withStyle(colorOf(quality)));
         if (part != null && CarEntity.gradeIsFelt(part) && quality.performance() != 1.0F) {
             // A grade is felt on the road as well as in how long the part lasts.
             int percent = Math.round((quality.performance() - 1.0F) * 100.0F);
-            tooltip.accept(Text.translatable("tooltip.car.grade_effect",
+            tooltip.accept(Component.translatable("tooltip.car.grade_effect",
                             (percent > 0 ? "+" : "") + percent,
-                            Text.translatable("part.car." + part.key() + ".effect"))
-                    .formatted(colorOf(quality)));
+                            Component.translatable("part.car." + part.key() + ".effect"))
+                    .withStyle(colorOf(quality)));
         }
         Integer condition = stack.get(ModComponents.PART_CONDITION);
         if (condition != null) {
-            tooltip.accept(Text.translatable("tooltip.car.part_condition", condition)
-                    .formatted(condition < 35 ? Formatting.RED : Formatting.GRAY));
+            tooltip.accept(Component.translatable("tooltip.car.part_condition", condition)
+                    .withStyle(condition < 35 ? ChatFormatting.RED : ChatFormatting.GRAY));
         }
     }
 
     /** Each tier in its own material's colour, the way an item's rarity is. */
-    private static Formatting colorOf(CarPart.Quality quality) {
+    private static ChatFormatting colorOf(CarPart.Quality quality) {
         return quality.formatting();
     }
 }

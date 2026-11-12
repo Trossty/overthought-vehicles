@@ -4,20 +4,19 @@ import me.trossty.car.block.VehicleLiftBlock;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.VertexRendering;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Util;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShapes;
-
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -95,7 +94,7 @@ public final class CarServiceOverlay {
 
     /** How far out the frame still is from the mark it is settling onto. */
     private static double chase(CarPart part) {
-        long now = Util.getMeasuringTimeMs();
+        long now = Util.getMillis();
         if (part != chased) {
             chased = part;
             chasedSince = now;
@@ -122,9 +121,9 @@ public final class CarServiceOverlay {
         aimedCar = null;
         aimedPart = null;
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        if (player == null || client.world == null || client.options.hudHidden
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        if (player == null || client.level == null || client.options.hideGui
                 || player.isSpectator()) {
             return;
         }
@@ -139,13 +138,13 @@ public final class CarServiceOverlay {
         // a car to read: how beaten up it is and what is in the tank. Those
         // two come up whenever you look at one, so that walking up to your car
         // tells you what a menu used to have to.
-        boolean servicing = VehicleLiftBlock.isServicing(player.getEntityWorld(), car);
+        boolean servicing = VehicleLiftBlock.isServicing(player.level(), car);
 
-        float tickProgress = client.getRenderTickCounter().getTickProgress(true);
+        float tickProgress = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 
         // The game's own pick decides whether anything can be aimed at. It is
         // the same pick the right click will use, so a lit mark is a promise.
-        boolean inReach = client.crosshairTarget instanceof EntityHitResult hit
+        boolean inReach = client.hitResult instanceof EntityHitResult hit
                 && hit.getEntity() == car;
         if (!servicing && !inReach) {
             return;
@@ -158,21 +157,21 @@ public final class CarServiceOverlay {
         // marks are aimed at by themselves, as far as the first solid block.
         CarPart aiming = null;
         if (servicing) {
-            Vec3d eye = player.getEyePos();
+            Vec3 eye = player.getEyePosition();
             double reach = REACH;
-            if (client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult block
-                    && block.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK) {
-                reach = Math.min(reach, block.getPos().distanceTo(eye));
+            if (client.hitResult instanceof net.minecraft.world.phys.BlockHitResult block
+                    && block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                reach = Math.min(reach, block.getLocation().distanceTo(eye));
             }
-            Vec3d end = eye.add(player.getRotationVec(tickProgress).multiply(reach));
+            Vec3 end = eye.add(player.getViewVector(tickProgress).scale(reach));
             double nearest = Double.MAX_VALUE;
             for (CarPart part : CarPart.values()) {
                 if (!car.canReach(part)) {
                     continue;
                 }
-                Optional<Vec3d> hit = boxOf(car, part, tickProgress).raycast(eye, end);
+                Optional<Vec3> hit = boxOf(car, part, tickProgress).clip(eye, end);
                 if (hit.isPresent()) {
-                    double distance = hit.get().squaredDistanceTo(eye);
+                    double distance = hit.get().distanceToSqr(eye);
                     if (distance < nearest) {
                         nearest = distance;
                         aiming = part;
@@ -185,23 +184,23 @@ public final class CarServiceOverlay {
             chased = null;
         }
 
-        VertexConsumerProvider consumers = context.consumers();
+        MultiBufferSource consumers = context.consumers();
         if (consumers != null) {
-            Vec3d camera = context.worldState().cameraRenderState.pos;
-            MatrixStack matrices = context.matrices();
+            Vec3 camera = context.worldState().cameraRenderState.pos;
+            PoseStack matrices = context.matrices();
             for (CarPart part : CarPart.values()) {
                 if (!servicing || !car.canReach(part)) {
                     continue;
                 }
                 boolean fitted = car.isFitted(part);
                 boolean lit = part == aiming;
-                Box box = boxOf(car, part, tickProgress);
-                Box frame = lit ? box.expand(chase(part)) : box;
+                AABB box = boxOf(car, part, tickProgress);
+                AABB frame = lit ? box.inflate(chase(part)) : box;
 
-                VertexRendering.drawOutline(
+                ShapeRenderer.renderShape(
                         matrices,
-                        consumers.getBuffer(RenderLayers.lines()),
-                        VoxelShapes.cuboid(frame.offset(-frame.minX, -frame.minY, -frame.minZ)),
+                        consumers.getBuffer(RenderTypes.lines()),
+                        Shapes.create(frame.move(-frame.minX, -frame.minY, -frame.minZ)),
                         frame.minX - camera.x,
                         frame.minY - camera.y,
                         frame.minZ - camera.z,
@@ -210,10 +209,10 @@ public final class CarServiceOverlay {
             }
             // Each plate hangs on a short leader from its own mark; the car's
             // renderer writes the plate itself (see labelsFor).
-            Vec3d pos = car.getLerpedPos(tickProgress);
+            Vec3 pos = car.getPosition(tickProgress);
             for (PartLabel label : labelsFor(car, tickProgress)) {
                 if (label.mark() != null) {
-                    drawLeader(matrices, consumers.getBuffer(RenderLayers.lines()),
+                    drawLeader(matrices, consumers.getBuffer(RenderTypes.lines()),
                             pos.add(label.mark()), pos.add(label.offset()), camera, label.line());
                 }
             }
@@ -224,14 +223,14 @@ public final class CarServiceOverlay {
     }
 
     /** The box you aim at for one part, in world space. */
-    public static Box boxOf(CarEntity car, CarPart part, float tickProgress) {
+    public static AABB boxOf(CarEntity car, CarPart part, float tickProgress) {
         return car.anchorOf(part).box(
-                car.getLerpedPos(tickProgress), car.getLerpedYaw(tickProgress));
+                car.getPosition(tickProgress), car.getYRot(tickProgress));
     }
 
     /** One plate hanging over a car: where, relative to the car, and what it says. */
-    public record PartLabel(Vec3d offset, Text text, int colour, Vec3d mark, int line) {
-        PartLabel(Vec3d offset, Text text, int colour) {
+    public record PartLabel(Vec3 offset, Component text, int colour, Vec3 mark, int line) {
+        PartLabel(Vec3 offset, Component text, int colour) {
             this(offset, text, colour, null, 0);
         }
     }
@@ -257,19 +256,19 @@ public final class CarServiceOverlay {
      * the stack does not shuffle as you walk round.
      */
     public static List<PartLabel> labelsFor(CarEntity car, float tickProgress) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientPlayerEntity player = client.player;
-        if (player == null || client.world == null || client.options.hudHidden
+        Minecraft client = Minecraft.getInstance();
+        LocalPlayer player = client.player;
+        if (player == null || client.level == null || client.options.hideGui
                 || player.isSpectator() || player.getVehicle() == car || nearestCar(player) != car) {
             return List.of();
         }
-        boolean servicing = VehicleLiftBlock.isServicing(player.getEntityWorld(), car);
-        boolean inReach = client.crosshairTarget instanceof EntityHitResult hit && hit.getEntity() == car;
+        boolean servicing = VehicleLiftBlock.isServicing(player.level(), car);
+        boolean inReach = client.hitResult instanceof EntityHitResult hit && hit.getEntity() == car;
         if (!servicing && !inReach) {
             return List.of();
         }
-        Vec3d pos = car.getLerpedPos(tickProgress);
-        float yaw = car.getLerpedYaw(tickProgress);
+        Vec3 pos = car.getPosition(tickProgress);
+        float yaw = car.getYRot(tickProgress);
         List<PartLabel> labels = new ArrayList<>();
         readings(car, pos, yaw, labels);
         if (servicing) {
@@ -282,10 +281,10 @@ public final class CarServiceOverlay {
                 if (colour == GOOD) {
                     continue;
                 }
-                Box box = boxOf(car, part, tickProgress);
-                Vec3d mark = new Vec3d(box.getCenter().x, box.maxY, box.getCenter().z).subtract(pos);
-                Vec3d at = mark.add(0.0, LABEL_LIFT, 0.0);
-                Text name = nameOf(car, part);
+                AABB box = boxOf(car, part, tickProgress);
+                Vec3 mark = new Vec3(box.getCenter().x, box.maxY, box.getCenter().z).subtract(pos);
+                Vec3 at = mark.add(0.0, LABEL_LIFT, 0.0);
+                Component name = nameOf(car, part);
                 double width = widthOf(name);
                 while (crowded(labels, at, width)) {
                     at = at.add(0.0, PLATE_STEP, 0.0);
@@ -299,7 +298,7 @@ public final class CarServiceOverlay {
 
     /** Adds a plate, lifted clear of any it would overlap. */
     private static void stack(List<PartLabel> labels, PartLabel label) {
-        Vec3d at = label.offset();
+        Vec3 at = label.offset();
         double width = widthOf(label.text());
         while (crowded(labels, at, width)) {
             at = at.add(0.0, PLATE_STEP, 0.0);
@@ -308,8 +307,8 @@ public final class CarServiceOverlay {
     }
 
     /** How wide a plate is, in blocks. */
-    private static double widthOf(Text text) {
-        return MinecraftClient.getInstance().textRenderer.getWidth(text) * PLATE_SCALE + 0.1;
+    private static double widthOf(Component text) {
+        return Minecraft.getInstance().font.width(text) * PLATE_SCALE + 0.1;
     }
 
     /**
@@ -318,9 +317,9 @@ public final class CarServiceOverlay {
      * can always be lined up by walking round, so they are kept apart in
      * height instead.
      */
-    private static boolean crowded(List<PartLabel> labels, Vec3d at, double width) {
+    private static boolean crowded(List<PartLabel> labels, Vec3 at, double width) {
         for (PartLabel other : labels) {
-            Vec3d o = other.offset();
+            Vec3 o = other.offset();
             double across = Math.hypot(o.x - at.x, o.z - at.z);
             if (across < (width + widthOf(other.text())) / 2.0 && Math.abs(o.y - at.y) < PLATE_STEP) {
                 return true;
@@ -336,7 +335,7 @@ public final class CarServiceOverlay {
      * that the whole of what the service window used to tell you is out here
      * on the car.
      */
-    private static void readings(CarEntity car, Vec3d pos, float yaw, List<PartLabel> labels) {
+    private static void readings(CarEntity car, Vec3 pos, float yaw, List<PartLabel> labels) {
         // Over this car's own roof, clear of the plates over its parts: the
         // body and what it will do over the front half, the tank over the back.
         CarPart.Anchor wheel = car.anchorOf(CarPart.WHEELS);
@@ -348,20 +347,20 @@ public final class CarServiceOverlay {
 
         float body = car.getHealthFraction();
         stack(labels, new PartLabel(bodyAt.box(pos, yaw).getCenter().subtract(pos),
-                Text.translatable("gui.car.plate_body", Math.round(body * 100.0F)),
+                Component.translatable("gui.car.plate_body", Math.round(body * 100.0F)),
                 body >= 0.75F ? GOOD : (body > 0.35F ? FAIR : BAD)));
 
         if (car instanceof me.trossty.car.entity.TrailerEntity trailer) {
             // No engine and no tank: what it is carrying instead.
             stack(labels, new PartLabel(specAt.box(pos, yaw).getCenter().subtract(pos),
-                    Text.translatable("gui.car.plate_load", Math.round(trailer.getLoadFraction() * 100.0F)),
+                    Component.translatable("gui.car.plate_load", Math.round(trailer.getLoadFraction() * 100.0F)),
                     0xFFE8E8E8));
             return;
         }
         // What the car as fitted will actually do, so that a part going on
         // or coming off shows as a number changing in front of you.
         stack(labels, new PartLabel(specAt.box(pos, yaw).getCenter().subtract(pos),
-                Text.translatable("gui.car.plate_spec",
+                Component.translatable("gui.car.plate_spec",
                         Math.round(car.getMaxSpeed() * 72.0F),
                         String.format(java.util.Locale.ROOT, "%.2f",
                                 car.throttleStep() / CarEntity.ACCELERATION),
@@ -369,16 +368,16 @@ public final class CarServiceOverlay {
                 0xFFE8E8E8));
 
         float fuel = car.getFuelFraction();
-        Text tank = car.isOverheating()
+        Component tank = car.isOverheating()
                 // One line, and the thing that will stop you first goes on it.
-                ? Text.translatable("message.car.overheating")
+                ? Component.translatable("message.car.overheating")
                 : car.isLeaking() && car.hasFuel()
-                ? Text.translatable("gui.car.plate_leaking", Math.round(fuel * 100.0F))
+                ? Component.translatable("gui.car.plate_leaking", Math.round(fuel * 100.0F))
                 : car.hasWrongFuel()
-                ? Text.translatable("gui.car.plate_wrong_fuel",
-                        Text.translatable("fuel.car." + car.getTankFuel().key() + ".short"))
-                : Text.translatable("gui.car.plate_fuel_kind",
-                        Text.translatable("fuel.car." + car.getTankFuel().key() + ".short"),
+                ? Component.translatable("gui.car.plate_wrong_fuel",
+                        Component.translatable("fuel.car." + car.getTankFuel().key() + ".short"))
+                : Component.translatable("gui.car.plate_fuel_kind",
+                        Component.translatable("fuel.car." + car.getTankFuel().key() + ".short"),
                         Math.round(fuel * 100.0F));
         stack(labels, new PartLabel(tankAt.box(pos, yaw).getCenter().subtract(pos), tank,
                 car.isOverheating() || car.hasWrongFuel() || car.isLeaking() ? BAD
@@ -386,19 +385,19 @@ public final class CarServiceOverlay {
     }
 
     /** What the plate over a mark says: the part, and how worn it is. */
-    private static Text nameOf(CarEntity car, CarPart part) {
-        Text name = Text.translatable("part.car." + part.key());
+    private static Component nameOf(CarEntity car, CarPart part) {
+        Component name = Component.translatable("part.car." + part.key());
         if (!car.isFitted(part)) {
-            return Text.translatable("gui.car.hologram_absent", name);
+            return Component.translatable("gui.car.hologram_absent", name);
         }
         if (me.trossty.car.entity.CarSetup.variantsOf(part) > 1) {
             // Which engine, which tyres: the plate says what is actually there.
             name = me.trossty.car.item.VehiclePartItem.nameOf(part, car.getVariant(part));
             if (part == CarPart.ENGINE && car.hasTurbo()) {
-                name = Text.translatable("gui.car.with_turbo", name);
+                name = Component.translatable("gui.car.with_turbo", name);
             }
         }
-        return Text.translatable("gui.car.hologram_worn", name,
+        return Component.translatable("gui.car.hologram_worn", name,
                 Math.round(car.getConditionFraction(part) * 100.0F));
     }
 
@@ -415,24 +414,24 @@ public final class CarServiceOverlay {
      * the way a player's own name is.
      */
     /** The leader line from a mark up to its plate. */
-    private static void drawLeader(MatrixStack matrices, VertexConsumer lines,
-                                   Vec3d from, Vec3d to, Vec3d camera, int colour) {
-        MatrixStack.Entry entry = matrices.peek();
-        lines.vertex(entry, (float) (from.x - camera.x), (float) (from.y - camera.y),
+    private static void drawLeader(PoseStack matrices, VertexConsumer lines,
+                                   Vec3 from, Vec3 to, Vec3 camera, int colour) {
+        PoseStack.Pose entry = matrices.last();
+        lines.addVertex(entry, (float) (from.x - camera.x), (float) (from.y - camera.y),
                         (float) (from.z - camera.z))
-                .color(colour).normal(entry, 0.0F, 1.0F, 0.0F).lineWidth(LEADER_WIDTH);
-        lines.vertex(entry, (float) (to.x - camera.x), (float) (to.y - camera.y),
+                .setColor(colour).setNormal(entry, 0.0F, 1.0F, 0.0F).setLineWidth(LEADER_WIDTH);
+        lines.addVertex(entry, (float) (to.x - camera.x), (float) (to.y - camera.y),
                         (float) (to.z - camera.z))
-                .color(colour).normal(entry, 0.0F, 1.0F, 0.0F).lineWidth(LEADER_WIDTH);
+                .setColor(colour).setNormal(entry, 0.0F, 1.0F, 0.0F).setLineWidth(LEADER_WIDTH);
     }
 
     /** The nearest car in sight, or null. */
-    private static CarEntity nearestCar(ClientPlayerEntity player) {
+    private static CarEntity nearestCar(LocalPlayer player) {
         CarEntity best = null;
         double nearest = RANGE * RANGE;
-        for (CarEntity car : player.getEntityWorld().getEntitiesByClass(
-                CarEntity.class, player.getBoundingBox().expand(RANGE), each -> true)) {
-            double distance = car.squaredDistanceTo(player);
+        for (CarEntity car : player.level().getEntitiesOfClass(
+                CarEntity.class, player.getBoundingBox().inflate(RANGE), each -> true)) {
+            double distance = car.distanceToSqr(player);
             if (distance < nearest) {
                 best = car;
                 nearest = distance;

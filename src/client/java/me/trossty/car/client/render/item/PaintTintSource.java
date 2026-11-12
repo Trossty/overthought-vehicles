@@ -5,11 +5,11 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import me.trossty.car.registry.ModComponents;
 import me.trossty.car.vehicle.VehicleDefinition;
-import net.minecraft.client.render.item.tint.TintSource;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.DyeColor;
+import net.minecraft.client.color.item.ItemTintSource;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -20,7 +20,7 @@ import org.jetbrains.annotations.Nullable;
  * {@code paint_dark} or {@code paint_light}, the same three tones the car
  * itself is drawn in.
  */
-public record PaintTintSource(String shade, int defaultColor) implements TintSource {
+public record PaintTintSource(String shade, int defaultColor) implements ItemTintSource {
 
     public static final MapCodec<PaintTintSource> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
             Codec.STRING.optionalFieldOf("shade", "paint").forGetter(PaintTintSource::shade),
@@ -28,16 +28,16 @@ public record PaintTintSource(String shade, int defaultColor) implements TintSou
     ).apply(instance, PaintTintSource::new));
 
     @Override
-    public int getTint(ItemStack stack, @Nullable ClientWorld world, @Nullable LivingEntity user) {
+    public int calculate(ItemStack stack, @Nullable ClientLevel world, @Nullable LivingEntity user) {
         Integer sprayed = stack.get(ModComponents.CAR_PAINT);
         Integer index = stack.get(ModComponents.CAR_COLOR);
         int paint = sprayed != null ? sprayed
-                : index == null ? this.defaultColor : DyeColor.byIndex(index).getEntityColor();
+                : index == null ? this.defaultColor : DyeColor.byId(index).getTextureDiffuseColor();
         return 0xFF000000 | VehicleDefinition.resolve(this.shade, paint & 0xFFFFFF);
     }
 
     @Override
-    public MapCodec<PaintTintSource> getCodec() {
+    public MapCodec<PaintTintSource> type() {
         return CODEC;
     }
 }

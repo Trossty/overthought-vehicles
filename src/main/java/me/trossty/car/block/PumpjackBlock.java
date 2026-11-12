@@ -3,25 +3,24 @@ package me.trossty.car.block;
 import com.mojang.serialization.MapCodec;
 import me.trossty.car.block.entity.PumpjackBlockEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,7 +35,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class PumpjackBlock extends MultiblockBlock {
 
-    public static final MapCodec<PumpjackBlock> CODEC = createCodec(PumpjackBlock::new);
+    public static final MapCodec<PumpjackBlock> CODEC = simpleCodec(PumpjackBlock::new);
 
     public static final int[][] CELLS = {
             {0, 0, 0}, {0, 0, 1}, {0, 0, 2},
@@ -49,22 +48,22 @@ public class PumpjackBlock extends MultiblockBlock {
     /** The crank's model, drawn about its shaft in cell {0, 1, 2}. */
     public static final int CRANK = CELLS.length + 1;
 
-    public static final IntProperty PART = IntProperty.of("part", 0, CRANK);
+    public static final IntegerProperty PART = IntegerProperty.create("part", 0, CRANK);
 
-    private static final VoxelShape WELLHEAD = VoxelShapes.union(
-            BlockWithEntity.createCuboidShape(3, 0, 3, 13, 10, 13),
-            BlockWithEntity.createCuboidShape(0, 0, 0, 16, 2, 16));
-    private static final VoxelShape ROD = BlockWithEntity.createCuboidShape(6, 0, 6, 10, 16, 10);
-    private static final VoxelShape POST = BlockWithEntity.createCuboidShape(2, 0, 4, 14, 16, 12);
+    private static final VoxelShape WELLHEAD = Shapes.or(
+            BaseEntityBlock.box(3, 0, 3, 13, 10, 13),
+            BaseEntityBlock.box(0, 0, 0, 16, 2, 16));
+    private static final VoxelShape ROD = BaseEntityBlock.box(6, 0, 6, 10, 16, 10);
+    private static final VoxelShape POST = BaseEntityBlock.box(2, 0, 4, 14, 16, 12);
 
-    public PumpjackBlock(Settings settings) {
+    public PumpjackBlock(Properties settings) {
         super(settings);
-        this.setDefaultState(this.getStateManager().getDefaultState()
-                .with(LIT, false).with(FACING, Direction.NORTH).with(PART, 0));
+        this.registerDefaultState(this.getStateDefinition().any()
+                .setValue(LIT, false).setValue(FACING, Direction.NORTH).setValue(PART, 0));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
+    protected MapCodec<? extends BaseEntityBlock> codec() {
         return CODEC;
     }
 
@@ -74,62 +73,62 @@ public class PumpjackBlock extends MultiblockBlock {
     }
 
     @Override
-    public IntProperty partProperty() {
+    public IntegerProperty partProperty() {
         return PART;
     }
 
     @Override
-    protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        return switch (state.get(PART)) {
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        return switch (state.getValue(PART)) {
             case 0 -> WELLHEAD;
             case 3 -> ROD;
             case 4, 6 -> POST;
-            default -> super.getOutlineShape(state, world, pos, context);
+            default -> super.getShape(state, world, pos, context);
         };
     }
 
     @Override
-    public @Nullable BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-        return state.get(PART) == 0 ? new PumpjackBlockEntity(pos, state) : null;
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return state.getValue(PART) == 0 ? new PumpjackBlockEntity(pos, state) : null;
     }
 
     @Override
     public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(
-            World world, BlockState state, BlockEntityType<T> type) {
-        if (world.isClient() || state.get(PART) != 0) {
+            Level world, BlockState state, BlockEntityType<T> type) {
+        if (world.isClientSide() || state.getValue(PART) != 0) {
             return null;
         }
-        return validateTicker(type, ModBlockEntities.PUMPJACK, PumpjackBlockEntity::tick);
+        return createTickerHelper(type, ModBlockEntities.PUMPJACK, PumpjackBlockEntity::tick);
     }
 
     /** An empty hand reads the gauges, and says what is under it. */
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
-                                 PlayerEntity player, BlockHitResult hit) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
+                                 Player player, BlockHitResult hit) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(this.controllerOf(pos, state)) instanceof PumpjackBlockEntity jack) {
-            player.openHandledScreen(new net.minecraft.screen.SimpleNamedScreenHandlerFactory(
+            player.openMenu(new net.minecraft.world.SimpleMenuProvider(
                     (syncId, inventory, who) -> me.trossty.car.machine.MachineScreenHandler.of(syncId, inventory,
                             jack, null),
                     this.getName()));
         }
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     /** A little black smoke off the motor while it pumps. */
     @Override
-    public void randomDisplayTick(BlockState state, World world, BlockPos pos, Random random) {
-        if (!state.get(LIT) || state.get(PART) != 2) {
+    public void animateTick(BlockState state, Level world, BlockPos pos, RandomSource random) {
+        if (!state.getValue(LIT) || state.getValue(PART) != 2) {
             return;
         }
         if (random.nextInt(4) == 0) {
-            world.addParticleClient(ParticleTypes.SMOKE,
+            world.addParticle(ParticleTypes.SMOKE,
                     pos.getX() + 0.5, pos.getY() + 0.9, pos.getZ() + 0.5, 0.0, 0.02, 0.0);
         }
-        world.playSoundClient(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5,
-                me.trossty.car.sound.ModSounds.PUMPJACK_CREAK, net.minecraft.sound.SoundCategory.BLOCKS,
+        world.playLocalSound(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5,
+                me.trossty.car.sound.ModSounds.PUMPJACK_CREAK, net.minecraft.sounds.SoundSource.BLOCKS,
                 0.5F, 0.9F + random.nextFloat() * 0.15F, false);
     }
 }

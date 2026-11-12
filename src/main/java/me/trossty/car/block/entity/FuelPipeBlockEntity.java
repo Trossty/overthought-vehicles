@@ -3,13 +3,13 @@ package me.trossty.car.block.entity;
 import me.trossty.car.block.FuelPumpBlock;
 import me.trossty.car.block.FuelTankBlock;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * A length of fuel line.
@@ -54,7 +54,7 @@ public class FuelPipeBlockEntity extends BlockEntity {
 
     /** This holder as other mods' pipes see it. */
     private final me.trossty.car.fluid.PetrolSlot fluidStorage = new me.trossty.car.fluid.PetrolSlot(
-            () -> this.petrol, value -> this.petrol = value, CAPACITY, true, true, this::markDirty);
+            () -> this.petrol, value -> this.petrol = value, CAPACITY, true, true, this::setChanged);
 
     public net.fabricmc.fabric.api.transfer.v1.storage.Storage<net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant> getFluidStorage() {
         return this.fluidStorage;
@@ -74,7 +74,7 @@ public class FuelPipeBlockEntity extends BlockEntity {
 
     public void setPetrol(int petrol) {
         this.petrol = Math.max(0, Math.min(CAPACITY, petrol));
-        this.markDirty();
+        this.setChanged();
     }
 
     /** Takes what it can, up to {@code amount}, and reports how much went in. */
@@ -82,7 +82,7 @@ public class FuelPipeBlockEntity extends BlockEntity {
         int accepted = Math.min(amount, CAPACITY - this.petrol);
         if (accepted > 0) {
             this.petrol += accepted;
-            this.markDirty();
+            this.setChanged();
         }
         return accepted;
     }
@@ -92,14 +92,14 @@ public class FuelPipeBlockEntity extends BlockEntity {
         int given = Math.min(amount, this.petrol);
         if (given > 0) {
             this.petrol -= given;
-            this.markDirty();
+            this.setChanged();
         }
         return given;
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, FuelPipeBlockEntity pipe) {
+    public static void tick(Level world, BlockPos pos, BlockState state, FuelPipeBlockEntity pipe) {
         for (Direction side : Direction.values()) {
-            BlockPos next = pos.offset(side);
+            BlockPos next = pos.relative(side);
 
             // 1. the source
             if (pipe.petrol < CAPACITY
@@ -160,14 +160,14 @@ public class FuelPipeBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        this.petrol = view.getInt("Petrol", 0);
+    protected void loadAdditional(ValueInput view) {
+        super.loadAdditional(view);
+        this.petrol = view.getIntOr("Petrol", 0);
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(ValueOutput view) {
+        super.saveAdditional(view);
         view.putInt("Petrol", this.petrol);
     }
 }

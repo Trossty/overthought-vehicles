@@ -1,20 +1,19 @@
 package me.trossty.car.client.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import me.trossty.car.CarMain;
 import me.trossty.car.entity.CarEntity;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.render.entity.model.EntityModel;
-import net.minecraft.client.render.entity.model.EntityModelLayer;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.DyeColor;
 
 public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState> {
 
@@ -29,7 +28,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
         DyeColor[] colors = DyeColor.values();
         Identifier[] textures = new Identifier[colors.length];
         for (DyeColor color : colors) {
-            textures[color.getIndex()] = CarMain.id("textures/entity/car/car_" + color.getId() + ".png");
+            textures[color.getId()] = CarMain.id("textures/entity/car/car_" + color.getName() + ".png");
         }
         return textures;
     }
@@ -52,18 +51,18 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
      * more the faster it goes. Shared with whoever rides it, so they lean too.
      */
     public static float leanDegrees(float steerAngle, float speed) {
-        float pace = MathHelper.clamp(speed / LEAN_FULL_SPEED, 0.0F, 1.0F);
+        float pace = Mth.clamp(speed / LEAN_FULL_SPEED, 0.0F, 1.0F);
         return -steerAngle * LEAN_PER_STEER * pace;
     }
 
-    public CarEntityRenderer(EntityRendererFactory.Context context) {
+    public CarEntityRenderer(EntityRendererProvider.Context context) {
         this(context, ModEntityModelLayers.CAR);
     }
 
     /** Subclasses differ only in which baked model they pick up. */
-    protected CarEntityRenderer(EntityRendererFactory.Context context, EntityModelLayer layer) {
+    protected CarEntityRenderer(EntityRendererProvider.Context context, ModelLayerLocation layer) {
         super(context);
-        this.model = new CarEntityModel(context.getPart(layer));
+        this.model = new CarEntityModel(context.bakeLayer(layer));
         this.shadowRadius = 0.9F;
     }
 
@@ -78,9 +77,9 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
     }
 
     @Override
-    public void updateRenderState(CarEntity car, CarRenderState state, float tickProgress) {
-        super.updateRenderState(car, state, tickProgress);
-        state.yaw = car.getLerpedYaw(tickProgress);
+    public void extractRenderState(CarEntity car, CarRenderState state, float tickProgress) {
+        super.extractRenderState(car, state, tickProgress);
+        state.yaw = car.getYRot(tickProgress);
         state.color = car.getColor();
         state.paint = car.getPaint();
         state.vehicle = car.getDefinition();
@@ -95,23 +94,23 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
         state.acceleration = car.getAcceleration(tickProgress);
         state.engineRunning = car.isEngineRunning();
         state.restPose = car.getRestPose(tickProgress);
-        state.damageWobbleTicks = car.getDamageWobbleTicks() - tickProgress;
-        state.damageWobbleSide = car.getDamageWobbleSide();
-        state.damageWobbleStrength = Math.max(car.getDamageWobbleStrength() - tickProgress, 0.0F);
+        state.damageWobbleTicks = car.getHurtTime() - tickProgress;
+        state.damageWobbleSide = car.getHurtDir();
+        state.damageWobbleStrength = Math.max(car.getDamage() - tickProgress, 0.0F);
     }
 
     /**
      * Anything else drawn on the body, in the body's own frame (model space,
      * already turned and flipped): nothing for most vehicles.
      */
-    protected void submitExtras(CarRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue) {
+    protected void submitExtras(CarRenderState state, PoseStack matrices, SubmitNodeCollector queue) {
     }
 
     @Override
-    public void render(CarRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue,
+    public void submit(CarRenderState state, PoseStack matrices, SubmitNodeCollector queue,
                        CameraRenderState cameraState) {
-        matrices.push();
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - state.yaw));
+        matrices.pushPose();
+        matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
 
         // Two wheels lean into the turn, more the faster they go, about the
         // line where the tyres touch the road.
@@ -121,12 +120,12 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
             // rather than the tyres: the seat stays under them and the
             // wheels go out wide, which reads as the lean.
             matrices.translate(0.0F, LEAN_PIVOT, 0.0F);
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(leanDegrees(state.steerAngle, state.speed)));
+            matrices.mulPose(Axis.ZP.rotationDegrees(leanDegrees(state.steerAngle, state.speed)));
             matrices.translate(0.0F, -LEAN_PIVOT, 0.0F);
             // Parked, it rests over on its stand, pivoting where the tyres
             // meet the ground so they stay on it.
             if (state.restPose > 0.001F) {
-                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(STAND_TILT * ease(state.restPose)));
+                matrices.mulPose(Axis.ZP.rotationDegrees(STAND_TILT * ease(state.restPose)));
             }
         }
 
@@ -139,13 +138,13 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
             float axleY = axle.at().y() / 16.0F;
             float axleZ = -axle.at().z() / 16.0F;
             matrices.translate(0.0F, axleY, axleZ);
-            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-NOSE_DROP * ease(state.restPose)));
+            matrices.mulPose(Axis.XP.rotationDegrees(-NOSE_DROP * ease(state.restPose)));
             matrices.translate(0.0F, -axleY, -axleZ);
         }
 
         if (state.damageWobbleTicks > 0.0F) {
-            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(
-                    MathHelper.sin(state.damageWobbleTicks)
+            matrices.mulPose(Axis.XP.rotationDegrees(
+                    Mth.sin(state.damageWobbleTicks)
                             * state.damageWobbleTicks
                             * state.damageWobbleStrength / 10.0F
                             * state.damageWobbleSide));
@@ -154,11 +153,11 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
         // A vehicle a data pack describes brings its own shape and palette;
         // everything else here — the turn, the wobble, the light — is shared.
         EntityModel<CarRenderState> model = this.model;
-        Identifier texture = TEXTURES[state.color.getIndex()];
+        Identifier texture = TEXTURES[state.color.getId()];
         if (state.vehicle != null && state.vehicleId != null) {
             model = DefinedVehicleModel.of(state.vehicleId, state.vehicle);
             texture = DefinedVehicleModel.textureOf(state.vehicleId, state.vehicle,
-                    state.paint >= 0 ? state.paint : state.color.getEntityColor());
+                    state.paint >= 0 ? state.paint : state.color.getTextureDiffuseColor());
         }
 
         matrices.scale(-1.0F, -1.0F, 1.0F);
@@ -166,9 +165,9 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
                 model,
                 state,
                 matrices,
-                model.getLayer(texture),
-                state.light,
-                OverlayTexture.DEFAULT_UV,
+                model.renderType(texture),
+                state.lightCoords,
+                OverlayTexture.NO_OVERLAY,
                 state.outlineColor,
                 null);
         if (state.vehicle != null && state.vehicleId != null) {
@@ -176,13 +175,13 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
             // it would hide them from anyone looking in.
             EntityModel<CarRenderState> glass = DefinedVehicleModel.glassOf(state.vehicleId, state.vehicle);
             if (glass != null) {
-                queue.getBatchingQueue(1).submitModel(
+                queue.order(1).submitModel(
                         glass,
                         state,
                         matrices,
-                        glass.getLayer(texture),
-                        state.light,
-                        OverlayTexture.DEFAULT_UV,
+                        glass.renderType(texture),
+                        state.lightCoords,
+                        OverlayTexture.NO_OVERLAY,
                         state.outlineColor,
                         null);
             }
@@ -194,16 +193,16 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
                     wheels,
                     state,
                     matrices,
-                    wheels.getLayer(DefinedVehicleModel.wheelTexture(state.tyre)),
-                    state.light,
-                    OverlayTexture.DEFAULT_UV,
+                    wheels.renderType(DefinedVehicleModel.wheelTexture(state.tyre)),
+                    state.lightCoords,
+                    OverlayTexture.NO_OVERLAY,
                     state.outlineColor,
                     null);
         }
-        matrices.pop();
+        matrices.popPose();
 
         this.submitPlates(state, matrices, queue, cameraState);
-        super.render(state, matrices, queue, cameraState);
+        super.submit(state, matrices, queue, cameraState);
     }
 
     private static final int PLATE_BACKGROUND = 0xA0101418;
@@ -213,23 +212,23 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity, CarRenderState>
      * to face the camera, through the body so the bonnet does not hide the
      * one for the part under it.
      */
-    private void submitPlates(CarRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue,
+    private void submitPlates(CarRenderState state, PoseStack matrices, SubmitNodeCollector queue,
                               CameraRenderState cameraState) {
         if (state.labels.isEmpty()) {
             return;
         }
-        net.minecraft.client.font.TextRenderer font = net.minecraft.client.MinecraftClient.getInstance().textRenderer;
+        net.minecraft.client.gui.Font font = net.minecraft.client.Minecraft.getInstance().font;
         for (CarServiceOverlay.PartLabel label : state.labels) {
-            matrices.push();
+            matrices.pushPose();
             matrices.translate(label.offset().x, label.offset().y, label.offset().z);
-            matrices.multiply(cameraState.orientation);
+            matrices.mulPose(cameraState.orientation);
             matrices.scale(CarServiceOverlay.PLATE_SCALE, -CarServiceOverlay.PLATE_SCALE, CarServiceOverlay.PLATE_SCALE);
-            net.minecraft.text.OrderedText text = label.text().asOrderedText();
-            queue.submitText(matrices, -font.getWidth(text) / 2.0F, -font.fontHeight / 2.0F, text, false,
-                    net.minecraft.client.font.TextRenderer.TextLayerType.SEE_THROUGH,
-                    net.minecraft.client.render.LightmapTextureManager.MAX_LIGHT_COORDINATE,
+            net.minecraft.util.FormattedCharSequence text = label.text().getVisualOrderText();
+            queue.submitText(matrices, -font.width(text) / 2.0F, -font.lineHeight / 2.0F, text, false,
+                    net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH,
+                    net.minecraft.client.renderer.LightTexture.FULL_BRIGHT,
                     label.colour(), PLATE_BACKGROUND, 0);
-            matrices.pop();
+            matrices.popPose();
         }
     }
 }

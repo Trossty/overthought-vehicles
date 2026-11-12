@@ -1,7 +1,7 @@
 package me.trossty.car.entity;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * What kind of car this is, as opposed to what state it is in.
@@ -189,16 +189,16 @@ public final class CarSetup {
 
         /** Reads the ground from the block under the wheels. */
         public static Surface of(BlockState ground) {
-            if (ground.isIn(BlockTags.SNOW) || ground.isIn(BlockTags.ICE)) {
+            if (ground.is(BlockTags.SNOW) || ground.is(BlockTags.ICE)) {
                 return SNOW;
             }
-            if (ground.isIn(BlockTags.DIRT) || ground.isIn(BlockTags.SAND)
-                    || ground.isOf(net.minecraft.block.Blocks.GRAVEL)
-                    || ground.isOf(net.minecraft.block.Blocks.CLAY)
-                    || ground.isOf(net.minecraft.block.Blocks.SOUL_SAND)
-                    || ground.isOf(net.minecraft.block.Blocks.SOUL_SOIL)
-                    || ground.isOf(net.minecraft.block.Blocks.DIRT_PATH)
-                    || ground.isOf(net.minecraft.block.Blocks.FARMLAND)) {
+            if (ground.is(BlockTags.DIRT) || ground.is(BlockTags.SAND)
+                    || ground.is(net.minecraft.world.level.block.Blocks.GRAVEL)
+                    || ground.is(net.minecraft.world.level.block.Blocks.CLAY)
+                    || ground.is(net.minecraft.world.level.block.Blocks.SOUL_SAND)
+                    || ground.is(net.minecraft.world.level.block.Blocks.SOUL_SOIL)
+                    || ground.is(net.minecraft.world.level.block.Blocks.DIRT_PATH)
+                    || ground.is(net.minecraft.world.level.block.Blocks.FARMLAND)) {
                 return DIRT;
             }
             return ASPHALT;

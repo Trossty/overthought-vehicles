@@ -5,13 +5,12 @@ import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
 import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.registry.Registries;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import java.util.function.Predicate;
 
 /**
@@ -104,15 +103,15 @@ public final class UnitTank extends SnapshotParticipant<UnitTank.State> implemen
         this.amount = Math.max(0, Math.min(this.capacity, units));
     }
 
-    public void write(WriteView view, String key) {
-        view.putString(key + "Fluid", Registries.FLUID.getId(this.fluid).toString());
+    public void write(ValueOutput view, String key) {
+        view.putString(key + "Fluid", BuiltInRegistries.FLUID.getKey(this.fluid).toString());
         view.putInt(key + "Amount", this.amount);
     }
 
-    public void read(ReadView view, String key) {
-        Identifier id = Identifier.tryParse(view.getString(key + "Fluid", "minecraft:empty"));
-        Fluid stored = id == null ? Fluids.EMPTY : Registries.FLUID.get(id);
-        this.set(stored == null ? Fluids.EMPTY : stored, view.getInt(key + "Amount", 0));
+    public void read(ValueInput view, String key) {
+        Identifier id = Identifier.tryParse(view.getStringOr(key + "Fluid", "minecraft:empty"));
+        Fluid stored = id == null ? Fluids.EMPTY : BuiltInRegistries.FLUID.getValue(id);
+        this.set(stored == null ? Fluids.EMPTY : stored, view.getIntOr(key + "Amount", 0));
     }
 
     // ---- what a pipe sees ----

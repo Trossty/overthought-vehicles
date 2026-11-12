@@ -10,19 +10,19 @@ import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
 import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayDeque;
@@ -113,7 +113,7 @@ public class FuelTankBlockEntity extends BlockEntity {
         if (!now.equals(this.fluid) || held != this.amount) {
             this.fluid = now;
             this.amount = held;
-            this.markDirty();
+            this.setChanged();
         }
     }
 
@@ -153,14 +153,14 @@ public class FuelTankBlockEntity extends BlockEntity {
         return this.drain(ModFluids.PETROL, units);
     }
 
-    public int fill(net.minecraft.fluid.Fluid liquid, int units) {
+    public int fill(net.minecraft.world.level.material.Fluid liquid, int units) {
         if (units <= 0) {
             return 0;
         }
         return (int) (this.move(FluidVariant.of(liquid), units * ModFluids.UNIT, true) / ModFluids.UNIT);
     }
 
-    public int drain(net.minecraft.fluid.Fluid liquid, int units) {
+    public int drain(net.minecraft.world.level.material.Fluid liquid, int units) {
         if (units <= 0) {
             return 0;
         }
@@ -187,12 +187,12 @@ public class FuelTankBlockEntity extends BlockEntity {
 
     // ---- ticking ----
 
-    public static void tick(World world, BlockPos pos, BlockState state, FuelTankBlockEntity tank) {
+    public static void tick(Level world, BlockPos pos, BlockState state, FuelTankBlockEntity tank) {
         Group whole = tank.getGroup();
         boolean petrol = whole.fluid.isBlank() || whole.fluid.isOf(ModFluids.PETROL);
         if (petrol) {
             for (Direction side : Direction.values()) {
-                BlockPos next = pos.offset(side);
+                BlockPos next = pos.relative(side);
                 BlockEntity neighbour = me.trossty.car.block.MultiblockBlock.controllerEntity(world, next);
                 if (neighbour instanceof me.trossty.car.fluid.PetrolSource refinery) {
                     int room = (int) Math.min(DRAW_RATE, (whole.capacity - whole.amount) / ModFluids.UNIT);
@@ -217,23 +217,23 @@ public class FuelTankBlockEntity extends BlockEntity {
         // Tell the clients, but not every tick: a few times a second is plenty
         // for a level going up the glass.
         boolean changedLiquid = !tank.fluid.equals(tank.sentFluid);
-        if (tank.amount != tank.sentAmount && (changedLiquid || world.getTime() % 4 == 0)) {
+        if (tank.amount != tank.sentAmount && (changedLiquid || world.getGameTime() % 4 == 0)) {
             tank.sentFluid = tank.fluid;
             tank.sentAmount = tank.amount;
-            world.updateListeners(pos, state, state, Block.NOTIFY_LISTENERS);
-            world.updateComparators(pos, state.getBlock());
+            world.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
+            world.updateNeighbourForOutputSignal(pos, state.getBlock());
         }
     }
 
     // ---- saving and syncing ----
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
+    protected void loadAdditional(ValueInput view) {
+        super.loadAdditional(view);
         this.fluid = view.read("Fluid", FluidVariant.CODEC).orElse(FluidVariant.blank());
-        this.amount = view.getLong("Amount", 0L);
+        this.amount = view.getLongOr("Amount", 0L);
         // A tank from before it could hold anything but petrol.
-        int petrol = view.getInt("Petrol", 0);
+        int petrol = view.getIntOr("Petrol", 0);
         if (this.amount <= 0 && petrol > 0) {
             this.fluid = FluidVariant.of(ModFluids.PETROL);
             this.amount = petrol * ModFluids.UNIT;
@@ -245,33 +245,33 @@ public class FuelTankBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(ValueOutput view) {
+        super.saveAdditional(view);
         if (!this.fluid.isBlank() && this.amount > 0) {
-            view.put("Fluid", FluidVariant.CODEC, this.fluid);
+            view.store("Fluid", FluidVariant.CODEC, this.fluid);
             view.putLong("Amount", this.amount);
         }
     }
 
     @Override
-    public @Nullable Packet<ClientPlayPacketListener> toUpdatePacket() {
-        return BlockEntityUpdateS2CPacket.create(this);
+    public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registries) {
-        return this.createNbt(registries);
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return this.saveWithoutMetadata(registries);
     }
 
     @Override
-    public void markRemoved() {
-        super.markRemoved();
+    public void setRemoved() {
+        super.setRemoved();
         reshape();
     }
 
     @Override
-    public void cancelRemoval() {
-        super.cancelRemoval();
+    public void clearRemoved() {
+        super.clearRemoved();
         reshape();
     }
 
@@ -301,19 +301,19 @@ public class FuelTankBlockEntity extends BlockEntity {
 
         /** Every tank cell joined to {@code start}, face to face. */
         static Group build(FuelTankBlockEntity start) {
-            World world = start.getWorld();
+            Level world = start.getLevel();
             List<FuelTankBlockEntity> cells = new ArrayList<>();
             cells.add(start);
             if (world != null && !start.isRemoved()) {
                 Set<BlockPos> seen = new HashSet<>();
-                seen.add(start.getPos());
+                seen.add(start.getBlockPos());
                 ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-                queue.add(start.getPos());
+                queue.add(start.getBlockPos());
                 while (!queue.isEmpty() && cells.size() < MAX_CELLS) {
                     BlockPos at = queue.poll();
                     for (Direction side : Direction.values()) {
-                        BlockPos next = at.offset(side);
-                        if (!seen.add(next) || !world.isChunkLoaded(next)) {
+                        BlockPos next = at.relative(side);
+                        if (!seen.add(next) || !world.hasChunkAt(next)) {
                             continue;
                         }
                         if (world.getBlockEntity(next) instanceof FuelTankBlockEntity cell && !cell.isRemoved()) {
@@ -343,7 +343,7 @@ public class FuelTankBlockEntity extends BlockEntity {
                     total += cell.amount;
                 }
             }
-            cells.sort(Comparator.comparingInt((FuelTankBlockEntity cell) -> cell.getPos().getY()));
+            cells.sort(Comparator.comparingInt((FuelTankBlockEntity cell) -> cell.getBlockPos().getY()));
             Group group = new Group(cells, liquid, total);
             for (FuelTankBlockEntity cell : cells) {
                 cell.group = group;
@@ -365,9 +365,9 @@ public class FuelTankBlockEntity extends BlockEntity {
             long left = this.amount;
             int i = 0;
             while (i < this.cells.size()) {
-                int y = this.cells.get(i).getPos().getY();
+                int y = this.cells.get(i).getBlockPos().getY();
                 int end = i;
-                while (end < this.cells.size() && this.cells.get(end).getPos().getY() == y) {
+                while (end < this.cells.size() && this.cells.get(end).getBlockPos().getY() == y) {
                     end++;
                 }
                 int count = end - i;

@@ -1,19 +1,18 @@
 package me.trossty.car.item;
 
 import me.trossty.car.entity.CarEntity;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.consume.UseAction;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
-
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.Level;
 import java.util.function.Consumer;
 
 /**
@@ -42,103 +41,103 @@ public class JerryCanItem extends Item {
             java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /** Each side keeps its own, so a single-player game's two halves never share one. */
-    private static java.util.Set<java.util.UUID> siphoning(World world) {
-        return world.isClient() ? SIPHONING_CLIENT : SIPHONING_SERVER;
+    private static java.util.Set<java.util.UUID> siphoning(Level world) {
+        return world.isClientSide() ? SIPHONING_CLIENT : SIPHONING_SERVER;
     }
 
-    public JerryCanItem(Settings settings) {
+    public JerryCanItem(Properties settings) {
         super(settings);
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
         CarEntity car = CarEntity.fillerInSight(user);
         if (car == null) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        ItemStack can = user.getStackInHand(hand);
+        ItemStack can = user.getItemInHand(hand);
         boolean siphon = JerryCans.isEmpty(can);
         if (siphon ? car.getFuel() < 1.0F : car.isTankFull()) {
-            if (!world.isClient()) {
+            if (!world.isClientSide()) {
                 car.fillingStopped(user);
             }
-            return ActionResult.CONSUME;
+            return InteractionResult.CONSUME;
         }
         if (siphon) {
-            siphoning(world).add(user.getUuid());
+            siphoning(world).add(user.getUUID());
         } else {
-            siphoning(world).remove(user.getUuid());
+            siphoning(world).remove(user.getUUID());
         }
-        user.setCurrentHand(hand);
-        return ActionResult.CONSUME;
+        user.startUsingItem(hand);
+        return InteractionResult.CONSUME;
     }
 
     @Override
-    public void usageTick(World world, LivingEntity user, ItemStack can, int remainingUseTicks) {
-        if (!(user instanceof PlayerEntity player)) {
+    public void onUseTick(Level world, LivingEntity user, ItemStack can, int remainingUseTicks) {
+        if (!(user instanceof Player player)) {
             return;
         }
-        boolean siphon = siphoning(world).contains(player.getUuid());
+        boolean siphon = siphoning(world).contains(player.getUUID());
         CarEntity car = CarEntity.fillerInSight(player);
         boolean done = car == null || (siphon
                 ? car.getFuel() < 1.0F || JerryCans.isFull(can)
                 : car.isTankFull() || JerryCans.isEmpty(can));
         if (done) {
-            if (car != null && !world.isClient()) {
+            if (car != null && !world.isClientSide()) {
                 car.fillingStopped(player);
             }
-            user.stopUsingItem();
+            user.releaseUsingItem();
             return;
         }
-        if (world.isClient()) {
+        if (world.isClientSide()) {
             return;
         }
         if (car.pourFrom(player, can, siphon) <= 0) {
-            user.stopUsingItem();
+            user.releaseUsingItem();
             return;
         }
         car.fillingTick(player, USE_TICKS - remainingUseTicks, siphon);
     }
 
     @Override
-    public boolean onStoppedUsing(ItemStack can, World world, LivingEntity user, int remainingUseTicks) {
-        siphoning(world).remove(user.getUuid());
+    public boolean releaseUsing(ItemStack can, Level world, LivingEntity user, int remainingUseTicks) {
+        siphoning(world).remove(user.getUUID());
         return false;
     }
 
     @Override
-    public int getMaxUseTime(ItemStack stack, LivingEntity user) {
+    public int getUseDuration(ItemStack stack, LivingEntity user) {
         return USE_TICKS;
     }
 
     @Override
-    public UseAction getUseAction(ItemStack stack) {
-        return UseAction.NONE;
+    public ItemUseAnimation getUseAnimation(ItemStack stack) {
+        return ItemUseAnimation.NONE;
     }
 
     /** The gauge moves every tick of a pour; the hand should not bob with it. */
     @Override
-    public boolean allowComponentsUpdateAnimation(PlayerEntity player, Hand hand,
+    public boolean allowComponentsUpdateAnimation(Player player, InteractionHand hand,
                                                   ItemStack oldStack, ItemStack newStack) {
         return false;
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context,
-                              TooltipDisplayComponent display,
-                              Consumer<Text> tooltip, TooltipType type) {
-        super.appendTooltip(stack, context, display, tooltip, type);
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+                              TooltipDisplay display,
+                              Consumer<Component> tooltip, TooltipFlag type) {
+        super.appendHoverText(stack, context, display, tooltip, type);
         if (JerryCans.isEmpty(stack)) {
-            tooltip.accept(Text.translatable("tooltip.car.can_empty").formatted(Formatting.DARK_GRAY));
+            tooltip.accept(Component.translatable("tooltip.car.can_empty").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        tooltip.accept(Text.translatable("tooltip.car.can_level",
-                        Text.translatable("fuel.car." + CarEntity.fuelIn(stack).key()),
+        tooltip.accept(Component.translatable("tooltip.car.can_level",
+                        Component.translatable("fuel.car." + CarEntity.fuelIn(stack).key()),
                         JerryCans.litres(JerryCans.units(stack)),
                         JerryCans.litres(JerryCans.CAPACITY))
-                .formatted(Formatting.GOLD));
+                .withStyle(ChatFormatting.GOLD));
         if (CarEntity.isRaw(stack)) {
-            tooltip.accept(Text.translatable("tooltip.car.can_raw").formatted(Formatting.RED));
+            tooltip.accept(Component.translatable("tooltip.car.can_raw").withStyle(ChatFormatting.RED));
         }
     }
 }

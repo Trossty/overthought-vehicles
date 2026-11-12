@@ -5,34 +5,34 @@ import me.trossty.car.block.entity.FuelPumpBlockEntity;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModItems;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.enums.DoubleBlockHalf;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.tick.ScheduledTickView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
 
 
 /**
@@ -53,50 +53,50 @@ import net.minecraft.world.WorldView;
  * <p>Every one of those also says what is left in the tank on the action bar,
  * which is the whole user interface and all it needs to be.
  */
-public class FuelPumpBlock extends BlockWithEntity {
+public class FuelPumpBlock extends BaseEntityBlock {
 
-    public static final MapCodec<FuelPumpBlock> CODEC = createCodec(FuelPumpBlock::new);
+    public static final MapCodec<FuelPumpBlock> CODEC = simpleCodec(FuelPumpBlock::new);
 
-    public static final EnumProperty<DoubleBlockHalf> HALF = Properties.DOUBLE_BLOCK_HALF;
-    public static final EnumProperty<Direction> FACING = Properties.HORIZONTAL_FACING;
+    public static final EnumProperty<DoubleBlockHalf> HALF = BlockStateProperties.DOUBLE_BLOCK_HALF;
+    public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     /** Whether the nozzle is on its hook. Off it, the lower half is drawn without one. */
-    public static final net.minecraft.state.property.BooleanProperty NOZZLE =
-            net.minecraft.state.property.BooleanProperty.of("nozzle");
+    public static final net.minecraft.world.level.block.state.properties.BooleanProperty NOZZLE =
+            net.minecraft.world.level.block.state.properties.BooleanProperty.create("nozzle");
 
-    public FuelPumpBlock(Settings settings) {
+    public FuelPumpBlock(Properties settings) {
         super(settings);
-        this.setDefaultState(this.getStateManager().getDefaultState()
-                .with(HALF, DoubleBlockHalf.LOWER)
-                .with(FACING, Direction.NORTH)
-                .with(NOZZLE, true));
+        this.registerDefaultState(this.getStateDefinition().any()
+                .setValue(HALF, DoubleBlockHalf.LOWER)
+                .setValue(FACING, Direction.NORTH)
+                .setValue(NOZZLE, true));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
+    protected MapCodec<? extends BaseEntityBlock> codec() {
         return CODEC;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(HALF, FACING, NOZZLE);
     }
 
     // ---- the two halves ----
 
     @Override
-    public BlockState getPlacementState(ItemPlacementContext context) {
-        BlockPos pos = context.getBlockPos();
-        if (!context.getWorld().getBlockState(pos.up()).isReplaceable()) {
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        BlockPos pos = context.getClickedPos();
+        if (!context.getLevel().getBlockState(pos.above()).canBeReplaced()) {
             return null;
         }
-        return this.getDefaultState()
-                .with(FACING, context.getHorizontalPlayerFacing().getOpposite());
+        return this.defaultBlockState()
+                .setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
     @Override
-    public void onPlaced(World world, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
-        world.setBlockState(pos.up(), state.with(HALF, DoubleBlockHalf.UPPER), Block.NOTIFY_ALL);
+    public void setPlacedBy(Level world, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
+        world.setBlock(pos.above(), state.setValue(HALF, DoubleBlockHalf.UPPER), Block.UPDATE_ALL);
     }
 
     /**
@@ -105,26 +105,26 @@ public class FuelPumpBlock extends BlockWithEntity {
      * no drops, the way a door's is.
      */
     @Override
-    public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
-        if (!world.isClient() && player.isCreative() && state.get(HALF) == DoubleBlockHalf.UPPER) {
-            BlockPos below = pos.down();
+    public BlockState playerWillDestroy(Level world, BlockPos pos, BlockState state, Player player) {
+        if (!world.isClientSide() && player.isCreative() && state.getValue(HALF) == DoubleBlockHalf.UPPER) {
+            BlockPos below = pos.below();
             BlockState base = world.getBlockState(below);
-            if (base.isOf(this) && base.get(HALF) == DoubleBlockHalf.LOWER) {
-                world.setBlockState(below, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL | Block.SKIP_DROPS);
-                world.syncWorldEvent(player, net.minecraft.world.WorldEvents.BLOCK_BROKEN, below,
-                        Block.getRawIdFromState(base));
+            if (base.is(this) && base.getValue(HALF) == DoubleBlockHalf.LOWER) {
+                world.setBlock(below, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL | Block.UPDATE_SUPPRESS_DROPS);
+                world.levelEvent(player, net.minecraft.world.level.block.LevelEvent.PARTICLES_DESTROY_BLOCK, below,
+                        Block.getId(base));
             }
         }
-        return super.onBreak(world, pos, state, player);
+        return super.playerWillDestroy(world, pos, state, player);
     }
 
     @Override
-    protected boolean canPlaceAt(BlockState state, WorldView world, BlockPos pos) {
-        if (state.get(HALF) == DoubleBlockHalf.UPPER) {
-            BlockState below = world.getBlockState(pos.down());
-            return below.isOf(this) && below.get(HALF) == DoubleBlockHalf.LOWER;
+    protected boolean canSurvive(BlockState state, LevelReader world, BlockPos pos) {
+        if (state.getValue(HALF) == DoubleBlockHalf.UPPER) {
+            BlockState below = world.getBlockState(pos.below());
+            return below.is(this) && below.getValue(HALF) == DoubleBlockHalf.LOWER;
         }
-        return super.canPlaceAt(state, world, pos);
+        return super.canSurvive(state, world, pos);
     }
 
     /**
@@ -136,39 +136,39 @@ public class FuelPumpBlock extends BlockWithEntity {
      * end was hit: the mined half drops it, or the half that vanishes does.
      */
     @Override
-    protected BlockState getStateForNeighborUpdate(BlockState state, WorldView world,
-                                                   ScheduledTickView tickView, BlockPos pos,
+    protected BlockState updateShape(BlockState state, LevelReader world,
+                                                   ScheduledTickAccess tickView, BlockPos pos,
                                                    Direction direction, BlockPos neighborPos,
-                                                   BlockState neighborState, Random random) {
-        DoubleBlockHalf half = state.get(HALF);
+                                                   BlockState neighborState, RandomSource random) {
+        DoubleBlockHalf half = state.getValue(HALF);
         boolean towardsOtherHalf = direction.getAxis() == Direction.Axis.Y
                 && (half == DoubleBlockHalf.LOWER) == (direction == Direction.UP);
-        if (towardsOtherHalf && (!neighborState.isOf(this) || neighborState.get(HALF) == half)) {
-            return Blocks.AIR.getDefaultState();
+        if (towardsOtherHalf && (!neighborState.is(this) || neighborState.getValue(HALF) == half)) {
+            return Blocks.AIR.defaultBlockState();
         }
-        return super.getStateForNeighborUpdate(
+        return super.updateShape(
                 state, world, tickView, pos, direction, neighborPos, neighborState, random);
     }
 
     // ---- the block entity lives downstairs ----
 
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-        return state.get(HALF) == DoubleBlockHalf.LOWER ? new FuelPumpBlockEntity(pos, state) : null;
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return state.getValue(HALF) == DoubleBlockHalf.LOWER ? new FuelPumpBlockEntity(pos, state) : null;
     }
 
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
-            World world, BlockState state, BlockEntityType<T> type) {
-        if (world.isClient() || state.get(HALF) != DoubleBlockHalf.LOWER) {
+            Level world, BlockState state, BlockEntityType<T> type) {
+        if (world.isClientSide() || state.getValue(HALF) != DoubleBlockHalf.LOWER) {
             return null;
         }
-        return validateTicker(type, ModBlockEntities.FUEL_PUMP, FuelPumpBlockEntity::tick);
+        return createTickerHelper(type, ModBlockEntities.FUEL_PUMP, FuelPumpBlockEntity::tick);
     }
 
     /** The tank, wherever you knocked on the pump. */
-    private static FuelPumpBlockEntity tankOf(World world, BlockPos pos, BlockState state) {
-        BlockPos base = state.get(HALF) == DoubleBlockHalf.UPPER ? pos.down() : pos;
+    private static FuelPumpBlockEntity tankOf(Level world, BlockPos pos, BlockState state) {
+        BlockPos base = state.getValue(HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
         return world.getBlockEntity(base) instanceof FuelPumpBlockEntity pump ? pump : null;
     }
 
@@ -177,7 +177,7 @@ public class FuelPumpBlock extends BlockWithEntity {
      * null if that is not a pump at all. This is what a fuel pipe asks when it
      * wants to know whether the block it is pointing at can be filled.
      */
-    public static FuelPumpBlockEntity tankAt(World world, BlockPos pos) {
+    public static FuelPumpBlockEntity tankAt(Level world, BlockPos pos) {
         BlockState state = world.getBlockState(pos);
         return state.getBlock() instanceof FuelPumpBlock ? tankOf(world, pos, state) : null;
     }
@@ -186,60 +186,60 @@ public class FuelPumpBlock extends BlockWithEntity {
 
     /** A bare hand takes the nozzle off its hook. */
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
-                                 PlayerEntity player, BlockHitResult hit) {
-        if (!player.getMainHandStack().isEmpty()) {
-            return ActionResult.PASS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
+                                 Player player, BlockHitResult hit) {
+        if (!player.getMainHandItem().isEmpty()) {
+            return InteractionResult.PASS;
         }
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         FuelPumpBlockEntity pump = tankOf(world, pos, state);
         if (pump == null) {
-            return ActionResult.CONSUME;
+            return InteractionResult.CONSUME;
         }
         if (pump.takeNozzle(player)) {
             report(player, pump);
         }
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     @Override
-    protected ActionResult onUseWithItem(ItemStack held, BlockState state, World world, BlockPos pos,
-                                         PlayerEntity player, Hand hand, BlockHitResult hit) {
-        if (held.isOf(ModItems.FUEL_NOZZLE)) {
-            BlockPos base = state.get(HALF) == DoubleBlockHalf.UPPER ? pos.down() : pos;
+    protected InteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
+                                         Player player, InteractionHand hand, BlockHitResult hit) {
+        if (held.is(ModItems.FUEL_NOZZLE)) {
+            BlockPos base = state.getValue(HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
             if (!me.trossty.car.item.FuelNozzleItem.isFrom(held, base)) {
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
-            if (!world.isClient()) {
+            if (!world.isClientSide()) {
                 FuelPumpBlockEntity pump = tankOf(world, pos, state);
                 if (pump != null) {
                     pump.hangUpNozzle(false);
                     report(player, pump);
                 }
             }
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
-        if (!held.isOf(ModItems.JERRY_CAN)) {
-            return ActionResult.PASS_TO_DEFAULT_BLOCK_ACTION;   // a bare hand reaches onUse
+        if (!held.is(ModItems.JERRY_CAN)) {
+            return InteractionResult.TRY_WITH_EMPTY_HAND;   // a bare hand reaches onUse
         }
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         FuelPumpBlockEntity pump = tankOf(world, pos, state);
         if (pump == null) {
-            return ActionResult.CONSUME;
+            return InteractionResult.CONSUME;
         }
 
         if (me.trossty.car.entity.CarEntity.holdsDiesel(held)) {
-            player.sendMessage(Text.translatable("message.car.petrol_only"), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.petrol_only"), true);
+            return InteractionResult.CONSUME;
         }
         if (!me.trossty.car.item.JerryCans.isEmpty(held) && me.trossty.car.entity.CarEntity.isRaw(held)) {
             // Raw petrol goes through the hydrotreater, not into a station's tank.
-            player.sendMessage(Text.translatable("message.car.pump_raw"), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.pump_raw"), true);
+            return InteractionResult.CONSUME;
         }
 
         if (!me.trossty.car.item.JerryCans.isFull(held)) {
@@ -254,7 +254,7 @@ public class FuelPumpBlock extends BlockWithEntity {
             playPumpSound(world, pos, 0.8F);
         }
         report(player, pump);
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     /**
@@ -262,7 +262,7 @@ public class FuelPumpBlock extends BlockWithEntity {
      * the coil hangs in the model. The renderer draws the hose from here and
      * the pump measures its reach from here, so the two always agree.
      */
-    public static net.minecraft.util.math.Vec3d hoseOutlet(BlockPos base, Direction facing) {
+    public static net.minecraft.world.phys.Vec3 hoseOutlet(BlockPos base, Direction facing) {
         // In the model, which faces north: the hose at the holster on the right-hand side (west), 2 px across, 20 up, 9.5 in.
         double x = 2.1 / 16.0;
         double z = 9.5 / 16.0;
@@ -274,52 +274,52 @@ public class FuelPumpBlock extends BlockWithEntity {
             case WEST -> { rx = z; rz = 1.0 - x; }
             default -> { rx = x; rz = z; }
         }
-        return new net.minecraft.util.math.Vec3d(base.getX() + rx, base.getY() + 20.5 / 16.0, base.getZ() + rz);
+        return new net.minecraft.world.phys.Vec3(base.getX() + rx, base.getY() + 20.5 / 16.0, base.getZ() + rz);
     }
 
     /** The hose outlet of the pump whose lower half is at {@code base}, or null if it is gone. */
-    public static net.minecraft.util.math.@org.jspecify.annotations.Nullable Vec3d hoseOutlet(
-            net.minecraft.world.BlockView world, BlockPos base) {
+    public static net.minecraft.world.phys.@org.jspecify.annotations.Nullable Vec3 hoseOutlet(
+            net.minecraft.world.level.BlockGetter world, BlockPos base) {
         BlockState state = world.getBlockState(base);
         if (!(state.getBlock() instanceof FuelPumpBlock)) {
             return null;
         }
-        return hoseOutlet(base, state.get(FACING));
+        return hoseOutlet(base, state.getValue(FACING));
     }
 
     /** Hangs the nozzle back on, or takes it off: both halves, so neither looks wrong. */
-    public static void setNozzleHung(World world, BlockPos base, boolean hung) {
-        for (BlockPos at : new BlockPos[] {base, base.up()}) {
+    public static void setNozzleHung(Level world, BlockPos base, boolean hung) {
+        for (BlockPos at : new BlockPos[] {base, base.above()}) {
             BlockState state = world.getBlockState(at);
-            if (state.getBlock() instanceof FuelPumpBlock && state.get(NOZZLE) != hung) {
-                world.setBlockState(at, state.with(NOZZLE, hung), Block.NOTIFY_LISTENERS);
+            if (state.getBlock() instanceof FuelPumpBlock && state.getValue(NOZZLE) != hung) {
+                world.setBlock(at, state.setValue(NOZZLE, hung), Block.UPDATE_CLIENTS);
             }
         }
     }
 
     /** The action bar is the pump's only display, so every click updates it. */
-    private static void report(PlayerEntity player, FuelPumpBlockEntity pump) {
-        player.sendMessage(Text.translatable("message.car.pump_level",
+    private static void report(Player player, FuelPumpBlockEntity pump) {
+        player.displayClientMessage(Component.translatable("message.car.pump_level",
                 pump.getPetrol(), pump.getCapacity()), true);
     }
 
-    private static void playPumpSound(World world, BlockPos pos, float pitch) {
-        world.playSound(null, pos, SoundEvents.ITEM_BUCKET_EMPTY, SoundCategory.BLOCKS, 0.7F, pitch);
+    private static void playPumpSound(Level world, BlockPos pos, float pitch) {
+        world.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 0.7F, pitch);
     }
 
     // ---- redstone ----
 
     @Override
-    protected boolean hasComparatorOutput(BlockState state) {
+    protected boolean hasAnalogOutputSignal(BlockState state) {
         return true;
     }
 
     @Override
-    protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
+    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
         FuelPumpBlockEntity pump = tankOf(world, pos, state);
         if (pump == null || pump.getPetrol() <= 0) {
             return 0;
         }
-        return MathHelper.clamp(1 + pump.getPetrol() * 14 / pump.getCapacity(), 1, 15);
+        return Mth.clamp(1 + pump.getPetrol() * 14 / pump.getCapacity(), 1, 15);
     }
 }

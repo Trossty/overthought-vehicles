@@ -3,30 +3,30 @@ package me.trossty.car.block;
 import com.mojang.serialization.MapCodec;
 import me.trossty.car.block.entity.FuelValveBlockEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The valve that gives a line of pipe a destination.
@@ -41,84 +41,84 @@ import net.minecraft.world.World;
  * through the six directions if you aimed wrong, and says which way it is
  * pointing and whether redstone currently has it shut.
  */
-public class FuelValveBlock extends BlockWithEntity {
+public class FuelValveBlock extends BaseEntityBlock {
 
-    public static final MapCodec<FuelValveBlock> CODEC = createCodec(FuelValveBlock::new);
+    public static final MapCodec<FuelValveBlock> CODEC = simpleCodec(FuelValveBlock::new);
 
-    public static final EnumProperty<Direction> FACING = Properties.FACING;
-    public static final BooleanProperty POWERED = Properties.POWERED;
+    public static final EnumProperty<Direction> FACING = BlockStateProperties.FACING;
+    public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
 
     /** The valve body, a little fatter than the pipe it sits in. */
-    private static final VoxelShape BODY = Block.createCuboidShape(4.0, 4.0, 4.0, 12.0, 12.0, 12.0);
+    private static final VoxelShape BODY = Block.box(4.0, 4.0, 4.0, 12.0, 12.0, 12.0);
 
-    public FuelValveBlock(Settings settings) {
+    public FuelValveBlock(Properties settings) {
         super(settings);
-        this.setDefaultState(this.getStateManager().getDefaultState()
-                .with(FACING, Direction.NORTH)
-                .with(POWERED, false));
+        this.registerDefaultState(this.getStateDefinition().any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(POWERED, false));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
+    protected MapCodec<? extends BaseEntityBlock> codec() {
         return CODEC;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING, POWERED);
     }
 
     /** Points at the block you clicked, so you aim it at what you want filled. */
     @Override
-    public BlockState getPlacementState(ItemPlacementContext context) {
-        return this.getDefaultState().with(FACING, context.getSide().getOpposite());
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return this.defaultBlockState().setValue(FACING, context.getClickedFace().getOpposite());
     }
 
     @Override
-    protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        Direction facing = state.get(FACING);
-        return VoxelShapes.union(BODY, collar(facing), collar(facing.getOpposite()));
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        Direction facing = state.getValue(FACING);
+        return Shapes.or(BODY, collar(facing), collar(facing.getOpposite()));
     }
 
     /** The stub of pipe sticking out of one face. */
     private static VoxelShape collar(Direction side) {
-        double x = side.getOffsetX();
-        double y = side.getOffsetY();
-        double z = side.getOffsetZ();
-        return Block.createCuboidShape(
+        double x = side.getStepX();
+        double y = side.getStepY();
+        double z = side.getStepZ();
+        return Block.box(
                 x < 0 ? 0.0 : 5.0, y < 0 ? 0.0 : 5.0, z < 0 ? 0.0 : 5.0,
                 x > 0 ? 16.0 : 11.0, y > 0 ? 16.0 : 11.0, z > 0 ? 16.0 : 11.0);
     }
 
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new FuelValveBlockEntity(pos, state);
     }
 
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
-            World world, BlockState state, BlockEntityType<T> type) {
-        if (world.isClient()) {
+            Level world, BlockState state, BlockEntityType<T> type) {
+        if (world.isClientSide()) {
             return null;
         }
-        return validateTicker(type, ModBlockEntities.FUEL_VALVE, FuelValveBlockEntity::tick);
+        return createTickerHelper(type, ModBlockEntities.FUEL_VALVE, FuelValveBlockEntity::tick);
     }
 
     /** A bare click turns the valve; aiming one is not worth a dedicated tool. */
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
-                                 PlayerEntity player, BlockHitResult hit) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
+                                 Player player, BlockHitResult hit) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        Direction turned = next(state.get(FACING));
-        world.setBlockState(pos, state.with(FACING, turned), Block.NOTIFY_ALL);
-        world.playSound(null, pos, SoundEvents.BLOCK_LEVER_CLICK, SoundCategory.BLOCKS, 0.4F, 1.4F);
+        Direction turned = next(state.getValue(FACING));
+        world.setBlock(pos, state.setValue(FACING, turned), Block.UPDATE_ALL);
+        world.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.4F, 1.4F);
 
-        player.sendMessage(Text.translatable(
-                state.get(POWERED) ? "message.car.valve_shut" : "message.car.valve_open",
-                Text.translatable("direction.car." + turned.asString())), true);
-        return ActionResult.CONSUME;
+        player.displayClientMessage(Component.translatable(
+                state.getValue(POWERED) ? "message.car.valve_shut" : "message.car.valve_open",
+                Component.translatable("direction.car." + turned.getSerializedName())), true);
+        return InteractionResult.CONSUME;
     }
 
     /** North, east, south, west, up, down, and round again. */

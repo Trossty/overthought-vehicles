@@ -9,28 +9,28 @@ import me.trossty.car.item.JerryCans;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModFluids;
 import me.trossty.car.registry.ModItems;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -40,22 +40,22 @@ import org.jspecify.annotations.Nullable;
  */
 public class HydrotreaterBlock extends MultiblockBlock {
 
-    public static final MapCodec<HydrotreaterBlock> CODEC = createCodec(HydrotreaterBlock::new);
+    public static final MapCodec<HydrotreaterBlock> CODEC = simpleCodec(HydrotreaterBlock::new);
 
     public static final int[][] CELLS = {{0, 0, 0}, {0, 1, 0}};
 
-    public static final IntProperty PART = IntProperty.of("part", 0, CELLS.length - 1);
+    public static final IntegerProperty PART = IntegerProperty.create("part", 0, CELLS.length - 1);
 
-    private static final VoxelShape TOP = BlockWithEntity.createCuboidShape(2, 0, 2, 14, 13, 14);
+    private static final VoxelShape TOP = BaseEntityBlock.box(2, 0, 2, 14, 13, 14);
 
-    public HydrotreaterBlock(Settings settings) {
+    public HydrotreaterBlock(Properties settings) {
         super(settings);
-        this.setDefaultState(this.getStateManager().getDefaultState()
-                .with(LIT, false).with(FACING, Direction.NORTH).with(PART, 0));
+        this.registerDefaultState(this.getStateDefinition().any()
+                .setValue(LIT, false).setValue(FACING, Direction.NORTH).setValue(PART, 0));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
+    protected MapCodec<? extends BaseEntityBlock> codec() {
         return CODEC;
     }
 
@@ -65,110 +65,110 @@ public class HydrotreaterBlock extends MultiblockBlock {
     }
 
     @Override
-    public IntProperty partProperty() {
+    public IntegerProperty partProperty() {
         return PART;
     }
 
     @Override
-    protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        return state.get(PART) == 1 ? TOP : super.getOutlineShape(state, world, pos, context);
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        return state.getValue(PART) == 1 ? TOP : super.getShape(state, world, pos, context);
     }
 
     @Override
-    public @Nullable BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-        return state.get(PART) == 0 ? new HydrotreaterBlockEntity(pos, state) : null;
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return state.getValue(PART) == 0 ? new HydrotreaterBlockEntity(pos, state) : null;
     }
 
     @Override
     public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(
-            World world, BlockState state, BlockEntityType<T> type) {
-        if (world.isClient() || state.get(PART) != 0) {
+            Level world, BlockState state, BlockEntityType<T> type) {
+        if (world.isClientSide() || state.getValue(PART) != 0) {
             return null;
         }
-        return validateTicker(type, ModBlockEntities.HYDROTREATER, HydrotreaterBlockEntity::tick);
+        return createTickerHelper(type, ModBlockEntities.HYDROTREATER, HydrotreaterBlockEntity::tick);
     }
 
     /** A jerry can held against it fills with whatever clean fuel it has. */
     @Override
-    protected ActionResult onUseWithItem(ItemStack held, BlockState state, World world, BlockPos pos,
-                                         PlayerEntity player, Hand hand, BlockHitResult hit) {
-        if (!held.isOf(ModItems.JERRY_CAN)) {
-            return ActionResult.PASS_TO_DEFAULT_BLOCK_ACTION;
+    protected InteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
+                                         Player player, InteractionHand hand, BlockHitResult hit) {
+        if (!held.is(ModItems.JERRY_CAN)) {
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(this.controllerOf(pos, state)) instanceof HydrotreaterBlockEntity plant
                 && !JerryCans.isEmpty(held) && CarEntity.isRaw(held)) {
             // A can of raw fuel tips into the feed tank, to come out clean.
             UnitTank in = plant.getInput();
-            net.minecraft.fluid.Fluid raw = CarEntity.fuelIn(held) == CarSetup.Fuel.DIESEL
+            net.minecraft.world.level.material.Fluid raw = CarEntity.fuelIn(held) == CarSetup.Fuel.DIESEL
                     ? ModFluids.RAW_DIESEL : ModFluids.RAW_PETROL;
             if (!in.canTake(raw)) {
-                player.sendMessage(Text.translatable("message.car.hydrotreater_busy"), true);
+                player.displayClientMessage(Component.translatable("message.car.hydrotreater_busy"), true);
             } else {
                 int taken = JerryCans.emptyInto(held, in.room(), units -> in.fill(raw, units));
                 if (taken > 0) {
-                    plant.markDirty();
-                    world.playSound(null, pos, SoundEvents.ITEM_BUCKET_EMPTY, SoundCategory.BLOCKS, 0.6F, 0.9F);
+                    plant.setChanged();
+                    world.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 0.6F, 0.9F);
                 }
             }
-            return ActionResult.CONSUME;
+            return InteractionResult.CONSUME;
         }
         if (world.getBlockEntity(this.controllerOf(pos, state)) instanceof HydrotreaterBlockEntity plant) {
             UnitTank out = plant.getOutput();
             CarSetup.Fuel fuel = ModFluids.fuelOf(out.getFluid());
             if (fuel == null || out.isEmpty()) {
-                player.sendMessage(Text.translatable("message.car.hydrotreater_empty"), true);
+                player.displayClientMessage(Component.translatable("message.car.hydrotreater_empty"), true);
             } else if (!JerryCans.isEmpty(held) && CarEntity.fuelIn(held) != fuel) {
-                player.sendMessage(Text.translatable("message.car.can_other_fuel"), true);
+                player.displayClientMessage(Component.translatable("message.car.can_other_fuel"), true);
             } else {
                 int units = JerryCans.topUp(held, out.getUnits(), out::drain);
                 if (units > 0) {
                     CarEntity.markFuel(held, fuel);
-                    plant.markDirty();
-                    world.playSound(null, pos, SoundEvents.ITEM_BUCKET_FILL, SoundCategory.BLOCKS, 0.6F, 1.1F);
+                    plant.setChanged();
+                    world.playSound(null, pos, SoundEvents.BUCKET_FILL, SoundSource.BLOCKS, 0.6F, 1.1F);
                 }
             }
         }
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
-                                 PlayerEntity player, BlockHitResult hit) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
+                                 Player player, BlockHitResult hit) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(this.controllerOf(pos, state)) instanceof HydrotreaterBlockEntity plant) {
-            player.openHandledScreen(new net.minecraft.screen.SimpleNamedScreenHandlerFactory(
+            player.openMenu(new net.minecraft.world.SimpleMenuProvider(
                     (syncId, inventory, who) -> me.trossty.car.machine.MachineScreenHandler.of(syncId, inventory,
                             plant, null),
                     this.getName()));
         }
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
-    private static Text name(UnitTank tank) {
+    private static Component name(UnitTank tank) {
         if (tank.isEmpty()) {
-            return Text.translatable("fluid.car.nothing");
+            return Component.translatable("fluid.car.nothing");
         }
-        return Text.translatable("fluid.car." + net.minecraft.registry.Registries.FLUID.getId(tank.getFluid()).getPath());
+        return Component.translatable("fluid.car." + net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(tank.getFluid()).getPath());
     }
 
     /** Steam off the relief valve on top while it works. */
     @Override
-    public void randomDisplayTick(BlockState state, World world, BlockPos pos, Random random) {
-        if (!state.get(LIT) || state.get(PART) != 1) {
+    public void animateTick(BlockState state, Level world, BlockPos pos, RandomSource random) {
+        if (!state.getValue(LIT) || state.getValue(PART) != 1) {
             return;
         }
         if (random.nextInt(3) == 0) {
-            world.addParticleClient(ParticleTypes.CLOUD,
+            world.addParticle(ParticleTypes.CLOUD,
                     pos.getX() + 0.5, pos.getY() + 0.9, pos.getZ() + 0.5, 0.0, 0.04, 0.0);
         }
         // A smaller vessel than the refinery's column: the same boil, higher.
-        world.playSoundClient(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
-                me.trossty.car.sound.ModSounds.REFINERY_BUBBLE, net.minecraft.sound.SoundCategory.BLOCKS,
+        world.playLocalSound(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+                me.trossty.car.sound.ModSounds.REFINERY_BUBBLE, net.minecraft.sounds.SoundSource.BLOCKS,
                 0.35F, 1.3F + random.nextFloat() * 0.2F, false);
     }
 }

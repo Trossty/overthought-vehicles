@@ -3,12 +3,12 @@ package me.trossty.car.client.hud;
 import me.trossty.car.CarMain;
 import me.trossty.car.entity.CarEntity;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 import org.joml.Matrix3x2fStack;
 
 /**
@@ -158,11 +158,11 @@ public class DashboardHud implements HudElement {
     private float rangeShown = -1.0F;
 
     @Override
-    public void render(DrawContext context, RenderTickCounter tickCounter) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public void render(GuiGraphics context, DeltaTracker tickCounter) {
+        Minecraft client = Minecraft.getInstance();
 
         if (client.player == null
-                || client.options.hudHidden
+                || client.options.hideGui
                 || !(client.player.getVehicle() instanceof CarEntity car)) {
             // Park the needles so they sweep up from the stop on the next drive,
             // the way a real pair of gauges does when the ignition comes on.
@@ -177,8 +177,8 @@ public class DashboardHud implements HudElement {
         // One row along the bottom, two dials either side of the hotbar,
         // scaled down as one so that on a small screen they shrink rather
         // than pile up over the road.
-        int width = context.getScaledWindowWidth();
-        int height = context.getScaledWindowHeight();
+        int width = context.guiWidth();
+        int height = context.guiHeight();
         float scale = Math.min(1.0F, Math.min(
                 (width - HOTBAR_HALF_WIDTH * 2) / (2.0F * SIDE_WIDTH),
                 height * MAX_HEIGHT_SHARE / (BOTTOM_MARGIN + RADIUS * 2)));
@@ -188,24 +188,24 @@ public class DashboardHud implements HudElement {
 
         float kmh = Math.abs(car.getEngineSpeed()) * BLOCKS_PER_TICK_TO_KMH;
         float dialKmh = dialMaxKmh(car);
-        float targetSpeed = MathHelper.clamp(kmh / dialKmh, 0.0F, 1.0F);
+        float targetSpeed = Mth.clamp(kmh / dialKmh, 0.0F, 1.0F);
         int dialRpm = car.getEngineFuel().needsSpark() ? 8000 : 5000;
-        float targetRpm = MathHelper.clamp(car.getEngineRpm() / dialRpm, 0.0F, 1.0F);
-        float targetFuel = MathHelper.clamp(car.getFuelFraction(), 0.0F, 1.0F);
+        float targetRpm = Mth.clamp(car.getEngineRpm() / dialRpm, 0.0F, 1.0F);
+        float targetFuel = Mth.clamp(car.getFuelFraction(), 0.0F, 1.0F);
 
         // Exponential easing, with the frame's length folded in so the needles
         // move at the same rate whatever the frame rate.
-        float delta = MathHelper.clamp(tickCounter.getDynamicDeltaTicks(), 0.0F, 1.0F);
+        float delta = Mth.clamp(tickCounter.getGameTimeDeltaTicks(), 0.0F, 1.0F);
         float step = 1.0F - (float) Math.pow(1.0F - NEEDLE_RESPONSE, delta);
-        float targetTemp = MathHelper.clamp(car.getEngineTemp(), 0.0F, 1.0F);
-        this.speedNeedle = MathHelper.lerp(step, this.speedNeedle, targetSpeed);
-        this.fuelNeedle = MathHelper.lerp(step, this.fuelNeedle, targetFuel);
-        this.tempNeedle = MathHelper.lerp(step, this.tempNeedle, targetTemp);
+        float targetTemp = Mth.clamp(car.getEngineTemp(), 0.0F, 1.0F);
+        this.speedNeedle = Mth.lerp(step, this.speedNeedle, targetSpeed);
+        this.fuelNeedle = Mth.lerp(step, this.fuelNeedle, targetFuel);
+        this.tempNeedle = Mth.lerp(step, this.tempNeedle, targetTemp);
         // Revs are quicker than road speed: a gear change drops the needle at once.
         float rpmStep = 1.0F - (float) Math.pow(1.0F - 0.55F, delta);
-        this.rpmNeedle = MathHelper.lerp(rpmStep, this.rpmNeedle, targetRpm);
+        this.rpmNeedle = Mth.lerp(rpmStep, this.rpmNeedle, targetRpm);
 
-        Matrix3x2fStack matrices = context.getMatrices();
+        Matrix3x2fStack matrices = context.pose();
         matrices.pushMatrix();
         matrices.scale(scale, scale);
         // From here on in the dials' own units: the screen is that much bigger.
@@ -223,7 +223,7 @@ public class DashboardHud implements HudElement {
         // a leak — is believed at once rather than crept up on.
         this.rangeShown = this.rangeShown < 0.0F || Math.abs(range - this.rangeShown) > this.rangeShown * 0.3F
                 ? range
-                : MathHelper.lerp(1.0F - (float) Math.pow(0.9F, delta), this.rangeShown, range);
+                : Mth.lerp(1.0F - (float) Math.pow(0.9F, delta), this.rangeShown, range);
         drawFuelGauge(context, client, centerX + reach, cy, targetFuel, car, this.rangeShown);
         drawTemperatureGauge(context, centerX + reach + RADIUS + DIAL_GAP + TEMP_RADIUS,
                 bottom - BOTTOM_MARGIN - TEMP_RADIUS, car.isOverheating());
@@ -236,7 +236,7 @@ public class DashboardHud implements HudElement {
      * red, and the red band is baked into the face at the same fraction the
      * engine actually starts losing power at.
      */
-    private void drawTemperatureGauge(DrawContext context, int cx, int cy, boolean overheating) {
+    private void drawTemperatureGauge(GuiGraphics context, int cx, int cy, boolean overheating) {
         drawFace(context, TEMP_FACE, cx, cy, TEMP_TEX, TEMP_TEX_CENTER);
         // Lit on the real temperature rather than the lagging needle, so the
         // warning is not delayed by the needle's swing.
@@ -261,7 +261,7 @@ public class DashboardHud implements HudElement {
      * The rev counter: ticks every 500 rpm, numbers in thousands, the red band
      * from this engine's redline, and the gear in the window underneath.
      */
-    private void drawTachometer(DrawContext context, MinecraftClient client, int cx, int cy,
+    private void drawTachometer(GuiGraphics context, Minecraft client, int cx, int cy,
                                 CarEntity car, int dialRpm) {
         drawFace(context, RPM_FACE, cx, cy);
         float redline = car.getRedlineRpm() / dialRpm;
@@ -282,15 +282,15 @@ public class DashboardHud implements HudElement {
         }
         int gear = car.getGear();
         String gearText = gear < 0 ? "R" : gear == 0 ? "-" : String.valueOf(gear);
-        context.drawCenteredTextWithShadow(client.textRenderer, gearText, cx, cy + ICON_OFFSET_Y, GEAR_COLOR);
-        context.drawCenteredTextWithShadow(client.textRenderer, "rpm", cx, cy + ICON_OFFSET_Y + 10, 0xFF8A949A);
+        context.drawCenteredString(client.font, gearText, cx, cy + ICON_OFFSET_Y, GEAR_COLOR);
+        context.drawCenteredString(client.font, "rpm", cx, cy + ICON_OFFSET_Y + 10, 0xFF8A949A);
         drawNeedle(context, cx, cy, this.rpmNeedle);
     }
 
     /** A rectangle in half-pixel units along the dial's radius at fraction {@code t}. */
-    private static void dialRect(DrawContext context, int cx, int cy, float t,
+    private static void dialRect(GuiGraphics context, int cx, int cy, float t,
                                  int x0, int y0, int x1, int y1, int color) {
-        Matrix3x2fStack matrices = context.getMatrices();
+        Matrix3x2fStack matrices = context.pose();
         matrices.pushMatrix();
         matrices.translate(cx, cy);
         matrices.rotate((float) Math.toRadians(angleAt(t)));
@@ -299,7 +299,7 @@ public class DashboardHud implements HudElement {
         matrices.popMatrix();
     }
 
-    private void drawSpeedometer(DrawContext context, MinecraftClient client, int cx, int cy,
+    private void drawSpeedometer(GuiGraphics context, Minecraft client, int cx, int cy,
                                  float healthFraction, float dialKmh, float odometer) {
         drawFace(context, SPEED_FACE, cx, cy);
         for (int i = 0; i <= SPEED_STEPS; i += SPEED_LABEL_EVERY) {
@@ -313,14 +313,14 @@ public class DashboardHud implements HudElement {
         }
         // The odometer under the hub, where the fuel gauge has its range:
         // whole kilometres, zero-padded like the drum on a real dash.
-        context.drawCenteredTextWithShadow(client.textRenderer,
-                net.minecraft.text.Text.translatable("hud.car.odometer",
+        context.drawCenteredString(client.font,
+                net.minecraft.network.chat.Component.translatable("hud.car.odometer",
                         String.format(java.util.Locale.ROOT, "%06d", (int) (odometer / 1000.0F))),
                 cx, cy + ICON_OFFSET_Y + 10, 0xFF8A949A);
         drawNeedle(context, cx, cy, this.speedNeedle);
     }
 
-    private void drawFuelGauge(DrawContext context, MinecraftClient client, int cx, int cy,
+    private void drawFuelGauge(GuiGraphics context, Minecraft client, int cx, int cy,
                                float fuelFraction, CarEntity car, float range) {
         drawFace(context, FUEL_FACE, cx, cy);
         drawLabel(context, client, cx, cy, 0.0F, "E");
@@ -336,32 +336,32 @@ public class DashboardHud implements HudElement {
         boolean leaking = car.isLeaking() && car.hasFuel();
         if (leaking) {
             if ((System.currentTimeMillis() / 400L) % 2L == 0L) {
-                context.drawCenteredTextWithShadow(client.textRenderer,
-                        net.minecraft.text.Text.translatable("hud.car.leak"), cx, cy + ICON_OFFSET_Y + 10, ICON_DAMAGE);
+                context.drawCenteredString(client.font,
+                        net.minecraft.network.chat.Component.translatable("hud.car.leak"), cx, cy + ICON_OFFSET_Y + 10, ICON_DAMAGE);
             }
         } else {
-            context.drawCenteredTextWithShadow(client.textRenderer, CarEntity.formatDistance(range),
+            context.drawCenteredString(client.font, CarEntity.formatDistance(range),
                     cx, cy + ICON_OFFSET_Y + 10, fuelFraction < WARNING_FRACTION ? ICON_LIT : 0xFF8A949A);
         }
         drawNeedle(context, cx, cy, this.fuelNeedle);
     }
 
-    private static void drawFace(DrawContext context, Identifier face, int cx, int cy) {
+    private static void drawFace(GuiGraphics context, Identifier face, int cx, int cy) {
         drawFace(context, face, cx, cy, TEX, TEX_CENTER);
     }
 
-    private static void drawFace(DrawContext context, Identifier face, int cx, int cy,
+    private static void drawFace(GuiGraphics context, Identifier face, int cx, int cy,
                                  int tex, int texCenter) {
-        context.drawTexture(RenderPipelines.GUI_TEXTURED, face,
+        context.blit(RenderPipelines.GUI_TEXTURED, face,
                 cx - texCenter, cy - texCenter, 0.0F, 0.0F, tex, tex, tex, tex);
     }
 
-    private static void drawLabel(DrawContext context, MinecraftClient client,
+    private static void drawLabel(GuiGraphics context, Minecraft client,
                                   int cx, int cy, float t, String text) {
         double angle = Math.toRadians(angleAt(t));
         int x = cx + (int) Math.round(Math.cos(angle) * LABEL_RADIUS);
         int y = cy + (int) Math.round(Math.sin(angle) * LABEL_RADIUS);
-        context.drawCenteredTextWithShadow(client.textRenderer, text, x, y - 4, LABEL);
+        context.drawCenteredString(client.font, text, x, y - 4, LABEL);
     }
 
     /**
@@ -370,16 +370,16 @@ public class DashboardHud implements HudElement {
      * numbers — can describe half-pixel widths, which is what gives the needle
      * its taper.
      */
-    private static void drawNeedle(DrawContext context, int cx, int cy, float t) {
+    private static void drawNeedle(GuiGraphics context, int cx, int cy, float t) {
         drawNeedle(context, cx, cy, t, NEEDLE_LENGTH, NEEDLE_TAIL, HUB_RADIUS);
     }
 
-    private static void drawNeedle(DrawContext context, int cx, int cy, float t,
+    private static void drawNeedle(GuiGraphics context, int cx, int cy, float t,
                                    int needleLength, int needleTail, int hubRadius) {
-        Matrix3x2fStack matrices = context.getMatrices();
+        Matrix3x2fStack matrices = context.pose();
         matrices.pushMatrix();
         matrices.translate(cx, cy);
-        matrices.rotate((float) Math.toRadians(angleAt(MathHelper.clamp(t, 0.0F, 1.0F))));
+        matrices.rotate((float) Math.toRadians(angleAt(Mth.clamp(t, 0.0F, 1.0F))));
         matrices.scale(0.5F, 0.5F);
 
         int length = needleLength * 2;
@@ -396,11 +396,11 @@ public class DashboardHud implements HudElement {
     }
 
     /** Lights one of the baked-in warning pictograms, a run of pixels at a time. */
-    private static void drawIcon(DrawContext context, String[] icon, int cx, int cy, int color) {
+    private static void drawIcon(GuiGraphics context, String[] icon, int cx, int cy, int color) {
         drawIcon(context, icon, cx, cy, color, ICON_OFFSET_Y);
     }
 
-    private static void drawIcon(DrawContext context, String[] icon, int cx, int cy,
+    private static void drawIcon(GuiGraphics context, String[] icon, int cx, int cy,
                                  int color, int offsetY) {
         int x0 = cx - icon[0].length() / 2;
         int y0 = cy + offsetY;
@@ -419,7 +419,7 @@ public class DashboardHud implements HudElement {
         }
     }
 
-    private static void fillDisc(DrawContext context, int cx, int cy, int radius, int color) {
+    private static void fillDisc(GuiGraphics context, int cx, int cy, int radius, int color) {
         for (int dy = -radius; dy <= radius; dy++) {
             int half = (int) Math.sqrt((double) radius * radius - (double) dy * dy);
             context.fill(cx - half, cy + dy, cx + half + 1, cy + dy + 1, color);

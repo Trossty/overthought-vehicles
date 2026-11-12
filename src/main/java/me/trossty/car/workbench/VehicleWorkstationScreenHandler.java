@@ -9,22 +9,20 @@ import me.trossty.car.registry.ModComponents;
 import me.trossty.car.registry.ModItems;
 import me.trossty.car.registry.ModScreenHandlers;
 import me.trossty.car.vehicle.VehicleDefinition;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.DyeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.Registry;
-import net.minecraft.screen.Property;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ScreenHandlerContext;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.DataSlot;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,7 +41,7 @@ import java.util.Map;
  * <p>The window holds nothing of its own, so there is nothing to lose when it
  * closes.
  */
-public class VehicleWorkstationScreenHandler extends ScreenHandler {
+public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
 
     /** Ids from 0 pick that vehicle; these are the rest. */
     public static final int FACTORY_PAINT_ID = 900;
@@ -55,22 +53,22 @@ public class VehicleWorkstationScreenHandler extends ScreenHandler {
     public static final int PLAYER_INVENTORY_TOP = 146;
     public static final int HOTBAR_TOP = 204;
 
-    private final ScreenHandlerContext context;
-    private final PlayerEntity player;
+    private final ContainerLevelAccess context;
+    private final Player player;
     private final List<Identifier> vehicles;
-    private final Property selected = Property.create();
+    private final DataSlot selected = DataSlot.standalone();
     /** -1 for the factory paint, else a dye index. */
-    private final Property paint = Property.create();
+    private final DataSlot paint = DataSlot.standalone();
 
-    public VehicleWorkstationScreenHandler(int syncId, PlayerInventory inventory) {
-        this(syncId, inventory, ScreenHandlerContext.EMPTY);
+    public VehicleWorkstationScreenHandler(int syncId, Inventory inventory) {
+        this(syncId, inventory, ContainerLevelAccess.NULL);
     }
 
-    public VehicleWorkstationScreenHandler(int syncId, PlayerInventory inventory, ScreenHandlerContext context) {
+    public VehicleWorkstationScreenHandler(int syncId, Inventory inventory, ContainerLevelAccess context) {
         super(ModScreenHandlers.VEHICLE_WORKSTATION, syncId);
         this.context = context;
         this.player = inventory.player;
-        this.vehicles = vehiclesIn(this.player.getEntityWorld().getRegistryManager());
+        this.vehicles = vehiclesIn(this.player.level().registryAccess());
 
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
@@ -81,15 +79,15 @@ public class VehicleWorkstationScreenHandler extends ScreenHandler {
         for (int column = 0; column < 9; column++) {
             this.addSlot(new Slot(inventory, column, PLAYER_INVENTORY_LEFT + column * 18, HOTBAR_TOP));
         }
-        this.addProperty(this.selected);
-        this.addProperty(this.paint);
+        this.addDataSlot(this.selected);
+        this.addDataSlot(this.paint);
         this.paint.set(-1);
     }
 
     /** Every vehicle there is, in a fixed order both sides agree on. */
-    public static List<Identifier> vehiclesIn(DynamicRegistryManager registries) {
-        return registries.getOptional(VehicleDefinition.KEY)
-                .map(registry -> registry.getIds().stream()
+    public static List<Identifier> vehiclesIn(RegistryAccess registries) {
+        return registries.lookup(VehicleDefinition.KEY)
+                .map(registry -> registry.keySet().stream()
                         .sorted(java.util.Comparator.comparing(Identifier::toString))
                         .toList())
                 .orElse(List.of());
@@ -113,9 +111,9 @@ public class VehicleWorkstationScreenHandler extends ScreenHandler {
         if (id == null) {
             return null;
         }
-        return this.player.getEntityWorld().getRegistryManager()
-                .getOptional(VehicleDefinition.KEY)
-                .map(registry -> registry.get(id))
+        return this.player.level().registryAccess()
+                .lookup(VehicleDefinition.KEY)
+                .map(registry -> registry.getValue(id))
                 .orElse(null);
     }
 
@@ -138,7 +136,7 @@ public class VehicleWorkstationScreenHandler extends ScreenHandler {
             counts.merge(cost.item(), cost.count(), Integer::sum);
         }
         if (this.getPaint() >= 0) {
-            counts.merge(DyeItem.byColor(DyeColor.byIndex(this.getPaint())), 1, Integer::sum);
+            counts.merge(DyeItem.byColor(DyeColor.byId(this.getPaint())), 1, Integer::sum);
         }
         List<VehicleRecipe.Material> materials = new ArrayList<>();
         counts.forEach((item, count) -> materials.add(new VehicleRecipe.Material(item, count)));
@@ -167,7 +165,7 @@ public class VehicleWorkstationScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public boolean onButtonClick(PlayerEntity player, int id) {
+    public boolean clickMenuButton(Player player, int id) {
         if (id >= 0 && id < this.vehicles.size()) {
             this.selected.set(id);
             return true;
@@ -181,16 +179,16 @@ public class VehicleWorkstationScreenHandler extends ScreenHandler {
             return true;
         }
         if (id == BUILD_ID) {
-            this.context.run((world, pos) -> {
+            this.context.execute((world, pos) -> {
                 ItemStack built = this.build();
                 if (built.isEmpty()) {
                     return;
                 }
-                if (!player.getInventory().insertStack(built)) {
-                    player.dropItem(built, false);
+                if (!player.getInventory().add(built)) {
+                    player.drop(built, false);
                 }
-                world.playSound(null, pos, SoundEvents.BLOCK_ANVIL_USE, SoundCategory.BLOCKS, 0.7F, 1.2F);
-                world.playSound(null, pos, SoundEvents.BLOCK_SMITHING_TABLE_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+                world.playSound(null, pos, SoundEvents.ANVIL_USE, SoundSource.BLOCKS, 0.7F, 1.2F);
+                world.playSound(null, pos, SoundEvents.SMITHING_TABLE_USE, SoundSource.BLOCKS, 1.0F, 1.0F);
             });
             return true;
         }
@@ -208,7 +206,7 @@ public class VehicleWorkstationScreenHandler extends ScreenHandler {
         }
         Identifier id = this.getSelectedId();
         VehicleDefinition definition = this.getSelected();
-        PlayerInventory pockets = this.player.getInventory();
+        Inventory pockets = this.player.getInventory();
         ItemStack result = CarItem.stackOf(id, definition);
 
         int setup = definition.factory().setup();
@@ -249,30 +247,30 @@ public class VehicleWorkstationScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public ItemStack quickMove(PlayerEntity player, int index) {
+    public ItemStack quickMoveStack(Player player, int index) {
         Slot slot = this.slots.get(index);
-        if (!slot.hasStack()) {
+        if (!slot.hasItem()) {
             return ItemStack.EMPTY;
         }
-        ItemStack stack = slot.getStack();
+        ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
         // Pockets to hotbar and back: there is nowhere else for it to go.
         boolean moved = index < 27
-                ? this.insertItem(stack, 27, 36, false)
-                : this.insertItem(stack, 0, 27, false);
+                ? this.moveItemStackTo(stack, 27, 36, false)
+                : this.moveItemStackTo(stack, 0, 27, false);
         if (!moved) {
             return ItemStack.EMPTY;
         }
         if (stack.isEmpty()) {
-            slot.setStack(ItemStack.EMPTY);
+            slot.setByPlayer(ItemStack.EMPTY);
         } else {
-            slot.markDirty();
+            slot.setChanged();
         }
         return original;
     }
 
     @Override
-    public boolean canUse(PlayerEntity player) {
-        return canUse(this.context, player, ModBlocks.VEHICLE_WORKSTATION);
+    public boolean stillValid(Player player) {
+        return stillValid(this.context, player, ModBlocks.VEHICLE_WORKSTATION);
     }
 }

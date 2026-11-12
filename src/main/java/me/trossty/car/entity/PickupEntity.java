@@ -1,29 +1,28 @@
 package me.trossty.car.entity;
 
 import me.trossty.car.registry.ModItems;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.ItemScatterer;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
-
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.AABB;
 import java.util.List;
 
 /**
@@ -71,21 +70,21 @@ public class PickupEntity extends CarEntity {
     /** Top speed with all {@link #BED_SLOTS} slots full. */
     private static final float LADEN_SPEED_FACTOR = 0.74F;
 
-    private final SimpleInventory bed = new SimpleInventory(BED_SLOTS);
+    private final SimpleContainer bed = new SimpleContainer(BED_SLOTS);
 
-    public PickupEntity(EntityType<?> type, World world) {
+    public PickupEntity(EntityType<?> type, Level world) {
         super(type, world);
     }
 
-    public Inventory getBed() {
+    public Container getBed() {
         return this.bed;
     }
 
     /** 0 with an empty bed, 1 with every slot occupied. */
     public float getLoad() {
         int used = 0;
-        for (int slot = 0; slot < this.bed.size(); slot++) {
-            if (!this.bed.getStack(slot).isEmpty()) {
+        for (int slot = 0; slot < this.bed.getContainerSize(); slot++) {
+            if (!this.bed.getItem(slot).isEmpty()) {
                 used++;
             }
         }
@@ -93,7 +92,7 @@ public class PickupEntity extends CarEntity {
     }
 
     @Override
-    protected Item asItem() {
+    protected Item getDropItem() {
         return ModItems.PICKUP;
     }
 
@@ -109,11 +108,11 @@ public class PickupEntity extends CarEntity {
     }
 
     @Override
-    protected net.minecraft.util.math.Vec3d plainSeatPosition(int seat) {
+    protected net.minecraft.world.phys.Vec3 plainSeatPosition(int seat) {
         if (seat < 2) {
             return super.plainSeatPosition(seat);
         }
-        return new net.minecraft.util.math.Vec3d(
+        return new net.minecraft.world.phys.Vec3(
                 seat == 2 ? -BED_SEAT_SIDEWAYS : BED_SEAT_SIDEWAYS, BED_SEAT_HEIGHT, BED_SEAT_BACK);
     }
 
@@ -134,10 +133,10 @@ public class PickupEntity extends CarEntity {
     @Override
     public void tick() {
         super.tick();
-        if (this.getEntityWorld().isClient() || this.isRemoved()) {
+        if (this.level().isClientSide() || this.isRemoved()) {
             return;
         }
-        if (this.age % SWEEP_INTERVAL == 0) {
+        if (this.tickCount % SWEEP_INTERVAL == 0) {
             this.sweepUpLooseItems();
         }
     }
@@ -152,66 +151,66 @@ public class PickupEntity extends CarEntity {
      * pocket the item first.
      */
     public void sweepUpLooseItems() {
-        Box reach = this.getBoundingBox().expand(SWEEP_REACH);
-        List<ItemEntity> loose = this.getEntityWorld().getEntitiesByClass(
-                ItemEntity.class, reach, item -> !item.isRemoved() && !item.cannotPickup());
+        AABB reach = this.getBoundingBox().inflate(SWEEP_REACH);
+        List<ItemEntity> loose = this.level().getEntitiesOfClass(
+                ItemEntity.class, reach, item -> !item.isRemoved() && !item.hasPickUpDelay());
         if (loose.isEmpty()) {
             return;
         }
 
         boolean tookAnything = false;
         for (ItemEntity item : loose) {
-            ItemStack left = this.bed.addStack(item.getStack().copy());
-            if (left.getCount() == item.getStack().getCount()) {
+            ItemStack left = this.bed.addItem(item.getItem().copy());
+            if (left.getCount() == item.getItem().getCount()) {
                 continue;
             }
             tookAnything = true;
             if (left.isEmpty()) {
                 item.discard();
             } else {
-                item.setStack(left);
+                item.setItem(left);
             }
         }
         if (tookAnything) {
-            this.getEntityWorld().playSound(null, this.getBlockPos(),
-                    SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.NEUTRAL, 0.3F, 1.6F);
+            this.level().playSound(null, this.blockPosition(),
+                    SoundEvents.ITEM_PICKUP, SoundSource.NEUTRAL, 0.3F, 1.6F);
         }
     }
 
     // ---- sneaking is the bed ----
 
     @Override
-    protected ActionResult interactUnlocked(PlayerEntity player, Hand hand) {
-        if (!player.shouldCancelInteraction()) {
+    protected InteractionResult interactUnlocked(Player player, InteractionHand hand) {
+        if (!player.isSecondaryUseActive()) {
             return super.interactUnlocked(player, hand);
         }
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        player.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+        player.openMenu(new SimpleMenuProvider(
                 (syncId, playerInventory, ignored) ->
-                        GenericContainerScreenHandler.createGeneric9x3(syncId, playerInventory, this.bed),
-                Text.translatable("container.car.pickup_bed")));
-        return ActionResult.CONSUME;
+                        ChestMenu.threeRows(syncId, playerInventory, this.bed),
+                Component.translatable("container.car.pickup_bed")));
+        return InteractionResult.CONSUME;
     }
 
     /** Wrecked, cleared away or killed, the bed tips out where it stood. */
     @Override
-    protected void spillCargo(ServerWorld world) {
-        ItemScatterer.spawn(world, (Entity) this, this.bed);
-        this.bed.clear();
+    protected void spillCargo(ServerLevel world) {
+        Containers.dropContents(world, (Entity) this, this.bed);
+        this.bed.clearContent();
     }
 
     @Override
-    protected void readCustomData(ReadView view) {
-        super.readCustomData(view);
-        Inventories.readData(view, this.bed.getHeldStacks());
+    protected void readAdditionalSaveData(ValueInput view) {
+        super.readAdditionalSaveData(view);
+        ContainerHelper.loadAllItems(view, this.bed.getItems());
     }
 
     @Override
-    protected void writeCustomData(WriteView view) {
-        super.writeCustomData(view);
-        Inventories.writeData(view, this.bed.getHeldStacks());
+    protected void addAdditionalSaveData(ValueOutput view) {
+        super.addAdditionalSaveData(view);
+        ContainerHelper.saveAllItems(view, this.bed.getItems());
     }
 
     @Override

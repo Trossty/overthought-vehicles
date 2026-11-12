@@ -1,7 +1,7 @@
 package me.trossty.car.client.render;
 
-import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.util.DyeColor;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.world.item.DyeColor;
 
 public class CarRenderState extends EntityRenderState {
     public float yaw;
@@ -11,7 +11,7 @@ public class CarRenderState extends EntityRenderState {
     public int paint = -1;
 
     /** The data-pack vehicle to draw instead of the built-in model, if any. */
-    public net.minecraft.util.Identifier vehicleId;
+    public net.minecraft.resources.Identifier vehicleId;
     public me.trossty.car.vehicle.VehicleDefinition vehicle;
     public String tyre = "road";
     /** Whether the tyres are on; off, the wheels are drawn as bare hubs, or not at all with the discs off too. */

@@ -1,19 +1,19 @@
 package me.trossty.car.client.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.TankerEntity;
 import me.trossty.car.vehicle.VehicleDefinition;
 import net.fabricmc.fabric.api.transfer.v1.client.fluid.FluidVariantRendering;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 
 /**
  * The tanker is a car with a barrel on it, and draws as one, with one thing
@@ -27,7 +27,7 @@ import net.minecraft.client.util.math.MatrixStack;
  */
 public class TankerEntityRenderer extends CarEntityRenderer {
 
-    public TankerEntityRenderer(EntityRendererFactory.Context context) {
+    public TankerEntityRenderer(EntityRendererProvider.Context context) {
         super(context, ModEntityModelLayers.FUEL_TANKER);
     }
 
@@ -37,8 +37,8 @@ public class TankerEntityRenderer extends CarEntityRenderer {
     }
 
     @Override
-    public void updateRenderState(CarEntity car, CarRenderState state, float tickProgress) {
-        super.updateRenderState(car, state, tickProgress);
+    public void extractRenderState(CarEntity car, CarRenderState state, float tickProgress) {
+        super.extractRenderState(car, state, tickProgress);
         if (car instanceof TankerEntity tanker && state instanceof TankerRenderState load) {
             load.liquid = tanker.getLiquid();
             load.fill = tanker.getCargo() / (float) tanker.getCargoCapacity();
@@ -46,7 +46,7 @@ public class TankerEntityRenderer extends CarEntityRenderer {
     }
 
     @Override
-    protected void submitExtras(CarRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue) {
+    protected void submitExtras(CarRenderState state, PoseStack matrices, SubmitNodeCollector queue) {
         if (!(state instanceof TankerRenderState load) || load.liquid.isBlank() || load.fill <= 0.0F
                 || state.vehicle == null) {
             return;
@@ -77,18 +77,18 @@ public class TankerEntityRenderer extends CarEntityRenderer {
             }
         }
 
-        Sprite sprite = FluidVariantRendering.getSprite(load.liquid);
+        TextureAtlasSprite sprite = FluidVariantRendering.getSprite(load.liquid);
         if (sprite == null) {
             return;
         }
         int colour = 0xFF000000 | FluidVariantRendering.getColor(load.liquid);
-        int light = TankerEntity.glows(load.liquid) ? LightmapTextureManager.MAX_LIGHT_COORDINATE : state.light;
+        int light = TankerEntity.glows(load.liquid) ? LightTexture.FULL_BRIGHT : state.lightCoords;
         VehicleDefinition.Box drawnSurface = surface;
         float drawnLevel = level;
 
-        matrices.push();
+        matrices.pushPose();
         DefinedVehicleModel.applyBody(matrices, state);
-        queue.submitCustom(matrices, RenderLayers.entityCutoutNoCull(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE),
+        queue.submitCustomGeometry(matrices, RenderTypes.entityCutoutNoCull(TextureAtlas.LOCATION_BLOCKS),
                 (entry, consumer) -> {
                     int order = 0;
                     for (VehicleDefinition.Box box : inside) {
@@ -103,7 +103,7 @@ public class TankerEntityRenderer extends CarEntityRenderer {
                         }
                     }
                 });
-        matrices.pop();
+        matrices.popPose();
     }
 
     private static float width(VehicleDefinition.Box box) {
@@ -111,7 +111,7 @@ public class TankerEntityRenderer extends CarEntityRenderer {
     }
 
     /** One piece of the load: a box in the definition's pixels, cut off at the level. */
-    private static void liquid(VertexConsumer consumer, MatrixStack.Entry entry, Sprite sprite, int colour,
+    private static void liquid(VertexConsumer consumer, PoseStack.Pose entry, TextureAtlasSprite sprite, int colour,
                                int light, VehicleDefinition.Box box, float low, float high, float inset,
                                boolean surface) {
         float x1 = Math.min(box.from().x(), box.to().x());
@@ -126,12 +126,12 @@ public class TankerEntityRenderer extends CarEntityRenderer {
         float az = -z1 / 16.0F;
         float bz = -z2 / 16.0F;
 
-        float u1 = sprite.getMinU();
-        float v1 = sprite.getMinV();
-        float uSide = sprite.getFrameU(Math.min(1.0F, (z2 - z1) / 16.0F));
-        float uEnd = sprite.getFrameU(Math.min(1.0F, (x2 - x1) / 16.0F));
-        float vUp = sprite.getFrameV(Math.min(1.0F, (high - low) / 16.0F));
-        float vTop = sprite.getFrameV(Math.min(1.0F, (z2 - z1) / 16.0F));
+        float u1 = sprite.getU0();
+        float v1 = sprite.getV0();
+        float uSide = sprite.getU(Math.min(1.0F, (z2 - z1) / 16.0F));
+        float uEnd = sprite.getU(Math.min(1.0F, (x2 - x1) / 16.0F));
+        float vUp = sprite.getV(Math.min(1.0F, (high - low) / 16.0F));
+        float vTop = sprite.getV(Math.min(1.0F, (z2 - z1) / 16.0F));
 
         // Model y points down here, so "up" is minus y.
         if (surface) {
@@ -150,7 +150,7 @@ public class TankerEntityRenderer extends CarEntityRenderer {
                 bx, by, bz, u1, v1, bx, ay, bz, u1, vUp, ax, ay, bz, uEnd, vUp, ax, by, bz, uEnd, v1);
     }
 
-    private static void quad(VertexConsumer consumer, MatrixStack.Entry entry, int colour, int light,
+    private static void quad(VertexConsumer consumer, PoseStack.Pose entry, int colour, int light,
                              float nx, float ny, float nz,
                              float x1, float y1, float z1, float u1, float v1,
                              float x2, float y2, float z2, float u2, float v2,
@@ -162,14 +162,14 @@ public class TankerEntityRenderer extends CarEntityRenderer {
         vertex(consumer, entry, colour, light, nx, ny, nz, x4, y4, z4, u4, v4);
     }
 
-    private static void vertex(VertexConsumer consumer, MatrixStack.Entry entry, int colour, int light,
+    private static void vertex(VertexConsumer consumer, PoseStack.Pose entry, int colour, int light,
                                float nx, float ny, float nz, float x, float y, float z, float u, float v) {
-        consumer.vertex(entry, x, y, z)
-                .color(colour)
-                .texture(u, v)
-                .overlay(OverlayTexture.DEFAULT_UV)
-                .light(light)
-                .normal(entry, nx, ny, nz);
+        consumer.addVertex(entry, x, y, z)
+                .setColor(colour)
+                .setUv(u, v)
+                .setOverlay(OverlayTexture.NO_OVERLAY)
+                .setLight(light)
+                .setNormal(entry, nx, ny, nz);
     }
 
     /** A car's render state, with what is in the barrel. */

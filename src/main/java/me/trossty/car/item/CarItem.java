@@ -4,22 +4,21 @@ import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.TankerEntity;
 import me.trossty.car.registry.ModComponents;
 import me.trossty.car.registry.ModEntities;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ItemUsageContext;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
 import java.util.function.Consumer;
 
 /** Places a {@link CarEntity} on the clicked block. */
@@ -32,57 +31,57 @@ public class CarItem extends Item {
         return this.type;
     }
 
-    public CarItem(Settings settings) {
+    public CarItem(Properties settings) {
         this(settings, ModEntities.CAR);
     }
 
     /** The tanker is the same item, pointed at a different entity. */
-    public CarItem(Settings settings, EntityType<? extends CarEntity> type) {
+    public CarItem(Properties settings, EntityType<? extends CarEntity> type) {
         super(settings);
         this.type = type;
     }
 
     @Override
-    public ActionResult useOnBlock(ItemUsageContext context) {
-        World world = context.getWorld();
-        if (!(world instanceof ServerWorld serverWorld)) {
-            return ActionResult.SUCCESS;
+    public InteractionResult useOn(UseOnContext context) {
+        Level world = context.getLevel();
+        if (!(world instanceof ServerLevel serverWorld)) {
+            return InteractionResult.SUCCESS;
         }
 
-        BlockPos pos = context.getBlockPos().offset(context.getSide());
-        CarEntity car = this.type.create(serverWorld, SpawnReason.SPAWN_ITEM_USE);
+        BlockPos pos = context.getClickedPos().relative(context.getClickedFace());
+        CarEntity car = this.type.create(serverWorld, EntitySpawnReason.SPAWN_ITEM_USE);
         if (car == null) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
 
-        Direction facing = context.getHorizontalPlayerFacing();
-        car.refreshPositionAndAngles(
+        Direction facing = context.getHorizontalDirection();
+        car.snapTo(
                 pos.getX() + 0.5,
                 pos.getY(),
                 pos.getZ() + 0.5,
-                facing.getPositiveHorizontalDegrees(),
+                facing.toYRot(),
                 0.0F);
 
-        if (!serverWorld.isSpaceEmpty(car, car.getBoundingBox())) {
-            return ActionResult.PASS;
+        if (!serverWorld.noCollision(car, car.getBoundingBox())) {
+            return InteractionResult.PASS;
         }
 
         // Paint travels on the item, so a car you picked up comes back the
         // colour you painted it rather than reverting to the default.
         // Which vehicle it is comes first: its size decides whether it fits,
         // and its factory fittings are what the rest then overrides.
-        net.minecraft.util.Identifier model = context.getStack().get(ModComponents.CAR_VEHICLE);
+        net.minecraft.resources.Identifier model = context.getItemInHand().get(ModComponents.CAR_VEHICLE);
         if (model != null) {
             car.setModel(model);
             me.trossty.car.vehicle.VehicleDefinition defined = car.getDefinition();
             if (defined != null) {
                 car.setSetup(defined.factory().setup());
                 defined.color().ifPresent(car::setColor);
-                car.calculateDimensions();
-                car.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
-                        facing.getPositiveHorizontalDegrees(), 0.0F);
-                if (!serverWorld.isSpaceEmpty(car, car.getBoundingBox())) {
-                    return ActionResult.PASS;
+                car.refreshDimensions();
+                car.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                        facing.toYRot(), 0.0F);
+                if (!serverWorld.noCollision(car, car.getBoundingBox())) {
+                    return InteractionResult.PASS;
                 }
             }
         }
@@ -91,56 +90,56 @@ public class CarItem extends Item {
         if (model == null && car.getDefinition() != null) {
             car.getDefinition().color().ifPresent(car::setColor);
         }
-        Integer colorIndex = context.getStack().get(ModComponents.CAR_COLOR);
+        Integer colorIndex = context.getItemInHand().get(ModComponents.CAR_COLOR);
         if (colorIndex != null) {
-            car.setColor(DyeColor.byIndex(colorIndex));
+            car.setColor(DyeColor.byId(colorIndex));
         }
-        Integer sprayed = context.getStack().get(ModComponents.CAR_PAINT);
+        Integer sprayed = context.getItemInHand().get(ModComponents.CAR_PAINT);
         if (sprayed != null) {
             car.setPaint(sprayed);
         }
-        Long lock = context.getStack().get(ModComponents.VEHICLE_KEY);
+        Long lock = context.getItemInHand().get(ModComponents.VEHICLE_KEY);
         if (lock != null) {
             car.setLockCode(lock);
         }
 
         // Dents travel on the item too, so a wreck you pocketed does not come
         // back repaired just because you put it down again.
-        Float health = context.getStack().get(ModComponents.CAR_HEALTH);
+        Float health = context.getItemInHand().get(ModComponents.CAR_HEALTH);
         if (health != null) {
             car.setHealth(health);
         }
 
         // Tired parts come back tired, for the same reason dents do.
-        java.util.List<Integer> parts = context.getStack().get(ModComponents.CAR_PARTS);
+        java.util.List<Integer> parts = context.getItemInHand().get(ModComponents.CAR_PARTS);
         if (parts != null) {
             car.setPartConditions(parts);
         }
 
         // So do the grades, so the good gearbox you paid for is still the one
         // in the car when you put it back down.
-        Integer qualities = context.getStack().get(ModComponents.CAR_PART_QUALITY);
+        Integer qualities = context.getItemInHand().get(ModComponents.CAR_PART_QUALITY);
         if (qualities != null) {
             car.setQualityBits(qualities);
         }
 
-        Integer setup = context.getStack().get(ModComponents.CAR_SETUP);
+        Integer setup = context.getItemInHand().get(ModComponents.CAR_SETUP);
         if (setup != null) {
             car.setSetup(setup);
         }
 
         // And a tanker comes back with whatever was still sloshing about in it.
         if (car instanceof TankerEntity tanker) {
-            tanker.loadFrom(context.getStack());
+            tanker.loadFrom(context.getItemInHand());
         }
 
-        serverWorld.spawnEntity(car);
+        serverWorld.addFreshEntity(car);
 
-        ItemStack stack = context.getStack();
-        if (context.getPlayer() == null || !context.getPlayer().isInCreativeMode()) {
-            stack.decrement(1);
+        ItemStack stack = context.getItemInHand();
+        if (context.getPlayer() == null || !context.getPlayer().hasInfiniteMaterials()) {
+            stack.shrink(1);
         }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     /**
@@ -150,13 +149,13 @@ public class CarItem extends Item {
      */
     /** A data-pack vehicle is called what its pack calls it, not "Car". */
     @Override
-    public Text getName(ItemStack stack) {
+    public Component getName(ItemStack stack) {
         return me.trossty.car.vehicle.VehicleDefinition.nameOf(this.modelOf(stack));
     }
 
     /** Which vehicle this stack is: the one it names, or what its machine is by default. */
-    public net.minecraft.util.Identifier modelOf(ItemStack stack) {
-        net.minecraft.util.Identifier model = stack.get(ModComponents.CAR_VEHICLE);
+    public net.minecraft.resources.Identifier modelOf(ItemStack stack) {
+        net.minecraft.resources.Identifier model = stack.get(ModComponents.CAR_VEHICLE);
         if (model != null) {
             return model;
         }
@@ -182,7 +181,7 @@ public class CarItem extends Item {
     }
 
     /** A new one of these, as it would sit in a showroom. */
-    public static ItemStack stackOf(net.minecraft.util.Identifier id,
+    public static ItemStack stackOf(net.minecraft.resources.Identifier id,
                                     me.trossty.car.vehicle.VehicleDefinition defined) {
         ItemStack stack = new ItemStack(itemFor(defined.chassis()));
         if (!id.equals(me.trossty.car.vehicle.VehicleDefinition.defaultFor(defined.chassis()))) {
@@ -192,67 +191,67 @@ public class CarItem extends Item {
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context,
-                              TooltipDisplayComponent display,
-                              Consumer<Text> tooltip, TooltipType type) {
-        super.appendTooltip(stack, context, display, tooltip, type);
-        net.minecraft.util.Identifier model = this.modelOf(stack);
-        if (context.getRegistryLookup() != null) {
-            context.getRegistryLookup()
-                    .getOptional(me.trossty.car.vehicle.VehicleDefinition.KEY)
-                    .flatMap(registry -> registry.getOptional(net.minecraft.registry.RegistryKey.of(
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+                              TooltipDisplay display,
+                              Consumer<Component> tooltip, TooltipFlag type) {
+        super.appendHoverText(stack, context, display, tooltip, type);
+        net.minecraft.resources.Identifier model = this.modelOf(stack);
+        if (context.registries() != null) {
+            context.registries()
+                    .lookup(me.trossty.car.vehicle.VehicleDefinition.KEY)
+                    .flatMap(registry -> registry.get(net.minecraft.resources.ResourceKey.create(
                             me.trossty.car.vehicle.VehicleDefinition.KEY, model)))
                     .ifPresent(entry -> {
                         me.trossty.car.vehicle.VehicleDefinition defined = entry.value();
-                        tooltip.accept(Text.translatable("tooltip.car.vehicle_spec",
+                        tooltip.accept(Component.translatable("tooltip.car.vehicle_spec",
                                 Math.round(defined.performance().speed() * 100.0F),
                                 Math.round(defined.performance().acceleration() * 100.0F),
                                 Math.round(defined.performance().fuelUse() * 100.0F),
-                                Math.max(1, defined.seats().size())).formatted(Formatting.GRAY));
-                        tooltip.accept(Text.translatable("tooltip.car.vehicle_factory",
-                                Text.translatable("engine.car." + me.trossty.car.entity.CarSetup.engineKey(
+                                Math.max(1, defined.seats().size())).withStyle(ChatFormatting.GRAY));
+                        tooltip.accept(Component.translatable("tooltip.car.vehicle_factory",
+                                Component.translatable("engine.car." + me.trossty.car.entity.CarSetup.engineKey(
                                         me.trossty.car.entity.CarSetup.variant(defined.factory().setup(),
                                                 me.trossty.car.entity.CarPart.ENGINE))),
-                                Text.translatable("fuel.car." + me.trossty.car.entity.CarSetup.engineFuel(
-                                        defined.factory().setup()).key())).formatted(Formatting.DARK_GRAY));
+                                Component.translatable("fuel.car." + me.trossty.car.entity.CarSetup.engineFuel(
+                                        defined.factory().setup()).key())).withStyle(ChatFormatting.DARK_GRAY));
                         if (defined.tank() > 0.0F) {
-                            tooltip.accept(Text.translatable("tooltip.car.vehicle_tank",
+                            tooltip.accept(Component.translatable("tooltip.car.vehicle_tank",
                                     JerryCans.litres(defined.tank() / JerryCans.LITRES_PER_UNIT),
                                     me.trossty.car.entity.CarEntity.formatDistance(
                                             me.trossty.car.entity.CarEntity.estimateRange(defined)))
-                                    .formatted(Formatting.DARK_GRAY));
+                                    .withStyle(ChatFormatting.DARK_GRAY));
                         }
                     });
         }
-        if (stack.contains(ModComponents.VEHICLE_KEY)) {
-            tooltip.accept(Text.translatable("tooltip.car.has_key").formatted(Formatting.GRAY));
+        if (stack.has(ModComponents.VEHICLE_KEY)) {
+            tooltip.accept(Component.translatable("tooltip.car.has_key").withStyle(ChatFormatting.GRAY));
         }
         Integer sprayed = stack.get(ModComponents.CAR_PAINT);
         Integer colorIndex = stack.get(ModComponents.CAR_COLOR);
         if (sprayed != null) {
-            tooltip.accept(Text.translatable("tooltip.car.sprayed",
-                            Text.literal(String.format("#%06X", sprayed)).withColor(sprayed))
-                    .formatted(Formatting.GRAY));
+            tooltip.accept(Component.translatable("tooltip.car.sprayed",
+                            Component.literal(String.format("#%06X", sprayed)).withColor(sprayed))
+                    .withStyle(ChatFormatting.GRAY));
         } else if (colorIndex != null) {
-            DyeColor color = DyeColor.byIndex(colorIndex);
-            tooltip.accept(Text.translatable("tooltip.car.painted",
-                            Text.translatable("color.minecraft." + color.getId()))
-                    .formatted(Formatting.GRAY));
+            DyeColor color = DyeColor.byId(colorIndex);
+            tooltip.accept(Component.translatable("tooltip.car.painted",
+                            Component.translatable("color.minecraft." + color.getName()))
+                    .withStyle(ChatFormatting.GRAY));
         }
         Integer cargo = stack.get(ModComponents.TANKER_CARGO);
         if (cargo != null) {
             var liquid = stack.get(ModComponents.TANKER_LIQUID);
-            Text name = liquid == null || liquid.isBlank()
-                    ? Text.translatable("fluid.car.petrol")
+            Component name = liquid == null || liquid.isBlank()
+                    ? Component.translatable("fluid.car.petrol")
                     : net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes.getName(liquid);
-            tooltip.accept(Text.translatable("tooltip.car.cargo", cargo, name)
-                    .formatted(Formatting.GRAY));
+            tooltip.accept(Component.translatable("tooltip.car.cargo", cargo, name)
+                    .withStyle(ChatFormatting.GRAY));
         }
         Float health = stack.get(ModComponents.CAR_HEALTH);
         if (health != null) {
             int percent = Math.round(health / CarEntity.MAX_HEALTH * 100.0F);
-            tooltip.accept(Text.translatable("tooltip.car.condition", percent)
-                    .formatted(percent < 35 ? Formatting.RED : Formatting.GRAY));
+            tooltip.accept(Component.translatable("tooltip.car.condition", percent)
+                    .withStyle(percent < 35 ? ChatFormatting.RED : ChatFormatting.GRAY));
         }
     }
 }

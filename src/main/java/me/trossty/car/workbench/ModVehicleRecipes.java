@@ -3,8 +3,7 @@ package me.trossty.car.workbench;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.entity.CarSetup;
 import me.trossty.car.registry.ModItems;
-import net.minecraft.item.Items;
-
+import net.minecraft.world.item.Items;
 import java.util.List;
 
 /**
@@ -233,7 +232,7 @@ public final class ModVehicleRecipes {
                     new VehicleRecipe.Material(ModItems.SUSPENSION, 2),
                     new VehicleRecipe.Material(ModItems.WHEEL, 2));
         }
-        net.minecraft.item.Item item = me.trossty.car.item.CarItem.itemFor(chassis);
+        net.minecraft.world.item.Item item = me.trossty.car.item.CarItem.itemFor(chassis);
         for (VehicleRecipe recipe : VEHICLES) {
             if (recipe.result() == item) {
                 return recipe.materials();
@@ -243,7 +242,7 @@ public final class ModVehicleRecipes {
     }
 
     /** The recipe that makes this item, or null. */
-    public static VehicleRecipe byResult(List<VehicleRecipe> recipes, net.minecraft.item.Item item) {
+    public static VehicleRecipe byResult(List<VehicleRecipe> recipes, net.minecraft.world.item.Item item) {
         for (VehicleRecipe recipe : recipes) {
             if (recipe.result() == item && !recipe.refurbished() && recipe.variant() == 0) {
                 return recipe;

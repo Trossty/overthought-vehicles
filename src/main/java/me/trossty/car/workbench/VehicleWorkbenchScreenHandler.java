@@ -5,21 +5,20 @@ import me.trossty.car.entity.CarPart;
 import me.trossty.car.registry.ModBlocks;
 import me.trossty.car.registry.ModComponents;
 import me.trossty.car.registry.ModScreenHandlers;
-import net.minecraft.block.Block;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.Property;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ScreenHandlerContext;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.DataSlot;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import java.util.List;
 
 /**
@@ -30,7 +29,7 @@ import java.util.List;
  * handed back to the player when the window closes, so nothing can be lost in a
  * block that has no inventory of its own.
  */
-public class VehicleWorkbenchScreenHandler extends ScreenHandler {
+public class VehicleWorkbenchScreenHandler extends AbstractContainerMenu {
 
     public static final int INPUT_SIZE = 9;
     /** Button id for "build"; ids below this select the recipe with that index. */
@@ -55,34 +54,34 @@ public class VehicleWorkbenchScreenHandler extends ScreenHandler {
     private static final int PLAYER_INVENTORY_TOP = 122;
     private static final int HOTBAR_TOP = 180;
 
-    private final Inventory input = new SimpleInventory(INPUT_SIZE) {
+    private final Container input = new SimpleContainer(INPUT_SIZE) {
         @Override
-        public void markDirty() {
-            super.markDirty();
-            VehicleWorkbenchScreenHandler.this.onContentChanged(this);
+        public void setChanged() {
+            super.setChanged();
+            VehicleWorkbenchScreenHandler.this.slotsChanged(this);
         }
     };
-    private final ScreenHandlerContext context;
-    private final Property selectedRecipe = Property.create();
-    private final Property selectedQuality = Property.create();
+    private final ContainerLevelAccess context;
+    private final DataSlot selectedRecipe = DataSlot.standalone();
+    private final DataSlot selectedQuality = DataSlot.standalone();
     private final List<VehicleRecipe> recipes;
     private final Block block;
 
     /** Client-side constructor for the workbench: no world access, so the context is empty. */
-    public VehicleWorkbenchScreenHandler(int syncId, PlayerInventory playerInventory) {
-        this(syncId, playerInventory, ScreenHandlerContext.EMPTY);
+    public VehicleWorkbenchScreenHandler(int syncId, Inventory playerInventory) {
+        this(syncId, playerInventory, ContainerLevelAccess.NULL);
     }
 
-    public VehicleWorkbenchScreenHandler(int syncId, PlayerInventory playerInventory, ScreenHandlerContext context) {
+    public VehicleWorkbenchScreenHandler(int syncId, Inventory playerInventory, ContainerLevelAccess context) {
         this(ModScreenHandlers.VEHICLE_WORKBENCH, syncId, playerInventory, context,
                 ModVehicleRecipes.WORKBENCH, ModBlocks.VEHICLE_WORKBENCH);
     }
 
     private VehicleWorkbenchScreenHandler(
-            ScreenHandlerType<VehicleWorkbenchScreenHandler> type,
+            MenuType<VehicleWorkbenchScreenHandler> type,
             int syncId,
-            PlayerInventory playerInventory,
-            ScreenHandlerContext context,
+            Inventory playerInventory,
+            ContainerLevelAccess context,
             List<VehicleRecipe> recipes,
             Block block) {
         super(type, syncId);
@@ -103,8 +102,8 @@ public class VehicleWorkbenchScreenHandler extends ScreenHandler {
             this.addSlot(new Slot(playerInventory, column, 8 + column * 18, HOTBAR_TOP));
         }
 
-        this.addProperty(this.selectedRecipe);
-        this.addProperty(this.selectedQuality);
+        this.addDataSlot(this.selectedRecipe);
+        this.addDataSlot(this.selectedQuality);
     }
 
     public int getSelectedRecipeIndex() {
@@ -168,7 +167,7 @@ public class VehicleWorkbenchScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public boolean onButtonClick(PlayerEntity player, int id) {
+    public boolean clickMenuButton(Player player, int id) {
         if (id == BUILD_BUTTON_ID) {
             return this.build(player);
         }
@@ -184,7 +183,7 @@ public class VehicleWorkbenchScreenHandler extends ScreenHandler {
         return false;
     }
 
-    private boolean build(PlayerEntity player) {
+    private boolean build(Player player) {
         VehicleRecipe recipe = this.getSelectedRecipe();
         // The work itself is BenchWork's, shared with the buttons on the bench
         // top; all that is this window's own is where the materials are.
@@ -192,60 +191,60 @@ public class VehicleWorkbenchScreenHandler extends ScreenHandler {
         if (result.isEmpty()) {
             return false;
         }
-        if (!player.getInventory().insertStack(result)) {
-            player.dropItem(result, false);
+        if (!player.getInventory().add(result)) {
+            player.drop(result, false);
         }
-        this.input.markDirty();
-        this.sendContentUpdates();
+        this.input.setChanged();
+        this.broadcastChanges();
         boolean rebuilt = recipe.refurbished();
-        this.context.run((world, pos) -> world.playSound(null, pos,
-                rebuilt ? SoundEvents.BLOCK_GRINDSTONE_USE : SoundEvents.BLOCK_ANVIL_USE,
-                SoundCategory.BLOCKS, rebuilt ? 0.7F : 0.6F, rebuilt ? 1.0F : 1.6F));
+        this.context.execute((world, pos) -> world.playSound(null, pos,
+                rebuilt ? SoundEvents.GRINDSTONE_USE : SoundEvents.ANVIL_USE,
+                SoundSource.BLOCKS, rebuilt ? 0.7F : 0.6F, rebuilt ? 1.0F : 1.6F));
         return true;
     }
 
     @Override
-    public void onClosed(PlayerEntity player) {
-        super.onClosed(player);
+    public void removed(Player player) {
+        super.removed(player);
         // The grid is scratch space; give everything back rather than eating it.
-        this.context.run((world, pos) -> this.dropInventory(player, this.input));
+        this.context.execute((world, pos) -> this.clearContainer(player, this.input));
     }
 
     @Override
-    public boolean canUse(PlayerEntity player) {
-        return canUse(this.context, player, this.block);
+    public boolean stillValid(Player player) {
+        return stillValid(this.context, player, this.block);
     }
 
     @Override
-    public ItemStack quickMove(PlayerEntity player, int slotIndex) {
+    public ItemStack quickMoveStack(Player player, int slotIndex) {
         Slot slot = this.slots.get(slotIndex);
-        if (!slot.hasStack()) {
+        if (!slot.hasItem()) {
             return ItemStack.EMPTY;
         }
-        ItemStack stack = slot.getStack();
+        ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
 
         if (slotIndex < INPUT_SIZE) {
             // Out of the grid, into the player.
-            if (!this.insertItem(stack, INPUT_SIZE, this.slots.size(), true)) {
+            if (!this.moveItemStackTo(stack, INPUT_SIZE, this.slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
-        } else if (!this.insertItem(stack, 0, INPUT_SIZE, false)) {
+        } else if (!this.moveItemStackTo(stack, 0, INPUT_SIZE, false)) {
             // Into the grid, or failing that between inventory and hotbar.
             int inventoryEnd = INPUT_SIZE + 27;
             if (slotIndex < inventoryEnd) {
-                if (!this.insertItem(stack, inventoryEnd, this.slots.size(), false)) {
+                if (!this.moveItemStackTo(stack, inventoryEnd, this.slots.size(), false)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (!this.insertItem(stack, INPUT_SIZE, inventoryEnd, false)) {
+            } else if (!this.moveItemStackTo(stack, INPUT_SIZE, inventoryEnd, false)) {
                 return ItemStack.EMPTY;
             }
         }
 
         if (stack.isEmpty()) {
-            slot.setStack(ItemStack.EMPTY);
+            slot.setByPlayer(ItemStack.EMPTY);
         } else {
-            slot.markDirty();
+            slot.setChanged();
         }
         return original;
     }

@@ -3,15 +3,14 @@ package me.trossty.car.client.screen;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.service.CarServiceScreenHandler;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
-
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +25,7 @@ import java.util.List;
  * <p>Every number here is read straight off the car entity, which the client
  * already has: the window only ever had to be told which car it is about.
  */
-public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
+public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHandler> {
 
     private static final int PANEL = 0xFFC6C6C6;
     private static final int PANEL_LIGHT = 0xFFFFFFFF;
@@ -65,13 +64,13 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
 
     private final List<Line> lines = new ArrayList<>();
     private int scroll;
-    private ButtonWidget removeButton;
-    private ButtonWidget fitButton;
+    private Button removeButton;
+    private Button fitButton;
 
-    public CarServiceScreen(CarServiceScreenHandler handler, PlayerInventory inventory, Text title) {
+    public CarServiceScreen(CarServiceScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title);
-        this.backgroundWidth = 256;
-        this.backgroundHeight = 204;
+        this.imageWidth = 256;
+        this.imageHeight = 204;
         // Only what this vehicle has: a trailer lists its running gear and no engine.
         me.trossty.car.entity.CarEntity car = handler.car();
         for (CarPart.Group group : CarPart.Group.values()) {
@@ -93,23 +92,23 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
         super.init();
         // There is no player inventory in this window, so neither title belongs
         // where HandledScreen would put them.
-        this.titleY = 7;
-        this.playerInventoryTitleY = -1000;
-        this.removeButton = ButtonWidget.builder(
-                        Text.translatable("gui.car.remove"), button -> this.send(CarServiceScreenHandler.REMOVE_BUTTON))
-                .dimensions(this.x + DETAIL_X, this.y + 146, DETAIL_WIDTH, 16)
+        this.titleLabelY = 7;
+        this.inventoryLabelY = -1000;
+        this.removeButton = Button.builder(
+                        Component.translatable("gui.car.remove"), button -> this.send(CarServiceScreenHandler.REMOVE_BUTTON))
+                .bounds(this.leftPos + DETAIL_X, this.topPos + 146, DETAIL_WIDTH, 16)
                 .build();
-        this.fitButton = ButtonWidget.builder(
-                        Text.translatable("gui.car.fit"), button -> this.send(CarServiceScreenHandler.FIT_BUTTON))
-                .dimensions(this.x + DETAIL_X, this.y + 164, DETAIL_WIDTH, 16)
+        this.fitButton = Button.builder(
+                        Component.translatable("gui.car.fit"), button -> this.send(CarServiceScreenHandler.FIT_BUTTON))
+                .bounds(this.leftPos + DETAIL_X, this.topPos + 164, DETAIL_WIDTH, 16)
                 .build();
-        this.addDrawableChild(this.removeButton);
-        this.addDrawableChild(this.fitButton);
+        this.addRenderableWidget(this.removeButton);
+        this.addRenderableWidget(this.fitButton);
     }
 
     private void send(int id) {
-        if (this.client != null && this.client.interactionManager != null) {
-            this.client.interactionManager.clickButton(this.handler.syncId, id);
+        if (this.minecraft != null && this.minecraft.gameMode != null) {
+            this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, id);
         }
     }
 
@@ -125,13 +124,13 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
         if (row < 0 || row >= VISIBLE_ROWS) {
             return Integer.MIN_VALUE;
         }
-        return this.y + LIST_Y + row * ROW_HEIGHT;
+        return this.topPos + LIST_Y + row * ROW_HEIGHT;
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (vertical != 0.0 && this.maxScroll() > 0) {
-            this.scroll = MathHelper.clamp(
+            this.scroll = Mth.clamp(
                     this.scroll - (int) Math.signum(vertical), 0, this.maxScroll());
             return true;
         }
@@ -139,7 +138,7 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         for (int index = 0; index < this.lines.size(); index++) {
             Line line = this.lines.get(index);
             if (line.isHeading()) {
@@ -149,7 +148,7 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
             if (rowY == Integer.MIN_VALUE) {
                 continue;
             }
-            if (click.x() >= this.x + LIST_X && click.x() < this.x + LIST_X + LIST_WIDTH
+            if (click.x() >= this.leftPos + LIST_X && click.x() < this.leftPos + LIST_X + LIST_WIDTH
                     && click.y() >= rowY && click.y() < rowY + ROW_HEIGHT) {
                 this.send(line.part().ordinal());
                 return true;
@@ -161,22 +160,22 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
     // ---- drawing ----
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
-        CarEntity car = this.handler.car();
-        CarPart selected = this.handler.selectedPart();
+    public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+        CarEntity car = this.menu.car();
+        CarPart selected = this.menu.selectedPart();
         this.removeButton.active = car != null && car.isFitted(selected) && car.canReach(selected);
         this.fitButton.active = car != null && car.canReach(selected)
-                && !this.handler.spareFor(selected).isEmpty()
+                && !this.menu.spareFor(selected).isEmpty()
                 && car.getCondition(selected) < CarPart.MAX_CONDITION;
         super.render(context, mouseX, mouseY, deltaTicks);
     }
 
     @Override
-    protected void drawBackground(DrawContext context, float deltaTicks, int mouseX, int mouseY) {
-        int left = this.x;
-        int top = this.y;
-        int right = left + this.backgroundWidth;
-        int bottom = top + this.backgroundHeight;
+    protected void renderBg(GuiGraphics context, float deltaTicks, int mouseX, int mouseY) {
+        int left = this.leftPos;
+        int top = this.topPos;
+        int right = left + this.imageWidth;
+        int bottom = top + this.imageHeight;
 
         context.fill(left, top, right, bottom, PANEL);
         context.fill(left, top, right, top + 1, PANEL_LIGHT);
@@ -184,14 +183,14 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
         context.fill(left, bottom - 1, right, bottom, PANEL_SHADOW);
         context.fill(right - 1, top, right, bottom, PANEL_SHADOW);
 
-        CarEntity car = this.handler.car();
+        CarEntity car = this.menu.car();
         this.drawList(context, car);
         this.drawDetail(context, car);
         this.drawFooter(context, car);
     }
 
     /** A recessed well, the way vanilla frames anything you read out of. */
-    private static void drawWell(DrawContext context, int x, int y, int width, int height) {
+    private static void drawWell(GuiGraphics context, int x, int y, int width, int height) {
         context.fill(x, y, x + width, y + height, WELL);
         context.fill(x, y, x + width, y + 1, PANEL_SHADOW);
         context.fill(x, y, x + 1, y + height, PANEL_SHADOW);
@@ -210,13 +209,13 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
         return fraction > 0.25F ? FAIR : BAD;
     }
 
-    private void drawList(DrawContext context, CarEntity car) {
-        int listLeft = this.x + LIST_X;
-        int listTop = this.y + LIST_Y;
+    private void drawList(GuiGraphics context, CarEntity car) {
+        int listLeft = this.leftPos + LIST_X;
+        int listTop = this.topPos + LIST_Y;
         drawWell(context, listLeft - 1, listTop - 1, LIST_WIDTH + 2, LIST_HEIGHT + 2);
 
-        this.scroll = MathHelper.clamp(this.scroll, 0, this.maxScroll());
-        CarPart selected = this.handler.selectedPart();
+        this.scroll = Mth.clamp(this.scroll, 0, this.maxScroll());
+        CarPart selected = this.menu.selectedPart();
 
         for (int index = 0; index < this.lines.size(); index++) {
             int rowY = this.rowY(index);
@@ -225,8 +224,8 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
             }
             Line line = this.lines.get(index);
             if (line.isHeading()) {
-                context.drawText(this.textRenderer,
-                        Text.translatable("group.car." + line.group().key()),
+                context.drawString(this.font,
+                        Component.translatable("group.car." + line.group().key()),
                         listLeft + 3, rowY + 3, TEXT_DIM, false);
                 context.fill(listLeft + 2, rowY + ROW_HEIGHT - 1,
                         listLeft + LIST_WIDTH - 2, rowY + ROW_HEIGHT, 0xFF4A4A4A);
@@ -246,12 +245,12 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
                 context.fill(listLeft + 1, rowY, listLeft + 2, rowY + ROW_HEIGHT - 1, SELECTED);
             }
 
-            context.drawText(this.textRenderer, Text.translatable("part.car." + part.key()),
+            context.drawString(this.font, Component.translatable("part.car." + part.key()),
                     listLeft + indent, rowY + 1, fitted ? TEXT_ON_WELL : ABSENT, false);
 
             String reading = fitted ? Math.round(fraction * 100.0F) + "%" : "—";
-            context.drawText(this.textRenderer, reading,
-                    listLeft + LIST_WIDTH - 5 - this.textRenderer.getWidth(reading), rowY + 1,
+            context.drawString(this.font, reading,
+                    listLeft + LIST_WIDTH - 5 - this.font.width(reading), rowY + 1,
                     conditionColour(fraction, fitted), false);
 
             // The bar is the row's own underline: it starts where the name does,
@@ -269,7 +268,7 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
         this.drawScrollbar(context, listLeft + LIST_WIDTH + 3, listTop);
     }
 
-    private void drawScrollbar(DrawContext context, int trackX, int trackY) {
+    private void drawScrollbar(GuiGraphics context, int trackX, int trackY) {
         int max = this.maxScroll();
         if (max == 0) {
             return;
@@ -281,27 +280,27 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
         context.fill(trackX, knobY, trackX + SCROLLBAR_WIDTH - 1, knobY + 1, PANEL_LIGHT);
     }
 
-    private void drawDetail(DrawContext context, CarEntity car) {
-        int left = this.x + DETAIL_X;
-        int top = this.y + LIST_Y;
+    private void drawDetail(GuiGraphics context, CarEntity car) {
+        int left = this.leftPos + DETAIL_X;
+        int top = this.topPos + LIST_Y;
         drawWell(context, left - 1, top - 1, DETAIL_WIDTH + 2, 122);
 
-        CarPart part = this.handler.selectedPart();
+        CarPart part = this.menu.selectedPart();
         int line = top + 3;
 
-        context.drawItem(new ItemStack(part.item(), part.count()), left + 3, line);
+        context.renderItem(new ItemStack(part.item(), part.count()), left + 3, line);
         line += 20;
 
-        for (net.minecraft.text.OrderedText piece : this.textRenderer.wrapLines(
-                Text.translatable("part.car." + part.key()), DETAIL_WIDTH - 8)) {
-            context.drawText(this.textRenderer, piece, left + 4, line, TEXT_ON_WELL, false);
+        for (net.minecraft.util.FormattedCharSequence piece : this.font.split(
+                Component.translatable("part.car." + part.key()), DETAIL_WIDTH - 8)) {
+            context.drawString(this.font, piece, left + 4, line, TEXT_ON_WELL, false);
             line += 10;
         }
 
         // What it is actually for, which is the only reason to care about it.
-        for (net.minecraft.text.OrderedText piece : this.textRenderer.wrapLines(
-                Text.translatable("part.car." + part.key() + ".effect"), DETAIL_WIDTH - 8)) {
-            context.drawText(this.textRenderer, piece, left + 4, line, TEXT_DIM, false);
+        for (net.minecraft.util.FormattedCharSequence piece : this.font.split(
+                Component.translatable("part.car." + part.key() + ".effect"), DETAIL_WIDTH - 8)) {
+            context.drawString(this.font, piece, left + 4, line, TEXT_DIM, false);
             line += 9;
         }
         line += 3;
@@ -311,25 +310,25 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
             float fraction = car.getConditionFraction(part);
             CarPart inTheWay = car.blockedBy(part);
 
-            Text status;
+            Component status;
             int colour;
             if (inTheWay != null) {
-                status = Text.translatable("gui.car.status_blocked",
-                        Text.translatable("part.car." + inTheWay.key()));
+                status = Component.translatable("gui.car.status_blocked",
+                        Component.translatable("part.car." + inTheWay.key()));
                 colour = BAD;
             } else if (!fitted) {
-                status = Text.translatable("gui.car.status_absent");
+                status = Component.translatable("gui.car.status_absent");
                 colour = ABSENT;
             } else if (fraction >= 1.0F) {
-                status = Text.translatable("gui.car.status_new");
+                status = Component.translatable("gui.car.status_new");
                 colour = GOOD;
             } else {
-                status = Text.translatable(
+                status = Component.translatable(
                         fraction > 0.5F ? "gui.car.status_ok" : "gui.car.status_worn");
                 colour = conditionColour(fraction, true);
             }
-            for (net.minecraft.text.OrderedText piece : this.textRenderer.wrapLines(status, DETAIL_WIDTH - 8)) {
-                context.drawText(this.textRenderer, piece, left + 4, line, colour, false);
+            for (net.minecraft.util.FormattedCharSequence piece : this.font.split(status, DETAIL_WIDTH - 8)) {
+                context.drawString(this.font, piece, left + 4, line, colour, false);
                 line += 9;
             }
 
@@ -337,22 +336,22 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
             // answer to "why is this worn out again already".
             if (fitted) {
                 CarPart.Quality quality = car.getQuality(part);
-                context.drawText(this.textRenderer,
-                        Text.translatable("quality.car." + quality.key()),
+                context.drawString(this.font,
+                        Component.translatable("quality.car." + quality.key()),
                         left + 4, line, qualityColour(quality), false);
                 line += 9;
             }
 
-            ItemStack spare = this.handler.spareFor(part);
-            Text have = spare.isEmpty()
-                    ? Text.translatable("gui.car.no_spare")
-                    : Text.translatable("gui.car.spare",
+            ItemStack spare = this.menu.spareFor(part);
+            Component have = spare.isEmpty()
+                    ? Component.translatable("gui.car.no_spare")
+                    : Component.translatable("gui.car.spare",
                             Math.round(CarEntity.conditionOf(spare)) + "%");
-            context.drawText(this.textRenderer, have, left + 4, line + 2,
+            context.drawString(this.font, have, left + 4, line + 2,
                     spare.isEmpty() ? ABSENT : TEXT_ON_WELL, false);
             if (part.count() > 1) {
-                context.drawText(this.textRenderer,
-                        Text.translatable("gui.car.set_of", part.count()),
+                context.drawString(this.font,
+                        Component.translatable("gui.car.set_of", part.count()),
                         left + 4, line + 12, TEXT_DIM, false);
             }
         }
@@ -364,43 +363,43 @@ public class CarServiceScreen extends HandledScreen<CarServiceScreenHandler> {
     }
 
     /** Temperature, and whatever is stopping the car going anywhere. */
-    private void drawFooter(DrawContext context, CarEntity car) {
-        int left = this.x + LIST_X;
-        int top = this.y + LIST_Y + LIST_HEIGHT + 6;
+    private void drawFooter(GuiGraphics context, CarEntity car) {
+        int left = this.leftPos + LIST_X;
+        int top = this.topPos + LIST_Y + LIST_HEIGHT + 6;
 
-        context.drawText(this.textRenderer, Text.translatable("gui.car.temperature"),
+        context.drawString(this.font, Component.translatable("gui.car.temperature"),
                 left, top, TEXT, false);
 
         // Right-aligned and a fixed width, so a longer word in another language
         // runs out of room before it runs under the bar.
-        int barRight = this.x + LIST_X + LIST_WIDTH;
+        int barRight = this.leftPos + LIST_X + LIST_WIDTH;
         int barLeft = barRight - 60;
         drawWell(context, barLeft - 1, top - 2, barRight - barLeft + 2, 11);
         if (car != null) {
-            float temp = MathHelper.clamp(car.getEngineTemp(), 0.0F, 1.0F);
+            float temp = Mth.clamp(car.getEngineTemp(), 0.0F, 1.0F);
             int filled = Math.round((barRight - barLeft) * temp);
             context.fill(barLeft, top - 1, barLeft + filled, top + 8,
                     car.isOverheating() ? HOT : FAIR);
             String reading = Math.round(temp * 100.0F) + "%";
-            context.drawText(this.textRenderer, reading,
-                    barRight - 3 - this.textRenderer.getWidth(reading), top, TEXT_ON_WELL, false);
+            context.drawString(this.font, reading,
+                    barRight - 3 - this.font.width(reading), top, TEXT_ON_WELL, false);
         }
 
         if (car == null) {
             return;
         }
-        Text warning = null;
+        Component warning = null;
         CarPart missing = car.missingEssential();
         if (missing != null) {
-            warning = Text.translatable("gui.car.needs_part",
-                    Text.translatable("part.car." + missing.key()));
+            warning = Component.translatable("gui.car.needs_part",
+                    Component.translatable("part.car." + missing.key()));
         } else if (car.isBatteryFlat()) {
-            warning = Text.translatable("gui.car.flat_battery");
+            warning = Component.translatable("gui.car.flat_battery");
         } else if (car.isOverheating()) {
-            warning = Text.translatable("gui.car.overheating");
+            warning = Component.translatable("gui.car.overheating");
         }
         if (warning != null) {
-            context.drawText(this.textRenderer, warning, left, top + 14, BAD, false);
+            context.drawString(this.font, warning, left, top + 14, BAD, false);
         }
     }
 }

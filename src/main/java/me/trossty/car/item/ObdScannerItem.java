@@ -2,17 +2,17 @@ package me.trossty.car.item;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.registry.ModComponents;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
@@ -29,35 +29,35 @@ public class ObdScannerItem extends Item {
     /** How far the tablet still hears the car it is paired with, in blocks. */
     public static final double RANGE = 32.0;
 
-    public ObdScannerItem(Settings settings) {
+    public ObdScannerItem(Properties settings) {
         super(settings);
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
         if (!(user.getVehicle() instanceof CarEntity car)) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        pair(user.getStackInHand(hand), car, user);
-        return ActionResult.SUCCESS;
+        pair(user.getItemInHand(hand), car, user);
+        return InteractionResult.SUCCESS;
     }
 
     /** Pairs the tablet with this car: a beep, and the car's name across the screen bottom. */
-    public static void pair(ItemStack tablet, CarEntity car, PlayerEntity player) {
-        if (car.getEntityWorld().isClient()) {
+    public static void pair(ItemStack tablet, CarEntity car, Player player) {
+        if (car.level().isClientSide()) {
             return;
         }
-        tablet.set(ModComponents.OBD_LINK, car.getUuid());
-        player.sendMessage(Text.translatable("obd.car.paired", car.getVehicleName()).formatted(Formatting.AQUA), true);
-        car.getEntityWorld().playSound(null, car.getX(), car.getY() + 0.8, car.getZ(),
-                SoundEvents.BLOCK_NOTE_BLOCK_BIT.value(), SoundCategory.PLAYERS, 0.5F, 2.0F);
+        tablet.set(ModComponents.OBD_LINK, car.getUUID());
+        player.displayClientMessage(Component.translatable("obd.car.paired", car.getVehicleName()).withStyle(ChatFormatting.AQUA), true);
+        car.level().playSound(null, car.getX(), car.getY() + 0.8, car.getZ(),
+                SoundEvents.NOTE_BLOCK_BIT.value(), SoundSource.PLAYERS, 0.5F, 2.0F);
     }
 
     /**
      * The car this tablet reads for this player: the one they sit in, else the
      * one it is paired with if that is near enough; null when there is none.
      */
-    public static @Nullable CarEntity reading(ItemStack tablet, PlayerEntity player) {
+    public static @Nullable CarEntity reading(ItemStack tablet, Player player) {
         if (player.getVehicle() instanceof CarEntity car) {
             return car;
         }
@@ -65,9 +65,9 @@ public class ObdScannerItem extends Item {
         if (link == null) {
             return null;
         }
-        for (Entity entity : player.getEntityWorld().getOtherEntities(player,
-                player.getBoundingBox().expand(RANGE), e -> e instanceof CarEntity)) {
-            if (link.equals(entity.getUuid())) {
+        for (Entity entity : player.level().getEntities(player,
+                player.getBoundingBox().inflate(RANGE), e -> e instanceof CarEntity)) {
+            if (link.equals(entity.getUUID())) {
                 return (CarEntity) entity;
             }
         }

@@ -3,31 +3,31 @@ package me.trossty.car.block;
 import com.mojang.serialization.MapCodec;
 import me.trossty.car.block.entity.FuelPipeBlockEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.ConnectingBlock;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
-import net.minecraft.world.tick.ScheduledTickView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.PipeBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The fuel line between a refinery and a pump.
@@ -41,44 +41,44 @@ import net.minecraft.world.tick.ScheduledTickView;
  * <p>Right-clicking one says how much petrol is standing in that segment, which
  * is the only way to see a line working from the outside.
  */
-public class FuelPipeBlock extends BlockWithEntity {
+public class FuelPipeBlock extends BaseEntityBlock {
 
-    public static final MapCodec<FuelPipeBlock> CODEC = createCodec(FuelPipeBlock::new);
+    public static final MapCodec<FuelPipeBlock> CODEC = simpleCodec(FuelPipeBlock::new);
 
     /**
      * Whether this pipe wears a fitting: everywhere except the middle of a
      * straight run, so a line looks like one tube and the collars mark the
      * places something happens — a bend, a tee, an end, a machine.
      */
-    public static final BooleanProperty FITTING = BooleanProperty.of("fitting");
+    public static final BooleanProperty FITTING = BooleanProperty.create("fitting");
 
     /** Half-width of the pipe, in sixteenths. A 6x6 bore, centred. */
     private static final double EDGE = 5.0;
     private static final double FAR = 16.0 - EDGE;
 
     private static final VoxelShape CORE =
-            Block.createCuboidShape(EDGE, EDGE, EDGE, FAR, FAR, FAR);
+            Block.box(EDGE, EDGE, EDGE, FAR, FAR, FAR);
 
     /** One shape per combination of the six arms, built once at registration. */
     private final VoxelShape[] shapes = buildShapes();
 
-    public FuelPipeBlock(Settings settings) {
+    public FuelPipeBlock(Properties settings) {
         super(settings);
-        BlockState state = this.getStateManager().getDefaultState();
-        for (BooleanProperty connected : ConnectingBlock.FACING_PROPERTIES.values()) {
-            state = state.with(connected, false);
+        BlockState state = this.getStateDefinition().any();
+        for (BooleanProperty connected : PipeBlock.PROPERTY_BY_DIRECTION.values()) {
+            state = state.setValue(connected, false);
         }
-        this.setDefaultState(state.with(FITTING, true));
+        this.registerDefaultState(state.setValue(FITTING, true));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
+    protected MapCodec<? extends BaseEntityBlock> codec() {
         return CODEC;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-        for (BooleanProperty connected : ConnectingBlock.FACING_PROPERTIES.values()) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        for (BooleanProperty connected : PipeBlock.PROPERTY_BY_DIRECTION.values()) {
             builder.add(connected);
         }
         builder.add(FITTING);
@@ -92,7 +92,7 @@ public class FuelPipeBlock extends BlockWithEntity {
      * solid blocks — a pipe through a wall should look like a pipe through a
      * wall, not like it has latched onto the stone.
      */
-    private static boolean connectsTo(WorldView world, BlockPos pos, Direction side) {
+    private static boolean connectsTo(LevelReader world, BlockPos pos, Direction side) {
         BlockState state = world.getBlockState(pos);
         if (me.trossty.car.fluid.ForeignFluids.isOurs(state.getBlock())) {
             return true;
@@ -102,11 +102,11 @@ public class FuelPipeBlock extends BlockWithEntity {
         return me.trossty.car.fluid.ForeignFluids.connects(world, pos, side);
     }
 
-    private static BlockState connect(BlockState state, WorldView world, BlockPos pos) {
+    private static BlockState connect(BlockState state, LevelReader world, BlockPos pos) {
         BlockState joined = state;
         for (Direction side : Direction.values()) {
-            joined = joined.with(ConnectingBlock.FACING_PROPERTIES.get(side),
-                    connectsTo(world, pos.offset(side), side));
+            joined = joined.setValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side),
+                    connectsTo(world, pos.relative(side), side));
         }
         return withFitting(joined);
     }
@@ -116,7 +116,7 @@ public class FuelPipeBlock extends BlockWithEntity {
         Direction first = null;
         Direction second = null;
         for (Direction side : Direction.values()) {
-            if (state.get(ConnectingBlock.FACING_PROPERTIES.get(side))) {
+            if (state.getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side))) {
                 count++;
                 if (first == null) {
                     first = side;
@@ -126,20 +126,20 @@ public class FuelPipeBlock extends BlockWithEntity {
             }
         }
         boolean straight = count == 2 && first.getOpposite() == second;
-        return state.with(FITTING, !straight);
+        return state.setValue(FITTING, !straight);
     }
 
     @Override
-    public BlockState getPlacementState(ItemPlacementContext context) {
-        return connect(this.getDefaultState(), context.getWorld(), context.getBlockPos());
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return connect(this.defaultBlockState(), context.getLevel(), context.getClickedPos());
     }
 
     @Override
-    protected BlockState getStateForNeighborUpdate(BlockState state, WorldView world,
-                                                   ScheduledTickView tickView, BlockPos pos,
+    protected BlockState updateShape(BlockState state, LevelReader world,
+                                                   ScheduledTickAccess tickView, BlockPos pos,
                                                    Direction direction, BlockPos neighborPos,
-                                                   BlockState neighborState, Random random) {
-        return withFitting(state.with(ConnectingBlock.FACING_PROPERTIES.get(direction),
+                                                   BlockState neighborState, RandomSource random) {
+        return withFitting(state.setValue(PipeBlock.PROPERTY_BY_DIRECTION.get(direction),
                 connectsTo(world, neighborPos, direction)));
     }
 
@@ -148,11 +148,11 @@ public class FuelPipeBlock extends BlockWithEntity {
     private static VoxelShape[] buildShapes() {
         VoxelShape[] arms = new VoxelShape[Direction.values().length];
         for (Direction side : Direction.values()) {
-            double x = side.getOffsetX();
-            double y = side.getOffsetY();
-            double z = side.getOffsetZ();
+            double x = side.getStepX();
+            double y = side.getStepY();
+            double z = side.getStepZ();
             // An arm runs from the core out to the face it points at.
-            arms[side.ordinal()] = Block.createCuboidShape(
+            arms[side.ordinal()] = Block.box(
                     armMin(x), armMin(y), armMin(z), armMax(x), armMax(y), armMax(z));
         }
 
@@ -161,7 +161,7 @@ public class FuelPipeBlock extends BlockWithEntity {
             VoxelShape shape = CORE;
             for (Direction side : Direction.values()) {
                 if ((mask & (1 << side.ordinal())) != 0) {
-                    shape = VoxelShapes.union(shape, arms[side.ordinal()]);
+                    shape = Shapes.or(shape, arms[side.ordinal()]);
                 }
             }
             shapes[mask] = shape;
@@ -180,7 +180,7 @@ public class FuelPipeBlock extends BlockWithEntity {
     private static int mask(BlockState state) {
         int mask = 0;
         for (Direction side : Direction.values()) {
-            if (state.get(ConnectingBlock.FACING_PROPERTIES.get(side))) {
+            if (state.getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side))) {
                 mask |= 1 << side.ordinal();
             }
         }
@@ -188,57 +188,57 @@ public class FuelPipeBlock extends BlockWithEntity {
     }
 
     @Override
-    protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return this.shapes[mask(state)];
     }
 
     @Override
-    protected VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return this.shapes[mask(state)];
     }
 
     // ---- what is in it ----
 
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new FuelPipeBlockEntity(pos, state);
     }
 
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
-            World world, BlockState state, BlockEntityType<T> type) {
-        if (world.isClient()) {
+            Level world, BlockState state, BlockEntityType<T> type) {
+        if (world.isClientSide()) {
             return null;
         }
-        return validateTicker(type, ModBlockEntities.FUEL_PIPE, FuelPipeBlockEntity::tick);
+        return createTickerHelper(type, ModBlockEntities.FUEL_PIPE, FuelPipeBlockEntity::tick);
     }
 
     /** A pipe has no window; knocking on it says what is standing inside. */
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
-                                 PlayerEntity player, BlockHitResult hit) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
+                                 Player player, BlockHitResult hit) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) {
-            player.sendMessage(Text.translatable("message.car.pipe_level",
+            player.displayClientMessage(Component.translatable("message.car.pipe_level",
                     pipe.getPetrol(), pipe.getCapacity()), true);
         }
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     // ---- redstone ----
 
     @Override
-    protected boolean hasComparatorOutput(BlockState state) {
+    protected boolean hasAnalogOutputSignal(BlockState state) {
         return true;
     }
 
     @Override
-    protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
+    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
         if (!(world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) || pipe.getPetrol() <= 0) {
             return 0;
         }
-        return MathHelper.clamp(1 + pipe.getPetrol() * 14 / pipe.getCapacity(), 1, 15);
+        return Mth.clamp(1 + pipe.getPetrol() * 14 / pipe.getCapacity(), 1, 15);
     }
 }
