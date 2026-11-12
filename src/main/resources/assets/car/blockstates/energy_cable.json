@@ -1,0 +1,186 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "fitting": "true"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_core"
+      }
+    },
+    {
+      "when": {
+        "north": "cable|device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm"
+      }
+    },
+    {
+      "when": {
+        "east": "cable|device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "south": "cable|device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "west": "cable|device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "up": "cable|device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "down": "cable|device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "north": "device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_plate"
+      }
+    },
+    {
+      "when": {
+        "east": "device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_plate",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "south": "device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_plate",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "west": "device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_plate",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "up": "device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_plate",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "down": "device"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_plate",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "fitting": "true",
+        "powered": "true"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_core_glow"
+      }
+    },
+    {
+      "when": {
+        "north": "cable|device",
+        "powered": "true"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm_glow"
+      }
+    },
+    {
+      "when": {
+        "east": "cable|device",
+        "powered": "true"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm_glow",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "south": "cable|device",
+        "powered": "true"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm_glow",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "west": "cable|device",
+        "powered": "true"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm_glow",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "up": "cable|device",
+        "powered": "true"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm_glow",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "down": "cable|device",
+        "powered": "true"
+      },
+      "apply": {
+        "model": "car:block/energy_cable_arm_glow",
+        "x": 90
+      }
+    }
+  ]
+}

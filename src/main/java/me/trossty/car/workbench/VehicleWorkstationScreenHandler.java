@@ -1,0 +1,278 @@
+package me.trossty.car.workbench;
+
+import me.trossty.car.entity.CarEntity;
+import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.CarSetup;
+import me.trossty.car.item.CarItem;
+import me.trossty.car.registry.ModBlocks;
+import me.trossty.car.registry.ModComponents;
+import me.trossty.car.registry.ModItems;
+import me.trossty.car.registry.ModScreenHandlers;
+import me.trossty.car.vehicle.VehicleDefinition;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.DyeItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.DynamicRegistryManager;
+import net.minecraft.registry.Registry;
+import net.minecraft.screen.Property;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.ScreenHandlerContext;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.DyeColor;
+import net.minecraft.util.Identifier;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * The vehicle workstation: pick any vehicle the loaded data packs describe,
+ * pick a paint, and build it out of what is in your pockets.
+ *
+ * <p>Every vehicle of a chassis takes the same running gear — a body, an
+ * engine, a gearbox, springs and wheels from the parts bench — plus whatever
+ * its own design adds ({@link VehicleDefinition#materials()}). The engine and
+ * the wheels may be left out: the vehicle then comes off the stand without
+ * them, to be finished at the lift, which is how a project car starts.
+ *
+ * <p>The window holds nothing of its own, so there is nothing to lose when it
+ * closes.
+ */
+public class VehicleWorkstationScreenHandler extends ScreenHandler {
+
+    /** Ids from 0 pick that vehicle; these are the rest. */
+    public static final int FACTORY_PAINT_ID = 900;
+    /** This plus a dye index picks that dye. */
+    public static final int DYE_ID = 901;
+    public static final int BUILD_ID = 1000;
+
+    public static final int PLAYER_INVENTORY_LEFT = 48;
+    public static final int PLAYER_INVENTORY_TOP = 146;
+    public static final int HOTBAR_TOP = 204;
+
+    private final ScreenHandlerContext context;
+    private final PlayerEntity player;
+    private final List<Identifier> vehicles;
+    private final Property selected = Property.create();
+    /** -1 for the factory paint, else a dye index. */
+    private final Property paint = Property.create();
+
+    public VehicleWorkstationScreenHandler(int syncId, PlayerInventory inventory) {
+        this(syncId, inventory, ScreenHandlerContext.EMPTY);
+    }
+
+    public VehicleWorkstationScreenHandler(int syncId, PlayerInventory inventory, ScreenHandlerContext context) {
+        super(ModScreenHandlers.VEHICLE_WORKSTATION, syncId);
+        this.context = context;
+        this.player = inventory.player;
+        this.vehicles = vehiclesIn(this.player.getEntityWorld().getRegistryManager());
+
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 9; column++) {
+                this.addSlot(new Slot(inventory, column + row * 9 + 9,
+                        PLAYER_INVENTORY_LEFT + column * 18, PLAYER_INVENTORY_TOP + row * 18));
+            }
+        }
+        for (int column = 0; column < 9; column++) {
+            this.addSlot(new Slot(inventory, column, PLAYER_INVENTORY_LEFT + column * 18, HOTBAR_TOP));
+        }
+        this.addProperty(this.selected);
+        this.addProperty(this.paint);
+        this.paint.set(-1);
+    }
+
+    /** Every vehicle there is, in a fixed order both sides agree on. */
+    public static List<Identifier> vehiclesIn(DynamicRegistryManager registries) {
+        return registries.getOptional(VehicleDefinition.KEY)
+                .map(registry -> registry.getIds().stream()
+                        .sorted(java.util.Comparator.comparing(Identifier::toString))
+                        .toList())
+                .orElse(List.of());
+    }
+
+    public List<Identifier> getVehicles() {
+        return this.vehicles;
+    }
+
+    public int getSelectedIndex() {
+        return this.vehicles.isEmpty() ? -1 : Math.floorMod(this.selected.get(), this.vehicles.size());
+    }
+
+    public Identifier getSelectedId() {
+        int index = this.getSelectedIndex();
+        return index < 0 ? null : this.vehicles.get(index);
+    }
+
+    public VehicleDefinition getSelected() {
+        Identifier id = this.getSelectedId();
+        if (id == null) {
+            return null;
+        }
+        return this.player.getEntityWorld().getRegistryManager()
+                .getOptional(VehicleDefinition.KEY)
+                .map(registry -> registry.get(id))
+                .orElse(null);
+    }
+
+    /** -1 for the factory paint, else a dye index. */
+    public int getPaint() {
+        return Math.max(-1, Math.min(15, this.paint.get()));
+    }
+
+    /** What the chosen vehicle in the chosen paint takes, each item once. */
+    public List<VehicleRecipe.Material> getMaterials() {
+        VehicleDefinition definition = this.getSelected();
+        if (definition == null) {
+            return List.of();
+        }
+        Map<Item, Integer> counts = new LinkedHashMap<>();
+        for (VehicleRecipe.Material material : ModVehicleRecipes.chassisParts(definition.chassis())) {
+            counts.merge(material.item(), material.count(), Integer::sum);
+        }
+        for (VehicleDefinition.Cost cost : definition.materials()) {
+            counts.merge(cost.item(), cost.count(), Integer::sum);
+        }
+        if (this.getPaint() >= 0) {
+            counts.merge(DyeItem.byColor(DyeColor.byIndex(this.getPaint())), 1, Integer::sum);
+        }
+        List<VehicleRecipe.Material> materials = new ArrayList<>();
+        counts.forEach((item, count) -> materials.add(new VehicleRecipe.Material(item, count)));
+        return materials;
+    }
+
+    /** The engine and the wheels can wait: the lift fits them later. */
+    public static boolean isOptional(Item item) {
+        return item == ModItems.ENGINE || item == ModItems.WHEEL;
+    }
+
+    public int have(Item item) {
+        return BenchWork.count(this.player.getInventory(), item);
+    }
+
+    public boolean canBuild() {
+        if (this.getSelected() == null) {
+            return false;
+        }
+        for (VehicleRecipe.Material material : this.getMaterials()) {
+            if (!isOptional(material.item()) && this.have(material.item()) < material.count()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onButtonClick(PlayerEntity player, int id) {
+        if (id >= 0 && id < this.vehicles.size()) {
+            this.selected.set(id);
+            return true;
+        }
+        if (id == FACTORY_PAINT_ID) {
+            this.paint.set(-1);
+            return true;
+        }
+        if (id >= DYE_ID && id < DYE_ID + 16) {
+            this.paint.set(id - DYE_ID);
+            return true;
+        }
+        if (id == BUILD_ID) {
+            this.context.run((world, pos) -> {
+                ItemStack built = this.build();
+                if (built.isEmpty()) {
+                    return;
+                }
+                if (!player.getInventory().insertStack(built)) {
+                    player.dropItem(built, false);
+                }
+                world.playSound(null, pos, SoundEvents.BLOCK_ANVIL_USE, SoundCategory.BLOCKS, 0.7F, 1.2F);
+                world.playSound(null, pos, SoundEvents.BLOCK_SMITHING_TABLE_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+            });
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Takes the materials and makes the vehicle, or makes nothing and takes
+     * nothing. The vehicle is what went into it: the engine's kind and every
+     * part's tier carry over, as they do at the lift.
+     */
+    public ItemStack build() {
+        if (!this.canBuild()) {
+            return ItemStack.EMPTY;
+        }
+        Identifier id = this.getSelectedId();
+        VehicleDefinition definition = this.getSelected();
+        PlayerInventory pockets = this.player.getInventory();
+        ItemStack result = CarItem.stackOf(id, definition);
+
+        int setup = definition.factory().setup();
+        int tiers = CarEntity.defaultQualityBits();
+        List<Integer> conditions = new ArrayList<>();
+        for (CarPart ignored : CarPart.values()) {
+            conditions.add(100);
+        }
+        boolean missing = false;
+        for (VehicleRecipe.Material material : this.getMaterials()) {
+            CarPart part = CarPart.forItem(material.item());
+            if (isOptional(material.item()) && this.have(material.item()) < material.count()) {
+                if (part != null) {
+                    conditions.set(part.ordinal(), 0);
+                    missing = true;
+                }
+                continue;
+            }
+            if (part != null) {
+                setup = CarSetup.withVariant(setup, part, BenchWork.firstVariant(pockets, material.item()));
+            }
+            CarPart.Quality taken = BenchWork.consume(pockets, material.item(), material.count());
+            if (part != null && taken != null) {
+                tiers = CarEntity.withQuality(tiers, part, taken);
+            }
+        }
+        result.set(ModComponents.CAR_SETUP, setup);
+        if (tiers != CarEntity.defaultQualityBits()) {
+            result.set(ModComponents.CAR_PART_QUALITY, tiers);
+        }
+        if (missing) {
+            result.set(ModComponents.CAR_PARTS, List.copyOf(conditions));
+        }
+        if (this.getPaint() >= 0) {
+            result.set(ModComponents.CAR_COLOR, this.getPaint());
+        }
+        return result;
+    }
+
+    @Override
+    public ItemStack quickMove(PlayerEntity player, int index) {
+        Slot slot = this.slots.get(index);
+        if (!slot.hasStack()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack stack = slot.getStack();
+        ItemStack original = stack.copy();
+        // Pockets to hotbar and back: there is nowhere else for it to go.
+        boolean moved = index < 27
+                ? this.insertItem(stack, 27, 36, false)
+                : this.insertItem(stack, 0, 27, false);
+        if (!moved) {
+            return ItemStack.EMPTY;
+        }
+        if (stack.isEmpty()) {
+            slot.setStack(ItemStack.EMPTY);
+        } else {
+            slot.markDirty();
+        }
+        return original;
+    }
+
+    @Override
+    public boolean canUse(PlayerEntity player) {
+        return canUse(this.context, player, ModBlocks.VEHICLE_WORKSTATION);
+    }
+}

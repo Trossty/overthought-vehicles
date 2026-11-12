@@ -1,0 +1,32 @@
+{
+  "parent": "car:power_up",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "car:battery_bank"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "car:battery_bank",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.car.stored_power.title"
+    },
+    "description": {
+      "translate": "advancements.car.stored_power.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

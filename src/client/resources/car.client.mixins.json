@@ -1,0 +1,21 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "me.trossty.car.mixin.client",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CameraMixin",
+    "TintSourceTypesAccessor",
+    "SpriteContentsAccessor",
+    "BipedEntityModelMixin",
+    "LivingEntityRendererMixin",
+    "LivingEntityRenderStateMixin",
+    "HeldItemRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

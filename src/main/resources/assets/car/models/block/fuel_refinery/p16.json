@@ -1,0 +1,23 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "car:block/fuel_refinery_side",
+    "front": "car:block/fuel_refinery_front",
+    "side": "car:block/fuel_refinery_side",
+    "top": "car:block/fuel_refinery_top",
+    "stone": "minecraft:block/smooth_stone",
+    "iron": "minecraft:block/iron_block",
+    "copper": "minecraft:block/cut_copper",
+    "dark": "minecraft:block/black_concrete",
+    "grey": "minecraft:block/gray_concrete",
+    "brick": "minecraft:block/bricks",
+    "light": "minecraft:block/light_gray_concrete",
+    "red": "minecraft:block/red_concrete",
+    "white": "minecraft:block/white_concrete",
+    "window": "minecraft:block/light_blue_concrete"
+  },
+  "elements": [
+    { "from": [0.500, 0, 0.500], "to": [16, 0.500, 16], "faces": { "north": { "texture": "#grey" }, "west": { "texture": "#grey" }, "up": { "texture": "#grey" } } },
+    { "from": [2, 0.500, 2], "to": [16, 2, 16], "faces": { "north": { "texture": "#top" }, "west": { "texture": "#top" }, "up": { "texture": "#top" }, "down": { "texture": "#top" } } }
+  ]
+}

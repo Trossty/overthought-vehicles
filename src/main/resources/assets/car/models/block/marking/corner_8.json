@@ -1,0 +1,17 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "car:block/marking/corner",
+    "marking": "car:block/marking/corner"
+  },
+  "elements": [
+    {
+      "from": [0, 16.05, 0],
+      "to": [16, 16.05, 16],
+      "shade": false,
+      "faces": {
+        "up": {"uv": [0, 0, 16, 16], "texture": "#marking", "tintindex": 0, "cullface": "up"}
+      }
+    }
+  ]
+}

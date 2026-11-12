@@ -1,0 +1,28 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "car:block/fuel_refinery_side",
+    "front": "car:block/fuel_refinery_front",
+    "side": "car:block/fuel_refinery_side",
+    "top": "car:block/fuel_refinery_top",
+    "stone": "minecraft:block/smooth_stone",
+    "iron": "minecraft:block/iron_block",
+    "copper": "minecraft:block/cut_copper",
+    "dark": "minecraft:block/black_concrete",
+    "grey": "minecraft:block/gray_concrete",
+    "brick": "minecraft:block/bricks",
+    "light": "minecraft:block/light_gray_concrete",
+    "red": "minecraft:block/red_concrete",
+    "white": "minecraft:block/white_concrete",
+    "window": "minecraft:block/light_blue_concrete"
+  },
+  "elements": [
+    { "from": [15, 2, 0], "to": [16, 3, 1], "faces": { "south": { "texture": "#grey" }, "west": { "texture": "#grey" }, "up": { "texture": "#grey" }, "down": { "texture": "#grey" } } },
+    { "from": [15, 3, 0], "to": [15.500, 6, 1], "faces": { "south": { "texture": "#dark" }, "west": { "texture": "#dark" }, "east": { "texture": "#dark" }, "up": { "texture": "#dark" }, "down": { "texture": "#dark" } } },
+    { "from": [15, 3, 0.500], "to": [16, 6, 1], "faces": { "north": { "texture": "#dark" }, "south": { "texture": "#dark" }, "west": { "texture": "#dark" }, "up": { "texture": "#dark" }, "down": { "texture": "#dark" } } },
+    { "from": [3, 0, 4.500], "to": [13, 16, 11.500], "faces": { "north": { "texture": "#iron" }, "south": { "texture": "#iron" }, "west": { "texture": "#iron" }, "east": { "texture": "#iron" } } },
+    { "from": [4.500, 0, 3], "to": [11.500, 16, 13], "faces": { "north": { "texture": "#iron" }, "south": { "texture": "#iron" }, "west": { "texture": "#iron" }, "east": { "texture": "#iron" } } },
+    { "from": [2.500, 10, 4.150], "to": [13.500, 11, 11.850], "faces": { "north": { "texture": "#copper" }, "south": { "texture": "#copper" }, "west": { "texture": "#copper" }, "east": { "texture": "#copper" }, "up": { "texture": "#copper" } } },
+    { "from": [4.150, 10, 2.500], "to": [11.850, 11, 13.500], "faces": { "north": { "texture": "#copper" }, "south": { "texture": "#copper" }, "west": { "texture": "#copper" }, "east": { "texture": "#copper" }, "up": { "texture": "#copper" } } }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "C": "minecraft:crafting_table",
+    "#": "#minecraft:planks"
+  },
+  "pattern": [
+    "III",
+    "#C#",
+    "# #"
+  ],
+  "result": {
+    "count": 1,
+    "id": "car:vehicle_workbench"
+  }
+}

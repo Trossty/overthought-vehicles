@@ -1,0 +1,159 @@
+plugins {
+    id 'fabric-loom' version '1.19-SNAPSHOT'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "car" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+fabricApi {
+    configureDataGeneration {
+        client = true
+    }
+
+    // Creates src/test, the `runGametest` task (headless server) and the
+    // `runClientGametest` task (a real client driving a real integrated server).
+    configureTests {
+        createSourceSet = true
+        modId = "car-test"
+        enableGameTests = true
+        enableClientGameTests = true
+        eula = true
+    }
+}
+
+// This mod sends its own packets from the client (the horn, and the crash
+// report a car files when it hits something). The client gametest framework
+// watches for exactly that and calls it "interfacing with packets at a lower
+// level", which trips its network synchronizer and crashes the run. Turning the
+// synchronizer off is the remedy its own error message asks for.
+tasks.withType(JavaExec).configureEach {
+    // Loom registers the task as runClientGameTest and runClientGametest is an
+    // alias for it, so match either spelling rather than guessing.
+    if (it.name.equalsIgnoreCase('runClientGameTest')) {
+        it.systemProperty 'fabric.client.gametest.disableNetworkSynchronizer', 'true'
+        // -PphotoAll shoots every scene of the photo test, not just the new ones.
+        if (project.hasProperty('photoAll')) {
+            it.systemProperty 'car.photo.all', 'true'
+        }
+    }
+}
+
+repositories {
+    // Add repositories to retrieve artifacts from in here.
+    // You should only use this when depending on other mods because
+    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
+    // for more information about repositories.
+
+    // Jade, compiled against but never shipped: its tooltip plugin only loads
+    // when the player has Jade installed.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = "https://api.modrinth.com/maven"
+            }
+        }
+        filter {
+            includeGroup "maven.modrinth"
+        }
+    }
+}
+
+dependencies {
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // The energy unit Tech Reborn, Modern Industrialization, AE2 and most other
+    // Fabric tech mods agree on. Shipped inside the jar, so nothing extra to
+    // install, and another mod's cables and generators plug straight in.
+    include(modApi("teamreborn:energy:4.2.0") {
+        transitive = false
+    })
+
+    // Optional: the Jade plugin in me.trossty.car.client.compat is only
+    // loaded by Jade itself, so the mod runs the same without it.
+    modCompileOnly("maven.modrinth:jade:21.1.6+fabric") {
+        transitive = false
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.loader_version
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "minecraft_version": project.minecraft_version,
+                "loader_version": project.loader_version
+    }
+}
+
+def targetJavaVersion = 21
+tasks.withType(JavaCompile).configureEach {
+    // ensure that the encoding is set to UTF-8, no matter what the system default is
+    // this fixes some edge cases with special characters not displaying correctly
+    // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
+    // If Javadoc is generated, this must be specified in that task too.
+    it.options.encoding = "UTF-8"
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        it.options.release.set(targetJavaVersion)
+    }
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+    // if it is present.
+    // If you remove this line, sources will not be generated.
+    withSourcesJar()
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+// configure the maven publication
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+
+    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+    repositories {
+        // Add repositories to publish to here.
+        // Notice: This block does NOT have the same function as the block in the top level.
+        // The repositories here will be used for publishing your artifact, not for
+        // retrieving dependencies.
+    }
+}

@@ -1,0 +1,23 @@
+{
+  "replace": false,
+  "values": [
+    "car:vehicle_workbench",
+    "car:vehicle_lift",
+    "car:fuel_refinery",
+    "car:generator",
+    "car:fuel_pump",
+    "car:fuel_pipe",
+    "car:fuel_tank",
+    "car:fuel_drum",
+    "car:fuel_valve",
+    "car:vehicle_workstation",
+    "car:hydrotreater",
+    "car:pumpjack",
+    "car:biofuel_generator",
+    "car:diesel_generator",
+    "car:oil_deposit",
+    "car:battery_bank",
+    "car:charging_post",
+    "car:asphalt"
+  ]
+}

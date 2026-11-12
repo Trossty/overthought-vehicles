@@ -1,0 +1,32 @@
+{
+  "parent": "car:root",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "car:vehicle_workbench"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "car:vehicle_workbench",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.car.garage.title"
+    },
+    "description": {
+      "translate": "advancements.car.garage.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

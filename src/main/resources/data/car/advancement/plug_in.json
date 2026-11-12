@@ -1,0 +1,32 @@
+{
+  "parent": "car:stored_power",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "car:charging_post"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "car:charging_post",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.car.plug_in.title"
+    },
+    "description": {
+      "translate": "advancements.car.plug_in.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

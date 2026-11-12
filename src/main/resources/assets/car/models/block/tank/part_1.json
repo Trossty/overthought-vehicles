@@ -1,0 +1,28 @@
+{
+ "textures": {
+  "particle": "car:block/tank_frame",
+  "frame": "car:block/tank_frame",
+  "glass": "car:block/tank_glass",
+  "lid": "car:block/tank_lid",
+  "hatch": "car:block/tank_hatch"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    0,
+    15.5
+   ],
+   "to": [
+    16,
+    16,
+    15.5
+   ],
+   "faces": {
+    "south": {
+     "texture": "#glass"
+    }
+   }
+  }
+ ]
+}

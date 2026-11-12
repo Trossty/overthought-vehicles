@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "tools",
+  "ingredients": [
+    "minecraft:iron_ingot",
+    "minecraft:red_dye",
+    "minecraft:red_dye"
+  ],
+  "result": {
+    "count": 1,
+    "id": "car:red_road_paint"
+  }
+}

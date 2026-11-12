@@ -1,0 +1,26 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "car:block/fuel_refinery_side",
+    "front": "car:block/fuel_refinery_front",
+    "side": "car:block/fuel_refinery_side",
+    "top": "car:block/fuel_refinery_top",
+    "stone": "minecraft:block/smooth_stone",
+    "iron": "minecraft:block/iron_block",
+    "copper": "minecraft:block/cut_copper",
+    "dark": "minecraft:block/black_concrete",
+    "grey": "minecraft:block/gray_concrete",
+    "brick": "minecraft:block/bricks",
+    "light": "minecraft:block/light_gray_concrete",
+    "red": "minecraft:block/red_concrete",
+    "white": "minecraft:block/white_concrete",
+    "window": "minecraft:block/light_blue_concrete"
+  },
+  "elements": [
+    { "from": [0, 0, 0], "to": [16, 2, 16], "faces": { "east": { "texture": "#stone" }, "up": { "texture": "#stone" }, "down": { "texture": "#stone" } } },
+    { "from": [0, 2, 0], "to": [12, 16, 10.400], "faces": { "south": { "texture": "#white" }, "east": { "texture": "#white" } } },
+    { "from": [0, 2, 0], "to": [8.400, 16, 14], "faces": { "south": { "texture": "#white" }, "east": { "texture": "#white" } } },
+    { "from": [0, 14, 0], "to": [12.300, 15, 10.610], "faces": { "south": { "texture": "#grey" }, "east": { "texture": "#grey" } } },
+    { "from": [0, 14, 0], "to": [8.610, 15, 14.300], "faces": { "south": { "texture": "#grey" }, "east": { "texture": "#grey" } } }
+  ]
+}

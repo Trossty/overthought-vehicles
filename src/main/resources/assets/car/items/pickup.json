@@ -1,0 +1,11 @@
+{
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:component",
+    "component": "car:vehicle",
+    "cases": [
+      { "when": "car:toyota_hilux", "model": { "type": "minecraft:model", "model": "car:item/vehicle_toyota_hilux", "tints": [{ "type": "car:paint", "shade": "paint", "default": 11546150 }, { "type": "car:paint", "shade": "paint_dark", "default": 11546150 }, { "type": "car:paint", "shade": "paint_light", "default": 11546150 }] } }
+    ],
+    "fallback": { "type": "minecraft:model", "model": "car:item/vehicle_toyota_hilux", "tints": [{ "type": "car:paint", "shade": "paint", "default": 11546150 }, { "type": "car:paint", "shade": "paint_dark", "default": 11546150 }, { "type": "car:paint", "shade": "paint_light", "default": 11546150 }] }
+  }
+}

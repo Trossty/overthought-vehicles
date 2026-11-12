@@ -1,0 +1,22 @@
+{
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:component",
+    "component": "car:part_variant",
+    "cases": [
+      {
+        "when": 1,
+        "model": { "type": "minecraft:model", "model": "car:item/wheel_dirt" }
+      },
+      {
+        "when": 2,
+        "model": { "type": "minecraft:model", "model": "car:item/wheel_snow" }
+      },
+      {
+        "when": 3,
+        "model": { "type": "minecraft:model", "model": "car:item/wheel_sport" }
+      }
+    ],
+    "fallback": { "type": "minecraft:model", "model": "car:item/wheel" }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "car:block/fuel_refinery_side",
+    "front": "car:block/fuel_refinery_front",
+    "side": "car:block/fuel_refinery_side",
+    "top": "car:block/fuel_refinery_top",
+    "stone": "minecraft:block/smooth_stone",
+    "iron": "minecraft:block/iron_block",
+    "copper": "minecraft:block/cut_copper",
+    "dark": "minecraft:block/black_concrete",
+    "grey": "minecraft:block/gray_concrete",
+    "brick": "minecraft:block/bricks",
+    "light": "minecraft:block/light_gray_concrete",
+    "red": "minecraft:block/red_concrete",
+    "white": "minecraft:block/white_concrete",
+    "window": "minecraft:block/light_blue_concrete"
+  },
+  "elements": [
+    { "from": [0, 0, 0], "to": [16, 2, 16], "faces": { "up": { "texture": "#stone" }, "down": { "texture": "#stone" } } },
+    { "from": [0, 15, 0], "to": [0.500, 16, 6.500], "faces": { "south": { "texture": "#grey" }, "east": { "texture": "#grey" }, "down": { "texture": "#grey" } } },
+    { "from": [1.500, 13, 0], "to": [16, 14.500, 0.500], "faces": { "south": { "texture": "#grey" }, "west": { "texture": "#grey" }, "up": { "texture": "#grey" }, "down": { "texture": "#grey" } } },
+    { "from": [4, 2, 9.600], "to": [16, 16, 16], "faces": { "north": { "texture": "#white" }, "west": { "texture": "#white" } } },
+    { "from": [7.600, 2, 6], "to": [16, 16, 16], "faces": { "north": { "texture": "#white" }, "west": { "texture": "#white" } } },
+    { "from": [3.700, 14, 9.390], "to": [16, 15, 16], "faces": { "north": { "texture": "#grey" }, "west": { "texture": "#grey" } } },
+    { "from": [7.390, 14, 5.700], "to": [16, 15, 16], "faces": { "north": { "texture": "#grey" }, "west": { "texture": "#grey" } } },
+    { "from": [0, 2, 12], "to": [2, 12, 16], "faces": { "north": { "texture": "#iron" }, "east": { "texture": "#iron" }, "up": { "texture": "#iron" } } },
+    { "from": [1, 8, 6], "to": [3, 10, 16], "faces": { "north": { "texture": "#copper" }, "south": { "texture": "#copper" }, "west": { "texture": "#copper" }, "east": { "texture": "#copper" }, "up": { "texture": "#copper" }, "down": { "texture": "#copper" } } },
+    { "from": [1, 8, 14], "to": [5, 10, 16], "faces": { "north": { "texture": "#copper" }, "south": { "texture": "#copper" }, "west": { "texture": "#copper" }, "east": { "texture": "#copper" }, "up": { "texture": "#copper" }, "down": { "texture": "#copper" } } }
+  ]
+}

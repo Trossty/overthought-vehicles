@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "N": "minecraft:iron_nugget",
+    "I": "minecraft:iron_ingot"
+  },
+  "pattern": [
+    "N",
+    "I",
+    "I"
+  ],
+  "result": {
+    "count": 1,
+    "id": "car:spray_can",
+    "components": {
+      "minecraft:damage": 10
+    }
+  }
+}

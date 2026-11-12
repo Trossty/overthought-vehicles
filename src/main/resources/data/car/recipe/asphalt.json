@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "G": "minecraft:gravel",
+    "S": "#minecraft:sand",
+    "T": "car:tar"
+  },
+  "pattern": [
+    "GSG",
+    "STS",
+    "GSG"
+  ],
+  "result": {
+    "count": 16,
+    "id": "car:asphalt"
+  }
+}

@@ -1,0 +1,251 @@
+{
+ "parent": "minecraft:block/block",
+ "textures": {
+  "particle": "car:block/drum_body",
+  "body": "car:block/drum_body",
+  "lid": "car:block/drum_lid",
+  "label": "car:block/drum_label",
+  "cap": "car:block/drum_cap"
+ },
+ "elements": [
+  {
+   "from": [
+    1,
+    0,
+    5.10051
+   ],
+   "to": [
+    15,
+    16,
+    10.89949
+   ],
+   "rotation": {
+    "angle": 0,
+    "axis": "y",
+    "origin": [
+     8,
+     8,
+     8
+    ]
+   },
+   "faces": {
+    "east": {
+     "texture": "#body",
+     "tintindex": 0
+    },
+    "west": {
+     "texture": "#body",
+     "tintindex": 0
+    }
+   }
+  },
+  {
+   "from": [
+    1,
+    0,
+    5.10051
+   ],
+   "to": [
+    15,
+    16,
+    10.89949
+   ],
+   "rotation": {
+    "angle": 45,
+    "axis": "y",
+    "origin": [
+     8,
+     8,
+     8
+    ]
+   },
+   "faces": {
+    "east": {
+     "texture": "#body",
+     "tintindex": 0
+    },
+    "west": {
+     "texture": "#body",
+     "tintindex": 0
+    }
+   }
+  },
+  {
+   "from": [
+    5.10051,
+    0,
+    1
+   ],
+   "to": [
+    10.89949,
+    16,
+    15
+   ],
+   "rotation": {
+    "angle": 0,
+    "axis": "y",
+    "origin": [
+     8,
+     8,
+     8
+    ]
+   },
+   "faces": {
+    "north": {
+     "texture": "#body",
+     "tintindex": 0
+    },
+    "south": {
+     "texture": "#body",
+     "tintindex": 0
+    }
+   }
+  },
+  {
+   "from": [
+    5.10051,
+    0,
+    1
+   ],
+   "to": [
+    10.89949,
+    16,
+    15
+   ],
+   "rotation": {
+    "angle": 45,
+    "axis": "y",
+    "origin": [
+     8,
+     8,
+     8
+    ]
+   },
+   "faces": {
+    "north": {
+     "texture": "#body",
+     "tintindex": 0
+    },
+    "south": {
+     "texture": "#body",
+     "tintindex": 0
+    }
+   }
+  },
+  {
+   "from": [
+    1,
+    15.5,
+    1
+   ],
+   "to": [
+    15,
+    15.5,
+    15
+   ],
+   "faces": {
+    "up": {
+     "texture": "#lid"
+    }
+   }
+  },
+  {
+   "from": [
+    1,
+    0.01,
+    1
+   ],
+   "to": [
+    15,
+    0.01,
+    15
+   ],
+   "faces": {
+    "down": {
+     "texture": "#lid"
+    }
+   }
+  },
+  {
+   "from": [
+    5.5,
+    6,
+    0.96
+   ],
+   "to": [
+    10.5,
+    10.5,
+    0.96
+   ],
+   "faces": {
+    "north": {
+     "texture": "#label",
+     "uv": [
+      0,
+      0,
+      16,
+      16
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    9.5,
+    15.5,
+    3
+   ],
+   "to": [
+    11.5,
+    16.25,
+    5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#cap"
+    },
+    "south": {
+     "texture": "#cap"
+    },
+    "east": {
+     "texture": "#cap"
+    },
+    "west": {
+     "texture": "#cap"
+    },
+    "up": {
+     "texture": "#cap"
+    }
+   }
+  },
+  {
+   "from": [
+    4.5,
+    15.5,
+    10.5
+   ],
+   "to": [
+    5.75,
+    16,
+    11.75
+   ],
+   "faces": {
+    "north": {
+     "texture": "#cap"
+    },
+    "south": {
+     "texture": "#cap"
+    },
+    "east": {
+     "texture": "#cap"
+    },
+    "west": {
+     "texture": "#cap"
+    },
+    "up": {
+     "texture": "#cap"
+    }
+   }
+  }
+ ]
+}

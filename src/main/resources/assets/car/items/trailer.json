@@ -1,0 +1,11 @@
+{
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:component",
+    "component": "car:vehicle",
+    "cases": [
+      { "when": "car:box_trailer", "model": { "type": "minecraft:model", "model": "car:item/vehicle_box_trailer", "tints": [{ "type": "car:paint", "shade": "paint", "default": 10329495 }, { "type": "car:paint", "shade": "paint_dark", "default": 10329495 }, { "type": "car:paint", "shade": "paint_light", "default": 10329495 }] } }
+    ],
+    "fallback": { "type": "minecraft:model", "model": "car:item/vehicle_box_trailer", "tints": [{ "type": "car:paint", "shade": "paint", "default": 10329495 }, { "type": "car:paint", "shade": "paint_dark", "default": 10329495 }, { "type": "car:paint", "shade": "paint_light", "default": 10329495 }] }
+  }
+}

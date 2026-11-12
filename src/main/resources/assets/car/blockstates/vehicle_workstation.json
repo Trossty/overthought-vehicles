@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "car:block/vehicle_workstation"
+    },
+    "facing=east": {
+      "model": "car:block/vehicle_workstation",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "car:block/vehicle_workstation",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "car:block/vehicle_workstation",
+      "y": 270
+    }
+  }
+}

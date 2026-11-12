@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "K": "minecraft:dried_kelp",
+    "C": "minecraft:copper_ingot"
+  },
+  "pattern": [
+    "KCK"
+  ],
+  "result": {
+    "count": 6,
+    "id": "car:energy_cable"
+  }
+}

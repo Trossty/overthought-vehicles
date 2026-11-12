@@ -1,0 +1,17 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/yellow_concrete",
+    "stone": "minecraft:block/smooth_stone",
+    "dark": "minecraft:block/black_concrete",
+    "iron": "minecraft:block/iron_block",
+    "grey": "minecraft:block/gray_concrete",
+    "yellow": "minecraft:block/yellow_concrete",
+    "red": "minecraft:block/red_concrete",
+    "copper": "minecraft:block/cut_copper",
+    "lamp": "minecraft:block/redstone_lamp"
+  },
+  "elements": [
+    { "from": [4.500, 0, 5], "to": [11.500, 1, 11], "faces": { "north": { "texture": "#grey" }, "south": { "texture": "#grey" }, "west": { "texture": "#grey" }, "east": { "texture": "#grey" }, "up": { "texture": "#grey" }, "down": { "texture": "#grey" } } }
+  ]
+}

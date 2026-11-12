@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "car",
+  "version": "${version}",
+  "name": "Car",
+  "description": "Drivable cars for Minecraft, in the spirit of MrCrayfish's Vehicle Mod.",
+  "authors": [
+    "trossty"
+  ],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/car/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-datagen": [
+      "me.trossty.car.client.CarMainDataGenerator"
+    ],
+    "client": [
+      "me.trossty.car.client.CarMainClient"
+    ],
+    "main": [
+      "me.trossty.car.CarMain"
+    ],
+    "jade": [
+      "me.trossty.car.client.compat.JadeCarPlugin"
+    ]
+  },
+  "mixins": [
+    "car.mixins.json",
+    {
+      "config": "car.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

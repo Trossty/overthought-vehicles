@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "P": "minecraft:paper",
+    "B": "minecraft:blue_dye",
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:red_dye",
+    "C": "minecraft:crafting_table",
+    "K": "minecraft:iron_block"
+  },
+  "pattern": [
+    "PBP",
+    "ICI",
+    "RKR"
+  ],
+  "result": {
+    "count": 1,
+    "id": "car:vehicle_workstation"
+  }
+}

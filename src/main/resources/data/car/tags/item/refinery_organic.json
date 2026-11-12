@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:kelp",
+    "minecraft:dried_kelp",
+    "minecraft:sugar_cane",
+    "minecraft:bamboo",
+    "minecraft:cactus",
+    "minecraft:wheat",
+    "minecraft:melon_slice",
+    "minecraft:rotten_flesh",
+    "minecraft:brown_mushroom",
+    "minecraft:red_mushroom",
+    "minecraft:sweet_berries",
+    "minecraft:beetroot"
+  ]
+}

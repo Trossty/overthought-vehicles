@@ -1,0 +1,32 @@
+{
+  "parent": "car:root",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "car:pumpjack"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "car:pumpjack",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.car.strike_oil.title"
+    },
+    "description": {
+      "translate": "advancements.car.strike_oil.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

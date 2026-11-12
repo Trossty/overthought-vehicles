@@ -1,0 +1,265 @@
+package me.trossty.car.vehicle;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import me.trossty.car.CarMain;
+import me.trossty.car.entity.CarSetup;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.util.DyeColor;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.dynamic.Codecs;
+import net.minecraft.util.math.Vec3d;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+
+/**
+ * A vehicle somebody described in a data pack.
+ *
+ * <p>The mod has three machines written in Java — the car, the pickup and the
+ * tanker — and those decide what a vehicle can <em>do</em>: carry people,
+ * carry a chest's worth in a bed, carry fuel. A definition picks one of them
+ * as its {@link Chassis} and then says everything else: what the thing looks
+ * like, how big it is, where people sit, where the wheels are, how it drives
+ * and what it leaves the factory with under the bonnet.
+ *
+ * <p>Definitions live in {@code data/<namespace>/car/vehicle/<name>.json} and
+ * are a synced registry, so a server's pack is all a client needs: the shape
+ * is drawn from the boxes in the file, with no model or texture to ship.
+ *
+ * <p>Every length is in sixteenths of a block — pixels, the unit a Minecraft
+ * model is drawn in — with x across the car, y up from the ground and z
+ * towards the front.
+ *
+ * <p>{@code tank} is the fuel tank, in litres: eight for a scooter, fifty for
+ * a family car, two hundred for a lorry. A trailer has none.
+ */
+public record VehicleDefinition(
+        Chassis chassis,
+        float width,
+        float height,
+        Optional<DyeColor> color,
+        List<Vec3d> seats,
+        List<Wheel> wheels,
+        Performance performance,
+        Factory factory,
+        List<Box> shape,
+        List<Cost> materials,
+        float tank) {
+
+    /** A tank nobody wrote down: a family car's, fifty litres. */
+    public static final float DEFAULT_TANK_LITRES = 50.0F;
+
+    /**
+     * Something the vehicle workstation takes to build this vehicle, on top of
+     * the parts every vehicle of its chassis is assembled from.
+     */
+    public record Cost(net.minecraft.item.Item item, int count) {
+        public static final Codec<Cost> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                net.minecraft.registry.Registries.ITEM.getCodec().fieldOf("item").forGetter(Cost::item),
+                Codec.intRange(1, 64).optionalFieldOf("count", 1).forGetter(Cost::count)
+        ).apply(instance, Cost::new));
+    }
+
+    public static final RegistryKey<Registry<VehicleDefinition>> KEY =
+            RegistryKey.ofRegistry(CarMain.id("vehicle"));
+
+    /** A sane ceiling on how much a pack can ask a client to draw. */
+    public static final int MAX_BOXES = 512;
+
+    /** Which of the mod's machines this vehicle is underneath. */
+    public enum Chassis {
+        CAR,
+        PICKUP,
+        TANKER,
+        /** Pulled, not driven: no engine, no seats, a hitch at the front. */
+        TRAILER,
+        /** Two wheels, a rider and a pillion. */
+        MOTORCYCLE;
+
+        public static final Codec<Chassis> CODEC = Codec.STRING.xmap(
+                name -> switch (name.toLowerCase(Locale.ROOT)) {
+                    case "pickup" -> PICKUP;
+                    case "tanker" -> TANKER;
+                    case "trailer" -> TRAILER;
+                    case "motorcycle" -> MOTORCYCLE;
+                    default -> CAR;
+                },
+                chassis -> chassis.name().toLowerCase(Locale.ROOT));
+    }
+
+    /** One wheel: where its centre is, how big it is, and whether it steers. */
+    public record Wheel(org.joml.Vector3fc at, float radius, float width, boolean steers) {
+        public static final Codec<Wheel> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codecs.VECTOR_3F.fieldOf("at").forGetter(Wheel::at),
+                Codec.floatRange(0.5F, 16.0F).optionalFieldOf("radius", 3.0F).forGetter(Wheel::radius),
+                Codec.floatRange(0.5F, 16.0F).optionalFieldOf("width", 3.0F).forGetter(Wheel::width),
+                Codec.BOOL.optionalFieldOf("steers", false).forGetter(Wheel::steers)
+        ).apply(instance, Wheel::new));
+    }
+
+    /**
+     * How it drives, each as a multiple of the plain car's figure, so 1 is
+     * "the same" everywhere. {@code offroad} is different: it is how much of
+     * the grip a tyre loses off the road this vehicle gets back, from none (0)
+     * to all of it (1).
+     */
+    public record Performance(float speed, float acceleration, float fuelUse,
+                              float braking, float steering, float offroad) {
+
+        public static final Performance PLAIN = new Performance(1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F);
+
+        private static final Codec<Float> FACTOR = Codec.floatRange(0.25F, 3.0F);
+
+        public static final Codec<Performance> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                FACTOR.optionalFieldOf("speed", 1.0F).forGetter(Performance::speed),
+                FACTOR.optionalFieldOf("acceleration", 1.0F).forGetter(Performance::acceleration),
+                FACTOR.optionalFieldOf("fuel_use", 1.0F).forGetter(Performance::fuelUse),
+                FACTOR.optionalFieldOf("braking", 1.0F).forGetter(Performance::braking),
+                FACTOR.optionalFieldOf("steering", 1.0F).forGetter(Performance::steering),
+                Codec.floatRange(0.0F, 1.0F).optionalFieldOf("offroad", 0.0F).forGetter(Performance::offroad)
+        ).apply(instance, Performance::new));
+    }
+
+    /** What it is fitted with when it is new: the engine, the fuel, the tyres. */
+    public record Factory(String engine, String fuel, String tyres, boolean turbo) {
+
+        public static final Factory PLAIN = new Factory("inline4", "petrol", "road", false);
+
+        public static final Codec<Factory> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.STRING.optionalFieldOf("engine", "inline4").forGetter(Factory::engine),
+                Codec.STRING.optionalFieldOf("fuel", "petrol").forGetter(Factory::fuel),
+                Codec.STRING.optionalFieldOf("tyres", "road").forGetter(Factory::tyres),
+                Codec.BOOL.optionalFieldOf("turbo", false).forGetter(Factory::turbo)
+        ).apply(instance, Factory::new));
+
+        /** The same thing as the one number a car keeps its fittings in. */
+        public int setup() {
+            CarSetup.Layout layout = CarSetup.Layout.INLINE4;
+            for (CarSetup.Layout candidate : CarSetup.Layout.values()) {
+                if (candidate.key().equalsIgnoreCase(this.engine)) {
+                    layout = candidate;
+                }
+            }
+            CarSetup.Fuel burns = "diesel".equalsIgnoreCase(this.fuel)
+                    ? CarSetup.Fuel.DIESEL : CarSetup.Fuel.PETROL;
+            CarSetup.Tyre tyre = CarSetup.Tyre.ROAD;
+            for (CarSetup.Tyre candidate : CarSetup.Tyre.values()) {
+                if (candidate.key().equalsIgnoreCase(this.tyres)) {
+                    tyre = candidate;
+                }
+            }
+            int setup = CarSetup.DEFAULT;
+            boolean electric = "electric".equalsIgnoreCase(this.fuel);
+            if (electric) {
+                burns = CarSetup.Fuel.ELECTRIC;
+            }
+            setup = CarSetup.withVariant(setup, me.trossty.car.entity.CarPart.ENGINE,
+                    electric ? CarSetup.ELECTRIC_MOTOR : CarSetup.engineVariant(layout, burns));
+            setup = CarSetup.withVariant(setup, me.trossty.car.entity.CarPart.WHEELS, tyre.ordinal());
+            setup = CarSetup.withTurbo(setup, this.turbo);
+            return CarSetup.withTank(setup, burns);
+        }
+    }
+
+    /**
+     * One box of bodywork. {@code color} is {@code paint} (whatever the car is
+     * dyed), {@code paint_dark}, {@code paint_light}, a fixed
+     * {@code #RRGGBB}, or a see-through {@code #AARRGGBB} for glass. {@code tilt} leans the box about its own middle, in
+     * degrees: positive tips its top towards the back of the car, which is
+     * what a windscreen does, and negative towards the front. {@code steers}
+     * turns the box with the front wheel — a fork, handlebars, a headset.
+     */
+    public record Box(org.joml.Vector3fc from, org.joml.Vector3fc to, String color, float tilt, boolean steers) {
+        public static final Codec<Box> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codecs.VECTOR_3F.fieldOf("from").forGetter(Box::from),
+                Codecs.VECTOR_3F.fieldOf("to").forGetter(Box::to),
+                Codec.STRING.optionalFieldOf("color", "paint").forGetter(Box::color),
+                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("tilt", 0.0F).forGetter(Box::tilt),
+                Codec.BOOL.optionalFieldOf("steers", false).forGetter(Box::steers)
+        ).apply(instance, Box::new));
+    }
+
+    public static final Codec<VehicleDefinition> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Chassis.CODEC.optionalFieldOf("chassis", Chassis.CAR).forGetter(VehicleDefinition::chassis),
+            Codec.floatRange(0.5F, 4.0F).optionalFieldOf("width", 1.6F).forGetter(VehicleDefinition::width),
+            Codec.floatRange(0.5F, 4.0F).optionalFieldOf("height", 2.1875F).forGetter(VehicleDefinition::height),
+            DyeColor.CODEC.optionalFieldOf("color").forGetter(VehicleDefinition::color),
+            Vec3d.CODEC.listOf(0, 16).optionalFieldOf("seats", List.of()).forGetter(VehicleDefinition::seats),
+            Wheel.CODEC.listOf(0, 12).optionalFieldOf("wheels", List.of()).forGetter(VehicleDefinition::wheels),
+            Performance.CODEC.optionalFieldOf("performance", Performance.PLAIN)
+                    .forGetter(VehicleDefinition::performance),
+            Factory.CODEC.optionalFieldOf("factory", Factory.PLAIN).forGetter(VehicleDefinition::factory),
+            Box.CODEC.listOf(1, MAX_BOXES).fieldOf("shape").forGetter(VehicleDefinition::shape),
+            Cost.CODEC.listOf(0, 16).optionalFieldOf("materials", List.of()).forGetter(VehicleDefinition::materials),
+            Codec.floatRange(0.0F, 1000.0F).optionalFieldOf("tank", DEFAULT_TANK_LITRES)
+                    .forGetter(VehicleDefinition::tank)
+    ).apply(instance, VehicleDefinition::new));
+
+    /**
+     * What each machine is when nothing says otherwise. There is no "plain"
+     * car any more: a car is a Corolla, a pickup a Hilux, a tanker an Atego.
+     */
+    public static Identifier defaultFor(Chassis chassis) {
+        return CarMain.id(switch (chassis) {
+            case PICKUP -> "toyota_hilux";
+            case TANKER -> "mercedes_atego";
+            case TRAILER -> "box_trailer";
+            case MOTORCYCLE -> "honda_cbr600rr";
+            case CAR -> "toyota_corolla";
+        });
+    }
+
+    /** The key a vehicle's name is looked up under, and what to call it otherwise. */
+    public static net.minecraft.text.Text nameOf(Identifier id) {
+        StringBuilder plain = new StringBuilder();
+        for (String word : id.getPath().split("[_/]")) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (plain.length() > 0) {
+                plain.append(' ');
+            }
+            plain.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return net.minecraft.text.Text.translatableWithFallback(
+                "vehicle." + id.getNamespace() + "." + id.getPath().replace('/', '.'), plain.toString());
+    }
+
+    /** Resolves a box's colour against the paint the car is wearing, as ARGB. */
+    public static int resolve(String color, int paint) {
+        return switch (color) {
+            case "paint" -> 0xFF000000 | paint;
+            case "paint_dark" -> shade(paint, 0.72F);
+            case "paint_light" -> shade(paint, 1.18F);
+            default -> {
+                if (color.startsWith("#") && color.length() == 7) {
+                    try {
+                        yield 0xFF000000 | Integer.parseInt(color.substring(1), 16);
+                    } catch (NumberFormatException ignored) {
+                        // falls through to the loud colour below
+                    }
+                }
+                // #AARRGGBB: see-through, for glass and the glint on it.
+                if (color.startsWith("#") && color.length() == 9) {
+                    try {
+                        yield (int) Long.parseLong(color.substring(1), 16);
+                    } catch (NumberFormatException ignored) {
+                        // falls through to the loud colour below
+                    }
+                }
+                // Magenta: a colour nobody chose, so a typo is seen at once.
+                yield 0xFFFF00FF;
+            }
+        };
+    }
+
+    private static int shade(int rgb, float factor) {
+        int red = Math.min(255, Math.round(((rgb >> 16) & 0xFF) * factor));
+        int green = Math.min(255, Math.round(((rgb >> 8) & 0xFF) * factor));
+        int blue = Math.min(255, Math.round((rgb & 0xFF) * factor));
+        return 0xFF000000 | red << 16 | green << 8 | blue;
+    }
+}

@@ -1,0 +1,29 @@
+{
+  "textures": {
+    "particle": "car:item/obd_tablet_face",
+    "face": "car:item/obd_tablet_face",
+    "screen": "car:item/obd_tablet_screen",
+    "back": "car:item/obd_tablet_back",
+    "edge": "car:item/obd_tablet_edge",
+    "rubber": "car:item/obd_tablet_rubber"
+  },
+  "elements": [
+    {"from": [2, 1, 7.25], "to": [14, 15, 8.5], "faces": {"north": {"uv": [0, 0, 16, 16], "texture": "#back"}, "south": {"uv": [0, 0, 16, 16], "texture": "#face"}, "east": {"uv": [7, 1, 8.25, 15], "texture": "#edge"}, "west": {"uv": [7, 1, 8.25, 15], "texture": "#edge"}, "up": {"uv": [2, 7, 14, 8.25], "texture": "#edge"}, "down": {"uv": [2, 7, 14, 8.25], "texture": "#edge"}}},
+    {"from": [2.75, 1.75, 8.5], "to": [13.25, 14.25, 8.55], "light_emission": 15, "faces": {"south": {"uv": [0, 0, 16, 16], "texture": "#screen"}}},
+    {"from": [1.5, 0.5, 7], "to": [3.5, 2.5, 8.75], "faces": {"north": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "south": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "east": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "west": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "up": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "down": {"uv": [0, 0, 2, 2], "texture": "#rubber"}}},
+    {"from": [12.5, 0.5, 7], "to": [14.5, 2.5, 8.75], "faces": {"north": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "south": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "east": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "west": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "up": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "down": {"uv": [0, 0, 2, 2], "texture": "#rubber"}}},
+    {"from": [1.5, 13.5, 7], "to": [3.5, 15.5, 8.75], "faces": {"north": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "south": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "east": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "west": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "up": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "down": {"uv": [0, 0, 2, 2], "texture": "#rubber"}}},
+    {"from": [12.5, 13.5, 7], "to": [14.5, 15.5, 8.75], "faces": {"north": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "south": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "east": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "west": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "up": {"uv": [0, 0, 2, 2], "texture": "#rubber"}, "down": {"uv": [0, 0, 2, 2], "texture": "#rubber"}}},
+    {"from": [10.5, 11.5, 6.9], "to": [13, 14, 7.25], "faces": {"north": {"uv": [1, 1, 4, 4], "texture": "#back"}, "east": {"uv": [1, 1, 4, 4], "texture": "#back"}, "west": {"uv": [1, 1, 4, 4], "texture": "#back"}, "up": {"uv": [1, 1, 4, 4], "texture": "#back"}, "down": {"uv": [1, 1, 4, 4], "texture": "#back"}}}
+  ],
+  "display": {
+    "gui": {"rotation": [12, -24, 0], "translation": [0, 0, 0], "scale": [1, 1, 1]},
+    "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": [0.5, 0.5, 0.5]},
+    "fixed": {"rotation": [0, 180, 0], "translation": [0, 0, -0.5], "scale": [1, 1, 1]},
+    "head": {"rotation": [0, 180, 0], "translation": [0, 13, 7], "scale": [1, 1, 1]},
+    "thirdperson_righthand": {"rotation": [-60, 180, 0], "translation": [0, 3, 1.5], "scale": [0.55, 0.55, 0.55]},
+    "thirdperson_lefthand": {"rotation": [-60, 180, 0], "translation": [0, 3, 1.5], "scale": [0.55, 0.55, 0.55]},
+    "firstperson_righthand": {"rotation": [0, -150, 10], "translation": [1.13, 3.2, 1.13], "scale": [0.68, 0.68, 0.68]},
+    "firstperson_lefthand": {"rotation": [0, -150, 10], "translation": [1.13, 3.2, 1.13], "scale": [0.68, 0.68, 0.68]}
+  }
+}

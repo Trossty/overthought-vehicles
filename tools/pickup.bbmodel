@@ -1,0 +1,613 @@
+{
+  "meta": {
+    "format_version": "5.0",
+    "model_format": "modded_entity",
+    "box_uv": true
+  },
+  "name": "pickup",
+  "model_identifier": "pickup",
+  "modded_entity_entity_class": "PickupEntity",
+  "modded_entity_version": "1.17",
+  "modded_entity_flip_y": true,
+  "visible_box": [
+    2,
+    2,
+    0
+  ],
+  "resolution": {
+    "width": 256,
+    "height": 256
+  },
+  "elements": [
+    {
+      "name": "body",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -10,
+        6,
+        -20
+      ],
+      "to": [
+        10,
+        12,
+        20
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        0,
+        0
+      ],
+      "type": "cube",
+      "uuid": "c5817b16-995c-4320-b260-f2c0e52879d8"
+    },
+    {
+      "name": "cabin_front",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -10,
+        12,
+        -12
+      ],
+      "to": [
+        10,
+        34,
+        -10
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        0,
+        64
+      ],
+      "type": "cube",
+      "uuid": "a91754f6-e070-4f83-aa97-e48e52eab63a"
+    },
+    {
+      "name": "cabin_back",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -10,
+        12,
+        12
+      ],
+      "to": [
+        10,
+        34,
+        14
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        48,
+        64
+      ],
+      "type": "cube",
+      "uuid": "755dd052-8b4c-4ca8-8317-a36974558904"
+    },
+    {
+      "name": "cabin_left",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -10,
+        12,
+        -10
+      ],
+      "to": [
+        -8,
+        34,
+        12
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        0,
+        96
+      ],
+      "type": "cube",
+      "uuid": "75563981-ac61-42c1-b7cb-cbf5ae3081ff"
+    },
+    {
+      "name": "cabin_right",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        8,
+        12,
+        -10
+      ],
+      "to": [
+        10,
+        34,
+        12
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        52,
+        96
+      ],
+      "type": "cube",
+      "uuid": "afe30f10-3275-4aa7-86a3-4c7dd3cffed9"
+    },
+    {
+      "name": "cabin_roof",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -10,
+        34,
+        -12
+      ],
+      "to": [
+        10,
+        35,
+        14
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        96,
+        64
+      ],
+      "type": "cube",
+      "uuid": "ae20ea8c-d504-4d68-8f01-9c0bf31fb6bb"
+    },
+    {
+      "name": "dashboard",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -8,
+        15,
+        -10
+      ],
+      "to": [
+        8,
+        21,
+        -8
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        0,
+        144
+      ],
+      "type": "cube",
+      "uuid": "35c671c1-ee94-416a-a6c0-ab40f537aed7"
+    },
+    {
+      "name": "seat_left",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -6.5,
+        12,
+        8
+      ],
+      "to": [
+        -0.5,
+        26,
+        10
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        96,
+        144
+      ],
+      "type": "cube",
+      "uuid": "092bcf2a-e6d5-432d-be64-054fa1942039"
+    },
+    {
+      "name": "seat_right",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        0.5,
+        12,
+        8
+      ],
+      "to": [
+        6.5,
+        26,
+        10
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        116,
+        144
+      ],
+      "type": "cube",
+      "uuid": "12ac8cd2-e38d-41fa-83a9-aea25926e7e3"
+    },
+    {
+      "name": "bed_floor",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -10,
+        12,
+        14
+      ],
+      "to": [
+        10,
+        14,
+        34
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        0,
+        204
+      ],
+      "type": "cube",
+      "uuid": "f434f9e7-39db-449a-a149-0fadc9541a47"
+    },
+    {
+      "name": "bed_left",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -10,
+        14,
+        14
+      ],
+      "to": [
+        -8,
+        26,
+        36
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        84,
+        204
+      ],
+      "type": "cube",
+      "uuid": "25feb83c-1215-4d7c-8d2e-9f8c69038a97"
+    },
+    {
+      "name": "bed_right",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        8,
+        14,
+        14
+      ],
+      "to": [
+        10,
+        26,
+        36
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        136,
+        204
+      ],
+      "type": "cube",
+      "uuid": "17dcb05b-6123-4bd1-a6b5-0e23a3731b3b"
+    },
+    {
+      "name": "bed_tail",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -10,
+        14,
+        34
+      ],
+      "to": [
+        10,
+        26,
+        36
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        188,
+        204
+      ],
+      "type": "cube",
+      "uuid": "54d7247e-7513-49d3-9245-b98fe245a7e9"
+    },
+    {
+      "name": "bed_deck",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -9,
+        8,
+        20
+      ],
+      "to": [
+        9,
+        12,
+        34
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        188,
+        224
+      ],
+      "type": "cube",
+      "uuid": "a51d0a04-eae3-4ba0-96c3-06b26a5eea27"
+    },
+    {
+      "name": "wheel_front_left",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -12.5,
+        -3,
+        -17
+      ],
+      "to": [
+        -9.5,
+        3,
+        -11
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        -11,
+        3,
+        -14
+      ],
+      "uv_offset": [
+        0,
+        48
+      ],
+      "type": "cube",
+      "uuid": "f4f90f28-7b6f-4263-be9f-bb20290ca00f"
+    },
+    {
+      "name": "wheel_front_right",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        9.5,
+        -3,
+        -17
+      ],
+      "to": [
+        12.5,
+        3,
+        -11
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        11,
+        3,
+        -14
+      ],
+      "uv_offset": [
+        20,
+        48
+      ],
+      "type": "cube",
+      "uuid": "4d9d04d6-74a4-4e07-a864-135de6c82080"
+    },
+    {
+      "name": "wheel_back_left",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        -12.5,
+        -3,
+        21
+      ],
+      "to": [
+        -9.5,
+        3,
+        27
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        -11,
+        3,
+        24
+      ],
+      "uv_offset": [
+        40,
+        48
+      ],
+      "type": "cube",
+      "uuid": "4c82eee7-0470-4438-a92e-43e623ce1932"
+    },
+    {
+      "name": "wheel_back_right",
+      "box_uv": true,
+      "export": true,
+      "from": [
+        9.5,
+        -3,
+        21
+      ],
+      "to": [
+        12.5,
+        3,
+        27
+      ],
+      "autouv": 0,
+      "color": 8,
+      "origin": [
+        11,
+        3,
+        24
+      ],
+      "uv_offset": [
+        60,
+        48
+      ],
+      "type": "cube",
+      "uuid": "83922873-d361-4708-99d4-15d06b33360d"
+    }
+  ],
+  "outliner": [
+    {
+      "name": "frame",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uuid": "c47183ca-b355-41b6-89a6-362aae45551f",
+      "export": true,
+      "isOpen": true,
+      "children": [
+        "c5817b16-995c-4320-b260-f2c0e52879d8",
+        "a91754f6-e070-4f83-aa97-e48e52eab63a",
+        "755dd052-8b4c-4ca8-8317-a36974558904",
+        "75563981-ac61-42c1-b7cb-cbf5ae3081ff",
+        "afe30f10-3275-4aa7-86a3-4c7dd3cffed9",
+        "ae20ea8c-d504-4d68-8f01-9c0bf31fb6bb",
+        "35c671c1-ee94-416a-a6c0-ab40f537aed7",
+        "092bcf2a-e6d5-432d-be64-054fa1942039",
+        "12ac8cd2-e38d-41fa-83a9-aea25926e7e3",
+        "f434f9e7-39db-449a-a149-0fadc9541a47",
+        "25feb83c-1215-4d7c-8d2e-9f8c69038a97",
+        "17dcb05b-6123-4bd1-a6b5-0e23a3731b3b",
+        "54d7247e-7513-49d3-9245-b98fe245a7e9",
+        "a51d0a04-eae3-4ba0-96c3-06b26a5eea27"
+      ]
+    },
+    {
+      "name": "wheel_front_left",
+      "origin": [
+        -11,
+        3,
+        -14
+      ],
+      "uuid": "b704bdd0-952d-4c24-aa6c-a3347d8fff28",
+      "export": true,
+      "isOpen": false,
+      "children": [
+        "f4f90f28-7b6f-4263-be9f-bb20290ca00f"
+      ]
+    },
+    {
+      "name": "wheel_front_right",
+      "origin": [
+        11,
+        3,
+        -14
+      ],
+      "uuid": "dbdf9710-9a0e-4545-9d1a-417989d17199",
+      "export": true,
+      "isOpen": false,
+      "children": [
+        "4d9d04d6-74a4-4e07-a864-135de6c82080"
+      ]
+    },
+    {
+      "name": "wheel_back_left",
+      "origin": [
+        -11,
+        3,
+        24
+      ],
+      "uuid": "1c3d3c00-0837-417c-a974-c2eab2d23c48",
+      "export": true,
+      "isOpen": false,
+      "children": [
+        "4c82eee7-0470-4438-a92e-43e623ce1932"
+      ]
+    },
+    {
+      "name": "wheel_back_right",
+      "origin": [
+        11,
+        3,
+        24
+      ],
+      "uuid": "5d3dbab7-2dde-4f2c-a4a0-89887f2922ed",
+      "export": true,
+      "isOpen": false,
+      "children": [
+        "83922873-d361-4708-99d4-15d06b33360d"
+      ]
+    }
+  ],
+  "textures": []
+}

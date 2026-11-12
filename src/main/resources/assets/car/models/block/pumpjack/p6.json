@@ -1,0 +1,19 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/yellow_concrete",
+    "stone": "minecraft:block/smooth_stone",
+    "dark": "minecraft:block/black_concrete",
+    "iron": "minecraft:block/iron_block",
+    "grey": "minecraft:block/gray_concrete",
+    "yellow": "minecraft:block/yellow_concrete",
+    "red": "minecraft:block/red_concrete",
+    "copper": "minecraft:block/cut_copper",
+    "lamp": "minecraft:block/redstone_lamp"
+  },
+  "elements": [
+    { "from": [1.500, 0, 5], "to": [4, 6, 11], "faces": { "north": { "texture": "#yellow" }, "south": { "texture": "#yellow" }, "west": { "texture": "#yellow" }, "east": { "texture": "#yellow" }, "up": { "texture": "#yellow" } } },
+    { "from": [12, 0, 5], "to": [14.500, 6, 11], "faces": { "north": { "texture": "#yellow" }, "south": { "texture": "#yellow" }, "west": { "texture": "#yellow" }, "east": { "texture": "#yellow" }, "up": { "texture": "#yellow" } } },
+    { "from": [1, 5, 5.500], "to": [15, 10, 10.500], "faces": { "north": { "texture": "#dark" }, "south": { "texture": "#dark" }, "west": { "texture": "#dark" }, "east": { "texture": "#dark" }, "up": { "texture": "#dark" }, "down": { "texture": "#dark" } } }
+  ]
+}

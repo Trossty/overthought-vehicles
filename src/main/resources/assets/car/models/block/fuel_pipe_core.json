@@ -1,0 +1,22 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "car:block/fuel_pipe",
+    "pipe": "car:block/fuel_pipe",
+    "core": "car:block/fuel_pipe_core"
+  },
+  "elements": [
+    {
+      "from": [4.5, 4.5, 4.5],
+      "to": [11.5, 11.5, 11.5],
+      "faces": {
+        "north": { "uv": [4, 4, 12, 12], "texture": "#core" },
+        "south": { "uv": [4, 4, 12, 12], "texture": "#core" },
+        "west": { "uv": [4, 4, 12, 12], "texture": "#core" },
+        "east": { "uv": [4, 4, 12, 12], "texture": "#core" },
+        "up": { "uv": [4, 4, 12, 12], "texture": "#core" },
+        "down": { "uv": [4, 4, 12, 12], "texture": "#core" }
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "parent": "car:garage",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "car:vehicle_lift"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "car:vehicle_lift",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.car.on_the_lift.title"
+    },
+    "description": {
+      "translate": "advancements.car.on_the_lift.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "C": "car:jerry_can",
+    "B": "minecraft:iron_block",
+    "L": "minecraft:lever"
+  },
+  "pattern": [
+    "ILI",
+    "ICI",
+    "IBI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "car:fuel_pump"
+  }
+}

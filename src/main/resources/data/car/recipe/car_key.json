@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "R": "minecraft:redstone",
+    "I": "minecraft:iron_nugget",
+    "B": "minecraft:black_dye"
+  },
+  "pattern": [
+    "BR",
+    " I"
+  ],
+  "result": {
+    "count": 1,
+    "id": "car:car_key"
+  }
+}
