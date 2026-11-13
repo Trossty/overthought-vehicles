@@ -43,6 +43,18 @@ neoForge {
             server()
             programArgument '--nogui'
         }
+        // The real client walks through CarPhotoTest's scenes, photographs
+        // them into build/run/photo/screenshots and quits. Scenes already
+        // looked at are skipped: -Pcar.photo.all=true runs all of them,
+        // -Pcar.photo.scenes=pumpAndLift,blockGallery just those.
+        photoClient {
+            client()
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('build/run/photo')
+            systemProperty 'car.photo', 'true'
+            systemProperty 'car.photo.all', project.findProperty('car.photo.all') ?: 'false'
+            systemProperty 'car.photo.scenes', project.findProperty('car.photo.scenes') ?: ''
+        }
         // Headless server that runs every @GameTest in the mod and exits.
         gameTestServer {
             type = 'gameTestServer'

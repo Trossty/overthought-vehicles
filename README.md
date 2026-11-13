@@ -2146,8 +2146,16 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-26.jdk/Contents/Home ./gradlew 
   ./gradlew runGameTestServer
   ```
 
-- **Fotoğraf testi** (`CarPhotoTest`) Fabric'in istemci test API'sine dayanıyor;
-  NeoForge'da karşılığı olmadığı için yalnızca `main` dalında.
+- **Fotoğraf testi** (`CarPhotoTest`) gerçek istemciyi açar, düz bir yaratıcı
+  dünyada sahneleri kurar, her birinin fotoğrafını
+  `build/run/photo/screenshots/` altına çeker ve kapanır. NeoForge'da Fabric'in
+  istemci test API'si olmadığından sahneleri `PhotoHarness` sürüyor. Daha önce
+  bakılmış sahneler atlanır; hepsi ya da yalnız seçilenler:
+
+  ```bash
+  ./gradlew runPhotoClient -Pcar.photo.all=true
+  ./gradlew runPhotoClient -Pcar.photo.scenes=pumpAndLift,blockGallery
+  ```
 
 ## 3B eşyalar
 
