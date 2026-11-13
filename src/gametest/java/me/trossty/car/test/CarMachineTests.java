@@ -1181,6 +1181,35 @@ public class CarMachineTests {
     }
 
     /**
+     * A key clicked at nothing finds its own car, not a stranger's, and not
+     * one beyond the button's reach.
+     */
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void keyFindsItsCar(GameTestHelper context) {
+        var mine = context.spawn(ModEntities.CAR, new BlockPos(1, 1, 1));
+        var other = context.spawn(ModEntities.CAR, new BlockPos(6, 1, 6));
+        mine.setLockCode(7L);
+        other.setLockCode(9L);
+        var player = context.makeMockServerPlayerInLevel();
+        player.moveTo(other.getX() + 1.0, other.getY(), other.getZ());
+        ItemStack key = new ItemStack(me.trossty.car.registry.ModItems.CAR_KEY);
+        key.set(me.trossty.car.registry.ModComponents.VEHICLE_KEY, 7L);
+        context.assertTrue(me.trossty.car.item.CarKeyItem.find(context.getLevel(), player, 7L) == mine,
+                "the key did not find its car");
+        context.assertTrue(me.trossty.car.item.CarKeyItem.find(context.getLevel(), player, 5L) == null,
+                "a key with no car found one");
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, key);
+        context.assertTrue(key.use(context.getLevel(), player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                .getResult().consumesAction(), "clicking the key at nothing did nothing");
+        player.moveTo(mine.getX() + me.trossty.car.item.CarKeyItem.FOB_RANGE + 4.0, mine.getY(), mine.getZ());
+        context.assertTrue(me.trossty.car.item.CarKeyItem.find(context.getLevel(), player, 7L) == null,
+                "the key reached a car out of range");
+        mine.discard();
+        other.discard();
+        context.succeed();
+    }
+
+    /**
      * Walking a trailer by hand slows the walker, more with a car on the bed,
      * and letting go gives them their pace back.
      */
