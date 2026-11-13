@@ -818,9 +818,14 @@ public final class GenPlantModels {
                 + "  }\n}\n";
     }
 
+    /**
+     * The item's look. An item draws models/item/<name> on 1.21.1, so one that
+     * shows a block model gets a model there that is just that block's.
+     */
     static void item(String name, String model) throws IOException {
-        write("items/" + name + ".json", "{\n  \"model\": {\n    \"type\": \"minecraft:model\",\n    \"model\": \""
-                + model + "\"\n  }\n}\n");
+        if (!model.equals("car:item/" + name)) {
+            write("models/item/" + name + ".json", "{\n  \"parent\": \"" + model + "\"\n}\n");
+        }
     }
 
     static void cells(String dir, Model whole, int[][] cells) throws IOException {
