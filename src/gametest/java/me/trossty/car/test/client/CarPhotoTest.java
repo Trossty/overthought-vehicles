@@ -48,6 +48,7 @@ public class CarPhotoTest {
             scenes.put("flatbed", this::flatbed);
             scenes.put("planeTow", this::planeTow);
             scenes.put("stands", this::stands);
+            scenes.put("bedLoad", this::bedLoad);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -1976,6 +1977,41 @@ public class CarPhotoTest {
         shot(context, server, "stands_boat", -1.5, Y + 2.2, -3.5, 48, 15);
         shot(context, server, "stands_plane_side", 17.0, Y + 1.5, 0.0, 90, 5);
         shot(context, server, "stands_overview", 2.0, Y + 7.0, 16.0, 180, 30);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** What is in a pickup's bed and a box trailer, drawn sitting in them. */
+    private void bedLoad(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:pickup 0.5 %d 0.5 {Rotation:[0f,0f],Color:11}".formatted(Y));
+        server.runCommand("summon car:trailer 4.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:box_trailer\"}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 30);
+            var pickup = world.getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box, e -> true).get(0);
+            var trailer = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box, e -> true).get(0);
+            net.minecraft.world.item.Item[] things = {
+                    net.minecraft.world.item.Items.OAK_LOG, net.minecraft.world.item.Items.HAY_BLOCK,
+                    net.minecraft.world.item.Items.IRON_INGOT, net.minecraft.world.item.Items.CHEST,
+                    net.minecraft.world.item.Items.APPLE, net.minecraft.world.item.Items.COBBLESTONE,
+                    net.minecraft.world.item.Items.DIAMOND_PICKAXE, net.minecraft.world.item.Items.PUMPKIN,
+                    net.minecraft.world.item.Items.BREAD};
+            for (int i = 0; i < things.length; i++) {
+                pickup.getBed().setItem(i, new net.minecraft.world.item.ItemStack(things[i], 16));
+            }
+            for (int i = 0; i < 5; i++) {
+                trailer.getLoad().setItem(i, new net.minecraft.world.item.ItemStack(things[i * 2 % things.length], 8));
+            }
+            System.out.println("car photo bedLoad: pickup shows " + pickup.shownLoad().size()
+                    + ", trailer shows " + trailer.shownLoad().size());
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "bed_load_above", 2.5, Y + 5.0, -6.0, 0, 40);
+        shot(context, server, "bed_load_side", 9.0, Y + 2.6, -3.0, 60, 22);
+        shot(context, server, "bed_load_trailer", 4.5, Y + 6.0, -2.0, 0, 55);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

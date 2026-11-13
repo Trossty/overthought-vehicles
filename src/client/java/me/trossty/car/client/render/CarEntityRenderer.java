@@ -153,6 +153,65 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         matrices.popPose();
     }
 
+    /** How much floor each thing in an open bed gets, in blocks. */
+    private static final float LOAD_CELL = 0.42F;
+
+    /**
+     * What is in an open bed or box, sitting in it: one of each thing it
+     * holds, in rows from the front of the bed back, a block as a small
+     * block and anything flat lying down. A full bed is stacked a layer
+     * higher where the sides are tall enough.
+     */
+    private static void drawLoad(CarEntity car, me.trossty.car.vehicle.VehicleDefinition.Area area,
+                                 PoseStack matrices, MultiBufferSource buffers, int light) {
+        java.util.List<net.minecraft.world.item.ItemStack> load = car.shownLoad();
+        if (load.isEmpty()) {
+            return;
+        }
+        float minX = Math.min(area.from().x(), area.to().x()) / 16.0F;
+        float maxX = Math.max(area.from().x(), area.to().x()) / 16.0F;
+        float minY = Math.min(area.from().y(), area.to().y()) / 16.0F;
+        float maxY = Math.max(area.from().y(), area.to().y()) / 16.0F;
+        float minZ = Math.min(area.from().z(), area.to().z()) / 16.0F;
+        float maxZ = Math.max(area.from().z(), area.to().z()) / 16.0F;
+        int cols = Math.max(1, (int) ((maxX - minX) / LOAD_CELL));
+        int rows = Math.max(1, (int) ((maxZ - minZ) / LOAD_CELL));
+        int layers = Math.max(1, (int) ((maxY - minY) / LOAD_CELL));
+        float stepX = (maxX - minX) / cols;
+        float stepZ = (maxZ - minZ) / rows;
+        net.minecraft.client.renderer.entity.ItemRenderer items =
+                net.minecraft.client.Minecraft.getInstance().getItemRenderer();
+        int shown = Math.min(load.size(), cols * rows * layers);
+        for (int i = 0; i < shown; i++) {
+            net.minecraft.world.item.ItemStack stack = load.get(i);
+            int layer = i / (cols * rows);
+            int cell = i % (cols * rows);
+            float x = minX + (cell % cols + 0.5F) * stepX;
+            float z = maxZ - (cell / cols + 0.5F) * stepZ;
+            float y = minY + layer * LOAD_CELL;
+            matrices.pushPose();
+            // The model's x and z run the other way to this frame's: its
+            // front is +z, this frame's is -z.
+            matrices.translate(-x, y, -z);
+            // Not lined up like a shop shelf: each a little askew.
+            matrices.mulPose(Axis.YP.rotationDegrees(((i * 37) % 7 - 3) * 6.0F));
+            boolean block = items.getModel(stack, car.level(), null, 0).isGui3d();
+            if (block) {
+                // A block in a frame is a half-block cube about its middle.
+                matrices.translate(0.0F, 0.18F, 0.0F);
+                matrices.scale(0.72F, 0.72F, 0.72F);
+            } else {
+                matrices.translate(0.0F, 0.02F, 0.0F);
+                matrices.mulPose(Axis.XP.rotationDegrees(90.0F));
+                matrices.scale(0.4F, 0.4F, 0.4F);
+            }
+            items.renderStatic(stack, net.minecraft.world.item.ItemDisplayContext.FIXED, light,
+                    net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, matrices, buffers,
+                    car.level(), car.getId() * 31 + i);
+            matrices.popPose();
+        }
+    }
+
     /**
      * How far ahead of its middle a car's front axle is, and its back axle,
      * in blocks (the back one negative): from its steering wheels and the
@@ -247,6 +306,9 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
 
         if (car instanceof me.trossty.car.entity.TrailerEntity trailer && trailer.hasCargo()) {
             drawCargo(trailer, state.yaw, tickProgress, matrices, buffers, state.lightCoords);
+        }
+        if (state.vehicle != null && state.vehicle.load().isPresent()) {
+            drawLoad(car, state.vehicle.load().get(), matrices, buffers, state.lightCoords);
         }
 
         if (state.damageWobbleTicks > 0.0F) {

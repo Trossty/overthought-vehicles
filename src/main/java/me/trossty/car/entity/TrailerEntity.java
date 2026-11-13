@@ -672,6 +672,7 @@ public class TrailerEntity extends CarEntity {
         ValueInput view = ValueInput.of(tag, this.registryAccess());
         super.readAdditionalSaveData(tag);
         ContainerHelper.loadAllItems(view.tag(), this.load.getItems(), view.registries());
+        this.showLoad(this.load);
         this.tractorUuid = view.read("Tractor", UUIDUtil.CODEC).orElse(null);
         this.entityData.set(CARGO, tag.getCompound("Cargo"));
         this.entityData.set(CARGO_ITEM, ItemStack.parseOptional(this.registryAccess(), tag.getCompound("CargoItem")));

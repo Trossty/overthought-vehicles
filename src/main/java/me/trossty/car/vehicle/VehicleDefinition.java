@@ -52,9 +52,7 @@ public record VehicleDefinition(
         float tank,
         Lights lights,
         float mass,
-        float deck,
-        boolean dolly,
-        List<Chassis> takes) {
+        Carrying carrying) {
 
     /**
      * What it weighs, in kilograms, when the definition does not say:
@@ -82,7 +80,48 @@ public record VehicleDefinition(
 
     /** Whether this is a flat bed another vehicle rides on. */
     public boolean carriesVehicles() {
-        return this.deck > 0.0F;
+        return this.deck() > 0.0F;
+    }
+
+    public float deck() {
+        return this.carrying.deck();
+    }
+
+    public boolean dolly() {
+        return this.carrying.dolly();
+    }
+
+    public List<Chassis> takes() {
+        return this.carrying.takes();
+    }
+
+    /** Where a bed's or box's loose load is shown, if it has one. */
+    public Optional<Area> load() {
+        return this.carrying.load();
+    }
+
+    /**
+     * What it carries, written flat in the file beside everything else:
+     * {@code deck}, {@code dolly} and {@code takes} for a bed that carries a
+     * vehicle, and {@code load} — a {@code from}/{@code to} box, in pixels —
+     * for the open bed or box whose chest contents are shown sitting in it.
+     */
+    public record Carrying(float deck, boolean dolly, List<Chassis> takes, Optional<Area> load) {
+        public static final com.mojang.serialization.MapCodec<Carrying> MAP_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                        Codec.floatRange(0.0F, 64.0F).optionalFieldOf("deck", 0.0F).forGetter(Carrying::deck),
+                        Codec.BOOL.optionalFieldOf("dolly", false).forGetter(Carrying::dolly),
+                        Chassis.CODEC.listOf().optionalFieldOf("takes", List.of()).forGetter(Carrying::takes),
+                        Area.CODEC.optionalFieldOf("load").forGetter(Carrying::load)
+                ).apply(instance, Carrying::new));
+    }
+
+    /** A box in the model's pixels, corner to corner. */
+    public record Area(org.joml.Vector3f from, org.joml.Vector3f to) {
+        public static final Codec<Area> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                ExtraCodecs.VECTOR3F.fieldOf("from").forGetter(Area::from),
+                ExtraCodecs.VECTOR3F.fieldOf("to").forGetter(Area::to)
+        ).apply(instance, Area::new));
     }
 
     /** A tank nobody wrote down: a family car's, fifty litres. */
@@ -262,9 +301,7 @@ public record VehicleDefinition(
                     .forGetter(VehicleDefinition::tank),
             Lights.CODEC.optionalFieldOf("lights", Lights.PLAIN).forGetter(VehicleDefinition::lights),
             Codec.floatRange(0.0F, 100000.0F).optionalFieldOf("mass", 0.0F).forGetter(VehicleDefinition::mass),
-            Codec.floatRange(0.0F, 64.0F).optionalFieldOf("deck", 0.0F).forGetter(VehicleDefinition::deck),
-            Codec.BOOL.optionalFieldOf("dolly", false).forGetter(VehicleDefinition::dolly),
-            Chassis.CODEC.listOf().optionalFieldOf("takes", List.of()).forGetter(VehicleDefinition::takes)
+            Carrying.MAP_CODEC.forGetter(VehicleDefinition::carrying)
     ).apply(instance, VehicleDefinition::new));
 
     /**

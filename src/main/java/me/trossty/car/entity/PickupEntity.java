@@ -206,6 +206,7 @@ public class PickupEntity extends CarEntity {
         ValueInput view = ValueInput.of(tag, this.registryAccess());
         super.readAdditionalSaveData(tag);
         ContainerHelper.loadAllItems(view.tag(), this.bed.getItems(), view.registries());
+        this.showLoad(this.bed);
     }
 
     @Override

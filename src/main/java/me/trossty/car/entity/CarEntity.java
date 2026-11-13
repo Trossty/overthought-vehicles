@@ -385,6 +385,13 @@ public class CarEntity extends VehicleEntity {
     private static final EntityDataAccessor<String> MODEL =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.STRING);
 
+    /**
+     * What is in the chest a bed or box carries, by item, so the client can
+     * draw it sitting there; nothing for a vehicle without one.
+     */
+    private static final EntityDataAccessor<net.minecraft.nbt.CompoundTag> SHOWN_LOAD =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.COMPOUND_TAG);
+
     private String definitionKey = "";
     private me.trossty.car.vehicle.VehicleDefinition definition;
 
@@ -579,6 +586,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(PART_QUALITY, defaultQualityBits());
         builder.define(SETUP, CarSetup.DEFAULT);
         builder.define(MODEL, "");
+        builder.define(SHOWN_LOAD, new net.minecraft.nbt.CompoundTag());
         builder.define(ODOMETER, 0.0F);
         builder.define(DIRTY_FUEL, 0.0F);
     }
@@ -915,12 +923,59 @@ public class CarEntity extends VehicleEntity {
      * winched on to a flatbed and saved away with it, or has driven off.
      */
     protected net.minecraft.world.SimpleContainer carriedChest(int size) {
-        return new net.minecraft.world.SimpleContainer(size) {
+        net.minecraft.world.SimpleContainer chest = new net.minecraft.world.SimpleContainer(size) {
             @Override
             public boolean stillValid(Player player) {
                 return !CarEntity.this.isRemoved() && CarEntity.this.distanceToSqr(player) < 8.0 * 8.0;
             }
         };
+        chest.addListener(this::showLoad);
+        return chest;
+    }
+
+    /**
+     * Tells the client what is in a carried chest, item by item, so it can be
+     * drawn in the bed: called whenever the chest changes, and after loading.
+     */
+    protected void showLoad(net.minecraft.world.Container chest) {
+        if (this.level().isClientSide()) {
+            return;
+        }
+        net.minecraft.nbt.ListTag items = new net.minecraft.nbt.ListTag();
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+            ItemStack stack = chest.getItem(slot);
+            if (!stack.isEmpty()) {
+                items.add(net.minecraft.nbt.StringTag.valueOf(
+                        net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()));
+            }
+        }
+        net.minecraft.nbt.CompoundTag shown = new net.minecraft.nbt.CompoundTag();
+        shown.put("Items", items);
+        this.entityData.set(SHOWN_LOAD, shown);
+    }
+
+    private net.minecraft.nbt.CompoundTag shownTag;
+    private java.util.List<ItemStack> shown = java.util.List.of();
+
+    /** The carried chest's contents as the client knows them: one of each occupied slot, in order. */
+    public java.util.List<ItemStack> shownLoad() {
+        net.minecraft.nbt.CompoundTag tag = this.entityData.get(SHOWN_LOAD);
+        if (tag != this.shownTag) {
+            java.util.List<ItemStack> stacks = new java.util.ArrayList<>();
+            net.minecraft.nbt.ListTag items = tag.getList("Items", net.minecraft.nbt.Tag.TAG_STRING);
+            for (int i = 0; i < items.size(); i++) {
+                net.minecraft.resources.ResourceLocation id =
+                        net.minecraft.resources.ResourceLocation.tryParse(items.getString(i));
+                net.minecraft.world.item.Item item = id == null ? null
+                        : net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id);
+                if (item != null && item != net.minecraft.world.item.Items.AIR) {
+                    stacks.add(new ItemStack(item));
+                }
+            }
+            this.shown = stacks;
+            this.shownTag = tag;
+        }
+        return this.shown;
     }
 
     /** A trailer says this every tick it is hitched on. */
