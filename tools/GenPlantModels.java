@@ -625,7 +625,7 @@ public final class GenPlantModels {
         m.box(8.8F, 2.5F, 4, 12.6F, 7.5F, 12, "#body");
         m.box(9.6F, 3.8F, 3.5F, 11.8F, 6.2F, 4, "#frame");
         m.box(10.1F, 3.3F, 3.5F, 11.3F, 6.7F, 4, "#frame");
-        m.box(10.3F, 4.6F, 3.2F, 11.1F, 5.4F, 3.5F, "#iron");
+        m.box(10.3F, 4.6F, 3.15F, 11.1F, 5.4F, 3.5F, "#iron");
         m.box(9.3F, 7.5F, 6, 12.1F, 9, 10, "#engine");
         // the muffler at the far end, its outlet up the back corner
         m.box(12.6F, 3, 4.5F, 14.2F, 8.5F, 11, "#dark");
@@ -700,8 +700,8 @@ public final class GenPlantModels {
         m.box(10.9F, 15.6F, 5.4F, 12.1F, 16, 6.6F, "#copper");
         m.box(5.5F, 14.6F, 5.6F, 10.5F, 15, 6.4F, "#copper");
         // front corner posts framing the door, its hinges and a pull handle
-        m.box(1.2F, 1, 1.5F, 2.4F, 14, 2.6F, "#dark");
-        m.box(13.6F, 1, 1.5F, 14.8F, 14, 2.6F, "#dark");
+        m.box(1.2F, 0.95F, 1.5F, 2.4F, 14.05F, 2.6F, "#dark");
+        m.box(13.6F, 0.95F, 1.5F, 14.8F, 14.05F, 2.6F, "#dark");
         m.box(2.4F, 3.5F, 1.4F, 3, 4.7F, 1.7F, "#dark");
         m.box(2.4F, 10.5F, 1.4F, 3, 11.7F, 1.7F, "#dark");
         m.box(12.3F, 6.5F, 1.0F, 12.9F, 9.5F, 1.4F, "#warn");
@@ -734,7 +734,7 @@ public final class GenPlantModels {
         m.box(5.5F, 1.6F, 6.5F, 10.5F, 14, 10.5F, "#body");
         m.box(7.2F, 2.5F, 6.3F, 8.8F, 13.5F, 6.5F, "*", "#accent", "south", "-");
         // the head, a darker collar under it and a green cap over it
-        m.box(5, 13.4F, 6, 11, 14, 11, "#dark");
+        m.box(5, 13.4F, 6, 11, 14.05F, 11, "#dark");
         m.box(4.5F, 14, 5.5F, 11.5F, 23, 11, "#body");
         m.box(4.2F, 23, 5.2F, 11.8F, 23.8F, 11.3F, "#accent");
         // the screen in its bezel, the light under it

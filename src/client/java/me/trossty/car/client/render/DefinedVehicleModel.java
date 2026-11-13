@@ -394,7 +394,9 @@ public class DefinedVehicleModel extends VehicleModel {
         }
 
         int count = 0;
-        for (VehicleDefinition.Box box : definition.shape()) {
+        float[] lift = lifts(definition.shape());
+        for (int index = 0; index < definition.shape().size(); index++) {
+            VehicleDefinition.Box box = definition.shape().get(index);
             if (isGlass(box.color()) != glass || isCargo(box.color())) {
                 continue;
             }
@@ -411,7 +413,8 @@ public class DefinedVehicleModel extends VehicleModel {
             boolean turns = box.steers() && steerHead != null;
             (turns ? steerHead : frame).addOrReplaceChild("box" + count++,
                     CubeListBuilder.create().texOffs(at[0], at[1])
-                            .addBox(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ),
+                            .addBox(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ,
+                                    new net.minecraft.client.model.geom.builders.CubeDeformation(lift[index])),
                     PartPose.offsetAndRotation(x + sizeX / 2.0F - (turns ? hubX : 0.0F),
                             -(y + sizeY / 2.0F) + (turns ? hubY : 0.0F),
                             -(z + sizeZ / 2.0F) + (turns ? hubZ : 0.0F),
@@ -419,6 +422,70 @@ public class DefinedVehicleModel extends VehicleModel {
         }
 
         return LayerDefinition.create(data, PALETTE * CELL, PALETTE * CELL).bakeRoot();
+    }
+
+    /** How far a box is lifted off a bigger one it shares a face with: well under a pixel. */
+    private static final float LIFT_STEP = 0.05F;
+
+    /**
+     * Two boxes of different colours with a face in the same plane fight
+     * over every pixel of it, and the winner flickers as the camera moves.
+     * The smaller box — the trim, the badge, the light on the body — is
+     * pushed out a hair past the bigger one it sits on, one step more for
+     * each box it sits on in turn, so it always wins.
+     */
+    static float[] lifts(List<VehicleDefinition.Box> shape) {
+        int n = shape.size();
+        float[][] lo = new float[n][3], hi = new float[n][3];
+        Integer[] order = new Integer[n];
+        for (int i = 0; i < n; i++) {
+            Vector3fc from = shape.get(i).from(), to = shape.get(i).to();
+            lo[i] = new float[] {Math.min(from.x(), to.x()), Math.min(from.y(), to.y()), Math.min(from.z(), to.z())};
+            hi[i] = new float[] {Math.max(from.x(), to.x()), Math.max(from.y(), to.y()), Math.max(from.z(), to.z())};
+            order[i] = i;
+        }
+        java.util.function.ToDoubleFunction<Integer> volume = i ->
+                (double) (hi[i][0] - lo[i][0]) * (hi[i][1] - lo[i][1]) * (hi[i][2] - lo[i][2]);
+        java.util.Arrays.sort(order, java.util.Comparator.comparingDouble(volume).reversed());
+        int[] level = new int[n];
+        for (int a = 0; a < n; a++) {
+            int i = order[a];
+            for (int b = 0; b < a; b++) {
+                int j = order[b];
+                if (level[j] + 1 > level[i] && sharesFace(shape.get(i), shape.get(j), lo[i], hi[i], lo[j], hi[j])) {
+                    level[i] = level[j] + 1;
+                }
+            }
+        }
+        float[] lift = new float[n];
+        for (int i = 0; i < n; i++) {
+            lift[i] = level[i] * LIFT_STEP;
+        }
+        return lift;
+    }
+
+    private static boolean sharesFace(VehicleDefinition.Box a, VehicleDefinition.Box b,
+                                      float[] aLo, float[] aHi, float[] bLo, float[] bHi) {
+        if (a.color().equals(b.color()) || a.tilt() != b.tilt()) {
+            return false;
+        }
+        for (int axis = 0; axis < 3; axis++) {
+            boolean lows = Math.abs(aLo[axis] - bLo[axis]) < 1.0E-3F;
+            boolean highs = Math.abs(aHi[axis] - bHi[axis]) < 1.0E-3F;
+            if (!lows && !highs) {
+                continue;
+            }
+            boolean overlaps = true;
+            for (int other = 0; other < 3; other++) {
+                if (other != axis && Math.min(aHi[other], bHi[other]) - Math.max(aLo[other], bLo[other]) <= 1.0E-3F) {
+                    overlaps = false;
+                }
+            }
+            if (overlaps) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

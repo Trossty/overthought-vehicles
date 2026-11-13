@@ -168,7 +168,7 @@ upper=[
  el([4,11.4,3.3],[12,12.6,3.5],'#label',uv={'north':F}),
  el([3,13,4],[13,14,12],'#dark'),
  # holster bracket and the hose coming up to it
- mx(el([13,5,6],[14,7,8.5],'#dark')),
+ mx(el([13,5,6.05],[14,7,8.5],'#dark')),
  mx(el([13.4,0,9],[14.4,5,10],'#hose')),
 ]+back_bezel(0,11)+[
  # the back has its own read-out and name plate, for the far lane

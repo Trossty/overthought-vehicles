@@ -61,7 +61,8 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
     protected CarEntityRenderer(EntityRendererProvider.Context context, ModelLayerLocation layer) {
         super(context);
         this.model = new CarEntityModel(context.bakeLayer(layer));
-        this.shadowRadius = 0.9F;
+        // The round shadow vanilla draws is lost under a car; it gets its own.
+        this.shadowRadius = 0.0F;
     }
 
     /** Smoothstep: the pose settles rather than stopping dead. */
@@ -115,6 +116,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         CarRenderState state = this.createRenderState();
         this.extractRenderState(car, state, tickProgress);
         state.lightCoords = light;
+        this.drawShadow(car, state, matrices, buffers);
         matrices.pushPose();
         matrices.translate(0.0F, car.getStepOffset(tickProgress), 0.0F);
         matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
@@ -186,6 +188,82 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
 
         this.submitPlates(state, matrices, buffers);
         super.render(car, entityYaw, tickProgress, matrices, buffers, light);
+    }
+
+    private static final net.minecraft.client.renderer.RenderType SHADOW = net.minecraft.client.renderer.RenderType
+            .entityShadow(ResourceLocation.withDefaultNamespace("textures/misc/shadow.png"));
+    /** How much past the body the soft edge of the shadow reaches. */
+    private static final float SHADOW_SPREAD = 1.15F;
+    private static final float SHADOW_ALPHA = 0.45F;
+    /** Over this many blocks of air the shadow has faded out. */
+    private static final double SHADOW_FADE = 3.0;
+    private static final java.util.Map<me.trossty.car.vehicle.VehicleDefinition, float[]> FOOTPRINTS =
+            new java.util.IdentityHashMap<>();
+
+    /**
+     * The body's outline seen from above, in blocks: {min x, max x, min z,
+     * max z} in the car's own frame, front along +z.
+     */
+    private static float[] footprint(me.trossty.car.vehicle.VehicleDefinition vehicle) {
+        return FOOTPRINTS.computeIfAbsent(vehicle, v -> {
+            float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, minZ = Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
+            for (me.trossty.car.vehicle.VehicleDefinition.Box box : v.shape()) {
+                minX = Math.min(minX, Math.min(box.from().x(), box.to().x()));
+                maxX = Math.max(maxX, Math.max(box.from().x(), box.to().x()));
+                minZ = Math.min(minZ, Math.min(box.from().z(), box.to().z()));
+                maxZ = Math.max(maxZ, Math.max(box.from().z(), box.to().z()));
+            }
+            return new float[] {minX / 16.0F, maxX / 16.0F, minZ / 16.0F, maxZ / 16.0F};
+        });
+    }
+
+    /**
+     * A soft shadow the shape of the car, laid on the ground under it and
+     * turned with it, fading as the car leaves the ground.
+     */
+    private void drawShadow(CarEntity car, CarRenderState state, PoseStack matrices, MultiBufferSource buffers) {
+        if (!net.minecraft.client.Minecraft.getInstance().options.entityShadows().get() || car.isInvisible()) {
+            return;
+        }
+        float[] at = state.vehicle == null ? new float[] {-1.0F, 1.0F, -2.2F, 2.2F} : footprint(state.vehicle);
+        net.minecraft.core.BlockPos below = car.blockPosition();
+        double ground = car.getY();
+        for (int i = 0; i < 4; i++) {
+            net.minecraft.world.phys.shapes.VoxelShape shape = car.level().getBlockState(below)
+                    .getCollisionShape(car.level(), below);
+            if (!shape.isEmpty()) {
+                ground = Math.min(car.getY(), below.getY() + shape.max(net.minecraft.core.Direction.Axis.Y));
+                break;
+            }
+            below = below.below();
+            ground = below.getY();
+        }
+        float alpha = SHADOW_ALPHA * (float) Mth.clamp(1.0 - (car.getY() - ground) / SHADOW_FADE, 0.0, 1.0);
+        if (alpha <= 0.01F) {
+            return;
+        }
+        float midX = (at[0] + at[1]) / 2.0F, midZ = (at[2] + at[3]) / 2.0F;
+        float halfX = (at[1] - at[0]) / 2.0F * SHADOW_SPREAD, halfZ = (at[3] - at[2]) / 2.0F * SHADOW_SPREAD;
+        matrices.pushPose();
+        matrices.translate(0.0, ground - car.getY() + 0.015, 0.0);
+        matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
+        // The model is drawn mirrored in x and z, so is its outline.
+        PoseStack.Pose pose = matrices.last();
+        com.mojang.blaze3d.vertex.VertexConsumer out = buffers.getBuffer(SHADOW);
+        int colour = net.minecraft.util.FastColor.ARGB32.colorFromFloat(alpha, 1.0F, 1.0F, 1.0F);
+        float x0 = -(midX + halfX), x1 = -(midX - halfX), z0 = -(midZ + halfZ), z1 = -(midZ - halfZ);
+        shadowVertex(pose, out, colour, x0, z0, 0.0F, 0.0F);
+        shadowVertex(pose, out, colour, x0, z1, 0.0F, 1.0F);
+        shadowVertex(pose, out, colour, x1, z1, 1.0F, 1.0F);
+        shadowVertex(pose, out, colour, x1, z0, 1.0F, 0.0F);
+        matrices.popPose();
+    }
+
+    private static void shadowVertex(PoseStack.Pose pose, com.mojang.blaze3d.vertex.VertexConsumer out, int colour,
+                                     float x, float z, float u, float v) {
+        org.joml.Vector3f at = pose.pose().transformPosition(x, 0.0F, z, new org.joml.Vector3f());
+        out.addVertex(at.x(), at.y(), at.z(), colour, u, v, OverlayTexture.NO_OVERLAY,
+                net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, 0.0F, 1.0F, 0.0F);
     }
 
     private static void draw(VehicleModel model, CarRenderState state, PoseStack matrices,
