@@ -100,6 +100,11 @@ public record VehicleDefinition(
         return this.carrying.load();
     }
 
+    /** Whether there are beds inside: a caravan, slept in at night. */
+    public boolean camper() {
+        return this.carrying.camper();
+    }
+
     /** The only vehicles that may pull this, by id; empty when anything with a tow ball may. */
     public List<net.minecraft.resources.ResourceLocation> pulledBy() {
         return this.carrying.pulledBy();
@@ -111,10 +116,11 @@ public record VehicleDefinition(
      * vehicle, and {@code load} — a {@code from}/{@code to} box, in pixels —
      * for the open bed or box whose chest contents are shown sitting in it.
      * {@code pulled_by} keeps a trailer to the trucks built for it: a wheel
-     * lift goes only on the back of a tow truck.
+     * lift goes only on the back of a tow truck. {@code camper} is a
+     * caravan's: there are beds in it.
      */
     public record Carrying(float deck, boolean dolly, List<Chassis> takes, Optional<Area> load,
-                           List<net.minecraft.resources.ResourceLocation> pulledBy) {
+                           List<net.minecraft.resources.ResourceLocation> pulledBy, boolean camper) {
         public static final com.mojang.serialization.MapCodec<Carrying> MAP_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
                         Codec.floatRange(0.0F, 64.0F).optionalFieldOf("deck", 0.0F).forGetter(Carrying::deck),
@@ -122,7 +128,8 @@ public record VehicleDefinition(
                         Chassis.CODEC.listOf().optionalFieldOf("takes", List.of()).forGetter(Carrying::takes),
                         Area.CODEC.optionalFieldOf("load").forGetter(Carrying::load),
                         net.minecraft.resources.ResourceLocation.CODEC.listOf()
-                                .optionalFieldOf("pulled_by", List.of()).forGetter(Carrying::pulledBy)
+                                .optionalFieldOf("pulled_by", List.of()).forGetter(Carrying::pulledBy),
+                        Codec.BOOL.optionalFieldOf("camper", false).forGetter(Carrying::camper)
                 ).apply(instance, Carrying::new));
     }
 

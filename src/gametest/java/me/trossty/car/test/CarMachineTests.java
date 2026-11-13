@@ -1139,6 +1139,48 @@ public class CarMachineTests {
     }
 
     /**
+     * A caravan is slept in at night from its door, keeps its sleeper asleep
+     * though there is no bed block, and puts them out beside it in the
+     * morning; by day, or from the drawbar end, a click is not for sleeping.
+     */
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void caravanSleeps(GameTestHelper context) {
+        var caravan = context.spawn(ModEntities.TRAILER, new BlockPos(4, 1, 4));
+        caravan.setModel(me.trossty.car.CarMain.id("caravan"));
+        caravan.moveTo(caravan.getX(), caravan.getY(), caravan.getZ(), 0.0F, 0.0F);
+        var player = context.makeMockServerPlayerInLevel();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        var level = context.getLevel();
+        long time = level.getDayTime();
+        try {
+            level.setDayTime(6000L);
+            level.updateSkyBrightness();
+            player.moveTo(caravan.getX() - 2.0, caravan.getY(), caravan.getZ());
+            caravan.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            context.assertFalse(player.isSleeping(), "slept in a caravan at noon");
+            level.setDayTime(18000L);
+            level.updateSkyBrightness();
+            player.moveTo(caravan.getX(), caravan.getY(), caravan.getZ() + 3.0);
+            caravan.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            context.assertFalse(player.isSleeping(), "the drawbar end put the player to bed");
+            player.moveTo(caravan.getX() - 2.0, caravan.getY(), caravan.getZ());
+            caravan.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            context.assertTrue(player.isSleeping(), "could not sleep in the caravan at night");
+            player.doTick();
+            player.doTick();
+            context.assertTrue(player.isSleeping(), "woken at once for want of a bed block");
+            player.stopSleepInBed(false, true);
+            context.assertFalse(caravan.getBoundingBox().contains(player.position()), "woke up inside the caravan");
+            context.assertTrue(player.getX() < caravan.getX() - 1.0, "woke up away from the door");
+        } finally {
+            level.setDayTime(time);
+            level.updateSkyBrightness();
+        }
+        caravan.discard();
+        context.succeed();
+    }
+
+    /**
      * Walking a trailer by hand slows the walker, more with a car on the bed,
      * and letting go gives them their pace back.
      */

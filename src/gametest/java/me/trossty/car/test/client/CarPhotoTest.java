@@ -50,6 +50,7 @@ public class CarPhotoTest {
             scenes.put("stands", this::stands);
             scenes.put("bedLoad", this::bedLoad);
             scenes.put("towTruck", this::towTruck);
+            scenes.put("caravan", this::caravan);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -2013,6 +2014,28 @@ public class CarPhotoTest {
         shot(context, server, "bed_load_above", 2.5, Y + 5.0, -6.0, 0, 40);
         shot(context, server, "bed_load_side", 9.0, Y + 2.6, -3.0, 60, 22);
         shot(context, server, "bed_load_trailer", 4.5, Y + 6.0, -2.0, 0, 55);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A caravan on a Jeep's tow ball, from the door side and from behind. */
+    private void caravan(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -25 20 %d 20 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d 4.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:13}".formatted(Y));
+        server.runCommand("summon car:trailer 0.5 %d -2.0 {Rotation:[0f,0f],Model:\"car:caravan\",Color:11}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 30);
+            var jeep = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                    e -> !(e instanceof me.trossty.car.entity.TrailerEntity)).get(0);
+            world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box, e -> true).get(0).hitch(jeep);
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "caravan_door", -9.0, Y + 2.5, -3.0, -90, 10);
+        shot(context, server, "caravan_rear", 6.0, Y + 3.5, -12.0, 30, 14);
+        shot(context, server, "caravan_front", -5.0, Y + 3.0, 10.0, -150, 14);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

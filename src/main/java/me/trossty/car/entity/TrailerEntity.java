@@ -178,6 +178,77 @@ public class TrailerEntity extends CarEntity {
         return defined == null || defined.takes().isEmpty() || defined.takes().contains(car.chassis());
     }
 
+    /** Whether there are beds in this: a caravan. */
+    public boolean isCamper() {
+        VehicleDefinition defined = this.getDefinition();
+        return defined != null && defined.camper();
+    }
+
+    /**
+     * Whether the player is at the front, by the drawbar, rather than round the
+     * body: there a click is for the hitch, at the door it is for the beds.
+     */
+    private boolean atDrawbar(Player player) {
+        float yaw = this.getYRot() * Mth.DEG_TO_RAD;
+        double ahead = (player.getX() - this.getX()) * -Mth.sin(yaw) + (player.getZ() - this.getZ()) * Mth.cos(yaw);
+        return ahead > this.couplerReach() * 0.6;
+    }
+
+    /**
+     * Turns in for the night in the caravan, as in a bed, but nobody's spawn
+     * moves with it: a caravan does not stay where it was slept in.
+     */
+    private InteractionResult sleepIn(Player player) {
+        if (!(player instanceof net.minecraft.server.level.ServerPlayer sleeper) || sleeper.isSleeping()) {
+            return InteractionResult.CONSUME;
+        }
+        String refused = this.level().isDay() && !this.level().isThundering() ? "block.minecraft.bed.no_sleep"
+                : !sleeper.isCreative() && !this.level().getEntitiesOfClass(
+                        net.minecraft.world.entity.monster.Monster.class, this.getBoundingBox().inflate(8.0, 5.0, 8.0),
+                        monster -> monster.isPreventingPlayerRest(sleeper)).isEmpty() ? "block.minecraft.bed.not_safe"
+                : null;
+        if (refused != null) {
+            sleeper.displayClientMessage(Component.translatable(refused), true);
+            return InteractionResult.CONSUME;
+        }
+        if (this.entityData.get(HOLDER) == sleeper.getId()) {
+            this.letGo();
+        }
+        sleeper.startSleeping(this.blockPosition());
+        sleeper.serverLevel().updateSleepingPlayerList();
+        return InteractionResult.CONSUME;
+    }
+
+    /** The caravan a sleeper has turned in in, if that is where they sleep. */
+    private static @Nullable TrailerEntity camperOf(net.minecraft.world.entity.LivingEntity sleeper) {
+        return sleeper.getSleepingPos()
+                .filter(pos -> !sleeper.level().getBlockState(pos).isBed(sleeper.level(), pos, sleeper))
+                .flatMap(pos -> sleeper.level().getEntitiesOfClass(TrailerEntity.class,
+                        new net.minecraft.world.phys.AABB(pos).inflate(1.0),
+                        trailer -> trailer.isCamper() && trailer.blockPosition().equals(pos)).stream().findFirst())
+                .orElse(null);
+    }
+
+    /** A caravan's beds stand in for a bed block: sleeping goes on there till morning. */
+    public static void keepSleeping(net.neoforged.neoforge.event.entity.player.CanContinueSleepingEvent event) {
+        if (event.getProblem() == Player.BedSleepingProblem.NOT_POSSIBLE_HERE && camperOf(event.getEntity()) != null) {
+            event.setContinueSleeping(true);
+        }
+    }
+
+    /** Waking in a caravan, out of its door: not left standing inside the body. */
+    public static void wakeUp(net.neoforged.neoforge.event.entity.player.PlayerWakeUpEvent event) {
+        Player player = event.getEntity();
+        TrailerEntity camper = camperOf(player);
+        if (camper == null) {
+            return;
+        }
+        float yaw = camper.getYRot() * Mth.DEG_TO_RAD;
+        double out = camper.getBbWidth() / 2.0 + 0.7;
+        // The door is on the right of the way it faces.
+        player.setPos(camper.getX() - Mth.cos(yaw) * out, camper.getY(), camper.getZ() - Mth.sin(yaw) * out);
+    }
+
     /** Only aircraft go on this: it is the tow dolly for a plane's nose wheel. */
     private boolean forPlanes() {
         VehicleDefinition defined = this.getDefinition();
@@ -698,6 +769,9 @@ public class TrailerEntity extends CarEntity {
         }
         if (this.level().isClientSide()) {
             return InteractionResult.SUCCESS;
+        }
+        if (this.isCamper() && !this.atDrawbar(player)) {
+            return this.sleepIn(player);
         }
         if (this.isHitched()) {
             this.hitchTo(null);

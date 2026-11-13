@@ -269,6 +269,7 @@
   "message.car.flatbed_full": "The bed is already loaded",
   "message.car.flatbed_occupied": "Somebody is still in it",
   "vehicle.car.hilux_tow": "Toyota Hilux Tow Truck",
+  "vehicle.car.caravan": "Caravan",
   "vehicle.car.wheel_lift": "Wheel Lift",
   "vehicle.car.tow_dolly": "Tow Dolly",
   "message.car.dolly_nothing": "Nothing to tow: back a car's nose up to the dolly",

@@ -269,6 +269,7 @@
   "message.car.flatbed_full": "Kasa zaten dolu",
   "message.car.flatbed_occupied": "İçinde hâlâ biri var",
   "vehicle.car.hilux_tow": "Toyota Hilux Çekici",
+  "vehicle.car.caravan": "Karavan",
   "vehicle.car.wheel_lift": "Tekerlek Kaldırıcı",
   "vehicle.car.tow_dolly": "Çekme Arabası",
   "message.car.dolly_nothing": "Çekilecek araç yok: bir otomobilin burnunu çekme arabasına yanaştır",
