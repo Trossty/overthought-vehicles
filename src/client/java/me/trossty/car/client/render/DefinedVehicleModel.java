@@ -53,6 +53,9 @@ public class DefinedVehicleModel extends VehicleModel {
     private static final float IDLE_FADE_SPEED = 0.08F;
 
     private static final String STEERING_WHEEL = "steering_wheel";
+    private static final String PROPELLER = "propeller";
+    /** A running propeller's turn, radians a tick: a blur, not a count. */
+    private static final float PROP_SPEED = 1.9F;
     private static final String STEERING_WHEEL_COLOUR = "#1E1E21";
     /** From the driver's seat to the middle of the wheel: up, and forwards. */
     private static final float WHEEL_RISE = 9.0F;
@@ -110,6 +113,8 @@ public class DefinedVehicleModel extends VehicleModel {
     private final ModelPart steerTurn;
     /** The steering wheel in the cabin, turned with the road wheels; null if there is none. */
     private final ModelPart steeringWheel;
+    /** The propeller, turned while the engine runs; null if nothing spins. */
+    private final ModelPart propeller;
     private final List<ModelPart> wheels = new ArrayList<>();
     private final List<ModelPart> steered = new ArrayList<>();
     /** Each wheel's size as {width, radius} scales, put back every frame. */
@@ -134,6 +139,9 @@ public class DefinedVehicleModel extends VehicleModel {
         this.steerTurn = turn;
         this.steeringWheel = this.chassis != null && this.chassis.getChild("frame").hasChild(STEERING_WHEEL)
                 ? this.chassis.getChild("frame").getChild(STEERING_WHEEL).getChild("turn")
+                : null;
+        this.propeller = this.chassis != null && this.chassis.getChild("frame").hasChild(PROPELLER)
+                ? this.chassis.getChild("frame").getChild(PROPELLER)
                 : null;
         for (int index = 0; this.chassis == null && index < definition.wheels().size(); index++) {
             ModelPart wheel = root.getChild("wheel" + index);
@@ -453,6 +461,24 @@ public class DefinedVehicleModel extends VehicleModel {
                     PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 45.0F * DEGREES));
         }
 
+        // A propeller turns about the middle of its first box: the spinner.
+        PartDefinition prop = null;
+        float propX = 0.0F;
+        float propY = 0.0F;
+        float propZ = 0.0F;
+        if (!glass && only == null) {
+            for (VehicleDefinition.Box box : definition.shape()) {
+                if (box.spins()) {
+                    propX = (box.from().x() + box.to().x()) / 2.0F;
+                    propY = -(box.from().y() + box.to().y()) / 2.0F;
+                    propZ = -(box.from().z() + box.to().z()) / 2.0F;
+                    prop = frame.addOrReplaceChild(PROPELLER, CubeListBuilder.create(),
+                            PartPose.offset(propX, propY, propZ));
+                    break;
+                }
+            }
+        }
+
         int count = 0;
         float[] lift = lifts(definition.shape());
         for (int index = 0; index < definition.shape().size(); index++) {
@@ -472,14 +498,19 @@ public class DefinedVehicleModel extends VehicleModel {
             int[] at = uv(colours, box.color());
             // Written about its own middle, so that a tilt turns it in place.
             boolean turns = box.steers() && steerHead != null;
-            (turns ? steerHead : frame).addOrReplaceChild("box" + count++,
+            boolean spins = box.spins() && prop != null;
+            PartDefinition parent = spins ? prop : turns ? steerHead : frame;
+            float offX = spins ? propX : turns ? hubX : 0.0F;
+            float offY = spins ? propY : turns ? -hubY : 0.0F;
+            float offZ = spins ? propZ : turns ? -hubZ : 0.0F;
+            parent.addOrReplaceChild("box" + count++,
                     CubeListBuilder.create().texOffs(at[0], at[1])
                             .addBox(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ,
                                     new net.minecraft.client.model.geom.builders.CubeDeformation(lift[index])),
-                    PartPose.offsetAndRotation(x + sizeX / 2.0F - (turns ? hubX : 0.0F),
-                            -(y + sizeY / 2.0F) + (turns ? hubY : 0.0F),
-                            -(z + sizeZ / 2.0F) + (turns ? hubZ : 0.0F),
-                            -box.tilt() * DEGREES, 0.0F, 0.0F));
+                    PartPose.offsetAndRotation(x + sizeX / 2.0F - offX,
+                            -(y + sizeY / 2.0F) - offY,
+                            -(z + sizeZ / 2.0F) - offZ,
+                            -box.tilt() * DEGREES, 0.0F, box.roll() * DEGREES));
         }
 
         return LayerDefinition.create(data, PALETTE * CELL, PALETTE * CELL).bakeRoot();
@@ -527,7 +558,7 @@ public class DefinedVehicleModel extends VehicleModel {
 
     private static boolean sharesFace(VehicleDefinition.Box a, VehicleDefinition.Box b,
                                       float[] aLo, float[] aHi, float[] bLo, float[] bHi) {
-        if (a.color().equals(b.color()) || a.tilt() != b.tilt()) {
+        if (a.color().equals(b.color()) || a.tilt() != b.tilt() || a.roll() != b.roll()) {
             return false;
         }
         for (int axis = 0; axis < 3; axis++) {
@@ -640,6 +671,9 @@ public class DefinedVehicleModel extends VehicleModel {
         }
         if (this.steerTurn != null) {
             this.steerTurn.yRot = steer;
+        }
+        if (this.propeller != null) {
+            this.propeller.zRot = state.engineRunning ? state.ageInTicks * PROP_SPEED % Mth.TWO_PI : 0.0F;
         }
         if (this.steeringWheel != null) {
             // Turning right swings the top of the rim to the right, which is

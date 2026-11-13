@@ -191,14 +191,21 @@ public record VehicleDefinition(
      * degrees: positive tips its top towards the back of the car, which is
      * what a windscreen does, and negative towards the front. {@code steers}
      * turns the box with the front wheel — a fork, handlebars, a headset.
+     * {@code roll} leans it about its own middle the other way, about the
+     * line from back to front, in degrees: positive lifts its left-hand end
+     * (+x) — a wing strut, a landing-gear leg. {@code spins} turns it with
+     * the engine about the middle of the first box that spins: a propeller.
      */
-    public record Box(org.joml.Vector3f from, org.joml.Vector3f to, String color, float tilt, boolean steers) {
+    public record Box(org.joml.Vector3f from, org.joml.Vector3f to, String color, float tilt, boolean steers,
+                      float roll, boolean spins) {
         public static final Codec<Box> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 ExtraCodecs.VECTOR3F.fieldOf("from").forGetter(Box::from),
                 ExtraCodecs.VECTOR3F.fieldOf("to").forGetter(Box::to),
                 Codec.STRING.optionalFieldOf("color", "paint").forGetter(Box::color),
                 Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("tilt", 0.0F).forGetter(Box::tilt),
-                Codec.BOOL.optionalFieldOf("steers", false).forGetter(Box::steers)
+                Codec.BOOL.optionalFieldOf("steers", false).forGetter(Box::steers),
+                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("roll", 0.0F).forGetter(Box::roll),
+                Codec.BOOL.optionalFieldOf("spins", false).forGetter(Box::spins)
         ).apply(instance, Box::new));
     }
 

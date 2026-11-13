@@ -73,6 +73,7 @@ public class CarPhotoTest {
             scenes.put("playtest", Playtest::run);
             scenes.put("tired", Playtest::tired);
             scenes.put("boat", Playtest::boat);
+            scenes.put("plane", this::plane);
             scenes.put("flight", Playtest::flight);
             String only = System.getProperty("car.photo.scenes", "");
             List<String> wanted = Boolean.getBoolean("car.photo.all") ? List.copyOf(scenes.keySet())
@@ -1511,6 +1512,21 @@ public class CarPhotoTest {
         }
         context.runOnClient(client -> client.options.hideGui = true);
         shot(context, server, "icons", 0.0, Y + 0.3, 20.0, 180, 0);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** The aircraft parked on grass from all round, and the propeller turning with somebody in it. */
+    private void plane(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -16 %d -10 16 %d 30 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -16 %d -10 16 %d 30 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("summon car:airplane 0.5 %d 10.5 {Rotation:[180f,0f]}".formatted(Y));
+        context.runOnClient(client -> client.options.hideGui = true);
+        shot(context, server, "plane_front34", -7.0, Y + 2.2, 2.5, -45, 12);
+        shot(context, server, "plane_side", -10.5, Y + 1.0, 10.5, -90, 3);
+        shot(context, server, "plane_front", 0.5, Y + 1.2, -1.0, 0, 5);
+        shot(context, server, "plane_back34", 6.5, Y + 2.6, 18.5, 140, 14);
+        shot(context, server, "plane_top", 0.5, Y + 12.0, 10.5, 0, 90);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 
