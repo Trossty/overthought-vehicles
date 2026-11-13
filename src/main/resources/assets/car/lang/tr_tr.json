@@ -234,6 +234,8 @@
   "tooltip.car.key_use": "Kilitlemek/açmak için eğilip araca tıkla",
   "tooltip.car.has_key": "Anahtarlı",
   "message.car.need_key": "Çalıştırmak için bu aracın anahtarı lazım",
+  "message.car.tyre_flat": "Lastik patladı! Değiştirmek için araca yedek lastikle tıkla",
+  "message.car.tyre_changed": "Yedek lastik takıldı",
   "message.car.locked": "Bu araç kilitli",
   "message.car.locked_now": "Kilitlendi",
   "message.car.unlocked_now": "Kilit açıldı",

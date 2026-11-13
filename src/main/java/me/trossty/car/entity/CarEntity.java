@@ -392,6 +392,10 @@ public class CarEntity extends VehicleEntity {
     private static final EntityDataAccessor<net.minecraft.nbt.CompoundTag> SHOWN_LOAD =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.COMPOUND_TAG);
 
+    /** Which wheel is flat, counted front left, front right, back left, back right; -1 for none. */
+    private static final EntityDataAccessor<Byte> FLAT_TYRE =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
+
     private String definitionKey = "";
     private me.trossty.car.vehicle.VehicleDefinition definition;
 
@@ -575,6 +579,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(COLOR, DEFAULT_COLOR.getId());
         builder.define(PAINT, -1);
         builder.define(LOCKED, false);
+        builder.define(FLAT_TYRE, (byte) -1);
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
@@ -803,6 +808,7 @@ public class CarEntity extends VehicleEntity {
                 this.setBrakeLamps(false);
             }
             this.wearParts();
+            this.tickPuncture();
             this.tickTemperature();
             this.tickWater();
         }
@@ -2242,6 +2248,79 @@ public class CarEntity extends VehicleEntity {
                 this.level().getBlockState(this.blockPosition().below()));
     }
 
+    // ---- punctures ----
+
+    /** What a flat leaves of the top speed. */
+    private static final float FLAT_SPEED = 0.45F;
+    /** Degrees a tick a flat pulls the car towards its side, at full grip. */
+    private static final float FLAT_PULL = 0.7F;
+    /** Below this much tread left, a tyre may go on its own. */
+    private static final float BALD = 0.15F;
+    /** The chance a tick that a bald tyre goes, at a car's cruising speed. */
+    private static final float BALD_PUNCTURE_CHANCE = 0.0006F;
+    /** The chance a tick that rolling over a cactus, a thorn bush or a spike lets a tyre down. */
+    private static final float SHARP_PUNCTURE_CHANCE = 0.3F;
+
+    public boolean hasFlatTyre() {
+        return this.entityData.get(FLAT_TYRE) >= 0;
+    }
+
+    /** Which wheel is flat (front left, front right, back left, back right), or -1. */
+    public int getFlatTyre() {
+        return this.entityData.get(FLAT_TYRE);
+    }
+
+    /** Lets a tyre down: which one, or -1 to have one changed by magic (commands, tests). */
+    public void setFlatTyre(int wheel) {
+        this.entityData.set(FLAT_TYRE, (byte) Mth.clamp(wheel, -1, 3));
+    }
+
+    /** Whether a block will cut a tyre that rolls over it. */
+    private static boolean isSharp(net.minecraft.world.level.block.state.BlockState state) {
+        return state.is(net.minecraft.world.level.block.Blocks.CACTUS)
+                || state.is(net.minecraft.world.level.block.Blocks.SWEET_BERRY_BUSH)
+                || state.is(net.minecraft.world.level.block.Blocks.POINTED_DRIPSTONE);
+    }
+
+    /**
+     * Tyres on the road go flat: rolled over something sharp, or worn down
+     * to the canvas. The car limps and pulls to that side until the wheel is
+     * changed — a spare wheel clicked on it, anywhere it stopped.
+     */
+    private void tickPuncture() {
+        if (this.hasFlatTyre() || !this.hasPart(CarPart.WHEELS) || !this.isFitted(CarPart.WHEELS)
+                || !this.onGround() || Math.abs(this.flyDist) < 0.05F) {
+            return;
+        }
+        boolean sharp = false;
+        net.minecraft.world.phys.AABB box = this.getBoundingBox();
+        for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(box.minX, box.minY - 0.1, box.minZ),
+                BlockPos.containing(box.maxX, box.minY + 0.5, box.maxZ))) {
+            if (isSharp(this.level().getBlockState(pos))) {
+                sharp = true;
+                break;
+            }
+        }
+        float chance = sharp ? SHARP_PUNCTURE_CHANCE : 0.0F;
+        if (this.getConditionFraction(CarPart.WHEELS) < BALD) {
+            chance += BALD_PUNCTURE_CHANCE * Math.min(2.0F, Math.abs(this.flyDist) / 0.4F);
+        }
+        if (chance <= 0.0F || this.random.nextFloat() >= chance) {
+            return;
+        }
+        int wheels = this.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.MOTORCYCLE ? 2 : 4;
+        this.setFlatTyre(this.random.nextInt(wheels));
+        this.playSound(SoundEvents.FIREWORK_ROCKET_BLAST, 1.2F, 0.5F);
+        if (this.getControllingPassenger() instanceof Player driver) {
+            driver.displayClientMessage(Component.translatable("message.car.tyre_flat"), true);
+        }
+    }
+
+    /** Whether rain is falling on the ground under the car: under a roof, it stays dry. */
+    public boolean isOnWetGround() {
+        return this.level().isRainingAt(this.blockPosition().above());
+    }
+
     /** How well the fitted tyres hold the ground the car is on. */
     public float getGrip() {
         // No tyres on anything: a hull in the water, or wheels up in the air.
@@ -2249,7 +2328,7 @@ public class CarEntity extends VehicleEntity {
             return 1.0F;
         }
         CarSetup.Surface surface = this.getSurface();
-        float grip = this.getTyre().grip(surface);
+        float grip = this.getTyre().grip(surface, this.isOnWetGround());
         float offroad = this.tuning().offroad();
         if (surface != CarSetup.Surface.ASPHALT && offroad > 0.0F && grip < 1.0F) {
             // Ground clearance and four driven wheels give back what the tyre loses.
@@ -2507,6 +2586,12 @@ public class CarEntity extends VehicleEntity {
      * own, fixed by its identity, as a real one always drifts the same way.
      */
     public float pull() {
+        // A flat drags the car hard over to its own side, whatever else is true.
+        float flat = this.hasFlatTyre() ? (this.entityData.get(FLAT_TYRE) % 2 == 0 ? -FLAT_PULL : FLAT_PULL) : 0.0F;
+        return flat + this.wornPull();
+    }
+
+    private float wornPull() {
         float worst = 1.0F;
         if (this.hasPart(CarPart.STEERING_RACK) && this.isFitted(CarPart.STEERING_RACK)) {
             worst = Math.min(worst, this.getConditionFraction(CarPart.STEERING_RACK));
@@ -2810,6 +2895,14 @@ public class CarEntity extends VehicleEntity {
         if (this.isLocked()) {
             // Whichever window or click it came from, a locked car keeps its parts.
             player.displayClientMessage(Component.translatable("message.car.locked"), true);
+            return InteractionResult.CONSUME;
+        }
+        if (part == CarPart.WHEELS && this.hasFlatTyre()) {
+            // One wheel off and the spare on, where it stopped: no lift for that.
+            this.entityData.set(FLAT_TYRE, (byte) -1);
+            spares.consume(1, player);
+            this.playSound(SoundEvents.ARMOR_EQUIP_IRON.value(), 1.0F, 0.8F);
+            player.displayClientMessage(Component.translatable("message.car.tyre_changed"), true);
             return InteractionResult.CONSUME;
         }
         Component name = Component.translatable("part.car." + part.key());
@@ -3717,7 +3810,9 @@ public class CarEntity extends VehicleEntity {
                 * (this.hasOpenFilter() ? CarSetup.OPEN_FILTER_SPEED : 1.0F)
                 // Wheels that are slipping do not reach the speed the engine could.
                 * (0.7F + 0.3F * this.traction())
-                * (this.isOverheating() ? OVERHEATING_POWER : 1.0F);
+                * (this.isOverheating() ? OVERHEATING_POWER : 1.0F)
+                // On a flat it limps: driven faster, the rim would cut the tyre up.
+                * (this.hasFlatTyre() ? FLAT_SPEED : 1.0F);
     }
 
     // ---- automatic gearbox ----
@@ -4260,6 +4355,7 @@ public class CarEntity extends VehicleEntity {
         this.setPaint(view.getIntOr("Paint", -1));
         this.lockCode = view.getLongOr("LockCode", 0L);
         this.entityData.set(LOCKED, this.lockCode != 0 && view.getBooleanOr("Locked", false));
+        this.entityData.set(FLAT_TYRE, (byte) Mth.clamp(view.getIntOr("FlatTyre", -1), -1, 3));
         this.setHealth(view.getFloatOr("Health", MAX_HEALTH));
         for (CarPart part : CarPart.values()) {
             this.setCondition(part, view.getFloatOr("Part" + part.key(), CarPart.MAX_CONDITION));
@@ -4289,6 +4385,9 @@ public class CarEntity extends VehicleEntity {
         view.putInt("Paint", this.getPaint());
         view.putLong("LockCode", this.lockCode);
         view.putBoolean("Locked", this.isLocked());
+        if (this.hasFlatTyre()) {
+            view.putInt("FlatTyre", this.entityData.get(FLAT_TYRE));
+        }
         view.putFloat("Health", this.getHealth());
         for (CarPart part : CarPart.values()) {
             view.putFloat("Part" + part.key(), this.getCondition(part));

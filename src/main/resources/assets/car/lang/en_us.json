@@ -234,6 +234,8 @@
   "tooltip.car.key_use": "Sneak + click the vehicle to lock or unlock",
   "tooltip.car.has_key": "Has a key",
   "message.car.need_key": "You need this vehicle's key to start it",
+  "message.car.tyre_flat": "A tyre has gone flat! Change it: click the car with a spare wheel",
+  "message.car.tyre_changed": "Spare wheel fitted",
   "message.car.locked": "This vehicle is locked",
   "message.car.locked_now": "Locked",
   "message.car.unlocked_now": "Unlocked",

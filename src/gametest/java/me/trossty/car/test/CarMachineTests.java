@@ -1060,6 +1060,25 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** A flat slows the car and pulls it to its side; a spare wheel clicked on fixes it where it stands. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void flatTyreAndSpare(GameTestHelper context) {
+        var car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 3));
+        float sound = car.getMaxSpeed();
+        context.assertTrue(car.pull() == 0.0F, "a new car pulled to one side");
+        car.setFlatTyre(0);
+        context.assertTrue(car.getMaxSpeed() < sound * 0.6F, "a flat did not slow the car");
+        context.assertTrue(car.pull() < 0.0F, "a flat front left did not pull the car left");
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        ItemStack spare = new ItemStack(me.trossty.car.registry.ModItems.WHEEL, 2);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, spare);
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertFalse(car.hasFlatTyre(), "the spare did not go on");
+        context.assertTrue(spare.getCount() == 1, "changing one wheel did not take one spare");
+        context.assertTrue(Math.abs(car.getMaxSpeed() - sound) < 1.0E-4F, "the car still limped on its spare");
+        context.succeed();
+    }
+
     /** A locked car stays where it is: the winch only takes it for someone with its key. */
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void winchLeavesLockedCars(GameTestHelper context) {

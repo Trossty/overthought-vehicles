@@ -213,29 +213,31 @@ public final class CarSetup {
     public enum Tyre {
 
         /** What a car comes with. Fine on a road, out of its depth off one. */
-        ROAD("road", 1.00F, 0.75F, 0.55F, 1.0F),
+        ROAD("road", 1.00F, 0.75F, 0.55F, 1.0F, 0.80F),
 
         /** Knobbly. At home in a field, a little vague on tarmac. */
-        DIRT("dirt", 0.88F, 1.00F, 0.75F, 1.1F),
+        DIRT("dirt", 0.88F, 1.00F, 0.75F, 1.1F, 0.85F),
 
         /** Soft and siped: the only one that bites on snow and ice. */
-        SNOW("snow", 0.85F, 0.85F, 1.00F, 1.2F),
+        SNOW("snow", 0.85F, 0.85F, 1.00F, 1.2F, 0.90F),
 
         /** Sticky on a hard road, wears fast, and useless on anything loose. */
-        SPORT("sport", 1.15F, 0.60F, 0.40F, 1.5F);
+        SPORT("sport", 1.15F, 0.60F, 0.40F, 1.5F, 0.65F);
 
         private final String key;
         private final float asphalt;
         private final float dirt;
         private final float snow;
         private final float wear;
+        private final float wet;
 
-        Tyre(String key, float asphalt, float dirt, float snow, float wear) {
+        Tyre(String key, float asphalt, float dirt, float snow, float wear, float wet) {
             this.key = key;
             this.asphalt = asphalt;
             this.dirt = dirt;
             this.snow = snow;
             this.wear = wear;
+            this.wet = wet;
         }
 
         /** The name used in {@code tyre.car.<key>}. */
@@ -251,6 +253,21 @@ public final class CarSetup {
                 case SNOW -> this.snow;
             };
         }
+
+        /**
+         * Of its grip, what it keeps in the rain: a road tyre's grooves clear
+         * water, a slick sport tyre aquaplanes, a snow tyre's sipes hold on.
+         * Rain on dirt is mud, and loses another share on top.
+         */
+        public float grip(Surface surface, boolean wet) {
+            if (!wet || surface == Surface.SNOW) {
+                return this.grip(surface);
+            }
+            return this.grip(surface) * this.wet * (surface == Surface.DIRT ? MUD : 1.0F);
+        }
+
+        /** What turns wet dirt to mud: what is left of a tyre's wet grip there. */
+        private static final float MUD = 0.85F;
 
         /** What the tyres' own wear is multiplied by. */
         public float wear() {
