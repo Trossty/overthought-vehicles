@@ -1129,13 +1129,9 @@ public class CarEntity extends VehicleEntity {
 
         boolean drifting = driver != null && this.pressingBrake && onGround && this.canDrift() && steerInput != 0.0F
                 && Math.abs(this.flyDist) > DRIFT_MIN_SPEED;
-        if (this.flyDist != 0.0F && steerInput != 0.0F) {
-            float grip = Math.min(1.0F, Math.abs(this.flyDist) / FULL_GRIP_SPEED);
-            float direction = this.flyDist < 0.0F ? -1.0F : 1.0F;
-            float tyres = this.steeringFactor();
-            this.setYRot(Mth.wrapDegrees(
-                    this.getYRot() + steerInput * MAX_TURN_RATE * tyres * grip * direction
-                            * (drifting ? DRIFT_TURN : 1.0F)));
+        float turn = this.turnRate(steerInput, drifting);
+        if (turn != 0.0F) {
+            this.setYRot(Mth.wrapDegrees(this.getYRot() + turn));
         }
 
         float pull = this.pull();
@@ -1747,6 +1743,39 @@ public class CarEntity extends VehicleEntity {
         double from = this.getY();
         this.move(MoverType.SELF, new Vec3(0.0, -STEP_DOWN, 0.0));
         this.followedDown = (float) (from - this.getY());
+    }
+
+    /**
+     * How far the steering turns it this tick, degrees, right positive: the
+     * front wheels' share of the speed, the tyres' condition, and a slide
+     * swinging the nose round further.
+     */
+    protected float turnRate(float steerInput, boolean drifting) {
+        if (this.flyDist == 0.0F || steerInput == 0.0F) {
+            return 0.0F;
+        }
+        float grip = Math.min(1.0F, Math.abs(this.flyDist) / FULL_GRIP_SPEED);
+        float direction = this.flyDist < 0.0F ? -1.0F : 1.0F;
+        return steerInput * MAX_TURN_RATE * this.steeringFactor() * grip * direction
+                * (drifting ? DRIFT_TURN : 1.0F);
+    }
+
+    /**
+     * Where a point given in the vehicle's own frame (left, up, forward)
+     * ends up once the body is pitched and banked as drawn, about the same
+     * middle the renderer turns it about.
+     */
+    public Vec3 withBodyAttitude(Vec3 local, float tickProgress) {
+        float pitch = this.getBodyPitch(tickProgress);
+        float roll = this.getBodyRoll(tickProgress);
+        if (pitch == 0.0F && roll == 0.0F) {
+            return local;
+        }
+        double middle = this.getBbHeight() / 2.0;
+        return local.subtract(0.0, middle, 0.0)
+                .zRot(-roll * Mth.DEG_TO_RAD)
+                .xRot(pitch * Mth.DEG_TO_RAD)
+                .add(0.0, middle, 0.0);
     }
 
     /** Nose up, degrees, as drawn: level for anything on wheels. */
@@ -3054,8 +3083,11 @@ public class CarEntity extends VehicleEntity {
         // base, their hips sit level with the cabin floor at 0.75 so the legs
         // rest on it, their eyes reach 1.62 — standing height, square in the
         // window band — and the head tops out at 2.0, under the 2.125 ceiling.
-        return this.seatPosition(Math.max(0, this.getPassengers().indexOf(passenger)))
-                .yRot(-this.getYRot() * ((float) Math.PI / 180.0F));
+        //
+        // An aircraft carries its seats with it as it noses up or banks, so
+        // the crew stay in the cabin rather than the cabin swinging round them.
+        Vec3 seat = this.seatPosition(Math.max(0, this.getPassengers().indexOf(passenger)));
+        return this.withBodyAttitude(seat, 1.0F).yRot(-this.getYRot() * ((float) Math.PI / 180.0F));
     }
 
     @Override
@@ -3773,13 +3805,35 @@ public class CarEntity extends VehicleEntity {
         this.setDeltaMovement(0.0, this.getDeltaMovement().y, 0.0);
         this.crashCooldown = CRASH_COOLDOWN;
 
-        float amount = (blocked - MIN_CRASH_SPEED) * CRASH_DAMAGE_PER_SPEED;
+        this.reportImpact((blocked - MIN_CRASH_SPEED) * CRASH_DAMAGE_PER_SPEED * this.crashFragility());
+    }
+
+    /** How much worse than a car's a crash is for this one: a light airframe crumples. */
+    protected float crashFragility() {
+        return 1.0F;
+    }
+
+    /**
+     * Bills an impact the simulating side saw: applied here on the server,
+     * reported to it from a driving client.
+     */
+    protected void reportImpact(float amount) {
+        if (amount <= 0.0F) {
+            return;
+        }
+        this.crashCooldown = CRASH_COOLDOWN;
         if (this.level() instanceof ServerLevel world) {
-            this.applyCarDamage(world, amount);
+            // The people first: a wreck throws them out, and then nobody is inside to hurt.
             this.hurtOccupants(amount);
+            this.applyCarDamage(world, amount);
         } else {
             CarNetworking.reportCrash(amount);
         }
+    }
+
+    /** True while a crash was billed a moment ago: the same impact is not billed twice. */
+    protected boolean recentlyCrashed() {
+        return this.crashCooldown > 0;
     }
 
     /**
@@ -3793,8 +3847,8 @@ public class CarEntity extends VehicleEntity {
         }
         this.crashCooldown = CRASH_COOLDOWN;
         float capped = Mth.clamp(amount, 0.0F, MAX_HEALTH);
-        this.applyCarDamage(world, capped);
         this.hurtOccupants(capped);
+        this.applyCarDamage(world, capped);
     }
 
     /** Below this much crash damage to the car, the people inside only feel a jolt. */
@@ -3863,11 +3917,16 @@ public class CarEntity extends VehicleEntity {
      * The car falls apart. It leaves scrap rather than the car item, so wrecking
      * one actually costs you something.
      */
+    /** Anything more a wreck makes of itself than smoke and a crunch: nothing, for a car. */
+    protected void wreckEffects(ServerLevel world) {
+    }
+
     private void wreck(ServerLevel world) {
         world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
                 SoundEvents.ANVIL_DESTROY, SoundSource.NEUTRAL, 0.9F, 0.8F);
         world.sendParticles(ParticleTypes.LARGE_SMOKE,
                 this.getX(), this.getY() + 0.9, this.getZ(), 30, 0.5, 0.4, 0.5, 0.02);
+        this.wreckEffects(world);
         this.kill();
         if (world.getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS)) {
             this.spawnAtLocation(new ItemStack(Items.IRON_INGOT, WRECK_SCRAP));

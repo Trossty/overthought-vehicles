@@ -153,7 +153,8 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             float middle = car.getBbHeight() / 2.0F;
             matrices.translate(0.0F, middle, 0.0F);
             matrices.mulPose(Axis.XP.rotationDegrees(pitch));
-            matrices.mulPose(Axis.ZP.rotationDegrees(roll));
+            // Banked right is the right wing down: the right side is -x here.
+            matrices.mulPose(Axis.ZP.rotationDegrees(-roll));
             matrices.translate(0.0F, -middle, 0.0F);
         }
 

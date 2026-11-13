@@ -10,8 +10,11 @@ import net.minecraft.world.entity.Entity;
  *
  * @param lean       degrees of lean about the vehicle's own forward axis
  * @param leanPivot  height of the lean's pivot above the rider's feet, in blocks
+ * @param pitch      degrees the vehicle's nose is up, which the rider goes with
+ * @param roll       degrees the vehicle is banked right, which the rider goes with
  */
-public record RiderPose(int grip, float steer, float lean, float leanPivot, float vehicleYaw) {
+public record RiderPose(int grip, float steer, float lean, float leanPivot, float vehicleYaw,
+                        float pitch, float roll) {
 
     /** Not at the controls: drawn the vanilla way. */
     public static final int GRIP_NONE = 0;
@@ -20,7 +23,7 @@ public record RiderPose(int grip, float steer, float lean, float leanPivot, floa
     /** Hands on handlebars, knees in. */
     public static final int GRIP_BARS = 2;
 
-    public static final RiderPose NONE = new RiderPose(GRIP_NONE, 0.0F, 0.0F, 0.0F, 0.0F);
+    public static final RiderPose NONE = new RiderPose(GRIP_NONE, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
 
     public static RiderPose of(Entity rider, float tickProgress) {
         if (!(rider.getVehicle() instanceof CarEntity vehicle)) {
@@ -33,6 +36,7 @@ public record RiderPose(int grip, float steer, float lean, float leanPivot, floa
         float lean = bike ? CarEntityRenderer.leanDegrees(steer, vehicle.getEngineSpeed()) : 0.0F;
         float pivot = CarEntityRenderer.LEAN_PIVOT
                 - (float) (rider.getPosition(tickProgress).y - vehicle.getPosition(tickProgress).y);
-        return new RiderPose(grip, steer, lean, pivot, vehicle.getViewYRot(tickProgress));
+        return new RiderPose(grip, steer, lean, pivot, vehicle.getViewYRot(tickProgress),
+                vehicle.getBodyPitch(tickProgress), vehicle.getBodyRoll(tickProgress));
     }
 }

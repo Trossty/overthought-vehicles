@@ -25,8 +25,12 @@ import net.minecraft.world.phys.Vec3;
  * A horn sounds in the cockpit while the speed is getting near it, and
  * banking into a turn brings the stall on sooner.
  *
- * <p>The pitch and bank are drawn, not simulated: the climb and the turn
- * are worked out from what it actually does.
+ * <p>In the air it turns by banking: the keys roll it over a little at a
+ * time and the bank swings the nose round, the way a real one does. The
+ * pitch is drawn from the climb it actually makes.
+ *
+ * <p>Arrive too steeply or too fast and the touchdown is a crash; a bad
+ * one writes it off, and it goes up in flames.
  */
 public class AirplaneEntity extends CarEntity {
 
@@ -65,13 +69,34 @@ public class AirplaneEntity extends CarEntity {
     private static final float GLIDE_DRAG = 0.996F;
     /** Steepest pitch drawn, degrees. */
     private static final float MAX_PITCH = 25.0F;
-    /** Bank per degree of turn a tick. */
-    private static final float BANK_PER_TURN = 6.0F;
-    private static final float MAX_BANK = 35.0F;
+    /** Steepest bank the ailerons hold, degrees. */
+    private static final float MAX_BANK = 30.0F;
+    /** How fast the ailerons roll it into a bank and out again, degrees a tick. */
+    private static final float ROLL_RATE = 2.5F;
+    /**
+     * Turn a bank makes, degrees a tick: tan(bank) over the speed, as a real
+     * coordinated turn, scaled so thirty degrees at cruise is a full circle
+     * in about seven seconds.
+     */
+    private static final float BANK_TURN = 2.7F;
+    /** Fastest it turns however slow and steep, degrees a tick. */
+    private static final float MAX_AIR_TURN = 4.0F;
+    /** Sink at touchdown a landing gear takes without harm, blocks a tick. */
+    private static final double SAFE_SINK = 0.12;
+    /** Damage for each block a tick of sink past that. */
+    private static final float SINK_DAMAGE = 120.0F;
+    /** Share of the flying speed past which touching down is flying into the ground. */
+    private static final float SAFE_TOUCHDOWN_LIFT = 1.35F;
+    /** Damage for each block a tick of speed past that. */
+    private static final float FAST_TOUCHDOWN_DAMAGE = 55.0F;
+    /** A light airframe against a car's steel: how much more a crash costs it. */
+    private static final float FRAGILITY = 3.0F;
 
     private boolean stalled;
     /** Which way a stall turns it: the wing that went first. */
     private float spinDirection = 1.0F;
+    /** The bank the ailerons have put in, degrees, right wing down positive: the flying side's own. */
+    private float flownBank;
     private float pitch;
     private float prevPitch;
     private float bank;
@@ -165,7 +190,65 @@ public class AirplaneEntity extends CarEntity {
 
     /** The lift share it stalls under: higher banked into a turn, where the wing carries more. */
     private float stallLift() {
-        return this.pressingLeft != this.pressingRight ? STALL_LIFT * TURN_STALL : STALL_LIFT;
+        return Mth.lerp(Math.abs(this.flownBank) / MAX_BANK, STALL_LIFT, STALL_LIFT * TURN_STALL);
+    }
+
+    /**
+     * In the air the keys work the ailerons, not a wheel: they roll it into
+     * a bank a little at a time, and the bank is what turns it — slowly at
+     * speed, tighter slow. Let go and it rolls back level and flies straight.
+     * On the ground it steers on its nose wheel like anything else.
+     */
+    @Override
+    protected float turnRate(float steerInput, boolean drifting) {
+        float target = this.isFlying() && !this.onGround() ? steerInput * MAX_BANK : 0.0F;
+        this.flownBank += Mth.clamp(target - this.flownBank, -ROLL_RATE, ROLL_RATE);
+        if (!this.isFlying() || this.onGround()) {
+            return super.turnRate(steerInput, drifting);
+        }
+        float speed = Math.max(Math.abs(this.getEngineSpeed()), 0.2F);
+        float turn = BANK_TURN * (float) Math.tan(this.flownBank * Mth.DEG_TO_RAD) / speed;
+        return Mth.clamp(turn, -MAX_AIR_TURN, MAX_AIR_TURN);
+    }
+
+    /** What a turn at this rate is banked by: the same rule backwards, for anyone watching. */
+    private float bankFor(float turn) {
+        double speed = Math.max(Math.abs(this.getEngineSpeed()), 0.2);
+        return (float) Math.toDegrees(Math.atan(turn * speed / BANK_TURN));
+    }
+
+    @Override
+    protected float crashFragility() {
+        return FRAGILITY;
+    }
+
+    /**
+     * Touching down: a gentle arrival is a landing, coming down too steeply
+     * or flying into the ground too fast is a crash, and a bad enough one is
+     * the end of the aircraft.
+     */
+    private void checkTouchdown(double sink) {
+        if (this.recentlyCrashed()) {
+            return;
+        }
+        float tooSteep = (float) Math.max(0.0, sink - SAFE_SINK) * SINK_DAMAGE;
+        float tooFast = Math.max(0.0F, Math.abs(this.getEngineSpeed()) - SAFE_TOUCHDOWN_LIFT * this.takeoffSpeed())
+                * FAST_TOUCHDOWN_DAMAGE;
+        this.reportImpact(tooSteep + tooFast);
+    }
+
+    /** A crashed aircraft goes up: its fuel catches. Nothing round it is blown apart. */
+    @Override
+    protected void wreckEffects(net.minecraft.server.level.ServerLevel world) {
+        world.playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
+                net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(),
+                net.minecraft.sounds.SoundSource.NEUTRAL, 1.2F, 0.9F);
+        world.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER,
+                this.getX(), this.getY() + 0.8, this.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+        world.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                this.getX(), this.getY() + 0.6, this.getZ(), 60, 1.6, 0.4, 1.6, 0.03);
+        world.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                this.getX(), this.getY() + 1.0, this.getZ(), 20, 1.2, 0.5, 1.2, 0.02);
     }
 
     /**
@@ -192,6 +275,7 @@ public class AirplaneEntity extends CarEntity {
             float rudder = (this.pressingRight ? 1.0F : 0.0F) - (this.pressingLeft ? 1.0F : 0.0F);
             // Steering already turns it by the rudder's own amount; this is
             // the stall's turn on top, which opposite rudder takes out.
+            this.flownBank += this.spinDirection * 1.5F;
             float spin = SPIN_RATE * (rudder == -this.spinDirection ? 0.0F : rudder == this.spinDirection ? 1.5F : 1.0F);
             this.setYRot(Mth.wrapDegrees(this.getYRot() + this.spinDirection * spin));
         }
@@ -259,7 +343,12 @@ public class AirplaneEntity extends CarEntity {
         }
         double yBefore = this.getY();
         float yawBefore = this.getYRot();
+        boolean airborne = !this.onGround() && this.getControllingPassenger() != null;
+        double sink = -this.getDeltaMovement().y;
         super.tick();
+        if (airborne && this.onGround() && this.isControlledByLocalInstance()) {
+            this.checkTouchdown(sink);
+        }
         // A glide is not a fall: only coming down without the wings counts,
         // and a stalled wing coming down that fast is not holding anything.
         if (!this.onGround() && this.lift() >= 0.8F && this.getY() - yBefore > -HARD_SINK) {
@@ -283,7 +372,10 @@ public class AirplaneEntity extends CarEntity {
                 turn = Mth.wrapDegrees(this.getYRot() - yawBefore);
             }
             this.pitch += (Mth.clamp(climb, -MAX_PITCH, MAX_PITCH) - this.pitch) * 0.2F;
-            this.bank += (Mth.clamp(turn * BANK_PER_TURN, -MAX_BANK, MAX_BANK) - this.bank) * 0.15F;
+            // Whoever flies it sees the bank they put in; anyone else, the
+            // bank its turn implies. A spinning stall banks it further.
+            float drawn = this.isControlledByLocalInstance() && !this.onGround() ? this.flownBank : this.bankFor(turn);
+            this.bank += (Mth.clamp(drawn, -MAX_BANK - 15.0F, MAX_BANK + 15.0F) - this.bank) * 0.3F;
         }
     }
 
@@ -293,7 +385,7 @@ public class AirplaneEntity extends CarEntity {
         return Mth.lerp(tickProgress, this.prevPitch, this.pitch);
     }
 
-    /** Into the turn, degrees, as drawn. */
+    /** Into the turn, right wing down positive, degrees, as drawn. */
     @Override
     public float getBodyRoll(float tickProgress) {
         return Mth.lerp(tickProgress, this.prevBank, this.bank);

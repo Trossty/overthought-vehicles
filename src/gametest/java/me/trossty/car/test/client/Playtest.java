@@ -465,6 +465,89 @@ final class Playtest {
         server.runCommand("gamemode creative @a");
     }
 
+    /** Up at cruise, then a climb and a banked turn: the crew should stay in their seats through both. */
+    static void airturn(ClientGameTestContext context, TestServerContext server) {
+        Class<me.trossty.car.entity.AirplaneEntity> plane = upAtCruise(context, server, 30.0);
+        context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+        context.getInput().holdKey(o -> o.keyJump);
+        context.getInput().holdKey(o -> o.keyUp);
+        context.waitTicks(25);
+        context.takeScreenshot("play_climb");
+        context.getInput().releaseKey(o -> o.keyJump);
+        log("climbing: " + attitude(context));
+        context.waitTicks(15);
+        for (int i = 0; i < 4; i++) {
+            context.getInput().holdKey(o -> o.keyRight);
+            context.waitTicks(4);
+            log("rolling in " + (i * 4 + 4) + "t: " + attitude(context));
+        }
+        context.waitTicks(10);
+        log("banked: " + attitude(context));
+        context.takeScreenshot("play_bank");
+        context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+        context.waitTicks(2);
+        context.takeScreenshot("play_bank_cockpit");
+        context.getInput().releaseKey(o -> o.keyRight);
+        context.waitTicks(16);
+        log("rolled out: " + attitude(context));
+        context.getInput().releaseKey(o -> o.keyUp);
+        server.runCommand("gamemode creative @a");
+    }
+
+    /** Nosed into the ground at speed: the aircraft is written off and the crew hurt. */
+    static void planeCrash(ClientGameTestContext context, TestServerContext server) {
+        Class<me.trossty.car.entity.AirplaneEntity> plane = upAtCruise(context, server, 8.0);
+        context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+        context.getInput().holdKey(o -> o.keyDown);
+        context.getInput().holdKey(o -> o.keyUp);
+        for (int i = 0; i < 40 && context.computeOnClient(client -> client.player.getVehicle() != null); i++) {
+            context.waitTicks(5);
+            log("diving: " + where(server, plane) + ", " + attitude(context));
+        }
+        context.getInput().releaseKey(o -> o.keyDown);
+        context.getInput().releaseKey(o -> o.keyUp);
+        context.waitTicks(2);
+        context.takeScreenshot("play_crash");
+        context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+        int[] left = new int[1];
+        server.runOnServer(minecraft -> left[0] = minecraft.overworld().getEntitiesOfClass(plane,
+                new AABB(100, Y - 30, -60, 220, Y + 60, 260), e -> true).size());
+        log("after the crash: planes left " + left[0] + ", pilot hp "
+                + context.computeOnClient(client -> "%.1f".formatted(client.player.getHealth())));
+        server.runCommand("gamemode creative @a");
+    }
+
+    /** A cleared strip, a plane boarded, and put up high at cruising speed by the side flying it. */
+    private static Class<me.trossty.car.entity.AirplaneEntity> upAtCruise(ClientGameTestContext context,
+                                                                         TestServerContext server, double height) {
+        server.runCommand("kill @e[type=!player]");
+        server.runCommand("time set noon");
+        server.runCommand("gamemode survival @a");
+        server.runCommand("effect give @a minecraft:resistance 30 2");
+        for (int z = -20; z < 180; z += 100) {
+            server.runCommand("fill 150 %d %d 170 %d %d minecraft:grass_block".formatted(Y - 1, z, Y - 1, z + 99));
+            server.runCommand("fill 150 %d %d 170 %d %d minecraft:air".formatted(Y, z, Y + 40, z + 99));
+        }
+        Class<me.trossty.car.entity.AirplaneEntity> plane = me.trossty.car.entity.AirplaneEntity.class;
+        board(context, server, me.trossty.car.registry.ModEntities.AIRPLANE, plane, 160.5, Y, 0.5);
+        context.runOnClient(client -> {
+            CarEntity v = (CarEntity) client.player.getVehicle();
+            v.setPos(v.getX(), v.getY() + height, v.getZ());
+            v.setSpeed(0.62F);
+        });
+        hold(context, server, plane, "cruise", 10, o -> o.keyUp);
+        return plane;
+    }
+
+    /** Heading, bank and pitch as the pilot sees them, and where the pilot sits against the plane. */
+    private static String attitude(ClientGameTestContext context) {
+        return context.computeOnClient(client -> client.player.getVehicle() instanceof CarEntity v
+                ? "yaw %.1f bank %.1f pitch %.1f, pilot off seat %.2f %.2f %.2f".formatted(v.getYRot(),
+                        v.getBodyRoll(1.0F), v.getBodyPitch(1.0F), client.player.getX() - v.getX(),
+                        client.player.getY() - v.getY(), client.player.getZ() - v.getZ())
+                : "not aboard");
+    }
+
     /** Whether the plane is stalled, and whether the horn is going, as its pilot sees it. */
     private static String stallState(ClientGameTestContext context) {
         return context.computeOnClient(client -> client.player.getVehicle()
