@@ -92,5 +92,46 @@
         "stream": false
       }
     ]
+  },
+  "engine_start": {
+    "category": "neutral",
+    "subtitle": "subtitles.car.engine_start",
+    "sounds": [
+      "car:engine_start"
+    ]
+  },
+  "backfire": {
+    "category": "neutral",
+    "subtitle": "subtitles.car.backfire",
+    "sounds": [
+      "car:backfire"
+    ]
+  },
+  "blowoff": {
+    "category": "neutral",
+    "subtitle": "subtitles.car.blowoff",
+    "sounds": [
+      "car:blowoff"
+    ]
+  },
+  "engine_propeller": {
+    "category": "neutral",
+    "subtitle": "subtitles.car.engine_propeller",
+    "sounds": [
+      {
+        "name": "car:engine_propeller",
+        "stream": false
+      }
+    ]
+  },
+  "engine_outboard": {
+    "category": "neutral",
+    "subtitle": "subtitles.car.engine_outboard",
+    "sounds": [
+      {
+        "name": "car:engine_outboard",
+        "stream": false
+      }
+    ]
   }
 }

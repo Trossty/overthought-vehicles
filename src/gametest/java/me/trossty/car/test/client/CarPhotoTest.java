@@ -72,6 +72,8 @@ public class CarPhotoTest {
             scenes.put("nightRoad", this::nightRoad);
             scenes.put("playtest", Playtest::run);
             scenes.put("tired", Playtest::tired);
+            scenes.put("boat", Playtest::boat);
+            scenes.put("flight", Playtest::flight);
             String only = System.getProperty("car.photo.scenes", "");
             List<String> wanted = Boolean.getBoolean("car.photo.all") ? List.copyOf(scenes.keySet())
                     : only.isBlank() ? List.of() : List.of(only.split(","));
@@ -1493,9 +1495,11 @@ public class CarPhotoTest {
                 {"car:car", "car:ford_mustang"},
                 {"car:pickup", "car:toyota_hilux"},
                 {"car:fuel_tanker", "car:mercedes_atego"},
+                {"car:motorboat", "car:bayliner_bowrider"},
+                {"car:airplane", "car:cessna_172"},
         };
         for (int i = 0; i < items.length; i++) {
-            double x = -5.0 + i * 2.0;
+            double x = -7.0 + i * 2.0;
             for (int row = 0; row < 2; row++) {
                 String color = row == 0 ? "" : ",\"car:color\":14";
                 server.runCommand(("summon minecraft:item_display %.1f %.1f 12.5 {item_display:\"gui\","

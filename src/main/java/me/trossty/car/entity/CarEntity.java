@@ -426,6 +426,10 @@ public class CarEntity extends VehicleEntity {
     private static final double EXHAUST_SIDEWAYS = 0.34;
     private static final double EXHAUST_HEIGHT = 0.3;
     private static final double EXHAUST_BACK = -1.3;
+    /** Below this engine temperature the exhaust steams white. */
+    private static final float COLD_EXHAUST = 0.2F;
+    /** Speed gained in a tick, blocks per tick, that has a diesel blowing soot. */
+    private static final float DIESEL_SOOT_GAIN = 0.008F;
 
     /** Minimum ticks between two horn blasts. */
     private static final int HORN_COOLDOWN_TICKS = 12;
@@ -438,14 +442,18 @@ public class CarEntity extends VehicleEntity {
     private float lerpXRot;
     private int lerpSteps;
 
-    private boolean pressingForward;
-    private boolean pressingBack;
+    protected boolean pressingForward;
+    protected boolean pressingBack;
     private boolean pressingLeft;
     private boolean pressingRight;
-    private boolean pressingBrake;
+    protected boolean pressingBrake;
 
     /** Signed speed, only meaningful on the logical side. */
     private float flyDist;
+    /** Engine speed when the exhaust last looked, to see the car pulling hard. */
+    private float exhaustSpeed;
+    private me.trossty.car.vehicle.VehicleDefinition exhaustFor;
+    private Vec3 exhaustAt = new Vec3(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK);
     private float wheelAngle;
     private float lastWheelAngle;
     private float steerAngle;
@@ -658,7 +666,7 @@ public class CarEntity extends VehicleEntity {
         return me.trossty.car.vehicle.VehicleDefinition.Chassis.CAR;
     }
 
-    private me.trossty.car.vehicle.VehicleDefinition.Performance tuning() {
+    protected me.trossty.car.vehicle.VehicleDefinition.Performance tuning() {
         me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
         return defined == null
                 ? me.trossty.car.vehicle.VehicleDefinition.Performance.PLAIN : defined.performance();
@@ -1067,7 +1075,10 @@ public class CarEntity extends VehicleEntity {
         boolean onGround = this.onGround();
         LivingEntity driver = this.getControllingPassenger();
 
-        if (driver != null) {
+        if (driver != null && this.isFlying()) {
+            // Off the ground the wheel brakes grip nothing: only the throttle counts.
+            this.flyDist = this.airspeed(this.flyDist, this.pressingForward && this.hasFuel() && this.canRun());
+        } else if (driver != null) {
             if (!this.hasFuel() || !this.canRun()) {
                 // Dry tank, a missing essential or a flat battery: the throttle
                 // does nothing, but the car still rolls and steers, so you can
@@ -1099,10 +1110,7 @@ public class CarEntity extends VehicleEntity {
             this.flyDist *= onGround ? ROLLING_FRICTION : AIR_DRAG;
         }
 
-        if (this.isInWater()) {
-            // Wading: the water holds the car back, hard.
-            this.flyDist = Mth.clamp(this.flyDist * WATER_DRAG, -WADE_SPEED, WADE_SPEED);
-        }
+        this.flyDist = this.limitSpeed(this.flyDist);
 
         if (Math.abs(this.flyDist) < SPEED_EPSILON) {
             this.flyDist = 0.0F;
@@ -1140,17 +1148,12 @@ public class CarEntity extends VehicleEntity {
         // it is pointing. In the air nothing turns the travel at all.
         if (Float.isNaN(this.travelYaw) || Math.abs(this.flyDist) < 0.05F) {
             this.travelYaw = this.getYRot();
-        } else if (onGround) {
+        } else if (this.hasGrip(onGround)) {
             this.travelYaw = Mth.rotLerp(
                     drifting ? DRIFT_GRIP : NORMAL_GRIP, this.travelYaw, this.getYRot());
         }
         float yawRad = this.travelYaw * ((float) Math.PI / 180.0F);
-        // 0.98 is vanilla's vertical drag; without it a long fall accelerates forever.
-        double velocityY = (this.getDeltaMovement().y - this.getGravity()) * 0.98;
-        if (onGround && velocityY < 0.0) {
-            // Keep the car pinned to the ground instead of jittering on it.
-            velocityY = -0.04;
-        }
+        double velocityY = this.verticalMotion(onGround);
         this.setDeltaMovement(
                 -Mth.sin(yawRad) * this.flyDist,
                 velocityY,
@@ -1159,6 +1162,46 @@ public class CarEntity extends VehicleEntity {
         if (this.horizontalCollision) {
             this.flyDist *= 0.5F;
         }
+    }
+
+    /** Off the ground and held up by the air: only a plane ever is. */
+    protected boolean isFlying() {
+        return false;
+    }
+
+    /** Speed in the air, throttle open or not: only asked while {@link #isFlying}. */
+    protected float airspeed(float speed, boolean throttle) {
+        return speed;
+    }
+
+    /** What the surroundings allow of this speed: anything on wheels only wades through water. */
+    protected float limitSpeed(float speed) {
+        if (this.isInWater()) {
+            // Wading: the water holds the car back, hard.
+            return Mth.clamp(speed * WATER_DRAG, -WADE_SPEED, WADE_SPEED);
+        }
+        return speed;
+    }
+
+    /** Whether it goes where it points: tyres on the ground do that, nothing in the air does. */
+    protected boolean hasGrip(boolean onGround) {
+        return onGround;
+    }
+
+    /** Up and down this tick: gravity, and the ground holding it up. */
+    protected double verticalMotion(boolean onGround) {
+        // 0.98 is vanilla's vertical drag; without it a long fall accelerates forever.
+        double velocityY = (this.getDeltaMovement().y - this.getGravity()) * 0.98;
+        if (onGround && velocityY < 0.0) {
+            // Keep the car pinned to the ground instead of jittering on it.
+            velocityY = -0.04;
+        }
+        return velocityY;
+    }
+
+    /** Whether deep water drowns it: anything with its intake in the hull, not a boat. */
+    protected boolean floods() {
+        return true;
     }
 
     /**
@@ -1693,6 +1736,16 @@ public class CarEntity extends VehicleEntity {
         this.followedDown = (float) (from - this.getY());
     }
 
+    /** Nose up, degrees, as drawn: level for anything on wheels. */
+    public float getBodyPitch(float tickProgress) {
+        return 0.0F;
+    }
+
+    /** Banked to the right, degrees, as drawn: level for anything on wheels. */
+    public float getBodyRoll(float tickProgress) {
+        return 0.0F;
+    }
+
     public float getStepOffset(float tickProgress) {
         return Mth.lerp(tickProgress, this.prevStepOffset, this.stepOffset);
     }
@@ -1720,8 +1773,8 @@ public class CarEntity extends VehicleEntity {
             }
             this.coughExhaust();
             this.level().playLocalSound(this.getX(), this.getY() + 0.5, this.getZ(),
-                    SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL, 0.5F,
-                    0.6F + this.random.nextFloat() * 0.2F, false);
+                    ModSounds.BACKFIRE, SoundSource.NEUTRAL, 0.7F,
+                    0.85F + this.random.nextFloat() * 0.3F, false);
             return;
         }
         if (status == STATUS_SPUTTER) {
@@ -1845,7 +1898,7 @@ public class CarEntity extends VehicleEntity {
      * without a single one of those rules having to know about quality.
      */
     private void wear(CarPart part, float amount) {
-        if (amount > 0.0F && this.isFitted(part)) {
+        if (amount > 0.0F && this.hasPart(part) && this.isFitted(part)) {
             this.setCondition(part, Math.max(CarPart.WORN_OUT,
                     this.getCondition(part) - amount * this.getQuality(part).wearFactor() * this.ageFactor(part)
                             * (float) me.trossty.car.CarConfig.get().partWear));
@@ -2074,7 +2127,7 @@ public class CarEntity extends VehicleEntity {
                 // A diesel lights itself.
                 continue;
             }
-            if (part.essential() && !this.isFitted(part)) {
+            if (part.essential() && this.hasPart(part) && !this.isFitted(part)) {
                 return part;
             }
         }
@@ -2104,7 +2157,7 @@ public class CarEntity extends VehicleEntity {
      * vehicle, and a car is not something to sit in at the bottom of a lake.
      */
     private void tickWater() {
-        if (this.getFluidHeight(net.minecraft.tags.FluidTags.WATER) >= FLOOD_DEPTH) {
+        if (this.floods() && this.getFluidHeight(net.minecraft.tags.FluidTags.WATER) >= FLOOD_DEPTH) {
             this.floodedTicks = DRY_OUT_TICKS;
         } else if (this.floodedTicks > 0) {
             this.floodedTicks--;
@@ -2121,11 +2174,24 @@ public class CarEntity extends VehicleEntity {
             }
         }
         for (Entity passenger : List.copyOf(this.getPassengers())) {
-            if (passenger instanceof LivingEntity living && living.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)
+            if (passenger instanceof LivingEntity living && eyeUnderWater(living)
                     && !living.canBreatheUnderwater()) {
                 living.stopRiding();
             }
         }
+    }
+
+    /**
+     * Whether the water is over this rider's eyes where they sit now. Their
+     * own flag is from their last tick, before they climbed in: somebody
+     * swimming up to a boat would be thrown straight back out by it.
+     */
+    private static boolean eyeUnderWater(LivingEntity living) {
+        Vec3 eye = living.getEyePosition();
+        net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(eye);
+        net.minecraft.world.level.material.FluidState fluid = living.level().getFluidState(at);
+        return fluid.is(net.minecraft.tags.FluidTags.WATER)
+                && eye.y < at.getY() + fluid.getHeight(living.level(), at);
     }
 
     /**
@@ -3773,34 +3839,69 @@ public class CarEntity extends VehicleEntity {
      * only outward sign that a parked car with somebody in it is still running.
      */
     private void emitExhaust() {
-        if (!this.isEngineRunning()) {
+        float speed = Math.abs(this.getEngineSpeed());
+        float gained = speed - this.exhaustSpeed;
+        this.exhaustSpeed = speed;
+        if (!this.isEngineRunning() || this.isElectric()) {
+            // A battery and a motor have no tailpipe.
             return;
         }
-        float speed = Math.abs(this.getEngineSpeed());
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        Vec3 at = this.position().add(this.exhaustOffset().yRot(-yawRad));
+        // Trails out behind the car rather than hanging where it was made.
+        double drift = -0.04 - speed * 0.5;
+        double driftX = -Mth.sin(yawRad) * drift;
+        double driftZ = Mth.cos(yawRad) * drift;
+
+        // A diesel worked hard off the line blows a cloud of soot.
+        if (gained > DIESEL_SOOT_GAIN && !this.getEngineFuel().needsSpark() && this.random.nextInt(2) == 0) {
+            for (int i = 0; i < 2; i++) {
+                this.level().addParticle(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z,
+                        driftX + (this.random.nextDouble() - 0.5) * 0.04, 0.03,
+                        driftZ + (this.random.nextDouble() - 0.5) * 0.04);
+            }
+        }
         if (this.random.nextInt(speed < 0.05F ? 7 : 2) != 0) {
             return;
         }
-
-        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
-        Vec3 at = this.position()
-                .add(new Vec3(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK).yRot(-yawRad));
-        // Trails out behind the car rather than hanging where it was made.
-        double drift = -0.04 - speed * 0.5;
         // A worn engine burns its oil: thick smoke, worse the harder it works.
         boolean burningOil = this.hasPart(CarPart.ENGINE)
                 && this.getConditionFraction(CarPart.ENGINE) <= FaultCodes.WARNING;
+        // Cold, the water in the exhaust comes out as white steam until it warms through.
+        boolean cold = this.getEngineTemp() < COLD_EXHAUST;
         this.level().addParticle(
                 burningOil ? ParticleTypes.LARGE_SMOKE
+                        : cold ? ParticleTypes.WHITE_SMOKE
                         : speed > 0.25F ? ParticleTypes.SMOKE : ParticleTypes.CAMPFIRE_COSY_SMOKE,
-                at.x, at.y, at.z,
-                -Mth.sin(yawRad) * drift, 0.015, Mth.cos(yawRad) * drift);
+                at.x, at.y, at.z, driftX, 0.015, driftZ);
+    }
+
+    /**
+     * Where the tailpipe ends, in the vehicle's own frame (x across, z towards
+     * the front, in blocks): just behind its own tail, so a long lorry does not
+     * puff from the middle of its load bed and a scooter not from thin air.
+     */
+    protected Vec3 exhaustOffset() {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        if (defined != this.exhaustFor) {
+            this.exhaustFor = defined;
+            this.exhaustAt = new Vec3(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK);
+            if (defined != null) {
+                float rear = Float.MAX_VALUE;
+                for (me.trossty.car.vehicle.VehicleDefinition.Box box : defined.shape()) {
+                    rear = Math.min(rear, Math.min(box.from().z(), box.to().z()));
+                }
+                double side = Math.min(EXHAUST_SIDEWAYS, defined.width() / 2.0 - 0.15);
+                this.exhaustAt = new Vec3(side, EXHAUST_HEIGHT, rear / 16.0 - 0.05);
+            }
+        }
+        return this.exhaustAt;
     }
 
     /** A black puff out of the tailpipe: the engine coughing on air. */
     private void coughExhaust() {
         float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
-        Vec3 at = this.position()
-                .add(new Vec3(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK).yRot(-yawRad));
+        Vec3 at = this.position().add(this.exhaustOffset().yRot(-yawRad));
         for (int i = 0; i < 4; i++) {
             this.level().addParticle(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z,
                     (this.random.nextDouble() - 0.5) * 0.05, 0.02, (this.random.nextDouble() - 0.5) * 0.05);

@@ -43,6 +43,21 @@ public final class ModSounds {
     /** An electric motor's inverter whine: no firing, just a clean rising tone. */
     public static final SoundEvent ENGINE_ELECTRIC = register("engine_electric");
 
+    /** The starter cranking and the engine catching, once, as somebody gets in. */
+    public static final SoundEvent ENGINE_START = register("engine_start");
+
+    /** A pop out of the tailpipe: a misfire, or unburnt fuel lighting off on a lift. */
+    public static final SoundEvent BACKFIRE = register("backfire");
+
+    /** A turbo's blow-off valve letting the boost go as the throttle shuts. */
+    public static final SoundEvent BLOWOFF = register("blowoff");
+
+    /** A light aircraft's engine and propeller, looped. */
+    public static final SoundEvent ENGINE_PROPELLER = register("engine_propeller");
+
+    /** An outboard motor, looped. */
+    public static final SoundEvent ENGINE_OUTBOARD = register("engine_outboard");
+
     /** A generator set running, played now and then while it burns. */
     public static final SoundEvent GENERATOR_HUM = register("generator_hum");
 

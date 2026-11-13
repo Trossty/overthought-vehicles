@@ -257,6 +257,12 @@
   "item.car.motorcycle": "Motorcycle",
   "entity.car.motorcycle": "Motorcycle",
   "vehicle.car.vespa_primavera": "Vespa Primavera",
+  "item.car.motorboat": "Motorboat",
+  "entity.car.motorboat": "Motorboat",
+  "item.car.airplane": "Airplane",
+  "entity.car.airplane": "Airplane",
+  "vehicle.car.bayliner_bowrider": "Bayliner Bowrider",
+  "vehicle.car.cessna_172": "Cessna 172",
   "vehicle.car.honda_cbr600rr": "Honda CBR600RR",
   "message.car.low_fuel": "Fuel low — about %s to go",
   "message.car.tank_holed": "The tank is holed! Fuel is leaking",
@@ -431,5 +437,10 @@
   "message.car.tank_level": "Tank: %s",
   "block.car.fuel_drum": "Fuel Drum",
   "message.car.drum_empty": "Empty drum · %s B",
-  "message.car.drum_contents": "%s · %s / %s B"
+  "message.car.drum_contents": "%s · %s / %s B",
+  "subtitles.car.engine_start": "Engine starts",
+  "subtitles.car.backfire": "Exhaust pops",
+  "subtitles.car.blowoff": "Turbo blows off",
+  "subtitles.car.engine_propeller": "Propeller drones",
+  "subtitles.car.engine_outboard": "Outboard buzzes"
 }

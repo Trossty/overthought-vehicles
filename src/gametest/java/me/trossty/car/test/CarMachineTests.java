@@ -884,6 +884,30 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** A motorboat put on deep water floats at its waterline and its engine stays dry; it has no wheels to need. */
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void motorboatFloats(GameTestHelper context) {
+        for (int x = 0; x < 6; x++) {
+            for (int z = 0; z < 6; z++) {
+                for (int y = 1; y <= 3; y++) {
+                    context.setBlock(new BlockPos(x, y, z), net.minecraft.world.level.block.Blocks.WATER);
+                }
+            }
+        }
+        me.trossty.car.entity.MotorboatEntity boat = context.spawn(
+                me.trossty.car.registry.ModEntities.MOTORBOAT, new net.minecraft.world.phys.Vec3(3.0, 4.5, 3.0));
+        context.runAtTickTime(100, () -> {
+            double surface = context.absolutePos(new BlockPos(0, 3, 0)).getY() + 8.0 / 9.0;
+            double sunk = surface - boat.getY();
+            context.assertTrue(sunk > 0.2 && sunk < 0.5, "the boat sits %.2f below the surface".formatted(sunk));
+            context.assertTrue(!boat.isFlooded(), "the water drowned an outboard");
+            context.assertTrue(boat.missingEssential() == null,
+                    "a boat is missing " + boat.missingEssential());
+            context.assertTrue(!boat.hasPart(me.trossty.car.entity.CarPart.WHEELS), "a boat has wheels");
+            context.succeed();
+        });
+    }
+
     /** The clipboard reads nothing off a car standing on its wheels: no lift, no service window. */
     @GameTest(template = "empty")
     public static void clipboardNeedsALift(GameTestHelper context) {

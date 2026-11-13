@@ -38,12 +38,26 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
     private static final int LOST_TICKS = 40;
     /** The loop each car has playing, so there is only ever one. */
     private static final java.util.Map<CarEntity, CarEngineSoundInstance> PLAYING = new java.util.WeakHashMap<>();
+    /** The cars whose engines were running last tick, to hear them start. */
+    private static final java.util.Set<CarEntity> RUNNING =
+            java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+    /** When each car's engine last started: the loop waits while the starter turns it over. */
+    private static final java.util.Map<CarEntity, Long> STARTED = new java.util.WeakHashMap<>();
+    /** How long the starter cranks before the engine catches, in ticks. */
+    private static final int CRANK_TICKS = 15;
+    /** A drop in revs this big in one tick is the throttle snapping shut. */
+    private static final float LIFT_DROP = 0.12F;
+    /** Revs, as a share of the redline, the engine has to be above for a lift to pop or blow off. */
+    private static final float LIFT_FROM = 0.6F;
 
     private final CarEntity car;
     private final Voice voice;
     private int quiet;
     private long tickedAt;
     private float throttle;
+    /** Last tick's revs, to hear the throttle shut. */
+    private float lastRevs;
+    private int popCooldown;
     /** Distance rolled since the last crunch from the road. */
     private float rolled;
 
@@ -57,8 +71,19 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         long now = level.getGameTime();
         PLAYING.values().removeIf(sound -> sound.isStopped());
         for (net.minecraft.world.entity.Entity entity : level.entitiesForRendering()) {
-            if (!(entity instanceof CarEntity car) || car instanceof me.trossty.car.entity.TrailerEntity
-                    || !audible(car)) {
+            if (!(entity instanceof CarEntity car) || car instanceof me.trossty.car.entity.TrailerEntity) {
+                continue;
+            }
+            boolean running = running(car);
+            if (running && RUNNING.add(car) && !car.isElectric()) {
+                // Somebody got in and turned the key: crank, catch.
+                STARTED.put(car, now);
+                level.playLocalSound(car.getX(), car.getY() + 0.5, car.getZ(), ModSounds.ENGINE_START,
+                        SoundSource.NEUTRAL, 0.9F, Voice.of(car) == Voice.DIESEL ? 0.85F : 1.0F, false);
+            } else if (!running) {
+                RUNNING.remove(car);
+            }
+            if (!audible(car)) {
                 continue;
             }
             CarEngineSoundInstance playing = PLAYING.get(car);
@@ -154,6 +179,7 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
                 ? Mth.clamp(this.car.getEngineRpm() / this.car.getRedlineRpm(), 0.0F, 1.0F)
                 : 0.0F;
 
+        this.lift(revs);
         this.throttle = Mth.lerp(0.45F, this.throttle, revs);
         this.road();
         this.pitch = Mth.lerp(this.throttle, IDLE_PITCH * this.voice.idlePitch, MAX_PITCH * this.voice.maxPitch);
@@ -167,6 +193,40 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         // The box lifts off the drive for a gear change: the note drops and
         // eases for a moment before it pulls again.
         this.volume *= 1.0F - SHIFT_DIP * this.car.getShift();
+        // Still on the starter: the loop comes in as the engine catches.
+        Long started = STARTED.get(this.car);
+        if (started != null) {
+            long since = this.tickedAt - started;
+            this.volume *= Mth.clamp((since - CRANK_TICKS + 4) / 4.0F, 0.0F, 1.0F);
+        }
+    }
+
+    /**
+     * The throttle snapping shut from high revs: a turbo blows its boost off,
+     * and a big engine, or a tired one, pops through the exhaust.
+     */
+    private void lift(float revs) {
+        if (this.popCooldown > 0) {
+            this.popCooldown--;
+        }
+        boolean lifted = this.lastRevs > LIFT_FROM && this.lastRevs - revs > LIFT_DROP;
+        this.lastRevs = revs;
+        if (!lifted || this.popCooldown > 0 || this.car.isElectric()) {
+            return;
+        }
+        this.popCooldown = 30;
+        var random = this.car.getRandom();
+        if (this.car.hasTurbo()) {
+            this.car.level().playLocalSound(this.x, this.y, this.z, ModSounds.BLOWOFF, SoundSource.NEUTRAL,
+                    0.7F, 0.95F + random.nextFloat() * 0.1F, false);
+        }
+        boolean popper = this.voice == Voice.V8
+                || this.car.getConditionFraction(me.trossty.car.entity.CarPart.SPARK_PLUGS)
+                        <= me.trossty.car.entity.FaultCodes.WARNING;
+        if (popper && this.car.getShift() == 0.0F && random.nextFloat() < 0.6F) {
+            this.car.level().playLocalSound(this.x, this.y, this.z, ModSounds.BACKFIRE, SoundSource.NEUTRAL,
+                    0.6F, 0.9F + random.nextFloat() * 0.25F, false);
+        }
     }
 
     /** Which loop a car's engine plays, and how far it is pitched and how loud. */
@@ -175,6 +235,8 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         SIX(ModSounds.CAR_ENGINE, 0.88F, 0.95F, 1.0F, 1.0F),
         V8(ModSounds.ENGINE_V8, 1.0F, 1.05F, 1.15F, 1.05F),
         DIESEL(ModSounds.ENGINE_DIESEL, 1.0F, 0.85F, 1.1F, 1.0F),
+        PROPELLER(ModSounds.ENGINE_PROPELLER, 0.9F, 1.0F, 1.2F, 1.15F),
+        OUTBOARD(ModSounds.ENGINE_OUTBOARD, 0.9F, 0.95F, 1.0F, 1.0F),
         /** Near silent at rest; the whine climbs a long way with speed. */
         ELECTRIC(ModSounds.ENGINE_ELECTRIC, 0.55F, 1.05F, 0.25F, 0.7F);
 
@@ -193,6 +255,12 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         }
 
         static Voice of(CarEntity car) {
+            if (car.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE) {
+                return PROPELLER;
+            }
+            if (car.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.BOAT) {
+                return OUTBOARD;
+            }
             if (car.isElectric()) {
                 return ELECTRIC;
             }

@@ -175,6 +175,8 @@ public class CarItem extends Item {
             case TANKER -> me.trossty.car.registry.ModItems.FUEL_TANKER;
             case TRAILER -> me.trossty.car.registry.ModItems.TRAILER;
             case MOTORCYCLE -> me.trossty.car.registry.ModItems.MOTORCYCLE;
+            case BOAT -> me.trossty.car.registry.ModItems.MOTORBOAT;
+            case PLANE -> me.trossty.car.registry.ModItems.AIRPLANE;
             case CAR -> me.trossty.car.registry.ModItems.CAR;
         };
     }

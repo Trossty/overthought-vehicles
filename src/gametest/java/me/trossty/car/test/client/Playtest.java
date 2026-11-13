@@ -267,7 +267,7 @@ final class Playtest {
         server.runCommand("fill -40 %d -20 40 %d 120 minecraft:grass_block".formatted(Y - 1, Y - 1));
         int[] pops = new int[1];
         context.runOnClient(client -> client.getSoundManager().addListener((sound, range, distance) -> {
-            if (sound.getLocation().equals(net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_BLAST.getLocation())) {
+            if (sound.getLocation().equals(me.trossty.car.sound.ModSounds.BACKFIRE.getLocation())) {
                 pops[0]++;
             }
         }));
@@ -294,6 +294,137 @@ final class Playtest {
             server.runOnServer(minecraft -> temp[0] = "%.2f".formatted(serverCar(minecraft).getEngineTemp()));
             log("%s engine: %d misfire pops, temp %s".formatted(worn ? "tired" : "fresh", pops[0], temp[0]));
         }
+    }
+
+    private static <T extends CarEntity> T find(net.minecraft.server.MinecraftServer minecraft, Class<T> kind) {
+        List<T> found = minecraft.overworld().getEntitiesOfClass(kind,
+                new AABB(-300, Y - 40, -300, 300, Y + 120, 600), e -> true);
+        return found.isEmpty() ? null : found.get(0);
+    }
+
+    private static String where(TestServerContext server, Class<? extends CarEntity> kind) {
+        String[] out = new String[1];
+        server.runOnServer(minecraft -> {
+            CarEntity v = find(minecraft, kind);
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            out[0] = v == null ? "gone, player hp %.1f".formatted(player.getHealth())
+                    : "at %.1f %.2f %.1f yaw %.0f hp %.1f speed %.2f water %s flooded %s riding %s player hp %.1f"
+                    .formatted(v.getX(), v.getY() - Y, v.getZ(), v.getYRot(), v.getHealth(), v.getEngineSpeed(),
+                            v.isInWater(), v.isFlooded(), v.hasPassenger(player), player.getHealth());
+        });
+        return out[0];
+    }
+
+    /** Summons one of these at a spot facing south, puts the player in it and looks ahead. */
+    private static void board(ClientGameTestContext context, TestServerContext server,
+                              net.minecraft.world.entity.EntityType<? extends CarEntity> type,
+                              Class<? extends CarEntity> kind, double x, double y, double z) {
+        server.runOnServer(minecraft -> {
+            CarEntity v = type.create(minecraft.overworld());
+            v.moveTo(x, y, z, 0.0F, 0.0F);
+            minecraft.overworld().addFreshEntity(v);
+            minecraft.getPlayerList().getPlayers().get(0).teleportTo(x, y + 1, z);
+        });
+        context.waitTicks(40);
+        log("parked: " + where(server, kind));
+        server.runOnServer(minecraft -> minecraft.getPlayerList().getPlayers().get(0)
+                .startRiding(find(minecraft, kind), true));
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            client.player.setYRot(0.0F);
+            client.player.setXRot(10.0F);
+        });
+    }
+
+    private static void hold(ClientGameTestContext context, TestServerContext server, Class<? extends CarEntity> kind,
+                             String what, int ticks, java.util.function.Function<net.minecraft.client.Options,
+                                     net.minecraft.client.KeyMapping>... keys) {
+        for (var key : keys) {
+            context.getInput().holdKey(key);
+        }
+        StringBuilder trace = new StringBuilder(what + " trace:");
+        for (int t = 0; t < ticks; t++) {
+            context.waitTicks(1);
+            if (t % 10 == 9) {
+                trace.append(context.<String>computeOnClient(client -> client.player.getVehicle() instanceof CarEntity v
+                        ? " %.0f,%.0f/%.1f/%.2f".formatted(v.getX(), v.getZ(), v.getY() - Y, v.getEngineSpeed()) : " out"));
+            }
+        }
+        for (var key : keys) {
+            context.getInput().releaseKey(key);
+        }
+        log(trace.toString());
+    }
+
+    /** Puts a motorboat on a lake: does it float, drive, turn, and stay dry? */
+    static void boat(ClientGameTestContext context, TestServerContext server) {
+        server.runCommand("kill @e[type=!player]");
+        server.runCommand("time set noon");
+        server.runCommand("gamemode survival @a");
+        // Close by: the test client only has the chunks round the player loaded.
+        for (int z = -45; z < 75; z += 20) {
+            server.runCommand("fill 75 %d %d 145 %d %d minecraft:sandstone".formatted(Y - 5, z, Y + 4, z + 19));
+            server.runCommand("fill 92 %d %d 128 %d %d minecraft:water".formatted(Y - 4, Math.max(z, -43), Y - 1, Math.min(z + 19, 52)));
+            server.runCommand("fill 75 %d %d 145 %d %d minecraft:air".formatted(Y, z, Y + 4, z + 19));
+        }
+        board(context, server, me.trossty.car.registry.ModEntities.MOTORBOAT, me.trossty.car.entity.MotorboatEntity.class, 110.5, Y + 1, -38.5);
+        log("boat aboard: " + where(server, me.trossty.car.entity.MotorboatEntity.class));
+        hold(context, server, me.trossty.car.entity.MotorboatEntity.class, "boat", 50, o -> o.keyUp);
+        log("boat after 2.5s: " + where(server, me.trossty.car.entity.MotorboatEntity.class));
+        context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+        hold(context, server, me.trossty.car.entity.MotorboatEntity.class, "boat turn", 30, o -> o.keyUp, o -> o.keyLeft);
+        context.getInput().holdKey(o -> o.keyUp);
+        context.waitTicks(5);
+        context.takeScreenshot("play_boat");
+        context.runOnClient(client -> client.player.setYRot(-120.0F));
+        context.waitTicks(3);
+        context.takeScreenshot("play_boat_side");
+        context.runOnClient(client -> client.player.setYRot(0.0F));
+        context.getInput().releaseKey(o -> o.keyUp);
+        context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+        hold(context, server, me.trossty.car.entity.MotorboatEntity.class, "boat coast", 60);
+        log("boat coasted: " + where(server, me.trossty.car.entity.MotorboatEntity.class));
+        server.runCommand("gamemode creative @a");
+    }
+
+    /** A take-off, a climb, level flight and a landing on a long grass strip. */
+    static void flight(ClientGameTestContext context, TestServerContext server) {
+        server.runCommand("kill @e[type=!player]");
+        server.runCommand("time set noon");
+        server.runCommand("gamemode survival @a");
+        for (int z = -20; z < 280; z += 100) {
+            server.runCommand("fill 150 %d %d 170 %d %d minecraft:grass_block".formatted(Y - 1, z, Y - 1, z + 99));
+            server.runCommand("fill 150 %d %d 170 %d %d minecraft:air".formatted(Y, z, Y + 12, z + 99));
+        }
+        Class<me.trossty.car.entity.AirplaneEntity> plane = me.trossty.car.entity.AirplaneEntity.class;
+        board(context, server, me.trossty.car.registry.ModEntities.AIRPLANE, plane, 160.5, Y, 0.5);
+        hold(context, server, plane, "taxi and roll", 60, o -> o.keyUp);
+        log("rolling: " + where(server, plane));
+        hold(context, server, plane, "rotate and climb", 60, o -> o.keyUp, o -> o.keyJump);
+        log("climbed: " + where(server, plane));
+        context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+        context.getInput().holdKey(o -> o.keyUp);
+        context.getInput().holdKey(o -> o.keyJump);
+        context.waitTicks(5);
+        context.takeScreenshot("play_flight");
+        // From the side: the climb should show as the nose up.
+        context.runOnClient(client -> {
+            client.player.setYRot(-90.0F);
+            client.player.setXRot(5.0F);
+        });
+        context.waitTicks(3);
+        context.takeScreenshot("play_flight_side");
+        context.runOnClient(client -> client.player.setYRot(0.0F));
+        context.getInput().releaseKey(o -> o.keyJump);
+        context.getInput().releaseKey(o -> o.keyUp);
+        context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+        hold(context, server, plane, "level", 20);
+        log("level: " + where(server, plane));
+        hold(context, server, plane, "glide down", 50, o -> o.keyDown);
+        hold(context, server, plane, "flare", 20);
+        hold(context, server, plane, "brake", 40, o -> o.keyDown);
+        log("landed: " + where(server, plane));
+        server.runCommand("gamemode creative @a");
     }
 
     private static void cow(ClientGameTestContext context, TestServerContext server) {

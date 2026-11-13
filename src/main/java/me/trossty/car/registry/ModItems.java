@@ -38,6 +38,18 @@ public final class ModItems {
             settings -> new CarItem(settings, ModEntities.MOTORCYCLE),
             new Item.Properties().stacksTo(1));
 
+    /** And at the water... */
+    public static final Item MOTORBOAT = register(
+            "motorboat",
+            settings -> new CarItem(settings, ModEntities.MOTORBOAT),
+            new Item.Properties().stacksTo(1));
+
+    /** ...and the air. */
+    public static final Item AIRPLANE = register(
+            "airplane",
+            settings -> new CarItem(settings, ModEntities.AIRPLANE),
+            new Item.Properties().stacksTo(1));
+
     /**
      * Portable fuel. Durability is the fuel gauge, read backwards, in tank
      * units — see {@link me.trossty.car.item.JerryCans}. The can itself is

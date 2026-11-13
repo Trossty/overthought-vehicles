@@ -80,7 +80,11 @@ public record VehicleDefinition(
         /** Pulled, not driven: no engine, no seats, a hitch at the front. */
         TRAILER,
         /** Two wheels, a rider and a pillion. */
-        MOTORCYCLE;
+        MOTORCYCLE,
+        /** Floats: driven on water by a propeller, stranded on land. */
+        BOAT,
+        /** Taxies on its wheels, lifts off with enough speed and flies. */
+        PLANE;
 
         public static final Codec<Chassis> CODEC = Codec.STRING.xmap(
                 name -> switch (name.toLowerCase(Locale.ROOT)) {
@@ -88,6 +92,8 @@ public record VehicleDefinition(
                     case "tanker" -> TANKER;
                     case "trailer" -> TRAILER;
                     case "motorcycle" -> MOTORCYCLE;
+                    case "boat" -> BOAT;
+                    case "plane" -> PLANE;
                     default -> CAR;
                 },
                 chassis -> chassis.name().toLowerCase(Locale.ROOT));
@@ -224,6 +230,8 @@ public record VehicleDefinition(
             case TRAILER -> "box_trailer";
             case MOTORCYCLE -> "honda_cbr600rr";
             case CAR -> "toyota_corolla";
+            case BOAT -> "bayliner_bowrider";
+            case PLANE -> "cessna_172";
         });
     }
 

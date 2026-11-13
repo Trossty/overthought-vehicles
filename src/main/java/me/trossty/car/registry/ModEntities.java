@@ -12,6 +12,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import me.trossty.car.entity.MotorcycleEntity;
+import me.trossty.car.entity.MotorboatEntity;
+import me.trossty.car.entity.AirplaneEntity;
 
 public final class ModEntities {
 
@@ -58,6 +60,22 @@ public final class ModEntities {
                     .sized(0.9F, 1.5F)
                     .eyeHeight(1.2F)
                     .clientTrackingRange(10));
+
+    /** Wide and low: the hull is what it collides with. */
+    public static final EntityType<MotorboatEntity> MOTORBOAT = register(
+            "motorboat",
+            EntityType.Builder.of(MotorboatEntity::new, MobCategory.MISC)
+                    .sized(2.0F, 1.2F)
+                    .eyeHeight(1.0F)
+                    .clientTrackingRange(10));
+
+    /** The fuselage only: the wings pass over and through what they meet. */
+    public static final EntityType<AirplaneEntity> AIRPLANE = register(
+            "airplane",
+            EntityType.Builder.of(AirplaneEntity::new, MobCategory.MISC)
+                    .sized(2.4F, 2.6F)
+                    .eyeHeight(1.9F)
+                    .clientTrackingRange(16));
 
     private ModEntities() {
     }

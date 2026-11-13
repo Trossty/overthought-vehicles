@@ -257,6 +257,12 @@
   "item.car.motorcycle": "Motosiklet",
   "entity.car.motorcycle": "Motosiklet",
   "vehicle.car.vespa_primavera": "Vespa Primavera",
+  "item.car.motorboat": "Sürat Teknesi",
+  "entity.car.motorboat": "Sürat Teknesi",
+  "item.car.airplane": "Uçak",
+  "entity.car.airplane": "Uçak",
+  "vehicle.car.bayliner_bowrider": "Bayliner Bowrider",
+  "vehicle.car.cessna_172": "Cessna 172",
   "vehicle.car.honda_cbr600rr": "Honda CBR600RR",
   "message.car.low_fuel": "Yakıt azaldı — yaklaşık %s menzil kaldı",
   "message.car.tank_holed": "Depo delindi! Yakıt sızıyor",
@@ -431,5 +437,10 @@
   "message.car.tank_level": "Depo: %s",
   "block.car.fuel_drum": "Yakıt Varili",
   "message.car.drum_empty": "Boş varil · %s kova",
-  "message.car.drum_contents": "%s · %s / %s kova"
+  "message.car.drum_contents": "%s · %s / %s kova",
+  "subtitles.car.engine_start": "Motor çalışıyor",
+  "subtitles.car.backfire": "Egzoz patlıyor",
+  "subtitles.car.blowoff": "Turbo üflüyor",
+  "subtitles.car.engine_propeller": "Pervane uğulduyor",
+  "subtitles.car.engine_outboard": "Dıştan takma motor vızıldıyor"
 }

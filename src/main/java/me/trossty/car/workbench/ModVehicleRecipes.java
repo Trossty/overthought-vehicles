@@ -232,6 +232,22 @@ public final class ModVehicleRecipes {
                     new VehicleRecipe.Material(ModItems.SUSPENSION, 2),
                     new VehicleRecipe.Material(ModItems.WHEEL, 2));
         }
+        if (chassis == me.trossty.car.vehicle.VehicleDefinition.Chassis.BOAT) {
+            // A hull and an outboard: the motor and its gearbox, nothing to roll on.
+            return List.of(
+                    new VehicleRecipe.Material(ModItems.CAR_BODY, 1),
+                    new VehicleRecipe.Material(ModItems.ENGINE, 1),
+                    new VehicleRecipe.Material(ModItems.TRANSMISSION, 1));
+        }
+        if (chassis == me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE) {
+            // A fuselage, an engine and three legs of landing gear.
+            return List.of(
+                    new VehicleRecipe.Material(ModItems.CAR_BODY, 1),
+                    new VehicleRecipe.Material(ModItems.ENGINE, 1),
+                    new VehicleRecipe.Material(ModItems.TRANSMISSION, 1),
+                    new VehicleRecipe.Material(ModItems.SUSPENSION, 3),
+                    new VehicleRecipe.Material(ModItems.WHEEL, 3));
+        }
         net.minecraft.world.item.Item item = me.trossty.car.item.CarItem.itemFor(chassis);
         for (VehicleRecipe recipe : VEHICLES) {
             if (recipe.result() == item) {

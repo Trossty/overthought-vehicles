@@ -136,6 +136,8 @@ public class CarMainClient {
             event.registerEntityRenderer(ModEntities.PICKUP, PickupEntityRenderer::new);
             event.registerEntityRenderer(ModEntities.TRAILER, CarEntityRenderer::new);
             event.registerEntityRenderer(ModEntities.MOTORCYCLE, CarEntityRenderer::new);
+            event.registerEntityRenderer(ModEntities.MOTORBOAT, CarEntityRenderer::new);
+            event.registerEntityRenderer(ModEntities.AIRPLANE, CarEntityRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.FUEL_TANK, FuelTankRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.PUMPJACK, PumpjackRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.FUEL_PUMP, FuelPumpRenderer::new);

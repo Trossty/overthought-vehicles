@@ -35,7 +35,7 @@ public final class ItemLooks {
             CarMain.id("toyota_corolla"), CarMain.id("tofas_sahin"), CarMain.id("jeep_wrangler"),
             CarMain.id("ford_mustang"), CarMain.id("mercedes_atego"),
             CarMain.id("vespa_primavera"), CarMain.id("honda_cbr600rr"), CarMain.id("toyota_hilux"),
-            CarMain.id("box_trailer"));
+            CarMain.id("box_trailer"), CarMain.id("bayliner_bowrider"), CarMain.id("cessna_172"));
 
     /** Bare steel: an empty drum's paint. */
     public static final int EMPTY_DRUM = 0x9AA1A8;
@@ -53,7 +53,7 @@ public final class ItemLooks {
     public static void registerProperties() {
         ResourceLocation vehicle = CarMain.id("vehicle");
         for (Item item : List.of(ModItems.CAR, ModItems.FUEL_TANKER, ModItems.PICKUP,
-                ModItems.TRAILER, ModItems.MOTORCYCLE)) {
+                ModItems.TRAILER, ModItems.MOTORCYCLE, ModItems.MOTORBOAT, ModItems.AIRPLANE)) {
             ItemProperties.register(item, vehicle, (stack, level, entity, seed) -> {
                 ResourceLocation id = stack.get(ModComponents.CAR_VEHICLE);
                 return id == null ? 0 : VEHICLES.indexOf(id) + 1;
@@ -70,7 +70,8 @@ public final class ItemLooks {
 
     public static void registerColors(RegisterColorHandlersEvent.Item event) {
         event.register((stack, tint) -> tint < SHADES.length ? paint(stack, SHADES[tint]) : -1,
-                ModItems.CAR, ModItems.FUEL_TANKER, ModItems.PICKUP, ModItems.TRAILER, ModItems.MOTORCYCLE);
+                ModItems.CAR, ModItems.FUEL_TANKER, ModItems.PICKUP, ModItems.TRAILER, ModItems.MOTORCYCLE,
+                ModItems.MOTORBOAT, ModItems.AIRPLANE);
         event.register((stack, tint) -> {
             if (tint != 0) {
                 return -1;

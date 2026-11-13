@@ -146,6 +146,17 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             }
         }
 
+        // An aircraft noses up into a climb and banks into a turn, about its middle.
+        float pitch = car.getBodyPitch(tickProgress);
+        float roll = car.getBodyRoll(tickProgress);
+        if (pitch != 0.0F || roll != 0.0F) {
+            float middle = car.getBbHeight() / 2.0F;
+            matrices.translate(0.0F, middle, 0.0F);
+            matrices.mulPose(Axis.XP.rotationDegrees(pitch));
+            matrices.mulPose(Axis.ZP.rotationDegrees(roll));
+            matrices.translate(0.0F, -middle, 0.0F);
+        }
+
         // An unhitched trailer drops its nose onto the jockey wheel, tipping
         // about its axle.
         if (state.vehicle != null && state.restPose > 0.001F

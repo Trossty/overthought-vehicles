@@ -1,0 +1,11 @@
+{
+  "parent": "car:item/vehicle_bayliner_bowrider",
+  "overrides": [
+    {
+      "predicate": {
+        "car:vehicle": 10
+      },
+      "model": "car:item/vehicle_bayliner_bowrider"
+    }
+  ]
+}
