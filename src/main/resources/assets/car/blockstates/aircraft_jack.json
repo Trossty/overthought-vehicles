@@ -1,32 +1,62 @@
 {
   "variants": {
-    "facing=north,raised=false": {
+    "facing=north,raised=false,powered=false": {
       "model": "car:block/aircraft_jack"
     },
-    "facing=north,raised=true": {
+    "facing=north,raised=false,powered=true": {
+      "model": "car:block/aircraft_jack"
+    },
+    "facing=north,raised=true,powered=false": {
       "model": "car:block/aircraft_jack_raised"
     },
-    "facing=east,raised=false": {
+    "facing=north,raised=true,powered=true": {
+      "model": "car:block/aircraft_jack_raised"
+    },
+    "facing=east,raised=false,powered=false": {
       "model": "car:block/aircraft_jack",
       "y": 90
     },
-    "facing=east,raised=true": {
+    "facing=east,raised=false,powered=true": {
+      "model": "car:block/aircraft_jack",
+      "y": 90
+    },
+    "facing=east,raised=true,powered=false": {
       "model": "car:block/aircraft_jack_raised",
       "y": 90
     },
-    "facing=south,raised=false": {
+    "facing=east,raised=true,powered=true": {
+      "model": "car:block/aircraft_jack_raised",
+      "y": 90
+    },
+    "facing=south,raised=false,powered=false": {
       "model": "car:block/aircraft_jack",
       "y": 180
     },
-    "facing=south,raised=true": {
+    "facing=south,raised=false,powered=true": {
+      "model": "car:block/aircraft_jack",
+      "y": 180
+    },
+    "facing=south,raised=true,powered=false": {
       "model": "car:block/aircraft_jack_raised",
       "y": 180
     },
-    "facing=west,raised=false": {
+    "facing=south,raised=true,powered=true": {
+      "model": "car:block/aircraft_jack_raised",
+      "y": 180
+    },
+    "facing=west,raised=false,powered=false": {
       "model": "car:block/aircraft_jack",
       "y": 270
     },
-    "facing=west,raised=true": {
+    "facing=west,raised=false,powered=true": {
+      "model": "car:block/aircraft_jack",
+      "y": 270
+    },
+    "facing=west,raised=true,powered=false": {
+      "model": "car:block/aircraft_jack_raised",
+      "y": 270
+    },
+    "facing=west,raised=true,powered=true": {
       "model": "car:block/aircraft_jack_raised",
       "y": 270
     }

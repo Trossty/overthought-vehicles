@@ -1041,6 +1041,43 @@ public class CarMachineTests {
         });
     }
 
+    /** A plane cannot take a trailer: walked up to its tail and clicked, the drawbar stays in hand. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void planeWillNotTow(GameTestHelper context) {
+        var plane = context.spawn(ModEntities.AIRPLANE, new BlockPos(3, 1, 6));
+        var trailer = context.spawn(ModEntities.TRAILER, new BlockPos(3, 1, 1));
+        plane.moveTo(plane.getX(), plane.getY(), plane.getZ(), 0.0F, 0.0F);
+        net.minecraft.world.phys.Vec3 ball = plane.hitchPoint();
+        trailer.moveTo(ball.x, trailer.getY(), ball.z - 2.0, 0.0F, 0.0F);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.moveTo(ball.x + 1.0, trailer.getY(), ball.z);
+        trailer.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        plane.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertFalse(trailer.isHitched(), "a plane took a trailer on");
+        trailer.discard();
+        plane.discard();
+        context.succeed();
+    }
+
+    /**
+     * A jack pumped up by hand stays up when something is built next to it;
+     * only redstone coming on or going off moves it.
+     */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void jackStaysUpBesideNewBlocks(GameTestHelper context) {
+        BlockPos jack = new BlockPos(2, 1, 2);
+        context.setBlock(jack, me.trossty.car.registry.ModBlocks.AIRCRAFT_JACK.defaultBlockState()
+                .setValue(me.trossty.car.block.AircraftJackBlock.RAISED, true));
+        context.setBlock(jack.east(), net.minecraft.world.level.block.Blocks.STONE);
+        context.assertBlockProperty(jack, me.trossty.car.block.AircraftJackBlock.RAISED, true);
+        context.setBlock(jack.west(), net.minecraft.world.level.block.Blocks.REDSTONE_BLOCK);
+        context.assertBlockProperty(jack, me.trossty.car.block.AircraftJackBlock.RAISED, true);
+        context.setBlock(jack.west(), net.minecraft.world.level.block.Blocks.AIR);
+        context.assertBlockProperty(jack, me.trossty.car.block.AircraftJackBlock.RAISED, false);
+        context.succeed();
+    }
+
     // ---- the drum ----
 
     private static void clickDrum(GameTestHelper context, net.minecraft.world.entity.player.Player player,

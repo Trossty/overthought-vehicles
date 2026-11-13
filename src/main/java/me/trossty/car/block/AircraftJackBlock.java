@@ -30,6 +30,8 @@ public class AircraftJackBlock extends ServiceStandBlock {
     public static final MapCodec<AircraftJackBlock> CODEC = simpleCodec(AircraftJackBlock::new);
 
     public static final BooleanProperty RAISED = BooleanProperty.create("raised");
+    /** Whether redstone was on last time a neighbour changed: only a change of it moves the ram. */
+    public static final BooleanProperty POWERED = net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED;
 
     /**
      * How far the ram lifts the plane, in blocks. Its pad meets the belly of a
@@ -46,7 +48,7 @@ public class AircraftJackBlock extends ServiceStandBlock {
 
     public AircraftJackBlock(Properties settings) {
         super(settings);
-        this.registerDefaultState(this.defaultBlockState().setValue(RAISED, false));
+        this.registerDefaultState(this.defaultBlockState().setValue(RAISED, false).setValue(POWERED, false));
     }
 
     @Override
@@ -57,7 +59,7 @@ public class AircraftJackBlock extends ServiceStandBlock {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(RAISED);
+        builder.add(RAISED, POWERED);
     }
 
     @Override
@@ -95,13 +97,17 @@ public class AircraftJackBlock extends ServiceStandBlock {
         return InteractionResult.CONSUME;
     }
 
-    /** Redstone pumps it up and lets it down, the way it does the lift. */
+    /**
+     * Redstone pumps it up when it comes on and lets it down when it goes
+     * off; a jack pumped by hand stays where it was put whatever else changes
+     * round it.
+     */
     @Override
     protected void neighborChanged(BlockState state, Level world, BlockPos pos, Block block, BlockPos from,
                                    boolean moved) {
         boolean powered = world.hasNeighborSignal(pos);
-        if (!world.isClientSide() && powered != state.getValue(RAISED)) {
-            world.setBlock(pos, state.setValue(RAISED, powered), Block.UPDATE_ALL);
+        if (!world.isClientSide() && powered != state.getValue(POWERED)) {
+            world.setBlock(pos, state.setValue(POWERED, powered).setValue(RAISED, powered), Block.UPDATE_ALL);
             world.playSound(null, pos, powered ? SoundEvents.PISTON_EXTEND : SoundEvents.PISTON_CONTRACT,
                     SoundSource.BLOCKS, 0.4F, 0.7F);
         }

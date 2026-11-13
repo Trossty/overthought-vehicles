@@ -127,13 +127,24 @@ public class ServiceStandBlock extends ModelEntityBlock {
 
     /** Whether this stand at this state holds this vehicle up off the ground. */
     public boolean holds(BlockState state, BlockPos pos, CarEntity vehicle) {
-        if (vehicle.chassis() != this.takes() || Double.isNaN(this.seat(state))) {
+        // One being driven is passing by, not parked on it: a boat cruising
+        // past a cradle on the shore, a plane flying low over a jack.
+        if (vehicle.chassis() != this.takes() || Double.isNaN(this.seat(state))
+                || vehicle.getControllingPassenger() != null) {
             return false;
         }
         double dx = vehicle.getX() - (pos.getX() + 0.5);
         double dz = vehicle.getZ() - (pos.getZ() + 0.5);
         double dy = vehicle.getY() - pos.getY();
         return dx * dx + dz * dz <= REACH * REACH && dy > -0.5 && dy < 3.0;
+    }
+
+    /** Whether something already sits on this stand. */
+    private boolean occupied(Level world, BlockPos pos, BlockState state) {
+        return !world.getEntitiesOfClass(CarEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(3.0),
+                vehicle -> vehicle.chassis() == this.takes() && !vehicle.isRemoved()
+                        && vehicle.getControllingPassenger() == null
+                        && vehicle.distanceToSqr(Vec3.atBottomCenterOf(pos)) <= (REACH + 0.5) * (REACH + 0.5)).isEmpty();
     }
 
     /** True when a boat or plane is up on a stand that takes it. */
@@ -159,7 +170,8 @@ public class ServiceStandBlock extends ModelEntityBlock {
         double bestDistance = 3.0 * 3.0;
         for (BlockPos pos : BlockPos.betweenClosed(at.offset(-3, -1, -3), at.offset(3, 1, 3))) {
             BlockState state = world.getBlockState(pos);
-            if (state.getBlock() instanceof ServiceStandBlock stand && stand.takes() == vehicle.chassis()) {
+            if (state.getBlock() instanceof ServiceStandBlock stand && stand.takes() == vehicle.chassis()
+                    && !stand.occupied(world, pos.immutable(), state)) {
                 float rad = yaw * net.minecraft.util.Mth.DEG_TO_RAD;
                 Vec3 middle = Vec3.atBottomCenterOf(pos).add(net.minecraft.util.Mth.sin(rad) * stand.under(), 0.0,
                         -net.minecraft.util.Mth.cos(rad) * stand.under());

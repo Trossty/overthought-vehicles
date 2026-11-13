@@ -84,7 +84,7 @@ public class TrailerEntity extends CarEntity {
     /** How close behind the bed a vehicle's nearer end has to be for the winch to reach it, in blocks. */
     private static final double WINCH_REACH = 4.0;
     /** Walked further than this from the drawbar, a hand lets go of it. */
-    private static final double HOLD_REACH = 5.0;
+    private static final double HOLD_REACH = 10.0;
 
     /** How close the coupler has to be to a car's tow ball to hitch on, in blocks. */
     private static final double HITCH_REACH = 2.5;
@@ -108,7 +108,7 @@ public class TrailerEntity extends CarEntity {
     private static final EntityDataAccessor<ItemStack> CARGO_ITEM =
             SynchedEntityData.defineId(TrailerEntity.class, EntityDataSerializers.ITEM_STACK);
 
-    private final SimpleContainer load = new SimpleContainer(LOAD_SLOTS);
+    private final SimpleContainer load = this.carriedChest(LOAD_SLOTS);
 
     /** A client's stand-in for the carried vehicle, made from {@link #CARGO}, to draw it. */
     private @Nullable Entity cargoView;
@@ -245,11 +245,13 @@ public class TrailerEntity extends CarEntity {
             return InteractionResult.CONSUME;
         }
         if (!this.entityData.get(CARGO).isEmpty()) {
-            Entity off = this.unload();
+            Entity off = this.unload(false);
             if (off != null) {
                 this.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 0.6F);
                 player.displayClientMessage(Component.translatable("message.car.flatbed_unloaded",
                         off.getDisplayName()), true);
+            } else {
+                player.displayClientMessage(Component.translatable("message.car.flatbed_blocked"), true);
             }
             return InteractionResult.CONSUME;
         }
@@ -308,8 +310,9 @@ public class TrailerEntity extends CarEntity {
      * Puts the carried vehicle back in the world on the ground behind the bed,
      * or on the cradle or jack it was backed up to.
      */
-    private @Nullable Entity unload() {
-        CompoundTag saved = this.entityData.get(CARGO).copy();
+    private @Nullable Entity unload(boolean force) {
+        CompoundTag saved0 = this.entityData.get(CARGO);
+        CompoundTag saved = saved0.copy();
         this.entityData.set(CARGO, new CompoundTag());
         saved.remove(CARGO_MASS);
         Entity off = EntityType.create(saved, this.level()).orElse(null);
@@ -326,6 +329,11 @@ public class TrailerEntity extends CarEntity {
             spot = stand;
         }
         off.moveTo(spot.x, spot.y, spot.z, this.getYRot(), 0.0F);
+        if (!force && !this.level().noCollision(off, off.getBoundingBox().deflate(0.05))) {
+            // No room behind: it stays on the bed rather than going into a wall.
+            this.entityData.set(CARGO, saved0);
+            return null;
+        }
         off.setDeltaMovement(Vec3.ZERO);
         this.level().addFreshEntity(off);
         return off;
@@ -368,9 +376,12 @@ public class TrailerEntity extends CarEntity {
         }
         Vec3 ball = tractor.hitchPoint();
         Vec3 coupler = this.coupler();
-        if (tractor.isTowing(this)
-                || ball.distanceToSqr(coupler.x, ball.y, coupler.z) > HITCH_REACH * HITCH_REACH) {
-            player.displayClientMessage(Component.translatable("message.car.trailer_too_far"), true);
+        String refused = !tractor.canTow() ? "message.car.trailer_cannot_tow"
+                : tractor.isTowing(this) ? "message.car.trailer_hitch_taken"
+                : ball.distanceToSqr(coupler.x, ball.y, coupler.z) > HITCH_REACH * HITCH_REACH
+                ? "message.car.trailer_too_far" : null;
+        if (refused != null) {
+            player.displayClientMessage(Component.translatable(refused), true);
             return InteractionResult.CONSUME;
         }
         this.letGo();
@@ -394,7 +405,7 @@ public class TrailerEntity extends CarEntity {
             return null;
         }
         return this.level().getEntity(id) instanceof CarEntity car && !car.isRemoved()
-                && !(car instanceof TrailerEntity) ? car : null;
+                && car.canTow() ? car : null;
     }
 
     /** Unhitched, the nose drops onto the jockey wheel. */
@@ -487,7 +498,7 @@ public class TrailerEntity extends CarEntity {
             if (this.tractorUuid != null && !this.isHitched()
                     && this.level() instanceof ServerLevel server
                     && server.getEntity(this.tractorUuid) instanceof CarEntity found
-                    && !(found instanceof TrailerEntity)) {
+                    && found.canTow()) {
                 // Loaded back in: the tractor has a new entity id now.
                 this.hitchTo(found);
             }
@@ -509,7 +520,7 @@ public class TrailerEntity extends CarEntity {
             return;
         }
         Player holder = this.getHolder();
-        if (holder == null || holder.distanceToSqr(this.coupler()) > HOLD_REACH * HOLD_REACH * 4) {
+        if (holder == null || holder.distanceToSqr(this.coupler()) > HOLD_REACH * HOLD_REACH) {
             if (!this.level().isClientSide()) {
                 this.letGo();
             }
@@ -651,7 +662,8 @@ public class TrailerEntity extends CarEntity {
             this.entityData.set(CARGO_ITEM, ItemStack.EMPTY);
         }
         if (!this.entityData.get(CARGO).isEmpty()) {
-            this.unload();
+            // Wrecked: it goes down wherever it can, rather than vanish with the bed.
+            this.unload(true);
         }
     }
 

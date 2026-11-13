@@ -898,6 +898,31 @@ public class CarEntity extends VehicleEntity {
 
     // ---- towing ----
 
+    /**
+     * Whether a trailer may go on this: a land vehicle with a tow ball. A
+     * boat or a plane would drag one across the water or up into the sky.
+     */
+    public boolean canTow() {
+        return switch (this.chassis()) {
+            case BOAT, PLANE, TRAILER -> false;
+            default -> true;
+        };
+    }
+
+    /**
+     * A chest carried on this vehicle. Its window closes once the vehicle is
+     * gone or out of reach, so nobody keeps taking from a load that has been
+     * winched on to a flatbed and saved away with it, or has driven off.
+     */
+    protected net.minecraft.world.SimpleContainer carriedChest(int size) {
+        return new net.minecraft.world.SimpleContainer(size) {
+            @Override
+            public boolean stillValid(Player player) {
+                return !CarEntity.this.isRemoved() && CarEntity.this.distanceToSqr(player) < 8.0 * 8.0;
+            }
+        };
+    }
+
     /** A trailer says this every tick it is hitched on. */
     void towedBy(TrailerEntity trailer) {
         this.towed = trailer;
