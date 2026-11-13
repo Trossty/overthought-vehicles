@@ -391,6 +391,9 @@ public class CarEntity extends VehicleEntity {
      */
     private static final EntityDataAccessor<net.minecraft.nbt.CompoundTag> SHOWN_LOAD =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.COMPOUND_TAG);
+    /** The same for what is in the boot, drawn in it while the lid is up. */
+    private static final EntityDataAccessor<net.minecraft.nbt.CompoundTag> SHOWN_BOOT =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.COMPOUND_TAG);
 
     /** Which wheel is flat, by its place in the vehicle's list of wheels; -1 for none. */
     private static final EntityDataAccessor<Byte> FLAT_TYRE =
@@ -600,6 +603,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(SETUP, CarSetup.DEFAULT);
         builder.define(MODEL, "");
         builder.define(SHOWN_LOAD, new net.minecraft.nbt.CompoundTag());
+        builder.define(SHOWN_BOOT, new net.minecraft.nbt.CompoundTag());
         builder.define(ODOMETER, 0.0F);
         builder.define(DIRTY_FUEL, 0.0F);
     }
@@ -956,6 +960,11 @@ public class CarEntity extends VehicleEntity {
      * drawn in the bed: called whenever the chest changes, and after loading.
      */
     protected void showLoad(net.minecraft.world.Container chest) {
+        this.show(chest, SHOWN_LOAD);
+    }
+
+    private void show(net.minecraft.world.Container chest,
+                      EntityDataAccessor<net.minecraft.nbt.CompoundTag> where) {
         if (this.level().isClientSide()) {
             return;
         }
@@ -969,31 +978,47 @@ public class CarEntity extends VehicleEntity {
         }
         net.minecraft.nbt.CompoundTag shown = new net.minecraft.nbt.CompoundTag();
         shown.put("Items", items);
-        this.entityData.set(SHOWN_LOAD, shown);
+        this.entityData.set(where, shown);
     }
 
     private net.minecraft.nbt.CompoundTag shownTag;
     private java.util.List<ItemStack> shown = java.util.List.of();
+    private net.minecraft.nbt.CompoundTag shownBootTag;
+    private java.util.List<ItemStack> shownBoot = java.util.List.of();
 
     /** The carried chest's contents as the client knows them: one of each occupied slot, in order. */
     public java.util.List<ItemStack> shownLoad() {
         net.minecraft.nbt.CompoundTag tag = this.entityData.get(SHOWN_LOAD);
         if (tag != this.shownTag) {
-            java.util.List<ItemStack> stacks = new java.util.ArrayList<>();
-            net.minecraft.nbt.ListTag items = tag.getList("Items", net.minecraft.nbt.Tag.TAG_STRING);
-            for (int i = 0; i < items.size(); i++) {
-                net.minecraft.resources.ResourceLocation id =
-                        net.minecraft.resources.ResourceLocation.tryParse(items.getString(i));
-                net.minecraft.world.item.Item item = id == null ? null
-                        : net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id);
-                if (item != null && item != net.minecraft.world.item.Items.AIR) {
-                    stacks.add(new ItemStack(item));
-                }
-            }
-            this.shown = stacks;
+            this.shown = itemsShown(tag);
             this.shownTag = tag;
         }
         return this.shown;
+    }
+
+    /** The boot's contents as the client knows them, the same way. */
+    public java.util.List<ItemStack> shownBoot() {
+        net.minecraft.nbt.CompoundTag tag = this.entityData.get(SHOWN_BOOT);
+        if (tag != this.shownBootTag) {
+            this.shownBoot = itemsShown(tag);
+            this.shownBootTag = tag;
+        }
+        return this.shownBoot;
+    }
+
+    private static java.util.List<ItemStack> itemsShown(net.minecraft.nbt.CompoundTag tag) {
+        java.util.List<ItemStack> stacks = new java.util.ArrayList<>();
+        net.minecraft.nbt.ListTag items = tag.getList("Items", net.minecraft.nbt.Tag.TAG_STRING);
+        for (int i = 0; i < items.size(); i++) {
+            net.minecraft.resources.ResourceLocation id =
+                    net.minecraft.resources.ResourceLocation.tryParse(items.getString(i));
+            net.minecraft.world.item.Item item = id == null ? null
+                    : net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id);
+            if (item != null && item != net.minecraft.world.item.Items.AIR) {
+                stacks.add(new ItemStack(item));
+            }
+        }
+        return stacks;
     }
 
     /** A trailer says this every tick it is hitched on. */
@@ -1859,6 +1884,12 @@ public class CarEntity extends VehicleEntity {
         public boolean stillValid(Player player) {
             return !CarEntity.this.isRemoved() && CarEntity.this.isLidOpen(BOOT_BIT)
                     && CarEntity.this.distanceToSqr(player) < 8.0 * 8.0;
+        }
+
+        @Override
+        public void setChanged() {
+            super.setChanged();
+            CarEntity.this.show(this, SHOWN_BOOT);
         }
     };
 
@@ -2759,7 +2790,12 @@ public class CarEntity extends VehicleEntity {
     /** Whether the engine can turn at all, fuel aside. */
     public boolean canRun() {
         return this.missingEssential() == null && !this.isBatteryFlat() && !this.hasWrongFuel()
-                && !this.entityData.get(KEY_MISSING) && !this.isFlooded();
+                && !this.entityData.get(KEY_MISSING) && !this.isFlooded() && !this.isAnyLidOpen();
+    }
+
+    /** With the bonnet or the boot up there is no driving off: the lid is in the way. */
+    public boolean isAnyLidOpen() {
+        return this.entityData.get(LIDS) != 0;
     }
 
     /** Water in the engine: it will not start until it dries out. */
@@ -2843,6 +2879,9 @@ public class CarEntity extends VehicleEntity {
         if (missing != null) {
             driver.displayClientMessage(Component.translatable("message.car.wont_start",
                     Component.translatable("part.car." + missing.key())), true);
+        } else if (this.isAnyLidOpen()) {
+            driver.displayClientMessage(Component.translatable(this.isLidOpen(BONNET_BIT)
+                    ? "message.car.bonnet_open" : "message.car.boot_open"), true);
         } else if (this.isFlooded()) {
             driver.displayClientMessage(Component.translatable("message.car.flooded"), true);
         } else if (this.entityData.get(KEY_MISSING)) {
@@ -4749,6 +4788,7 @@ public class CarEntity extends VehicleEntity {
             net.minecraft.world.ContainerHelper.loadAllItems(
                     view.tag().getCompound("Boot"), this.boot.getItems(), view.registries());
         }
+        this.show(this.boot, SHOWN_BOOT);
         this.setHealth(view.getFloatOr("Health", MAX_HEALTH));
         for (CarPart part : CarPart.values()) {
             this.setCondition(part, view.getFloatOr("Part" + part.key(), CarPart.MAX_CONDITION));

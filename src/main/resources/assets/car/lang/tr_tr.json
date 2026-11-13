@@ -118,6 +118,8 @@
   "message.car.part_fitted_new": "%s takıldı (%%%s).",
   "message.car.wont_start": "Araba çalışmıyor: %s yok.",
   "message.car.overheating": "Motor kaynıyor!",
+  "message.car.bonnet_open": "Kaput açık! Kapatmadan araç sürülmez.",
+  "message.car.boot_open": "Bagaj açık! Kapatmadan araç sürülmez.",
   "message.car.flooded": "Motora su kaçtı! Kuruyana kadar çalışmaz.",
   "death.attack.car.run_over": "%1$s araba altında kaldı",
   "death.attack.car.run_over.player": "%1$s, %2$s tarafından ezildi",

@@ -1113,6 +1113,7 @@ public class CarMachineTests {
         context.assertTrue(car.isLidOpen(CarEntity.BONNET_BIT), "the bonnet did not lift");
         context.assertFalse(car.isLidOpen(CarEntity.BOOT_BIT), "the boot opened with the bonnet");
         context.assertFalse(player.isPassenger(), "touching the bonnet put the player in the seat");
+        context.assertFalse(car.canRun(), "the car would drive off with the bonnet up");
 
         pointAt.accept(top.apply(boot), -1.0);
         car.interact(player, hand);
@@ -1121,6 +1122,8 @@ public class CarMachineTests {
         context.assertTrue(player.containerMenu instanceof net.minecraft.world.inventory.ChestMenu,
                 "reaching into the open boot found nothing to put things in");
         car.getBoot().setItem(0, new ItemStack(Items.BREAD, 5));
+        context.assertTrue(car.shownBoot().size() == 1 && car.shownBoot().get(0).is(Items.BREAD),
+                "the boot's load is not shown to the client");
         player.closeContainer();
 
         net.minecraft.nbt.CompoundTag saved = new net.minecraft.nbt.CompoundTag();
@@ -1137,6 +1140,7 @@ public class CarMachineTests {
         pointAt.accept(top.apply(CarEntity.raisedLid(bonnet, CarEntity.BONNET_BIT)), 1.0);
         car.interact(player, hand);
         context.assertFalse(car.isLidOpen(CarEntity.BONNET_BIT), "the raised bonnet would not come down");
+        context.assertTrue(car.canRun(), "with both lids shut the car still would not drive");
 
         // Beside the door, a bare hand still gets in.
         net.minecraft.world.phys.Vec3 side = new net.minecraft.world.phys.Vec3(1.0, 0.0, 0.0)
