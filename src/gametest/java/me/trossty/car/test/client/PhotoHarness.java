@@ -55,6 +55,11 @@ public final class PhotoHarness {
     private static volatile CompletableFuture<Void> shotTaken;
 
     public PhotoHarness() {
+        String player = System.getProperty("car.mp");
+        if (player != null) {
+            MpClientHarness.install(player);
+            return;
+        }
         if (!Boolean.getBoolean("car.photo")) {
             return;
         }

@@ -141,6 +141,8 @@ public class CarEntity extends VehicleEntity {
     public static final byte STATUS_SPUTTER = 103;
 
     public static final float MAX_HEALTH = 20.0F;
+    /** What a player's own blow counts for, against the damage it says: eighty punches to a wreck. */
+    private static final float PLAYER_BLOW = 0.25F;
     /** Below this much condition the car smokes and the dashboard lamp lights. */
     public static final float DAMAGE_WARNING_FRACTION = 0.35F;
     /** Top speed multiplier at zero condition; a sound car keeps all of MAX_SPEED. */
@@ -452,6 +454,23 @@ public class CarEntity extends VehicleEntity {
     private double lastTickZ;
     /** Last tick's tracked speed, so the server can see braking happen. */
     private float lastTrackedSpeed;
+    private int brakeNoiseCooldown;
+    /** The raw travel of the last two ticks, newest first, on the server. */
+    private final float[] travelledBefore = new float[2];
+    /** Condition lost going under, before the part's own quality and age: see {@link #drown}. */
+    private static final float DROWNED_FILTER = 40.0F;
+    private static final float DROWNED_PLUGS = 30.0F;
+    private static final float DROWNED_ENGINE = 25.0F;
+    private static final float DROWNED_BATTERY = 35.0F;
+    /** Speed lost in a tick that only the brakes take off. */
+    private static final float BRAKING_SCRUB = 0.02F;
+    private static final int BRAKE_NOISE_COOLDOWN = 25;
+    /**
+     * Degrees a tick a car pulls to one side at full grip, with the rack or
+     * the springs completely worn: a tired car needs a hand on the wheel to
+     * go straight. Nothing below half condition, and growing from there.
+     */
+    private static final float MAX_PULL = 0.9F;
     private boolean hasLastTickPos;
     private boolean wasLogicalSide;
 
@@ -782,7 +801,13 @@ public class CarEntity extends VehicleEntity {
         }
 
         if (!this.level().isClientSide()) {
-            float travelled = this.measureTravelledSpeed();
+            // Position packets do not land one per tick: a tick with none reads
+            // as a dead stop and the next as twice the speed. Three ticks
+            // averaged are what the car actually did.
+            float raw = this.measureTravelledSpeed();
+            float travelled = (raw + this.travelledBefore[0] + this.travelledBefore[1]) / 3.0F;
+            this.travelledBefore[1] = this.travelledBefore[0];
+            this.travelledBefore[0] = raw;
             this.entityData.set(ENGINE_SPEED, travelled);
             // On the road only: a car carried off by water or shoved about by
             // a piston has not been driven.
@@ -1081,6 +1106,12 @@ public class CarEntity extends VehicleEntity {
             this.setYRot(Mth.wrapDegrees(
                     this.getYRot() + steerInput * MAX_TURN_RATE * tyres * grip * direction
                             * (drifting ? DRIFT_TURN : 1.0F)));
+        }
+
+        float pull = this.pull();
+        if (pull != 0.0F && onGround && this.flyDist != 0.0F) {
+            float grip = Math.min(1.0F, Math.abs(this.flyDist) / FULL_GRIP_SPEED);
+            this.setYRot(Mth.wrapDegrees(this.getYRot() + pull * grip * Math.signum(this.flyDist)));
         }
 
         // The car goes where it is travelling, which in a slide is not where
@@ -2027,6 +2058,9 @@ public class CarEntity extends VehicleEntity {
         }
         boolean flooded = this.floodedTicks > 0;
         if (flooded != this.isFlooded()) {
+            if (flooded) {
+                this.drown(this.isEngineRunning());
+            }
             this.entityData.set(FLOODED, flooded);
             if (flooded) {
                 this.level().playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
@@ -2038,6 +2072,24 @@ public class CarEntity extends VehicleEntity {
                     && !living.canBreatheUnderwater()) {
                 living.stopRiding();
             }
+        }
+    }
+
+    /**
+     * What going under does to the car, once, as the water comes in. The
+     * airbox soaks either way. A running engine also breathes the water in,
+     * and water does not compress: the plugs and the engine take a beating
+     * that drying out does not undo. An electric car shorts its battery.
+     */
+    private void drown(boolean running) {
+        if (this.isElectric()) {
+            this.wear(CarPart.BATTERY, DROWNED_BATTERY);
+            return;
+        }
+        this.wear(CarPart.AIR_FILTER, DROWNED_FILTER);
+        if (running) {
+            this.wear(CarPart.SPARK_PLUGS, DROWNED_PLUGS);
+            this.wear(CarPart.ENGINE, DROWNED_ENGINE);
         }
     }
 
@@ -2144,6 +2196,26 @@ public class CarEntity extends VehicleEntity {
                 * this.getGrip();
     }
 
+    /**
+     * How hard this car pulls off a straight line, degrees a tick, signed by
+     * side. A worn rack or tired springs both do it; which way is the car's
+     * own, fixed by its identity, as a real one always drifts the same way.
+     */
+    public float pull() {
+        float worst = 1.0F;
+        if (this.hasPart(CarPart.STEERING_RACK) && this.isFitted(CarPart.STEERING_RACK)) {
+            worst = Math.min(worst, this.getConditionFraction(CarPart.STEERING_RACK));
+        }
+        if (this.hasPart(CarPart.SUSPENSION) && this.isFitted(CarPart.SUSPENSION)) {
+            worst = Math.min(worst, this.getConditionFraction(CarPart.SUSPENSION));
+        }
+        if (worst >= FaultCodes.ADVISORY) {
+            return 0.0F;
+        }
+        float side = (this.getUUID().getLeastSignificantBits() & 1L) == 0L ? -1.0F : 1.0F;
+        return side * MAX_PULL * (FaultCodes.ADVISORY - worst) / FaultCodes.ADVISORY;
+    }
+
     /** Turn rate: the rack points the wheels, the tyres decide what happens. */
     public float steeringFactor() {
         return this.tuning().steering() * this.partFactor(CarPart.WHEELS, WORN_TYRE_GRIP)
@@ -2233,11 +2305,38 @@ public class CarEntity extends VehicleEntity {
         if (scrubbed <= 0.0F || Math.abs(speedNow) < 0.05F) {
             return;
         }
+        this.complainAboutBrakes(scrubbed);
         float work = scrubbed * BRAKE_WEAR_PER_DECEL;
         this.wear(CarPart.BRAKE_PADS, CarPart.BRAKE_PADS.wearPerTick() * work);
         float padsLeft = this.getConditionFraction(CarPart.BRAKE_PADS);
         this.wear(CarPart.BRAKE_DISCS, CarPart.BRAKE_DISCS.wearPerTick() * work
                 * Mth.lerp(padsLeft, PADS_EAT_DISCS, 1.0F));
+    }
+
+    /**
+     * What tired brakes sound like from the road: a thin squeal once the pads
+     * are getting low, and metal on metal once they are gone and the discs are
+     * paying for it. Everyone nearby hears it, which is the point: the car
+     * says what it needs before anybody plugs a reader in.
+     */
+    private void complainAboutBrakes(float scrubbed) {
+        if (this.brakeNoiseCooldown > 0) {
+            this.brakeNoiseCooldown--;
+            return;
+        }
+        // Only real braking: engine drag alone never takes off this much a tick.
+        if (scrubbed < BRAKING_SCRUB || !this.hasPart(CarPart.BRAKE_PADS)) {
+            return;
+        }
+        float pads = this.getConditionFraction(CarPart.BRAKE_PADS);
+        if (pads > FaultCodes.WARNING) {
+            return;
+        }
+        boolean grinding = pads <= FaultCodes.CRITICAL;
+        this.level().playSound(null, this.getX(), this.getY() + 0.3, this.getZ(),
+                grinding ? SoundEvents.GRINDSTONE_USE : me.trossty.car.sound.ModSounds.TYRE_SKID,
+                SoundSource.NEUTRAL, grinding ? 0.8F : 0.35F, grinding ? 0.7F : 2.0F);
+        this.brakeNoiseCooldown = BRAKE_NOISE_COOLDOWN;
     }
 
     // ---- working on it ----
@@ -3448,6 +3547,11 @@ public class CarEntity extends VehicleEntity {
                 this.discard();
             }
             return true;
+        }
+        // A fist or a sword is no crowbar: it takes a good while to beat a car
+        // to scrap by hand, where a blast or a falling anvil does it quickly.
+        if (source.isDirect() && source.getEntity() instanceof Player) {
+            amount *= PLAYER_BLOW;
         }
         this.applyCarDamage(world, amount);
         return true;

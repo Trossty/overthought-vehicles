@@ -296,6 +296,22 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         float half = (at[1] - at[0]) / 2.0F * 0.8F;
         float near = at[3] - 0.3F;
         float far = at[3] + BEAM_LENGTH;
+        // Light stops at the first wall: it does not spill on the far side.
+        float yawRad = state.yaw * ((float) Math.PI / 180.0F);
+        net.minecraft.world.phys.Vec3 from = car.position().add(0.0, 0.6, 0.0);
+        net.minecraft.world.phys.Vec3 to = from.add(-Mth.sin(yawRad) * far, 0.0, Mth.cos(yawRad) * far);
+        net.minecraft.world.phys.BlockHitResult hit = car.level().clip(new net.minecraft.world.level.ClipContext(
+                from, to, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.NONE, car));
+        float reach = hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS
+                ? far : (float) hit.getLocation().subtract(from).horizontalDistance();
+        if (reach <= near) {
+            return;
+        }
+        // Cut short, it keeps the shape and the fade it had up to the cut.
+        float cut = (reach - near) / (far - near);
+        float spread = BEAM_SPREAD * cut;
+        far = reach;
         matrices.pushPose();
         matrices.translate(0.0, ground - car.getY() + 0.02, 0.0);
         matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
@@ -304,10 +320,10 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         int colour = 0xFFFFFFFF;
         // Mirrored like the model: the car's front is -z here.
         // Wound to face up, as the shadow is, or it is culled from above.
-        shadowVertex(pose, out, colour, -(half + BEAM_SPREAD), -far, 0.0F, 1.0F);
+        shadowVertex(pose, out, colour, -(half + spread), -far, 0.0F, cut);
         shadowVertex(pose, out, colour, -half, -near, 0.0F, 0.0F);
         shadowVertex(pose, out, colour, half, -near, 1.0F, 0.0F);
-        shadowVertex(pose, out, colour, half + BEAM_SPREAD, -far, 1.0F, 1.0F);
+        shadowVertex(pose, out, colour, half + spread, -far, 1.0F, cut);
         matrices.popPose();
     }
 

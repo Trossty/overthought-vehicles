@@ -48,7 +48,9 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
     private static final int ROW = 12;
     private static final int ROWS = 8;
     /** Two lines of a name have to share one row: no bigger than this. */
-    private static final float TWO_LINE_SCALE = 0.62F;
+    private static final float TWO_LINE_SCALE = 0.7F;
+    /** From one line of a two-line name to the next: a glyph and its shadow, no more. */
+    private static final int TWO_LINE_STEP = 8;
 
     private static final int PREVIEW_X = 92;
     private static final int PREVIEW_Y = 18;
@@ -268,12 +270,14 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
             }
             scale = Math.max(0.5F, scale);
             context.pose().pushPose();
-            float height = lines.length * this.font.lineHeight * scale;
+            // Two lines are set closer than the font's own spacing, so they can be bigger in the row.
+            int step = lines.length > 1 ? TWO_LINE_STEP : this.font.lineHeight;
+            float height = ((lines.length - 1) * step + this.font.lineHeight - 1) * scale;
             context.pose().translate(left + 3.0F, rowTop + (ROW - height) / 2.0F + 0.5F, 0.0F);
             context.pose().scale(scale, scale, 1.0F);
             for (int line = 0; line < lines.length; line++) {
                 context.drawString(this.font, this.font.plainSubstrByWidth(lines[line], (int) (room / scale)),
-                        0, line * this.font.lineHeight, 0xFFFFFFFF, true);
+                        0, line * step, 0xFFFFFFFF, true);
             }
             context.pose().popPose();
         }

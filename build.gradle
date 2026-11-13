@@ -55,6 +55,30 @@ neoForge {
             systemProperty 'car.photo.all', project.findProperty('car.photo.all') ?: 'false'
             systemProperty 'car.photo.scenes', project.findProperty('car.photo.scenes') ?: ''
         }
+        // Two players on a real dedicated server: mpServer, then mpAlice and
+        // mpBob alongside it. The server sets the scene and quits when it is
+        // done; Alice drives, Bob rides, and both photograph what they see.
+        mpServer {
+            server()
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('build/run/mp/server')
+            programArgument '--nogui'
+            systemProperty 'car.mp.server', 'true'
+        }
+        mpAlice {
+            client()
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('build/run/mp/alice')
+            programArguments.addAll '--username', 'Alice'
+            systemProperty 'car.mp', 'alice'
+        }
+        mpBob {
+            client()
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('build/run/mp/bob')
+            programArguments.addAll '--username', 'Bob'
+            systemProperty 'car.mp', 'bob'
+        }
         // Headless server that runs every @GameTest in the mod and exits.
         gameTestServer {
             type = 'gameTestServer'
@@ -123,5 +147,17 @@ tasks.withType(JavaCompile).configureEach {
 jar {
     from("LICENSE") {
         rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+// The two-player test's server starts from a fresh flat world on its own
+// port, with the settings in tools/mp, every time.
+tasks.matching { it.name == 'runMpServer' }.configureEach {
+    doFirst {
+        delete 'build/run/mp/server/world'
+        copy {
+            from 'tools/mp'
+            into 'build/run/mp/server'
+        }
     }
 }

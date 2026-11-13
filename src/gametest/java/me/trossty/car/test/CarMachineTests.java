@@ -829,6 +829,49 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** A bare fist is no crowbar: one punch takes a sliver, not a twentieth of the car. */
+    @GameTest(template = "empty")
+    public static void aPunchBarelyDents(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        float before = car.getHealth();
+        car.hurt(context.getLevel().damageSources().playerAttack(player), 1.0F);
+        float lost = before - car.getHealth();
+        context.assertTrue(lost > 0.0F && lost <= 0.3F, "a punch took " + lost + " off the car");
+        car.discard();
+        context.succeed();
+    }
+
+    /** A worn rack makes the car pull, always the same way; a sound one runs straight. */
+    @GameTest(template = "empty")
+    public static void aWornRackPulls(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        context.assertTrue(car.pull() == 0.0F, "a fresh car pulls " + car.pull());
+        car.setCondition(CarPart.STEERING_RACK, 10.0F);
+        float pull = car.pull();
+        context.assertTrue(Math.abs(pull) > 0.5F, "a worn-out rack pulls only " + pull);
+        context.assertTrue(car.pull() == pull, "the pull changed sides");
+        car.discard();
+        context.succeed();
+    }
+
+    /** Going under soaks the airbox and floods the engine; it starts again once dry. */
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void waterSoaksTheAirbox(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        float filter = car.getConditionFraction(CarPart.AIR_FILTER);
+        for (BlockPos at : BlockPos.betweenClosed(new BlockPos(0, 1, 0), new BlockPos(6, 3, 6))) {
+            context.setBlock(at, net.minecraft.world.level.block.Blocks.WATER);
+        }
+        context.runAfterDelay(10, () -> {
+            context.assertTrue(car.isFlooded(), "the car did not flood under water");
+            context.assertTrue(car.getConditionFraction(CarPart.AIR_FILTER) < filter - 0.2F,
+                    "the airbox stayed dry under water");
+            car.discard();
+            context.succeed();
+        });
+    }
+
     /** A creative player clears a car away, and nothing comes back from it. */
     @GameTest(template = "empty")
     public static void creativeClearsWithoutAnItem(GameTestHelper context) {

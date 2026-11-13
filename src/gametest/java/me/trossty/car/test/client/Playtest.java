@@ -38,6 +38,7 @@ final class Playtest {
         pond(context, server);
         ledge(context, server);
         runDry(context, server);
+        worn(context, server);
         cow(context, server);
         punch(context, server);
         night(context, server);
@@ -228,6 +229,31 @@ final class Playtest {
         log("dry after: " + state(server));
         context.takeScreenshot("play_dry");
         server.runOnServer(minecraft -> serverCar(minecraft).setFuel(60.0F));
+    }
+
+    /** A tired car: a worn rack pulls it off a straight line, and low pads squeal under braking. */
+    private static void worn(ClientGameTestContext context, TestServerContext server) {
+        startAt(context, server, -8.5, Y, 0.5);
+        server.runOnServer(minecraft -> {
+            CarEntity car = serverCar(minecraft);
+            car.setCondition(me.trossty.car.entity.CarPart.STEERING_RACK, 10.0F);
+            car.setCondition(me.trossty.car.entity.CarPart.BRAKE_PADS, 20.0F);
+            log("worn pull " + car.pull());
+        });
+        drive(context, server, "worn", 60);
+        log("worn after hands-off: yaw %.1f, x %.1f".formatted(
+                context.<Float>computeOnClient(client -> client.player.getVehicle().getYRot()),
+                context.<Double>computeOnClient(client -> client.player.getVehicle().getX())));
+        context.takeScreenshot("play_worn_pull");
+        context.getInput().holdKey(options -> options.keyJump);
+        context.waitTicks(30);
+        context.getInput().releaseKey(options -> options.keyJump);
+        log("worn braked: " + state(server));
+        server.runOnServer(minecraft -> {
+            CarEntity car = serverCar(minecraft);
+            car.setCondition(me.trossty.car.entity.CarPart.STEERING_RACK, 100.0F);
+            car.setCondition(me.trossty.car.entity.CarPart.BRAKE_PADS, 100.0F);
+        });
     }
 
     private static void cow(ClientGameTestContext context, TestServerContext server) {

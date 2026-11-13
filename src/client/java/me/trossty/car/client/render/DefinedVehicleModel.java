@@ -57,6 +57,8 @@ public class DefinedVehicleModel extends VehicleModel {
     /** From the driver's seat to the middle of the wheel: up, and forwards. */
     private static final float WHEEL_RISE = 9.0F;
     private static final float WHEEL_REACH = 10.0F;
+    /** How far the top of the dash stands over the middle of the wheel, at the most: a car's 2.6. */
+    private static final float CLUSTER_OVER_WHEEL = 2.6F;
     /** Degrees the wheel leans back towards the driver. */
     private static final float WHEEL_RAKE = 28.0F;
     private static final float WHEEL_RIM = 2.8F;
@@ -300,7 +302,7 @@ public class DefinedVehicleModel extends VehicleModel {
      * rim stands just proud of it rather than buried in it.
      */
     private static float wheelReach(VehicleDefinition definition, net.minecraft.world.phys.Vec3 seat) {
-        float wheelY = (float) seat.y + WHEEL_RISE;
+        float wheelY = (float) seat.y + wheelRise(definition, seat);
         float reach = WHEEL_REACH;
         // The whole rim, not only its hub: raked back, its top leans forward
         // towards the dash by this much and its bottom away from it.
@@ -326,6 +328,32 @@ public class DefinedVehicleModel extends VehicleModel {
             }
         }
         return Math.max(4.0F, reach);
+    }
+
+    /**
+     * How far above the driver's hips the middle of the wheel goes: the usual
+     * rise, or more where the dashboard stands taller than that, so the top of
+     * the rim still shows over it from the seat. A lorry's dash is high.
+     */
+    private static float wheelRise(VehicleDefinition definition, net.minecraft.world.phys.Vec3 seat) {
+        float span = WHEEL_RIM + 1.0F;
+        float dash = Float.NEGATIVE_INFINITY;
+        for (VehicleDefinition.Box box : definition.shape()) {
+            // The dash is trim; paint in front of the seat is the bonnet.
+            if (isGlass(box.color()) || "paint".equals(box.color())) {
+                continue;
+            }
+            float minX = Math.min(box.from().x(), box.to().x());
+            float maxX = Math.max(box.from().x(), box.to().x());
+            float maxY = Math.max(box.from().y(), box.to().y());
+            float minZ = Math.min(box.from().z(), box.to().z());
+            // Just in front of the seat and about chest height: the dash, not the roof.
+            if (maxX > seat.x - span && minX < seat.x + span && minZ > seat.z + 2.0 && minZ < seat.z + 16.0
+                    && maxY > seat.y && maxY < seat.y + 22.0) {
+                dash = Math.max(dash, maxY - (float) seat.y);
+            }
+        }
+        return Math.max(WHEEL_RISE, dash - CLUSTER_OVER_WHEEL);
     }
 
     private static ModelPart build(VehicleDefinition definition, List<String> colours, boolean glass) {
@@ -389,7 +417,7 @@ public class DefinedVehicleModel extends VehicleModel {
             int[] rim = uv(colours, STEERING_WHEEL_COLOUR);
             int[] badge = uv(colours, "#C9CDD2");
             PartDefinition mount = frame.addOrReplaceChild(STEERING_WHEEL, CubeListBuilder.create(),
-                    PartPose.offsetAndRotation((float) seat.x, -(float) seat.y - WHEEL_RISE,
+                    PartPose.offsetAndRotation((float) seat.x, -(float) seat.y - wheelRise(definition, seat),
                             -(float) seat.z - wheelReach(definition, seat), WHEEL_RAKE * DEGREES, 0.0F, 0.0F));
             int[] spoke = uv(colours, "#3A3A3E");
             int[] shroud = uv(colours, "#2A2A2D");
