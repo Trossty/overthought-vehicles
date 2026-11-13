@@ -9,7 +9,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -98,6 +100,23 @@ public record VehicleDefinition(
     /** Where a bed's or box's loose load is shown, if it has one. */
     public Optional<Area> load() {
         return this.carrying.load();
+    }
+
+    /**
+     * The closed lid's boxes, all of them in one, in pixels with +z to the
+     * front; null when this vehicle has no such lid.
+     */
+    public @Nullable AABB lidBounds(String lid) {
+        AABB bounds = null;
+        for (Box box : this.shape) {
+            if (box.opens().equals(lid)) {
+                AABB one = new AABB(
+                        box.from().x(), box.from().y(), box.from().z(),
+                        box.to().x(), box.to().y(), box.to().z());
+                bounds = bounds == null ? one : bounds.minmax(one);
+            }
+        }
+        return bounds;
     }
 
     /** Whether there are beds inside: a caravan, slept in at night. */
@@ -289,7 +308,11 @@ public record VehicleDefinition(
      * is tilted first, then turned, then rolled.
      */
     public record Box(org.joml.Vector3f from, org.joml.Vector3f to, String color, float tilt, boolean steers,
-                      float roll, boolean spins, float yaw) {
+                      float roll, boolean spins, float yaw, String opens) {
+        /** The lids a box can belong to: it swings up with that lid. */
+        public static final String BONNET = "bonnet";
+        public static final String BOOT = "boot";
+
         public static final Codec<Box> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 ExtraCodecs.VECTOR3F.fieldOf("from").forGetter(Box::from),
                 ExtraCodecs.VECTOR3F.fieldOf("to").forGetter(Box::to),
@@ -298,7 +321,11 @@ public record VehicleDefinition(
                 Codec.BOOL.optionalFieldOf("steers", false).forGetter(Box::steers),
                 Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("roll", 0.0F).forGetter(Box::roll),
                 Codec.BOOL.optionalFieldOf("spins", false).forGetter(Box::spins),
-                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("yaw", 0.0F).forGetter(Box::yaw)
+                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("yaw", 0.0F).forGetter(Box::yaw),
+                Codec.STRING.validate(lid -> lid.isEmpty() || lid.equals(BONNET) || lid.equals(BOOT)
+                        ? com.mojang.serialization.DataResult.success(lid)
+                        : com.mojang.serialization.DataResult.error(() -> "opens must be bonnet or boot: " + lid))
+                        .optionalFieldOf("opens", "").forGetter(Box::opens)
         ).apply(instance, Box::new));
     }
 

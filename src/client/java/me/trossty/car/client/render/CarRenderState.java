@@ -23,6 +23,9 @@ public class CarRenderState {
     public int tyresOff;
     /** The wheel whose tyre is flat, or -1. */
     public int flatTyre = -1;
+    /** How far up the bonnet and the boot lid are, 0 shut to 1 open. */
+    public float bonnetOpen;
+    public float bootOpen;
     /** The service plates hanging over the car, if you are looking at it. */
     public java.util.List<CarServiceOverlay.PartLabel> labels = java.util.List.of();
     public float wheelAngle;

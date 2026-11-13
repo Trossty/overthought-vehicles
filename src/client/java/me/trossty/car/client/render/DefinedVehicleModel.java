@@ -122,6 +122,9 @@ public class DefinedVehicleModel extends VehicleModel {
     /** The rubber of every wheel, and the hubs, so a removed tyre or disc can leave the picture. */
     private final List<ModelPart> rubber = new ArrayList<>();
     private final List<ModelPart> hubs = new ArrayList<>();
+    /** The bonnet and the boot lid, each hung on its hinge; null where there is none. */
+    private final ModelPart bonnet;
+    private final ModelPart boot;
 
     private DefinedVehicleModel(ModelPart root, VehicleDefinition definition, boolean glass) {
         // The bodywork is solid; the glass is its own model, drawn see-through
@@ -142,6 +145,12 @@ public class DefinedVehicleModel extends VehicleModel {
                 : null;
         this.propeller = this.chassis != null && this.chassis.getChild("frame").hasChild(PROPELLER)
                 ? this.chassis.getChild("frame").getChild(PROPELLER)
+                : null;
+        this.bonnet = this.chassis != null && this.chassis.getChild("frame").hasChild(VehicleDefinition.Box.BONNET)
+                ? this.chassis.getChild("frame").getChild(VehicleDefinition.Box.BONNET)
+                : null;
+        this.boot = this.chassis != null && this.chassis.getChild("frame").hasChild(VehicleDefinition.Box.BOOT)
+                ? this.chassis.getChild("frame").getChild(VehicleDefinition.Box.BOOT)
                 : null;
         for (int index = 0; this.chassis == null && index < definition.wheels().size(); index++) {
             ModelPart wheel = root.getChild("wheel" + index);
@@ -477,6 +486,23 @@ public class DefinedVehicleModel extends VehicleModel {
             }
         }
 
+        // The bonnet swings on its back edge by the windscreen, the boot lid
+        // on its front edge by the rear window, both along the top. Only the
+        // bodywork has them: the glass and the lamps stay where they are.
+        Map<String, float[]> hinges = new HashMap<>();
+        if (!glass && only == null) {
+            for (String lid : List.of(VehicleDefinition.Box.BONNET, VehicleDefinition.Box.BOOT)) {
+                net.minecraft.world.phys.AABB closed = definition.lidBounds(lid);
+                if (closed != null) {
+                    float hingeY = (float) closed.maxY;
+                    float hingeZ = (float) (lid.equals(VehicleDefinition.Box.BONNET) ? closed.minZ : closed.maxZ);
+                    frame.addOrReplaceChild(lid, CubeListBuilder.create(),
+                            PartPose.offset(0.0F, -hingeY, -hingeZ));
+                    hinges.put(lid, new float[] {0.0F, -hingeY, -hingeZ});
+                }
+            }
+        }
+
         int count = 0;
         float[] lift = lifts(definition.shape());
         for (int index = 0; index < definition.shape().size(); index++) {
@@ -497,10 +523,12 @@ public class DefinedVehicleModel extends VehicleModel {
             // Written about its own middle, so that a tilt turns it in place.
             boolean turns = box.steers() && steerHead != null;
             boolean spins = box.spins() && prop != null;
-            PartDefinition parent = spins ? prop : turns ? steerHead : frame;
-            float offX = spins ? propX : turns ? hubX : 0.0F;
-            float offY = spins ? propY : turns ? -hubY : 0.0F;
-            float offZ = spins ? propZ : turns ? -hubZ : 0.0F;
+            float[] hinge = hinges.get(box.opens());
+            PartDefinition parent = hinge != null ? frame.getChild(box.opens())
+                    : spins ? prop : turns ? steerHead : frame;
+            float offX = hinge != null ? hinge[0] : spins ? propX : turns ? hubX : 0.0F;
+            float offY = hinge != null ? hinge[1] : spins ? propY : turns ? -hubY : 0.0F;
+            float offZ = hinge != null ? hinge[2] : spins ? propZ : turns ? -hubZ : 0.0F;
             parent.addOrReplaceChild("box" + count++,
                     CubeListBuilder.create().texOffs(at[0], at[1])
                             .addBox(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ,
@@ -668,6 +696,15 @@ public class DefinedVehicleModel extends VehicleModel {
         }
         if (this.steerTurn != null) {
             this.steerTurn.yRot = steer;
+        }
+        // The model's y runs downward and its z backward, so the bonnet's
+        // front edge comes up as it turns one way and the boot's back edge
+        // as it turns the other.
+        if (this.bonnet != null) {
+            this.bonnet.xRot = -CarEntityRenderer.ease(state.bonnetOpen) * me.trossty.car.entity.CarEntity.BONNET_SWING_DEGREES * DEGREES;
+        }
+        if (this.boot != null) {
+            this.boot.xRot = CarEntityRenderer.ease(state.bootOpen) * me.trossty.car.entity.CarEntity.BOOT_SWING_DEGREES * DEGREES;
         }
         if (this.propeller != null) {
             this.propeller.zRot = state.engineRunning ? state.ageInTicks * PROP_SPEED % Mth.TWO_PI : 0.0F;

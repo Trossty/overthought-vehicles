@@ -1081,6 +1081,81 @@ public class CarMachineTests {
     }
 
     /**
+     * An empty hand on the bonnet or the boot lifts it; into the open boot
+     * it finds a chest that keeps what is put in, through a save too; on the
+     * raised lid it lets it down; and a wrecked car tips the boot out.
+     */
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void bonnetAndBootOpen(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 3));
+        car.moveTo(car.getX(), car.getY(), car.getZ(), 30.0F, 0.0F);
+        var player = context.makeMockServerPlayerInLevel();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        var defined = car.getDefinition();
+        // Points the player at a spot on the car, in its pixels, from beyond
+        // that end of it and a block above.
+        java.util.function.BiConsumer<net.minecraft.world.phys.Vec3, Double> pointAt = (pixels, end) -> {
+            float yaw = -car.getYRot() * net.minecraft.util.Mth.DEG_TO_RAD;
+            net.minecraft.world.phys.Vec3 spot = car.position().add(pixels.scale(1.0 / 16.0).yRot(yaw));
+            net.minecraft.world.phys.Vec3 out = new net.minecraft.world.phys.Vec3(0.0, 0.0, end).yRot(yaw);
+            player.moveTo(spot.x + out.x * 1.8, spot.y + 1.0 - player.getEyeHeight(), spot.z + out.z * 1.8);
+            player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, spot);
+        };
+        java.util.function.Function<net.minecraft.world.phys.AABB, net.minecraft.world.phys.Vec3> top =
+                box -> new net.minecraft.world.phys.Vec3(box.getCenter().x, box.maxY, box.getCenter().z);
+        var bonnet = defined.lidBounds(me.trossty.car.vehicle.VehicleDefinition.Box.BONNET);
+        var boot = defined.lidBounds(me.trossty.car.vehicle.VehicleDefinition.Box.BOOT);
+        context.assertTrue(bonnet != null && boot != null, "the Corolla has no bonnet or no boot lid");
+        var hand = net.minecraft.world.InteractionHand.MAIN_HAND;
+
+        pointAt.accept(top.apply(bonnet), 1.0);
+        car.interact(player, hand);
+        context.assertTrue(car.isLidOpen(CarEntity.BONNET_BIT), "the bonnet did not lift");
+        context.assertFalse(car.isLidOpen(CarEntity.BOOT_BIT), "the boot opened with the bonnet");
+        context.assertFalse(player.isPassenger(), "touching the bonnet put the player in the seat");
+
+        pointAt.accept(top.apply(boot), -1.0);
+        car.interact(player, hand);
+        context.assertTrue(car.isLidOpen(CarEntity.BOOT_BIT), "the boot did not open");
+        car.interact(player, hand);
+        context.assertTrue(player.containerMenu instanceof net.minecraft.world.inventory.ChestMenu,
+                "reaching into the open boot found nothing to put things in");
+        car.getBoot().setItem(0, new ItemStack(Items.BREAD, 5));
+        player.closeContainer();
+
+        net.minecraft.nbt.CompoundTag saved = new net.minecraft.nbt.CompoundTag();
+        car.saveWithoutId(saved);
+        CarEntity copy = ModEntities.CAR.create(context.getLevel());
+        copy.load(saved);
+        context.assertTrue(copy.getBoot().getItem(0).getCount() == 5, "the boot's load was lost in a save");
+        context.assertTrue(copy.isLidOpen(CarEntity.BONNET_BIT) && copy.isLidOpen(CarEntity.BOOT_BIT),
+                "the lids shut themselves in a save");
+
+        pointAt.accept(top.apply(CarEntity.raisedLid(boot, CarEntity.BOOT_BIT)), -1.0);
+        car.interact(player, hand);
+        context.assertFalse(car.isLidOpen(CarEntity.BOOT_BIT), "the raised boot lid would not come down");
+        pointAt.accept(top.apply(CarEntity.raisedLid(bonnet, CarEntity.BONNET_BIT)), 1.0);
+        car.interact(player, hand);
+        context.assertFalse(car.isLidOpen(CarEntity.BONNET_BIT), "the raised bonnet would not come down");
+
+        // Beside the door, a bare hand still gets in.
+        net.minecraft.world.phys.Vec3 side = new net.minecraft.world.phys.Vec3(1.0, 0.0, 0.0)
+                .yRot(-car.getYRot() * net.minecraft.util.Mth.DEG_TO_RAD);
+        player.moveTo(car.getX() + side.x * 2.0, car.getY(), car.getZ() + side.z * 2.0);
+        player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, car.position().add(0, 0.8, 0));
+        car.interact(player, hand);
+        context.assertTrue(player.getVehicle() == car, "the door no longer lets the player in");
+        player.stopRiding();
+
+        car.remove(net.minecraft.world.entity.Entity.RemovalReason.KILLED);
+        context.assertFalse(context.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                car.getBoundingBox().inflate(3.0), item -> item.getItem().is(Items.BREAD)).isEmpty(),
+                "the boot did not tip out when the car went");
+        copy.discard();
+        context.succeed();
+    }
+
+    /**
      * Tyres come off one at a time, the one pointed at; the brakes behind them
      * are reached once all are off; they go back one at a time, all of a kind.
      */

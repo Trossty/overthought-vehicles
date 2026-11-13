@@ -398,6 +398,9 @@ public class CarEntity extends VehicleEntity {
     /** One bit a wheel, by its place in the list: set where the tyre has been taken off. */
     private static final EntityDataAccessor<Byte> TYRES_OFF =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
+    /** Which lids stand open: {@link #BONNET_BIT}, {@link #BOOT_BIT}. */
+    private static final EntityDataAccessor<Byte> LIDS =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
 
     private String definitionKey = "";
     private me.trossty.car.vehicle.VehicleDefinition definition;
@@ -584,6 +587,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(LOCKED, false);
         builder.define(FLAT_TYRE, (byte) -1);
         builder.define(TYRES_OFF, (byte) 0);
+        builder.define(LIDS, (byte) 0);
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
@@ -777,6 +781,10 @@ public class CarEntity extends VehicleEntity {
         if (this.level().isClientSide()) {
             this.prevRestPose = this.restPose;
             this.restPose += (this.restPoseTarget() - this.restPose) * 0.18F;
+            this.prevBonnetSwing = this.bonnetSwing;
+            this.bonnetSwing = swingTowards(this.bonnetSwing, this.isLidOpen(BONNET_BIT));
+            this.prevBootSwing = this.bootSwing;
+            this.bootSwing = swingTowards(this.bootSwing, this.isLidOpen(BOOT_BIT));
             if (this.lockFlashTicks > 0) {
                 if (this.lockFlashTicks == LOCK_FLASH_TICKS
                         || this.lockFlashTicks == LOCK_FLASH_TICKS / 2 && this.lockFlashTwice) {
@@ -1824,6 +1832,167 @@ public class CarEntity extends VehicleEntity {
 
     public float getRestPose(float tickProgress) {
         return Mth.lerp(tickProgress, this.prevRestPose, this.restPose);
+    }
+
+    // ---- the bonnet and the boot ----
+
+    public static final int BONNET_BIT = 1;
+    public static final int BOOT_BIT = 2;
+    /** How far each lid swings up about its hinge, fully open. */
+    public static final float BONNET_SWING_DEGREES = 55.0F;
+    public static final float BOOT_SWING_DEGREES = 60.0F;
+    /** A boot holds two rows: the shopping, a toolbox, not a pickup's bed. */
+    public static final int BOOT_SLOTS = 18;
+    /** How far a lid gets in a tick, as a share of the way: about half a second end to end. */
+    private static final float SWING_STEP = 0.1F;
+    /** How open each lid is drawn, 0 to 1; client only. */
+    private float bonnetSwing;
+    private float prevBonnetSwing;
+    private float bootSwing;
+    private float prevBootSwing;
+    /**
+     * What is in the boot. Not shown in a bed the way a pickup's load is,
+     * so it is a plain chest rather than a {@link #carriedChest}.
+     */
+    private final net.minecraft.world.SimpleContainer boot = new net.minecraft.world.SimpleContainer(BOOT_SLOTS) {
+        @Override
+        public boolean stillValid(Player player) {
+            return !CarEntity.this.isRemoved() && CarEntity.this.isLidOpen(BOOT_BIT)
+                    && CarEntity.this.distanceToSqr(player) < 8.0 * 8.0;
+        }
+    };
+
+    private static float swingTowards(float swing, boolean open) {
+        return open ? Math.min(1.0F, swing + SWING_STEP) : Math.max(0.0F, swing - SWING_STEP);
+    }
+
+    public float getBonnetSwing(float tickProgress) {
+        return Mth.lerp(tickProgress, this.prevBonnetSwing, this.bonnetSwing);
+    }
+
+    public float getBootSwing(float tickProgress) {
+        return Mth.lerp(tickProgress, this.prevBootSwing, this.bootSwing);
+    }
+
+    public boolean isLidOpen(int lid) {
+        return (this.entityData.get(LIDS) & lid) != 0;
+    }
+
+    public void setLidOpen(int lid, boolean open) {
+        int lids = this.entityData.get(LIDS);
+        this.entityData.set(LIDS, (byte) (open ? lids | lid : lids & ~lid));
+    }
+
+    public net.minecraft.world.Container getBoot() {
+        return this.boot;
+    }
+
+    private static String lidName(int lid) {
+        return lid == BONNET_BIT ? me.trossty.car.vehicle.VehicleDefinition.Box.BONNET : me.trossty.car.vehicle.VehicleDefinition.Box.BOOT;
+    }
+
+    /** Whether this vehicle's shape has that lid at all. */
+    public boolean hasLid(int lid) {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        return defined != null && defined.lidBounds(lidName(lid)) != null;
+    }
+
+    /**
+     * Where the player points on a lid: at the lid itself, or, with it up,
+     * into the hole it covers. Worked out in the vehicle's own pixels.
+     */
+    private record LidAim(int lid, boolean inside) {
+    }
+
+    private @Nullable LidAim aimedLid(Player player) {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        if (defined == null || player.isPassenger()) {
+            return null;
+        }
+        double yaw = this.getYRot() * Mth.DEG_TO_RAD;
+        Vec3 from = player.getEyePosition().subtract(this.position()).yRot((float) yaw).scale(16.0);
+        Vec3 to = from.add(player.getViewVector(1.0F).yRot((float) yaw)
+                .scale((player.entityInteractionRange() + 1.0) * 16.0));
+        LidAim best = null;
+        double nearest = Double.MAX_VALUE;
+        for (int lid : new int[] {BONNET_BIT, BOOT_BIT}) {
+            net.minecraft.world.phys.AABB closed = defined.lidBounds(lidName(lid));
+            if (closed == null) {
+                continue;
+            }
+            boolean open = this.isLidOpen(lid);
+            // Shut, the lid is the hole; up, the hole is still where it was.
+            net.minecraft.world.phys.AABB hole = closed.inflate(0.5).expandTowards(0.0, 1.5, 0.0);
+            java.util.Optional<Vec3> hit = hole.clip(from, to);
+            if (hit.isPresent() && hit.get().distanceToSqr(from) < nearest) {
+                nearest = hit.get().distanceToSqr(from);
+                best = new LidAim(lid, open);
+            }
+            if (open) {
+                hit = raisedLid(closed, lid).inflate(0.5).clip(from, to);
+                if (hit.isPresent() && hit.get().distanceToSqr(from) < nearest) {
+                    nearest = hit.get().distanceToSqr(from);
+                    best = new LidAim(lid, false);
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * The box a lid fills once swung up about its hinge: the bonnet's at its
+     * back edge by the windscreen, the boot's at its front by the rear window,
+     * both along the top.
+     */
+    public static net.minecraft.world.phys.AABB raisedLid(net.minecraft.world.phys.AABB closed, int lid) {
+        boolean bonnet = lid == BONNET_BIT;
+        double hingeY = closed.maxY;
+        double hingeZ = bonnet ? closed.minZ : closed.maxZ;
+        double angle = (bonnet ? BONNET_SWING_DEGREES : BOOT_SWING_DEGREES) * Mth.DEG_TO_RAD;
+        double up = bonnet ? 1.0 : -1.0;
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        double minY = Double.MAX_VALUE, maxY = -Double.MAX_VALUE, minZ = Double.MAX_VALUE, maxZ = -Double.MAX_VALUE;
+        for (double y : new double[] {closed.minY, closed.maxY}) {
+            for (double z : new double[] {closed.minZ, closed.maxZ}) {
+                double dy = y - hingeY;
+                double dz = z - hingeZ;
+                double turnedY = hingeY + dy * cos + up * dz * sin;
+                double turnedZ = hingeZ + dz * cos - up * dy * sin;
+                minY = Math.min(minY, turnedY);
+                maxY = Math.max(maxY, turnedY);
+                minZ = Math.min(minZ, turnedZ);
+                maxZ = Math.max(maxZ, turnedZ);
+            }
+        }
+        return new net.minecraft.world.phys.AABB(closed.minX, minY, minZ, closed.maxX, maxY, maxZ);
+    }
+
+    /**
+     * An empty hand on a lid lifts it, or lets it down if it is up; into the
+     * open boot it reaches for what is in there, into the bay for the parts.
+     */
+    private InteractionResult workLid(Player player, LidAim aim) {
+        if (aim.inside()) {
+            if (aim.lid() == BONNET_BIT) {
+                return this.openService(player);
+            }
+            if (!this.level().isClientSide()) {
+                player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                        (syncId, inventory, ignored) ->
+                                new net.minecraft.world.inventory.ChestMenu(net.minecraft.world.inventory.MenuType.GENERIC_9x2, syncId, inventory, this.boot, 2),
+                        Component.translatable("container.car.boot")));
+            }
+            return InteractionResult.sidedSuccess(this.level().isClientSide());
+        }
+        if (!this.level().isClientSide()) {
+            boolean open = !this.isLidOpen(aim.lid());
+            this.setLidOpen(aim.lid(), open);
+            this.level().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
+                    open ? SoundEvents.IRON_TRAPDOOR_OPEN : SoundEvents.IRON_TRAPDOOR_CLOSE,
+                    SoundSource.NEUTRAL, 0.8F, aim.lid() == BONNET_BIT ? 0.8F : 1.0F);
+        }
+        return InteractionResult.sidedSuccess(this.level().isClientSide());
     }
 
     /**
@@ -3492,6 +3661,12 @@ public class CarEntity extends VehicleEntity {
                 return repaired;
             }
         }
+        if (held.isEmpty()) {
+            LidAim lid = this.aimedLid(player);
+            if (lid != null) {
+                return this.workLid(player, lid);
+            }
+        }
         if (!this.level().isClientSide() && !player.startRiding(this)) {
             return InteractionResult.PASS;
         }
@@ -3959,6 +4134,8 @@ public class CarEntity extends VehicleEntity {
     @Override
     public void remove(Entity.RemovalReason reason) {
         if (reason.shouldDestroy() && this.level() instanceof ServerLevel world) {
+            net.minecraft.world.Containers.dropContents(world, (Entity) this, this.boot);
+            this.boot.clearContent();
             this.spillCargo(world);
         }
         super.remove(reason);
@@ -4567,6 +4744,11 @@ public class CarEntity extends VehicleEntity {
         this.entityData.set(LOCKED, this.lockCode != 0 && view.getBooleanOr("Locked", false));
         this.entityData.set(FLAT_TYRE, (byte) Mth.clamp(view.getIntOr("FlatTyre", -1), -1, 7));
         this.entityData.set(TYRES_OFF, (byte) view.getIntOr("TyresOff", 0));
+        this.entityData.set(LIDS, (byte) (view.getIntOr("Lids", 0) & (BONNET_BIT | BOOT_BIT)));
+        if (view.tag().contains("Boot")) {
+            net.minecraft.world.ContainerHelper.loadAllItems(
+                    view.tag().getCompound("Boot"), this.boot.getItems(), view.registries());
+        }
         this.setHealth(view.getFloatOr("Health", MAX_HEALTH));
         for (CarPart part : CarPart.values()) {
             this.setCondition(part, view.getFloatOr("Part" + part.key(), CarPart.MAX_CONDITION));
@@ -4601,6 +4783,13 @@ public class CarEntity extends VehicleEntity {
         }
         if (this.isFitted(CarPart.WHEELS) && this.tyresOff() != 0) {
             view.putInt("TyresOff", this.tyresOff());
+        }
+        if (this.entityData.get(LIDS) != 0) {
+            view.putInt("Lids", this.entityData.get(LIDS));
+        }
+        if (!this.boot.isEmpty()) {
+            view.tag().put("Boot", net.minecraft.world.ContainerHelper.saveAllItems(
+                    new net.minecraft.nbt.CompoundTag(), this.boot.getItems(), view.registries()));
         }
         view.putFloat("Health", this.getHealth());
         for (CarPart part : CarPart.values()) {

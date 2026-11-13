@@ -424,7 +424,8 @@
         46.81
       ],
       "color": "paint",
-      "tilt": -3.88
+      "tilt": -3.88,
+      "opens": "bonnet"
     },
     {
       "from": [
@@ -437,7 +438,8 @@
         20.04,
         35.5
       ],
-      "color": "paint_dark"
+      "color": "paint_dark",
+      "opens": "bonnet"
     },
     {
       "from": [

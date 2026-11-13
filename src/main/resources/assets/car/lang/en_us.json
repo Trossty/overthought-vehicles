@@ -46,6 +46,7 @@
   "entity.car.pickup": "Pickup",
   "item.car.pickup_bed": "Pickup Bed",
   "container.car.pickup_bed": "Pickup Bed",
+  "container.car.boot": "Boot",
   "message.car.lift_up": "Lift raised.",
   "message.car.lift_down": "Lift lowered.",
   "part.car.engine": "Engine",

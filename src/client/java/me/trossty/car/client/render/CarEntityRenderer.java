@@ -66,7 +66,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
     }
 
     /** Smoothstep: the pose settles rather than stopping dead. */
-    private static float ease(float t) {
+    static float ease(float t) {
         return t * t * (3.0F - 2.0F * t);
     }
 
@@ -97,6 +97,8 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.headlights = lampsOn(car);
         state.braking = car.areBrakeLampsOn();
         state.restPose = car.getRestPose(tickProgress);
+        state.bonnetOpen = car.getBonnetSwing(tickProgress);
+        state.bootOpen = car.getBootSwing(tickProgress);
         state.damageWobbleTicks = car.getHurtTime() - tickProgress;
         state.damageWobbleSide = car.getHurtDir();
         state.damageWobbleStrength = Math.max(car.getDamage() - tickProgress, 0.0F);
