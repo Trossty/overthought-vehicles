@@ -2503,6 +2503,20 @@ public class CarEntity extends VehicleEntity {
                 .yRot(-this.getYRot() * ((float) Math.PI / 180.0F));
     }
 
+    @Override
+    protected void removePassenger(Entity passenger) {
+        super.removePassenger(passenger);
+        // While somebody drove, their client moved the car and ignored the
+        // server's small "moved this much since last time" updates, so it
+        // still counts them from wherever the car was when they got in. Sent
+        // now, the car's exact position resets that, or the car would show
+        // back there after they got out until the next full sync.
+        if (this.level() instanceof net.minecraft.server.level.ServerLevel server) {
+            server.getChunkSource().broadcast(this,
+                    new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(this));
+        }
+    }
+
     /**
      * Out through the door beside the seat, onto the ground, the way a boat
      * puts you on the bank. Vanilla would stand you on the roof. If that side

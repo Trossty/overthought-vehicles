@@ -1611,7 +1611,17 @@ public class CarPhotoTest {
         System.out.println(heights);
         context.waitTicks(40);
         context.getInput().pressKey(options -> options.keyShift);
-        context.waitTicks(10);
+        // Where the car is drawn after getting out: it has to stay put, not
+        // jump back to where it was boarded.
+        StringBuilder after = new StringBuilder("car photo ride car after leaving:");
+        for (int tick = 0; tick < 30; tick++) {
+            context.waitTicks(1);
+            after.append(context.<String>computeOnClient(client -> client.level.getEntitiesOfClass(
+                            me.trossty.car.entity.CarEntity.class,
+                            new net.minecraft.world.phys.AABB(-20, Y - 5, -20, 20, Y + 5, 60), e -> true)
+                    .stream().map(car -> " %.2f".formatted(car.getZ())).findFirst().orElse(" -")));
+        }
+        System.out.println(after);
         context.runOnClient(client -> {
             var player = client.player;
             System.out.println("car photo ride left: riding=" + player.isPassenger()
