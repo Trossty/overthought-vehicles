@@ -43,6 +43,13 @@ public final class CarNetworking {
             }
         });
 
+        registrar.playToServer(BankC2SPayload.ID, BankC2SPayload.CODEC, (payload, context) -> {
+            if (context.player().getVehicle() instanceof me.trossty.car.entity.AirplaneEntity plane
+                    && plane.getControllingPassenger() == context.player()) {
+                plane.setReportedBank(payload.bank());
+            }
+        });
+
         registrar.playToServer(ServicePartC2SPayload.ID, ServicePartC2SPayload.CODEC, (payload, context) ->
                 serviceByHand(context.player(), payload.car(), payload.part()));
 

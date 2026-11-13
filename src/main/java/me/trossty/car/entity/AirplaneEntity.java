@@ -102,6 +102,13 @@ public class AirplaneEntity extends CarEntity {
     private static final float SAFE_TOUCHDOWN_LIFT = 1.35F;
     /** Damage for each block a tick of speed past that. */
     private static final float FAST_TOUCHDOWN_DAMAGE = 90.0F;
+    /** How far a stalled wing drops, degrees, and how fast. */
+    private static final float STALL_BANK = 45.0F;
+    private static final float STALL_ROLL_RATE = 3.5F;
+    /** The bank flown, as the side flying it has it: what everyone else draws. */
+    private static final net.minecraft.network.syncher.EntityDataAccessor<Float> DATA_BANK =
+            net.minecraft.network.syncher.SynchedEntityData.defineId(AirplaneEntity.class,
+                    net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
     /** Off the ground at least this many ticks, it was flying, not bouncing. */
     private static final int FLOWN_TICKS = 20;
     /** A light airframe against a car's steel: how much more a crash costs it. */
@@ -114,9 +121,8 @@ public class AirplaneEntity extends CarEntity {
     private float flownBank;
     /** Ticks since its wheels last touched anything. */
     private int ticksAirborne;
-    /** Height and heading at the end of the last tick, for the climb and turn drawn. */
+    /** Height at the end of the last tick, for the climb drawn. */
     private double lastTickY = Double.NaN;
-    private float lastTickYaw;
     private float pitch;
     private float prevPitch;
     private float bank;
@@ -124,6 +130,12 @@ public class AirplaneEntity extends CarEntity {
 
     public AirplaneEntity(EntityType<?> type, Level world) {
         super(type, world);
+    }
+
+    @Override
+    protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_BANK, 0.0F);
     }
 
     @Override
@@ -210,7 +222,7 @@ public class AirplaneEntity extends CarEntity {
 
     /** The lift share it stalls under: higher banked into a turn, where the wing carries more. */
     private float stallLift() {
-        return Mth.lerp(Math.abs(this.flownBank) / MAX_BANK, STALL_LIFT, STALL_LIFT * TURN_STALL);
+        return Mth.lerp(Math.min(1.0F, Math.abs(this.flownBank) / MAX_BANK), STALL_LIFT, STALL_LIFT * TURN_STALL);
     }
 
     /**
@@ -221,20 +233,22 @@ public class AirplaneEntity extends CarEntity {
      */
     @Override
     protected float turnRate(float steerInput, boolean drifting) {
-        float target = this.isFlying() && !this.onGround() ? steerInput * MAX_BANK : 0.0F;
+        boolean inAir = this.isFlying() && !this.onGround();
+        if (inAir && this.stalled) {
+            // The wing that stalled first drops, whatever the ailerons say;
+            // the turn is the stall's own, worked out in updateStall.
+            this.flownBank += Mth.clamp(this.spinDirection * STALL_BANK - this.flownBank,
+                    -STALL_ROLL_RATE, STALL_ROLL_RATE);
+            return 0.0F;
+        }
+        float target = inAir ? steerInput * MAX_BANK : 0.0F;
         this.flownBank += Mth.clamp(target - this.flownBank, -ROLL_RATE, ROLL_RATE);
-        if (!this.isFlying() || this.onGround()) {
+        if (!inAir) {
             return super.turnRate(steerInput, drifting);
         }
         float speed = Math.max(Math.abs(this.getEngineSpeed()), 0.2F);
         float turn = BANK_TURN * (float) Math.tan(this.flownBank * Mth.DEG_TO_RAD) / speed;
         return Mth.clamp(turn, -MAX_AIR_TURN, MAX_AIR_TURN);
-    }
-
-    /** What a turn at this rate is banked by: the same rule backwards, for anyone watching. */
-    private float bankFor(float turn) {
-        double speed = Math.max(Math.abs(this.getEngineSpeed()), 0.2);
-        return (float) Math.toDegrees(Math.atan(turn * speed / BANK_TURN));
     }
 
     @Override
@@ -296,9 +310,8 @@ public class AirplaneEntity extends CarEntity {
         }
         if (this.stalled) {
             float rudder = (this.pressingRight ? 1.0F : 0.0F) - (this.pressingLeft ? 1.0F : 0.0F);
-            // Steering already turns it by the rudder's own amount; this is
-            // the stall's turn on top, which opposite rudder takes out.
-            this.flownBank += this.spinDirection * 1.5F;
+            // The stalled wing drops and the aircraft turns about itself:
+            // opposite rudder takes the turn out, rudder with it makes it worse.
             float spin = SPIN_RATE * (rudder == -this.spinDirection ? 0.0F : rudder == this.spinDirection ? 1.5F : 1.0F);
             this.setYRot(Mth.wrapDegrees(this.getYRot() + this.spinDirection * spin));
         }
@@ -404,19 +417,37 @@ public class AirplaneEntity extends CarEntity {
         this.prevPitch = this.pitch;
         this.prevBank = this.bank;
         float climb = 0.0F;
-        float turn = 0.0F;
         if (!this.onGround() && !Double.isNaN(this.lastTickY)) {
             double speed = Math.max(0.05, Math.abs(this.getEngineSpeed()));
             climb = (float) Math.toDegrees(Math.atan2(this.getY() - this.lastTickY, speed));
-            turn = Mth.wrapDegrees(this.getYRot() - this.lastTickYaw);
         }
         this.lastTickY = this.getY();
-        this.lastTickYaw = this.getYRot();
         this.pitch += (Mth.clamp(climb, -MAX_PITCH, MAX_PITCH) - this.pitch) * 0.2F;
-        // Whoever flies it sees the bank they put in; anyone else, the
-        // bank its turn implies. A spinning stall banks it further.
-        float drawn = this.isControlledByLocalInstance() && !this.onGround() ? this.flownBank : this.bankFor(turn);
-        this.bank += (Mth.clamp(drawn, -MAX_BANK - 15.0F, MAX_BANK + 15.0F) - this.bank) * 0.3F;
+        // Whoever flies it sees the bank they put in; the server has it from
+        // them, or puts it in itself with nobody at the controls, and hands it
+        // on to everyone else.
+        float flown;
+        if (this.isControlledByLocalInstance()) {
+            flown = this.flyingBank();
+            if (!this.level().isClientSide()) {
+                this.entityData.set(DATA_BANK, flown);
+            }
+        } else {
+            flown = this.entityData.get(DATA_BANK);
+        }
+        this.bank += (flown - this.bank) * 0.3F;
+    }
+
+    /** The bank the ailerons hold now, as the side flying it has it: level on the ground. */
+    public float flyingBank() {
+        return this.onGround() ? 0.0F : this.flownBank;
+    }
+
+    /** The bank the pilot reports flying, kept by the server for everyone else. */
+    public void setReportedBank(float bank) {
+        if (Float.isFinite(bank)) {
+            this.entityData.set(DATA_BANK, Mth.clamp(bank, -STALL_BANK, STALL_BANK));
+        }
     }
 
     /** Nose up, degrees, as drawn. */

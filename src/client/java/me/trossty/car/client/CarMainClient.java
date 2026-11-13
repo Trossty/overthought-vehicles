@@ -80,6 +80,9 @@ public class CarMainClient {
 
     /** The brake pedal as the server last heard it from this client. */
     private static boolean brakeSent;
+    /** The bank last told to the server, and which aircraft it was for. */
+    private static float bankSent;
+    private static int bankSentTo = -1;
 
     public static final KeyMapping HORN_KEY = new KeyMapping(
             "key.car.horn",
@@ -256,6 +259,16 @@ public class CarMainClient {
             if (pedal != brakeSent) {
                 brakeSent = pedal;
                 PacketDistributor.sendToServer(new me.trossty.car.network.BrakeC2SPayload(pedal));
+            }
+            // And the bank the pilot flies, for the crew's seats and anyone watching.
+            if (car instanceof me.trossty.car.entity.AirplaneEntity plane) {
+                float flown = plane.flyingBank();
+                if (car.getId() != bankSentTo || Math.abs(flown - bankSent) > 0.2F
+                        || flown == 0.0F && bankSent != 0.0F) {
+                    bankSentTo = car.getId();
+                    bankSent = flown;
+                    PacketDistributor.sendToServer(new me.trossty.car.network.BankC2SPayload(flown));
+                }
             }
         }
 
