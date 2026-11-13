@@ -102,6 +102,8 @@ public class AirplaneEntity extends CarEntity {
     private static final float SAFE_TOUCHDOWN_LIFT = 1.35F;
     /** Damage for each block a tick of speed past that. */
     private static final float FAST_TOUCHDOWN_DAMAGE = 90.0F;
+    /** Off the ground at least this many ticks, it was flying, not bouncing. */
+    private static final int FLOWN_TICKS = 20;
     /** A light airframe against a car's steel: how much more a crash costs it. */
     private static final float FRAGILITY = 3.0F;
 
@@ -110,6 +112,8 @@ public class AirplaneEntity extends CarEntity {
     private float spinDirection = 1.0F;
     /** The bank the ailerons have put in, degrees, right wing down positive: the flying side's own. */
     private float flownBank;
+    /** Ticks since its wheels last touched anything. */
+    private int ticksAirborne;
     /** Height and heading at the end of the last tick, for the climb and turn drawn. */
     private double lastTickY = Double.NaN;
     private float lastTickYaw;
@@ -248,8 +252,11 @@ public class AirplaneEntity extends CarEntity {
             return;
         }
         float tooSteep = (float) Math.max(0.0, sink - SAFE_SINK) * SINK_DAMAGE;
-        float tooFast = Math.max(0.0F, Math.abs(this.getEngineSpeed()) - SAFE_TOUCHDOWN_LIFT * this.takeoffSpeed())
-                * FAST_TOUCHDOWN_DAMAGE;
+        // Rolling fast down the runway over a dip is a bump, not flying into
+        // the ground: only an arrival from the air is billed for its speed.
+        float tooFast = this.ticksAirborne < FLOWN_TICKS ? 0.0F
+                : Math.max(0.0F, Math.abs(this.getEngineSpeed()) - SAFE_TOUCHDOWN_LIFT * this.takeoffSpeed())
+                        * FAST_TOUCHDOWN_DAMAGE;
         this.reportImpact(tooSteep + tooFast);
     }
 
@@ -376,6 +383,7 @@ public class AirplaneEntity extends CarEntity {
         if (airborne && this.onGround() && this.isControlledByLocalInstance()) {
             this.checkTouchdown(sink);
         }
+        this.ticksAirborne = this.onGround() ? 0 : this.ticksAirborne + 1;
         // A glide is not a fall: only coming down without the wings counts,
         // and a stalled wing coming down that fast is not holding anything.
         double sinceLastTick = Double.isNaN(this.lastTickY) ? 0.0 : this.getY() - this.lastTickY;
