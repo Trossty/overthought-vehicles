@@ -10,6 +10,7 @@ The body is drawn pale grey and tinted (tintindex 0) the colour of whatever
 liquid is in the drum; the lid, the filler cap and the hazard label are not.
 """
 import json, os, random
+from model_uv import fold_uvs
 from PIL import Image
 R = '/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
 T = R + 'textures/block/'; M = R + 'models/block/'
@@ -140,7 +141,7 @@ json.dump({'parent': 'minecraft:block/block',
            'textures': {'particle': 'car:block/drum_body', 'body': 'car:block/drum_body',
                         'lid': 'car:block/drum_lid', 'label': 'car:block/drum_label',
                         'cap': 'car:block/drum_cap'},
-           'elements': els},
+           'elements': fold_uvs(els)},
           open(M + 'fuel_drum.json', 'w'), indent=1)
 
 json.dump({'variants': {f'facing={f}': ({'model': 'car:block/fuel_drum', 'y': y} if y else

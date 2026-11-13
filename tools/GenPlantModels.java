@@ -208,7 +208,9 @@ public final class GenPlantModels {
                 for (Map.Entry<String, String> face : box.faces().entrySet()) {
                     b.append(f++ == 0 ? " " : ", ").append('"').append(face.getKey())
                             .append("\": { ");
-                    if (this.explicitUv) {
+                    // A box past the block would take its UVs past the texture's edge,
+                    // into the neighbouring sprites, so it gets them written out.
+                    if (this.explicitUv || outside(box)) {
                         b.append("\"uv\": ").append(uv(box, face.getKey())).append(", ");
                     }
                     b.append("\"texture\": \"").append(face.getValue()).append("\" }");
@@ -217,6 +219,15 @@ public final class GenPlantModels {
             }
             return b.append("  ]\n}\n").toString();
         }
+    }
+
+    static boolean outside(Box box) {
+        for (int i = 0; i < 3; i++) {
+            if (box.from()[i] < 0 || box.to()[i] > 16) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A face's own size, from the corner of the texture, never past its edge. */

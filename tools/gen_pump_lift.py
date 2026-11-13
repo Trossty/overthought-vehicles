@@ -1,5 +1,6 @@
 """Fuel pump and vehicle lift models and textures. Run: python3 tools/gen_pump_lift.py"""
 import json, random
+from model_uv import fold_uvs
 from PIL import Image
 R='/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
 T=R+'textures/block/'; M=R+'models/block/'
@@ -88,7 +89,7 @@ def el(fr,to,t,rot=None,faces=('north','south','east','west','up','down'),uv=Non
     if rot: e['rotation']=rot
     return e
 def save(name,textures,els):
-    json.dump({'parent':'minecraft:block/block','textures':textures,'elements':els},open(M+name+'.json','w'),indent=1)
+    json.dump({'parent':'minecraft:block/block','textures':textures,'elements':fold_uvs(els)},open(M+name+'.json','w'),indent=1)
 
 PT={'particle':'car:block/pump_red','body':'car:block/pump_body','red':'car:block/pump_red','door':'car:block/pump_door',
     'screen':'car:block/pump_screen','sign':'car:block/pump_sign','plinth':'car:block/pump_plinth','rubber':'car:block/pump_rubber',
