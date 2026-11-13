@@ -437,7 +437,10 @@ public class TrailerEntity extends CarEntity {
         }
         Vec3 ball = tractor.hitchPoint();
         Vec3 coupler = this.coupler();
+        VehicleDefinition defined = this.getDefinition();
         String refused = !tractor.canTow() ? "message.car.trailer_cannot_tow"
+                : defined != null && !defined.pulledBy().isEmpty()
+                && !defined.pulledBy().contains(tractor.getModelId()) ? "message.car.trailer_wrong_truck"
                 : tractor.isTowing(this) ? "message.car.trailer_hitch_taken"
                 : ball.distanceToSqr(coupler.x, ball.y, coupler.z) > HITCH_REACH * HITCH_REACH
                 ? "message.car.trailer_too_far" : null;

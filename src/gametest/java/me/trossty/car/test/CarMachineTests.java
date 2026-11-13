@@ -1109,6 +1109,36 @@ public class CarMachineTests {
     }
 
     /**
+     * A wheel lift goes on the back of the tow truck and nothing else: walked
+     * up to a plain pickup it is refused, to the tow truck it hitches.
+     */
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void wheelLiftOnlyOnTowTruck(GameTestHelper context) {
+        var lift = context.spawn(ModEntities.TRAILER, new BlockPos(3, 1, 1));
+        lift.setModel(me.trossty.car.CarMain.id("wheel_lift"));
+        lift.moveTo(lift.getX(), lift.getY(), lift.getZ(), 0.0F, 0.0F);
+        var player = context.makeMockServerPlayerInLevel();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.moveTo(lift.getX() + 1.5, lift.getY(), lift.getZ());
+        lift.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(lift.getHolder() == player, "the wheel lift was not picked up by its stinger");
+        for (String model : new String[] {"toyota_hilux", "hilux_tow"}) {
+            var truck = context.spawn(ModEntities.PICKUP, new BlockPos(3, 1, 1));
+            truck.setModel(me.trossty.car.CarMain.id(model));
+            // Its tow ball just where the stinger's eye is.
+            double back = lift.getZ() + 1.25 - truck.hitchPoint().z + truck.getZ();
+            truck.moveTo(lift.getX(), lift.getY(), back, 0.0F, 0.0F);
+            truck.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            boolean onIt = lift.getTractor() == truck;
+            context.assertTrue(onIt == model.equals("hilux_tow"),
+                    model + (onIt ? " took the wheel lift" : " would not take the wheel lift"));
+            truck.discard();
+        }
+        lift.discard();
+        context.succeed();
+    }
+
+    /**
      * Walking a trailer by hand slows the walker, more with a car on the bed,
      * and letting go gives them their pace back.
      */

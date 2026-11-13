@@ -49,6 +49,7 @@ public class CarPhotoTest {
             scenes.put("planeTow", this::planeTow);
             scenes.put("stands", this::stands);
             scenes.put("bedLoad", this::bedLoad);
+            scenes.put("towTruck", this::towTruck);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -2012,6 +2013,36 @@ public class CarPhotoTest {
         shot(context, server, "bed_load_above", 2.5, Y + 5.0, -6.0, 0, 40);
         shot(context, server, "bed_load_side", 9.0, Y + 2.6, -3.0, 60, 22);
         shot(context, server, "bed_load_trailer", 4.5, Y + 6.0, -2.0, 0, 55);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** The tow truck with its wheel lift on, a Corolla's front wheels up in it. */
+    private void towTruck(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -25 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:pickup 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:hilux_tow\",Color:4}".formatted(Y));
+        server.runCommand("summon car:trailer 0.5 %d -4.0 {Rotation:[0f,0f],Model:\"car:wheel_lift\",Color:4}".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d -8.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 30);
+            var truck = world.getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box, e -> true).get(0);
+            var lift = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box, e -> true).get(0);
+            lift.hitch(truck);
+            player.setShiftKeyDown(true);
+            player.moveTo(lift.getX() + 2.0, lift.getY(), lift.getZ());
+            System.out.println("car photo towTruck: winch -> "
+                    + lift.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                    + " cargo=" + lift.hasCargo());
+            player.setShiftKeyDown(false);
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "tow_truck_side", 6.0, Y + 2.0, -3.5, 90, 12);
+        shot(context, server, "tow_truck_rear", -3.5, Y + 3.0, -2.5, -60, 30);
+        shot(context, server, "tow_truck_front", 4.5, Y + 2.5, 6.5, 150, 14);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

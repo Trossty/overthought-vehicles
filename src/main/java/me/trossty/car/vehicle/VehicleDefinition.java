@@ -100,19 +100,29 @@ public record VehicleDefinition(
         return this.carrying.load();
     }
 
+    /** The only vehicles that may pull this, by id; empty when anything with a tow ball may. */
+    public List<net.minecraft.resources.ResourceLocation> pulledBy() {
+        return this.carrying.pulledBy();
+    }
+
     /**
      * What it carries, written flat in the file beside everything else:
      * {@code deck}, {@code dolly} and {@code takes} for a bed that carries a
      * vehicle, and {@code load} — a {@code from}/{@code to} box, in pixels —
      * for the open bed or box whose chest contents are shown sitting in it.
+     * {@code pulled_by} keeps a trailer to the trucks built for it: a wheel
+     * lift goes only on the back of a tow truck.
      */
-    public record Carrying(float deck, boolean dolly, List<Chassis> takes, Optional<Area> load) {
+    public record Carrying(float deck, boolean dolly, List<Chassis> takes, Optional<Area> load,
+                           List<net.minecraft.resources.ResourceLocation> pulledBy) {
         public static final com.mojang.serialization.MapCodec<Carrying> MAP_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
                         Codec.floatRange(0.0F, 64.0F).optionalFieldOf("deck", 0.0F).forGetter(Carrying::deck),
                         Codec.BOOL.optionalFieldOf("dolly", false).forGetter(Carrying::dolly),
                         Chassis.CODEC.listOf().optionalFieldOf("takes", List.of()).forGetter(Carrying::takes),
-                        Area.CODEC.optionalFieldOf("load").forGetter(Carrying::load)
+                        Area.CODEC.optionalFieldOf("load").forGetter(Carrying::load),
+                        net.minecraft.resources.ResourceLocation.CODEC.listOf()
+                                .optionalFieldOf("pulled_by", List.of()).forGetter(Carrying::pulledBy)
                 ).apply(instance, Carrying::new));
     }
 
