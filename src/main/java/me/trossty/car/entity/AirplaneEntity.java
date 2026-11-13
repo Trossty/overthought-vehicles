@@ -64,6 +64,44 @@ public class AirplaneEntity extends CarEntity {
         return me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE;
     }
 
+    /**
+     * A light aircraft's propeller is bolted to the crankshaft and its engine
+     * is cooled by the air: no gearbox, clutch, shaft or radiator.
+     */
+    @Override
+    public boolean hasPart(CarPart part) {
+        return super.hasPart(part) && part != CarPart.TRANSMISSION && part != CarPart.CLUTCH
+                && part != CarPart.DRIVESHAFT && part != CarPart.RADIATOR;
+    }
+
+    @Override
+    public boolean hasGearbox() {
+        return false;
+    }
+
+    /** A propeller only pulls: backing up is for a tug. */
+    @Override
+    protected float maxReverseSpeed() {
+        return 0.0F;
+    }
+
+    /** Three wheels and a nose that steers: it does not slide its tail out. */
+    @Override
+    protected boolean canDrift() {
+        return false;
+    }
+
+    @Override
+    protected boolean underway() {
+        return this.onGround() || this.isFlying();
+    }
+
+    /** Navigation lights burn steady; there are no brake lamps on a wing. */
+    @Override
+    public boolean areBrakeLampsOn() {
+        return false;
+    }
+
     /** Speed at which the wings carry it, blocks a tick. */
     public float takeoffSpeed() {
         return TAKEOFF_SHARE * this.tuning().speed() * MAX_SPEED;

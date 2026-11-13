@@ -49,11 +49,27 @@ public class MotorboatEntity extends CarEntity {
         return me.trossty.car.vehicle.VehicleDefinition.Chassis.BOAT;
     }
 
-    /** No wheels, so nothing that sits behind one either. */
+    /**
+     * No wheels, so nothing that sits behind one either; and an outboard is
+     * cooled by the water it runs in and engages its gear by a dog clutch in
+     * the leg, so no radiator and no clutch.
+     */
     @Override
     public boolean hasPart(CarPart part) {
-        return part != CarPart.WHEELS && part != CarPart.BRAKE_PADS
-                && part != CarPart.BRAKE_DISCS && part != CarPart.SUSPENSION;
+        return super.hasPart(part) && part != CarPart.WHEELS && part != CarPart.BRAKE_PADS
+                && part != CarPart.BRAKE_DISCS && part != CarPart.SUSPENSION
+                && part != CarPart.RADIATOR && part != CarPart.CLUTCH;
+    }
+
+    /** Forward, neutral and reverse in the leg: nothing to shift through. */
+    @Override
+    public boolean hasGearbox() {
+        return false;
+    }
+
+    @Override
+    protected boolean underway() {
+        return this.onGround() || this.afloat();
     }
 
     @Override

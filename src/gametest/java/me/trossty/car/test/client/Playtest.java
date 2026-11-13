@@ -398,10 +398,10 @@ final class Playtest {
         }
         Class<me.trossty.car.entity.AirplaneEntity> plane = me.trossty.car.entity.AirplaneEntity.class;
         board(context, server, me.trossty.car.registry.ModEntities.AIRPLANE, plane, 160.5, Y, 0.5);
-        hold(context, server, plane, "taxi and roll", 60, o -> o.keyUp);
-        log("rolling: " + where(server, plane));
+        hold(context, server, plane, "taxi and roll", 45, o -> o.keyUp);
+        log("rolling: " + where(server, plane) + ", gear " + gear(context));
         hold(context, server, plane, "rotate and climb", 60, o -> o.keyUp, o -> o.keyJump);
-        log("climbed: " + where(server, plane));
+        log("climbed: " + where(server, plane) + ", gear " + gear(context));
         context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
         context.getInput().holdKey(o -> o.keyUp);
         context.getInput().holdKey(o -> o.keyJump);
@@ -419,12 +419,18 @@ final class Playtest {
         context.getInput().releaseKey(o -> o.keyUp);
         context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
         hold(context, server, plane, "level", 20);
-        log("level: " + where(server, plane));
+        log("level: " + where(server, plane) + ", gear " + gear(context));
         hold(context, server, plane, "glide down", 50, o -> o.keyDown);
         hold(context, server, plane, "flare", 20);
         hold(context, server, plane, "brake", 40, o -> o.keyDown);
-        log("landed: " + where(server, plane));
+        log("landed: " + where(server, plane) + ", gear " + gear(context));
         server.runCommand("gamemode creative @a");
+    }
+
+    /** What the rider's dashboard shows for the gear. */
+    private static String gear(ClientGameTestContext context) {
+        return context.computeOnClient(client -> client.player.getVehicle() instanceof CarEntity car
+                ? (car.hasGearbox() ? String.valueOf(car.getGear()) : "D") : "-");
     }
 
     private static void cow(ClientGameTestContext context, TestServerContext server) {

@@ -240,11 +240,11 @@ public final class ModVehicleRecipes {
                     new VehicleRecipe.Material(ModItems.TRANSMISSION, 1));
         }
         if (chassis == me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE) {
-            // A fuselage, an engine and three legs of landing gear.
+            // A fuselage, an engine with the propeller on its crankshaft, and
+            // three legs of landing gear.
             return List.of(
                     new VehicleRecipe.Material(ModItems.CAR_BODY, 1),
                     new VehicleRecipe.Material(ModItems.ENGINE, 1),
-                    new VehicleRecipe.Material(ModItems.TRANSMISSION, 1),
                     new VehicleRecipe.Material(ModItems.SUSPENSION, 3),
                     new VehicleRecipe.Material(ModItems.WHEEL, 3));
         }

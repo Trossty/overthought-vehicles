@@ -279,7 +279,7 @@ public class DashboardHud implements LayeredDraw.Layer {
             drawLabel(context, client, cx, cy, (float) rpm / dialRpm, String.valueOf(rpm / 1000));
         }
         int gear = car.getGear();
-        String gearText = gear < 0 ? "R" : gear == 0 ? "-" : String.valueOf(gear);
+        String gearText = gear < 0 ? "R" : gear == 0 ? "-" : car.hasGearbox() ? String.valueOf(gear) : "D";
         context.drawCenteredString(client.font, gearText, cx, cy + ICON_OFFSET_Y, GEAR_COLOR);
         context.drawCenteredString(client.font, "rpm", cx, cy + ICON_OFFSET_Y + 10, 0xFF8A949A);
         drawNeedle(context, cx, cy, this.rpmNeedle);

@@ -908,6 +908,42 @@ public class CarMachineTests {
         });
     }
 
+    /**
+     * Each machine has the driveline it really would: a car shifts through a
+     * gearbox, an electric car, a propeller and an outboard never do, and
+     * nothing has parts it could not have.
+     */
+    @GameTest(template = "empty")
+    public static void drivelinesMatchTheMachine(GameTestHelper context) {
+        CarEntity petrol = car(context, new BlockPos(1, 1, 1), false);
+        CarEntity electric = car(context, new BlockPos(5, 1, 1), true);
+        me.trossty.car.entity.AirplaneEntity plane = context.spawn(
+                me.trossty.car.registry.ModEntities.AIRPLANE, new BlockPos(1, 1, 5));
+        me.trossty.car.entity.MotorboatEntity boat = context.spawn(
+                me.trossty.car.registry.ModEntities.MOTORBOAT, new BlockPos(5, 1, 5));
+        context.assertTrue(petrol.hasGearbox() && petrol.hasPart(CarPart.EXHAUST), "a petrol car lost its gearbox");
+        context.assertTrue(!electric.hasGearbox(), "an electric car shifts gear");
+        for (CarPart part : new CarPart[]{CarPart.EXHAUST, CarPart.SPARK_PLUGS, CarPart.AIR_FILTER,
+                CarPart.OIL_FILTER, CarPart.CLUTCH}) {
+            context.assertTrue(!electric.hasPart(part), "an electric car has " + part);
+        }
+        context.assertTrue(!plane.hasGearbox(), "a plane shifts gear");
+        for (CarPart part : new CarPart[]{CarPart.TRANSMISSION, CarPart.CLUTCH, CarPart.DRIVESHAFT,
+                CarPart.RADIATOR}) {
+            context.assertTrue(!plane.hasPart(part), "a plane has " + part);
+        }
+        context.assertTrue(plane.hasPart(CarPart.BRAKE_PADS) && plane.hasPart(CarPart.WHEELS),
+                "a plane lost its wheel brakes");
+        context.assertTrue(!plane.areBrakeLampsOn(), "a plane shows brake lamps");
+        context.assertTrue(!boat.hasGearbox() && !boat.hasPart(CarPart.RADIATOR) && !boat.hasPart(CarPart.CLUTCH),
+                "an outboard has a gearbox, radiator or clutch");
+        context.assertTrue(!me.trossty.car.workbench.ModVehicleRecipes.chassisParts(
+                        me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE).stream()
+                        .anyMatch(m -> m.item() == me.trossty.car.registry.ModItems.TRANSMISSION),
+                "a plane is built with a gearbox");
+        context.succeed();
+    }
+
     /** The clipboard reads nothing off a car standing on its wheels: no lift, no service window. */
     @GameTest(template = "empty")
     public static void clipboardNeedsALift(GameTestHelper context) {

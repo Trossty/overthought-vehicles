@@ -842,7 +842,7 @@ public class CarEntity extends VehicleEntity {
             this.entityData.set(ENGINE_SPEED, travelled);
             // On the road only: a car carried off by water or shoved about by
             // a piston has not been driven.
-            if (this.onGround() && this.getControllingPassenger() != null) {
+            if (this.underway() && this.getControllingPassenger() != null) {
                 this.setOdometer(this.getOdometer() + Math.abs(travelled));
             }
             // Braking only exists on the driver's client, so the brakes are
@@ -1100,7 +1100,7 @@ public class CarEntity extends VehicleEntity {
                 // Handbrake into a corner at speed: the back steps out
                 // instead of the car stopping.
                 boolean turning = this.pressingLeft != this.pressingRight;
-                float brake = turning && onGround && Math.abs(this.flyDist) > DRIFT_MIN_SPEED
+                float brake = turning && onGround && this.canDrift() && Math.abs(this.flyDist) > DRIFT_MIN_SPEED
                         ? this.brakeStrength() * DRIFT_BRAKE
                         : this.brakeStrength();
                 this.flyDist = approachZero(this.flyDist, brake);
@@ -1127,7 +1127,7 @@ public class CarEntity extends VehicleEntity {
         }
         this.steerAngle = Mth.lerp(0.35F, this.steerAngle, steerInput * MAX_STEER_ANGLE);
 
-        boolean drifting = driver != null && this.pressingBrake && onGround && steerInput != 0.0F
+        boolean drifting = driver != null && this.pressingBrake && onGround && this.canDrift() && steerInput != 0.0F
                 && Math.abs(this.flyDist) > DRIFT_MIN_SPEED;
         if (this.flyDist != 0.0F && steerInput != 0.0F) {
             float grip = Math.min(1.0F, Math.abs(this.flyDist) / FULL_GRIP_SPEED);
@@ -1202,6 +1202,19 @@ public class CarEntity extends VehicleEntity {
     /** Whether deep water drowns it: anything with its intake in the hull, not a boat. */
     protected boolean floods() {
         return true;
+    }
+
+    /** Whether the handbrake kicks the back out: only something with a back axle to lock. */
+    protected boolean canDrift() {
+        return true;
+    }
+
+    /**
+     * Whether it is going somewhere under its own power rather than being
+     * carried: what the odometer counts. On wheels that means on the ground.
+     */
+    protected boolean underway() {
+        return this.onGround();
     }
 
     /**
@@ -2065,6 +2078,10 @@ public class CarEntity extends VehicleEntity {
 
     /** How well the fitted tyres hold the ground the car is on. */
     public float getGrip() {
+        // No tyres on anything: a hull in the water, or wheels up in the air.
+        if (!this.hasPart(CarPart.WHEELS) || this.isFlying()) {
+            return 1.0F;
+        }
         CarSetup.Surface surface = this.getSurface();
         float grip = this.getTyre().grip(surface);
         float offroad = this.tuning().offroad();
@@ -2298,7 +2315,7 @@ public class CarEntity extends VehicleEntity {
                 * this.loadFactor();
     }
 
-    private float maxReverseSpeed() {
+    protected float maxReverseSpeed() {
         return MAX_REVERSE_SPEED * this.partFactor(CarPart.TRANSMISSION, WORN_GEARBOX_REVERSE);
     }
 
@@ -2403,9 +2420,12 @@ public class CarEntity extends VehicleEntity {
             this.wear(CarPart.TRANSMISSION, CarPart.TRANSMISSION.wearPerTick() * load * oil);
             this.wear(CarPart.CLUTCH, CarPart.CLUTCH.wearPerTick() * load);
             this.wear(CarPart.DRIVESHAFT, CarPart.DRIVESHAFT.wearPerTick() * load);
-            float road = this.onAsphalt() ? ASPHALT_WEAR : 1.0F;
-            this.wear(CarPart.WHEELS, CarPart.WHEELS.wearPerTick() * load * this.getTyre().wear() * road);
-            this.wear(CarPart.STEERING_RACK, CarPart.STEERING_RACK.wearPerTick() * load * road);
+            // Wheels up, nothing rolls and nothing steers them.
+            if (!this.isFlying()) {
+                float road = this.onAsphalt() ? ASPHALT_WEAR : 1.0F;
+                this.wear(CarPart.WHEELS, CarPart.WHEELS.wearPerTick() * load * this.getTyre().wear() * road);
+                this.wear(CarPart.STEERING_RACK, CarPart.STEERING_RACK.wearPerTick() * load * road);
+            }
         }
     }
 
@@ -2423,8 +2443,9 @@ public class CarEntity extends VehicleEntity {
     public void wearBrakes(float speedNow) {
         float scrubbed = Math.abs(this.lastTrackedSpeed) - Math.abs(speedNow);
         this.lastTrackedSpeed = speedNow;
-        // Still rolling, so this was braking rather than hitting something.
-        if (scrubbed <= 0.0F || Math.abs(speedNow) < 0.05F) {
+        // Still rolling, so this was braking rather than hitting something;
+        // and in the air the speed goes into the climb, not into the pads.
+        if (scrubbed <= 0.0F || Math.abs(speedNow) < 0.05F || this.isFlying()) {
             return;
         }
         this.complainAboutBrakes(scrubbed);
@@ -2488,10 +2509,14 @@ public class CarEntity extends VehicleEntity {
     /**
      * Whether this kind of vehicle has the part at all. A car has every one;
      * a trailer has no engine, gearbox or exhaust to service, only what it
-     * rolls and stops on.
+     * rolls and stops on. A motor burns nothing, so an electric car has no
+     * exhaust, plugs, filters or clutch to wear out.
      */
     public boolean hasPart(CarPart part) {
-        return true;
+        return !this.isElectric() || switch (part) {
+            case EXHAUST, SPARK_PLUGS, AIR_FILTER, OIL_FILTER, CLUTCH -> false;
+            default -> true;
+        };
     }
 
     /** The stack a part in the given condition comes off as. */
@@ -2686,7 +2711,8 @@ public class CarEntity extends VehicleEntity {
      * the engine that is there, and it comes off when that engine does.
      */
     public InteractionResult fitTurbo(Player player, ItemStack turbo) {
-        if (!this.hasPart(CarPart.ENGINE)) {
+        // A turbo is driven by exhaust, and a motor has none.
+        if (!this.hasPart(CarPart.ENGINE) || this.isElectric()) {
             return InteractionResult.PASS;
         }
         if (this.level().isClientSide()) {
@@ -3536,6 +3562,8 @@ public class CarEntity extends VehicleEntity {
     private static final int SHIFT_TICKS = 6;
     private static final float SHIFT_DRIVE = 0.2F;
     private static final float IDLE_RPM = 850.0F;
+    /** The pull of a single fixed ratio: about what the five gears give over a run to top speed. */
+    private static final float DIRECT_PULL = 1.0F;
 
     /** The forward gear the box is in, 1 to {@link #GEARS}. Each side keeps its own. */
     private int driveGear = 1;
@@ -3577,8 +3605,20 @@ public class CarEntity extends VehicleEntity {
         return (float) this.shiftTicks / SHIFT_TICKS;
     }
 
+    /**
+     * Whether there are gears to change at all. An electric motor pulls from
+     * nothing to flat out on one ratio, a propeller sits on the crankshaft and
+     * an outboard has forward and reverse only: none of them ever shifts.
+     */
+    public boolean hasGearbox() {
+        return !this.isElectric();
+    }
+
     /** How hard the engine can push right now, against the plain throttle step. */
     private float gearPull() {
+        if (!this.hasGearbox()) {
+            return DIRECT_PULL;
+        }
         float pull = GEAR_PULL[this.driveGear - 1];
         return this.shiftTicks > 0 ? pull * SHIFT_DRIVE : pull;
     }
@@ -3587,7 +3627,8 @@ public class CarEntity extends VehicleEntity {
     private float rpmIn(int gear) {
         float fraction = Math.abs(this.getEngineSpeed()) / Math.max(0.01F, this.getRatedTopSpeed());
         float redline = this.getRedlineRpm();
-        return Mth.clamp(IDLE_RPM + (redline - IDLE_RPM) * fraction / GEAR_TOP[gear - 1],
+        float top = this.hasGearbox() ? GEAR_TOP[gear - 1] : 1.0F;
+        return Mth.clamp(IDLE_RPM + (redline - IDLE_RPM) * fraction / top,
                 IDLE_RPM, redline * 1.04F);
     }
 
@@ -3602,7 +3643,7 @@ public class CarEntity extends VehicleEntity {
             this.shiftTicks--;
             return;
         }
-        if (!this.isEngineRunning() || this.getEngineSpeed() < -0.005F) {
+        if (!this.isEngineRunning() || this.getEngineSpeed() < -0.005F || !this.hasGearbox()) {
             this.driveGear = 1;
             return;
         }
