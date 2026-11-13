@@ -417,9 +417,11 @@ public class DefinedVehicleModel extends VehicleModel {
 
         // Anything with a cabin gets a steering wheel in front of the driver,
         // where their hands reach: the seat is where the hips go, so the rim
-        // sits a little above it and a forearm and a half forward.
+        // sits a little above it and a forearm and a half forward. A plane
+        // flies on the yokes its own boxes draw.
         if (!glass && only == null && !definition.seats().isEmpty()
                 && definition.chassis() != VehicleDefinition.Chassis.MOTORCYCLE
+                && definition.chassis() != VehicleDefinition.Chassis.PLANE
                 && definition.chassis() != VehicleDefinition.Chassis.TRAILER) {
             net.minecraft.world.phys.Vec3 seat = definition.seats().get(0);
             int[] rim = uv(colours, STEERING_WHEEL_COLOUR);

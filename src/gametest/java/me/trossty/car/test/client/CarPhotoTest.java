@@ -1527,7 +1527,36 @@ public class CarPhotoTest {
         shot(context, server, "plane_front", 0.5, Y + 1.2, -1.0, 0, 5);
         shot(context, server, "plane_back34", 6.5, Y + 2.6, 18.5, 140, 14);
         shot(context, server, "plane_top", 0.5, Y + 12.0, 10.5, 0, 90);
-        context.runOnClient(client -> client.options.hideGui = false);
+        // People in the seats, seen from outside: two husks up front, then
+        // the pilot's own view over the panel.
+        server.runCommand("difficulty easy");
+        for (int i = 0; i < 2; i++) {
+            server.runCommand("summon husk 0.5 %d 14.5 {NoAI:1b,Silent:1b,Tags:[\"crew\"]}".formatted(Y));
+            server.runCommand("ride @e[tag=crew,limit=1,sort=nearest] mount @e[type=car:airplane,limit=1]");
+            server.runCommand("tag @e[tag=crew] remove crew");
+        }
+        shot(context, server, "plane_crew_side", -6.0, Y + 1.6, 9.2, -90, 8);
+        shot(context, server, "plane_crew_front", 0.5, Y + 2.4, 2.5, 0, 14);
+        shot(context, server, "plane_crew_back34", -4.0, Y + 2.6, 13.5, -130, 16);
+        server.runCommand("kill @e[type=husk]");
+        server.runCommand("difficulty peaceful");
+        server.runCommand("tp @a 3.5 %d 10.5".formatted(Y));
+        context.waitTicks(5);
+        server.runCommand("ride @p mount @e[type=car:airplane,limit=1]");
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            client.player.setYRot(180);
+            client.player.setXRot(10);
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+        });
+        context.waitTicks(5);
+        context.takeScreenshot("plane_cockpit");
+        server.runCommand("ride @p dismount");
+        context.waitTicks(5);
+        context.runOnClient(client -> {
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+            client.options.hideGui = false;
+        });
     }
 
     private void tyres(ClientGameTestContext context, TestServerContext server) {
