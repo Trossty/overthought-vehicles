@@ -438,10 +438,66 @@ public class CarEntity extends VehicleEntity {
     private int hornCooldown;
     private int crashCooldown;
 
+    /** The bonnet and the boot, which hang out past the square hit box. */
+    private final CarEnd[] ends;
+
     public CarEntity(EntityType<?> type, Level world) {
         super(type, world);
+        this.ends = new CarEnd[] {new CarEnd(this, true), new CarEnd(this, false)};
+        // The ends' ids follow the car's, on the server and every client alike.
+        this.setId(ENTITY_COUNTER.getAndAdd(this.ends.length + 1) + 1);
         // The size is the body's, and the body is known from the first tick.
         this.refreshDimensions();
+    }
+
+    @Override
+    public void setId(int id) {
+        super.setId(id);
+        if (this.ends != null) {
+            for (int i = 0; i < this.ends.length; i++) {
+                this.ends[i].setId(id + i + 1);
+            }
+        }
+    }
+
+    @Override
+    public boolean isMultipartEntity() {
+        return true;
+    }
+
+    @Override
+    public net.neoforged.neoforge.entity.PartEntity<?>[] getParts() {
+        return this.ends;
+    }
+
+    /** The car a crosshair is on, whether it found the car or one of its ends. */
+    @Nullable
+    public static CarEntity of(@Nullable Entity entity) {
+        if (entity instanceof CarEnd end) {
+            return end.getParent();
+        }
+        return entity instanceof CarEntity car ? car : null;
+    }
+
+    @Override
+    public void setPos(double x, double y, double z) {
+        super.setPos(x, y, z);
+        // Every move, lerp and teleport comes through here; the constructor's
+        // first call comes before the ends exist.
+        if (this.ends != null) {
+            this.placeEnds();
+        }
+    }
+
+    private void placeEnds() {
+        this.measureReach();
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double fx = -Mth.sin(yawRad);
+        double fz = Mth.cos(yawRad);
+        this.ends[0].place(this.getX(), this.getY(), this.getZ(), fx, fz, this.frontReach,
+                this.getBbWidth(), this.getBbHeight());
+        this.ends[1].place(this.getX(), this.getY(), this.getZ(), fx, fz, this.rearReach,
+                this.getBbWidth(), this.getBbHeight());
     }
 
     @Override
@@ -675,11 +731,17 @@ public class CarEntity extends VehicleEntity {
             if (!this.wasLogicalSide) {
                 this.flyDist = this.entityData.get(ENGINE_SPEED);
             }
+            float yawBefore = this.getYRot();
             this.updateDriving();
+            if (this.getYRot() != yawBefore && !this.endsClear(this.getYRot(), 0.0, 0.0)
+                    && this.endsClear(yawBefore, 0.0, 0.0)) {
+                // The turn would swing the nose or tail into a wall.
+                this.setYRot(yawBefore);
+            }
             Vec3 requested = this.getDeltaMovement();
             Vec3 from = this.position();
             boolean grounded = this.onGround();
-            this.move(MoverType.SELF, requested);
+            this.moveKeepingEndsOut(requested);
             if (grounded && !this.onGround() && requested.y <= 0.0) {
                 this.followGroundDown();
             }
@@ -781,6 +843,85 @@ public class CarEntity extends VehicleEntity {
         }
         this.frontReach = front / 16.0;
         this.rearReach = -rear / 16.0;
+    }
+
+    /**
+     * The hitbox is a square as wide as the car, so the bonnet and the boot
+     * hang out past it, front and back. This checks those overhangs against
+     * the blocks, a block-deep slice at a time, above the step the wheels can
+     * ride up. Where a slice finds that step, ground rising like a hillside,
+     * the slice past it allows one more, so the car still climbs a hill a
+     * step per block while a wall stops the bumper instead of swallowing it.
+     *
+     * @return true when, turned to {@code yaw} and moved by {@code dx, dz},
+     *         neither overhang is inside a block
+     */
+    private boolean endsClear(float yaw, double dx, double dz) {
+        this.measureReach();
+        float yawRad = yaw * ((float) Math.PI / 180.0F);
+        double fx = -Mth.sin(yawRad);
+        double fz = Mth.cos(yawRad);
+        double half = this.getBbWidth() / 2.0;
+        // Narrower than the car, so scraping along a wall is not a head-on hit.
+        double side = this.getBbWidth() * 0.8 / 2.0;
+        double step = this.maxUpStep();
+        double top = this.getY() + this.getBbHeight();
+        for (int end = 0; end < 2; end++) {
+            double sign = end == 0 ? 1.0 : -1.0;
+            double overhang = (end == 0 ? this.frontReach : this.rearReach) - half;
+            double lift = step;
+            for (int k = 0; k < overhang; k++) {
+                double near = half + k;
+                double far = half + Math.min(overhang, k + 1.0);
+                double mid = (near + far) / 2.0 * sign;
+                double length = (far - near) / 2.0;
+                double cx = this.getX() + dx + fx * mid;
+                double cz = this.getZ() + dz + fz * mid;
+                double ex = Math.abs(fx) * length + Math.abs(fz) * side;
+                double ez = Math.abs(fz) * length + Math.abs(fx) * side;
+                double bottom = this.getY() + lift + 0.01;
+                if (bottom < top && !this.level().noBlockCollision(this, new net.minecraft.world.phys.AABB(
+                        cx - ex, bottom, cz - ez, cx + ex, top, cz + ez))) {
+                    return false;
+                }
+                if (!this.level().noBlockCollision(this, new net.minecraft.world.phys.AABB(
+                        cx - ex, this.getY() + 0.01, cz - ez, cx + ex, bottom, cz + ez))) {
+                    lift += step;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Moves the car, then pulls it back as far as it takes to get the nose and
+     * tail out of a wall. Checked after the move so a kerb the wheels just
+     * climbed counts, and the bonnet is judged from the height it now rides
+     * at. A car that started out overlapping a block (placed against one, or
+     * pushed into one) is left to drive itself out.
+     */
+    private void moveKeepingEndsOut(Vec3 move) {
+        Vec3 from = this.position();
+        boolean wasClear = move.horizontalDistanceSqr() < 1.0E-8 || this.endsClear(this.getYRot(), 0.0, 0.0);
+        this.move(MoverType.SELF, move);
+        if (!wasClear || this.endsClear(this.getYRot(), 0.0, 0.0)) {
+            return;
+        }
+        double clear = 0.0;
+        double blocked = 1.0;
+        for (int i = 0; i < 4; i++) {
+            double mid = (clear + blocked) / 2.0;
+            this.setPos(from);
+            this.move(MoverType.SELF, new Vec3(move.x * mid, move.y, move.z * mid));
+            if (this.endsClear(this.getYRot(), 0.0, 0.0)) {
+                clear = mid;
+            } else {
+                blocked = mid;
+            }
+        }
+        this.setPos(from);
+        this.move(MoverType.SELF, new Vec3(move.x * clear, move.y, move.z * clear));
+        this.horizontalCollision = true;
     }
 
     /** From the middle to the very front of the body, in blocks. */

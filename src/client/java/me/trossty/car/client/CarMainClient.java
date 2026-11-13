@@ -30,7 +30,6 @@ import me.trossty.car.block.entity.BatteryBankBlockEntity;
 import me.trossty.car.block.entity.FuelDrumBlockEntity;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
-import me.trossty.car.entity.TrailerEntity;
 import me.trossty.car.item.RoadPaintItem;
 import me.trossty.car.network.CarNetworking;
 import me.trossty.car.network.CrashC2SPayload;
@@ -70,7 +69,6 @@ import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsE
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
@@ -178,11 +176,10 @@ public class CarMainClient {
                         .withStyle(ChatFormatting.AQUA));
             }
         });
-        // Give every car that comes into view its own looping engine sound.
-        NeoForge.EVENT_BUS.addListener((EntityJoinLevelEvent event) -> {
-            if (event.getLevel().isClientSide() && event.getEntity() instanceof CarEntity car
-                    && !(car instanceof TrailerEntity)) {
-                Minecraft.getInstance().getSoundManager().queueTickingSound(new CarEngineSoundInstance(car));
+        // A looping engine sound for each car that is running or rolling.
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
+            if (Minecraft.getInstance().level != null && !Minecraft.getInstance().isPaused()) {
+                CarEngineSoundInstance.listen(Minecraft.getInstance().level);
             }
         });
         // Hands-on work. The parts of a car that is up on its ramp are drawn

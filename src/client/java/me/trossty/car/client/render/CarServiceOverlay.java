@@ -139,7 +139,7 @@ public final class CarServiceOverlay {
         // The game's own pick decides whether anything can be aimed at. It is
         // the same pick the right click will use, so a lit mark is a promise.
         boolean inReach = client.hitResult instanceof EntityHitResult hit
-                && hit.getEntity() == car;
+                && CarEntity.of(hit.getEntity()) == car;
         if (!servicing && !inReach) {
             return;
         }
@@ -265,7 +265,7 @@ public final class CarServiceOverlay {
             return List.of();
         }
         boolean servicing = VehicleLiftBlock.isServicing(player.level(), car);
-        boolean inReach = client.hitResult instanceof EntityHitResult hit && hit.getEntity() == car;
+        boolean inReach = client.hitResult instanceof EntityHitResult hit && CarEntity.of(hit.getEntity()) == car;
         if (!servicing && !inReach) {
             return List.of();
         }

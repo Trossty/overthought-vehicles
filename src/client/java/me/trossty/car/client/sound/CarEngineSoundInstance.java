@@ -32,14 +32,58 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
     /** How much higher a two-wheeler's engine sings than a car's. */
     private static final float MOTORCYCLE_PITCH = 1.45F;
 
+    /** Ticks a parked, empty car keeps its channel before letting it go. */
+    private static final int QUIET_TICKS = 20;
+    /** A loop the sound engine has not ticked for this long was never started (the pool was full). */
+    private static final int LOST_TICKS = 40;
+    /** The loop each car has playing, so there is only ever one. */
+    private static final java.util.Map<CarEntity, CarEngineSoundInstance> PLAYING = new java.util.WeakHashMap<>();
+
     private final CarEntity car;
     private final Voice voice;
+    private int quiet;
+    private long tickedAt;
     private float throttle;
     /** Distance rolled since the last crunch from the road. */
     private float rolled;
 
-    public CarEngineSoundInstance(CarEntity car) {
-        this(car, Voice.of(car));
+    /**
+     * A channel only for a car that makes a noise: running, or rolling on the
+     * road. The sound engine has a few hundred channels in all, and a car park
+     * of silent loops would take them from everything else in the world.
+     * Called every client tick.
+     */
+    public static void listen(net.minecraft.client.multiplayer.ClientLevel level) {
+        long now = level.getGameTime();
+        PLAYING.values().removeIf(sound -> sound.isStopped());
+        for (net.minecraft.world.entity.Entity entity : level.entitiesForRendering()) {
+            if (!(entity instanceof CarEntity car) || car instanceof me.trossty.car.entity.TrailerEntity
+                    || !audible(car)) {
+                continue;
+            }
+            CarEngineSoundInstance playing = PLAYING.get(car);
+            if (playing == null || now - playing.tickedAt > LOST_TICKS) {
+                start(car, Voice.of(car), now);
+            }
+        }
+    }
+
+    private static void start(CarEntity car, Voice voice, long now) {
+        CarEngineSoundInstance sound = new CarEngineSoundInstance(car, voice);
+        sound.tickedAt = now;
+        CarEngineSoundInstance old = PLAYING.put(car, sound);
+        if (old != null) {
+            old.stop();
+        }
+        net.minecraft.client.Minecraft.getInstance().getSoundManager().queueTickingSound(sound);
+    }
+
+    private static boolean running(CarEntity car) {
+        return car.getControllingPassenger() != null && car.hasFuel();
+    }
+
+    private static boolean audible(CarEntity car) {
+        return running(car) || car.onGround() && Math.abs(car.getEngineSpeed()) >= 0.02F;
     }
 
     private CarEngineSoundInstance(CarEntity car, Voice voice) {
@@ -79,17 +123,23 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
 
     @Override
     public void tick() {
-        if (this.car.isRemoved()) {
+        if (this.car.isRemoved() || PLAYING.get(this.car) != this) {
             this.stop();
+            return;
+        }
+        this.tickedAt = this.car.level().getGameTime();
+        // Parked and empty for a while: give the channel back.
+        this.quiet = audible(this.car) ? 0 : this.quiet + 1;
+        if (this.quiet > QUIET_TICKS) {
+            this.stop();
+            PLAYING.remove(this.car);
             return;
         }
 
         Voice now = Voice.of(this.car);
         if (now != this.voice) {
             // A different engine went in: hand over to a loop of the new one.
-            this.stop();
-            net.minecraft.client.Minecraft.getInstance().getSoundManager()
-                    .queueTickingSound(new CarEngineSoundInstance(this.car, now));
+            start(this.car, now, this.tickedAt);
             return;
         }
 
@@ -97,7 +147,7 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         this.y = this.car.getY() + 0.5;
         this.z = this.car.getZ();
 
-        boolean running = this.car.getControllingPassenger() != null && this.car.hasFuel();
+        boolean running = running(this.car);
         // The note follows the revs, so it climbs through each gear and drops
         // at the change, and a car with a higher top speed simply revs on.
         float revs = running
