@@ -1600,7 +1600,8 @@ public class CarPhotoTest {
         context.waitTicks(5);
         context.runOnClient(client -> {
             client.player.setYRot(0);
-            client.player.setXRot(30);
+            // The front camera turns the pitch over: looking up puts it above the car, looking down under the ground.
+            client.player.setXRot(-30);
             client.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
         });
         context.getInput().holdKey(options -> options.keyUp);
