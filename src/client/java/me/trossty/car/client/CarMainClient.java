@@ -205,6 +205,14 @@ public class CarMainClient {
         // box — a front wheel, the radiator — so the click is caught before it
         // is worked out what it landed on.
         NeoForge.EVENT_BUS.addListener(CarMainClient::servicePart);
+        // Behind the wheel the hands are on it, not hanging over the dials.
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.RenderHandEvent event) -> {
+            net.minecraft.client.player.LocalPlayer player = net.minecraft.client.Minecraft.getInstance().player;
+            if (player != null && player.getVehicle() instanceof me.trossty.car.entity.CarEntity car
+                    && car.getControllingPassenger() == player && event.getItemStack().isEmpty()) {
+                event.setCanceled(true);
+            }
+        });
         NeoForge.EVENT_BUS.addListener(CarMainClient::onClientTick);
     }
 

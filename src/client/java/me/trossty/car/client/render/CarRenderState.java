@@ -29,6 +29,10 @@ public class CarRenderState {
     public float acceleration;
     /** Whether the engine is actually turning: somebody aboard, fuel in the tank. */
     public boolean engineRunning;
+    /** Lights on: somebody aboard after dark. */
+    public boolean headlights;
+    /** Slowing hard enough to light the brake lamps. */
+    public boolean braking;
     /** How settled into its parked pose: a bike on its stand, a trailer on its jockey wheel. */
     public float restPose;
     public int damageWobbleSide;

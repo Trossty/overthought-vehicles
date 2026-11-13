@@ -185,6 +185,9 @@ final class Playtest {
     private static void pond(ClientGameTestContext context, TestServerContext server) {
         server.runCommand("fill 15 %d 29 25 %d 51 minecraft:dirt".formatted(Y - 5, Y - 1));
         server.runCommand("fill 16 %d 30 24 %d 50 minecraft:water".formatted(Y - 3, Y - 1));
+        // A ford a block deep on the way in: wade it, slowly, engine running.
+        server.runCommand("fill 15 %d 17 25 %d 28 minecraft:dirt".formatted(Y - 2, Y - 2));
+        server.runCommand("fill 16 %d 18 24 %d 28 minecraft:water".formatted(Y - 1, Y - 1));
         startAt(context, server, 20.5, Y, 10.5);
         log("pond before: " + state(server));
         drive(context, server, "pond", 80);
@@ -203,6 +206,8 @@ final class Playtest {
         context.waitTicks(80);
         context.getInput().releaseKey(options -> options.keyDown);
         log("pond reversing out: " + state(server));
+        // Drowned: the next run gets a dry car.
+        server.runOnServer(minecraft -> serverCar(minecraft).discard());
     }
 
     private static void ledge(ClientGameTestContext context, TestServerContext server) {
@@ -249,7 +254,11 @@ final class Playtest {
             car.setYRot(90.0F);
         });
         server.runCommand("tp @a 0.5 %d 67.5 0 20".formatted(Y));
-        context.waitTicks(10);
+        server.runOnServer(minecraft -> serverCar(minecraft).setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO));
+        // Let it roll to a stop first: the question is what the fists do.
+        context.waitTicks(60);
+        server.runOnServer(minecraft -> serverCar(minecraft).teleportTo(0.5, Y, 70.5));
+        context.waitTicks(5);
         log("punch before: " + state(server));
         for (int i = 0; i < 12; i++) {
             context.getInput().pressKey(options -> options.keyAttack);
@@ -269,16 +278,21 @@ final class Playtest {
                 car.discard();
             }
         });
-        server.runCommand("summon car:car 0.5 %d 80.5 {Rotation:[180f,0f],Color:14,Tags:[\"night\"]}".formatted(Y));
-        server.runCommand("tp @a 0.5 %d 80.5 180 10".formatted(Y));
+        server.runCommand("summon car:car 30.5 %d 110.5 {Rotation:[180f,0f],Color:14,Tags:[\"night\"]}".formatted(Y));
+        server.runCommand("tp @a 30.5 %d 110.5 180 10".formatted(Y));
         context.waitTicks(5);
         server.runCommand("ride @p mount @e[tag=night,limit=1]");
         context.waitTicks(20);
         context.takeScreenshot("play_night_inside");
-        context.getInput().pressKey(options -> options.keyShift);
-        server.runCommand("tp @a 0.5 %d 72.5 0 10".formatted(Y + 1));
-        context.waitTicks(15);
+        context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+        context.waitTicks(5);
         context.takeScreenshot("play_night_front");
+        context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+        context.waitTicks(5);
+        context.runOnClient(client -> client.player.setXRot(35.0F));
+        context.waitTicks(3);
+        context.takeScreenshot("play_night_back");
+        context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
         server.runCommand("time set noon");
     }
 }

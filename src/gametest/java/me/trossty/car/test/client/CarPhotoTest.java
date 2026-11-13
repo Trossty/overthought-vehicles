@@ -1665,6 +1665,8 @@ public class CarPhotoTest {
     private void workstation(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("setblock 0 %d 14 car:vehicle_workstation[facing=north]".formatted(Y));
+        // Within reach of it, or the menu closes as soon as it opens.
+        server.runCommand("tp @a 0.5 %d 11.5 0 30".formatted(Y));
         server.runCommand("clear @a");
         server.runCommand("give @a minecraft:iron_block 2");
         server.runCommand("give @a minecraft:iron_ingot 5");

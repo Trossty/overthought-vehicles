@@ -333,6 +333,29 @@ public class CarEntity extends VehicleEntity {
     private static final EntityDataAccessor<Boolean> KEY_MISSING =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
 
+    /**
+     * Water got into the engine: it will not run until it has dried out.
+     * Worked out on the server; tracked, because the engine runs on the
+     * driver's client.
+     */
+    private static final EntityDataAccessor<Boolean> FLOODED =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
+
+    /**
+     * How deep the water has to be, in blocks, to reach the air intake: a
+     * ford a block deep is crossed at a crawl, anything deeper drowns it.
+     */
+    private static final double FLOOD_DEPTH = 1.3;
+    /** How long a flooded engine takes to dry out once on land: 15 seconds. */
+    private static final int DRY_OUT_TICKS = 300;
+    /** Speed kept per tick with the wheels in water. */
+    private static final float WATER_DRAG = 0.86F;
+    /** Fastest a car wades, in blocks per tick. */
+    private static final float WADE_SPEED = 0.12F;
+
+    /** Ticks left before a flooded engine has dried out. Server only. */
+    private int floodedTicks;
+
     /** The number this car's keys carry; 0 for a car that has never had one. Server only. */
     private long lockCode;
 
@@ -510,6 +533,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(PAINT, -1);
         builder.define(LOCKED, false);
         builder.define(KEY_MISSING, false);
+        builder.define(FLOODED, false);
         builder.define(HEALTH, MAX_HEALTH);
         for (CarPart part : CarPart.values()) {
             builder.define(PART_CONDITION.get(part.ordinal()), CarPart.MAX_CONDITION);
@@ -722,6 +746,7 @@ public class CarEntity extends VehicleEntity {
         if (!this.level().isClientSide()) {
             this.wearParts();
             this.tickTemperature();
+            this.tickWater();
         }
 
         boolean logicalSide = this.isControlledByLocalInstance();
@@ -794,6 +819,7 @@ public class CarEntity extends VehicleEntity {
         this.animateWheels();
         this.checkInsideBlocks();
         this.pushNearbyEntities();
+        this.hitWhatIsInTheWay();
 
         // The trailer may already have ticked this tick, a step behind where
         // this has just got to: bring it along now, so it never lags.
@@ -1026,6 +1052,11 @@ public class CarEntity extends VehicleEntity {
             this.flyDist *= onGround ? ROLLING_FRICTION : AIR_DRAG;
         }
 
+        if (this.isInWater()) {
+            // Wading: the water holds the car back, hard.
+            this.flyDist = Mth.clamp(this.flyDist * WATER_DRAG, -WADE_SPEED, WADE_SPEED);
+        }
+
         if (Math.abs(this.flyDist) < SPEED_EPSILON) {
             this.flyDist = 0.0F;
         }
@@ -1122,6 +1153,64 @@ public class CarEntity extends VehicleEntity {
             return Math.max(0.0F, value - amount);
         }
         return Math.min(0.0F, value + amount);
+    }
+
+    /** Slowest speed, in blocks per tick, at which hitting somebody hurts them. */
+    private static final float MIN_IMPACT_SPEED = 0.12F;
+    /** Health taken from whoever is hit, per block per tick of speed. */
+    private static final float IMPACT_DAMAGE_PER_SPEED = 22.0F;
+    /** Of the speed, how much is lost per cubic block of whatever is hit, and the most lost to one hit. */
+    private static final float IMPACT_SLOWING = 0.35F;
+    private static final float MAX_IMPACT_SLOWING = 0.7F;
+    /** Of the damage dealt, the share the car takes in dents. */
+    private static final float IMPACT_SHARE_TO_CAR = 0.15F;
+    private static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> RUN_OVER =
+            net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE,
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("car", "run_over"));
+
+    /** Who this car hit lately, and when: one blow each, not one a tick. */
+    private final java.util.Map<Integer, Integer> recentlyHit = new java.util.HashMap<>();
+
+    /**
+     * Whoever stands in the way of a moving car is struck: thrown aside and
+     * hurt by how fast it was going, and the car loses speed for it and takes
+     * a dent, more the bigger they were. Both sides look: the side simulating
+     * the car feels the slowing, the server deals the damage.
+     */
+    private void hitWhatIsInTheWay() {
+        this.recentlyHit.values().removeIf(at -> this.tickCount - at > 20);
+        float speed = this.level().isClientSide() || this.isControlledByLocalInstance()
+                ? this.flyDist : this.getEngineSpeed();
+        if (Math.abs(speed) < MIN_IMPACT_SPEED) {
+            return;
+        }
+        net.minecraft.world.phys.AABB zone = this.getBoundingBox()
+                .minmax(this.ends[speed > 0.0F ? 0 : 1].getBoundingBox()).inflate(0.15, 0.0, 0.15);
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        Vec3 forward = new Vec3(-Mth.sin(yawRad), 0.0, Mth.cos(yawRad)).scale(Math.signum(speed));
+        for (LivingEntity victim : this.level().getEntitiesOfClass(LivingEntity.class, zone,
+                e -> e.isAlive() && !e.isSpectator() && !e.isPassenger() && !this.hasPassenger(e))) {
+            // Only what is ahead of the middle: a car does not run over what it is leaving behind.
+            if (victim.position().subtract(this.position()).dot(forward) <= 0.0
+                    || this.recentlyHit.putIfAbsent(victim.getId(), this.tickCount) != null) {
+                continue;
+            }
+            float bulk = victim.getBbWidth() * victim.getBbWidth() * victim.getBbHeight();
+            if (this.isControlledByLocalInstance()) {
+                this.flyDist *= 1.0F - Math.min(MAX_IMPACT_SLOWING, bulk * IMPACT_SLOWING);
+            }
+            if (this.level() instanceof ServerLevel world) {
+                float damage = (Math.abs(speed) - MIN_IMPACT_SPEED * 0.5F) * IMPACT_DAMAGE_PER_SPEED;
+                Entity driver = this.getControllingPassenger();
+                victim.hurt(this.damageSources().source(RUN_OVER, this, driver), damage);
+                victim.push(forward.x * Math.abs(speed) * 1.6, 0.25 + Math.abs(speed) * 0.4,
+                        forward.z * Math.abs(speed) * 1.6);
+                victim.hurtMarked = true;
+                this.applyCarDamage(world, damage * IMPACT_SHARE_TO_CAR * Math.min(1.0F, bulk));
+                world.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
+                        SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.NEUTRAL, 1.0F, 0.7F);
+            }
+        }
     }
 
     private void pushNearbyEntities() {
@@ -1916,7 +2005,40 @@ public class CarEntity extends VehicleEntity {
     /** Whether the engine can turn at all, fuel aside. */
     public boolean canRun() {
         return this.missingEssential() == null && !this.isBatteryFlat() && !this.hasWrongFuel()
-                && !this.entityData.get(KEY_MISSING);
+                && !this.entityData.get(KEY_MISSING) && !this.isFlooded();
+    }
+
+    /** Water in the engine: it will not start until it dries out. */
+    public boolean isFlooded() {
+        return this.entityData.get(FLOODED);
+    }
+
+    /**
+     * Water deep enough to reach the intake drowns the engine, and it stays
+     * drowned for a while after the car is back on land. Anybody whose head
+     * goes under gets out and swims for it: NeoForge leaves that to the
+     * vehicle, and a car is not something to sit in at the bottom of a lake.
+     */
+    private void tickWater() {
+        if (this.getFluidHeight(net.minecraft.tags.FluidTags.WATER) >= FLOOD_DEPTH) {
+            this.floodedTicks = DRY_OUT_TICKS;
+        } else if (this.floodedTicks > 0) {
+            this.floodedTicks--;
+        }
+        boolean flooded = this.floodedTicks > 0;
+        if (flooded != this.isFlooded()) {
+            this.entityData.set(FLOODED, flooded);
+            if (flooded) {
+                this.level().playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
+                        SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL, 0.8F, 0.6F);
+            }
+        }
+        for (Entity passenger : List.copyOf(this.getPassengers())) {
+            if (passenger instanceof LivingEntity living && living.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)
+                    && !living.canBreatheUnderwater()) {
+                living.stopRiding();
+            }
+        }
     }
 
     /**
@@ -1933,6 +2055,8 @@ public class CarEntity extends VehicleEntity {
         if (missing != null) {
             driver.displayClientMessage(Component.translatable("message.car.wont_start",
                     Component.translatable("part.car." + missing.key())), true);
+        } else if (this.isFlooded()) {
+            driver.displayClientMessage(Component.translatable("message.car.flooded"), true);
         } else if (this.entityData.get(KEY_MISSING)) {
             driver.displayClientMessage(Component.translatable("message.car.need_key"), true);
         } else if (this.isBatteryFlat()) {
@@ -3377,6 +3501,7 @@ public class CarEntity extends VehicleEntity {
         float amount = (blocked - MIN_CRASH_SPEED) * CRASH_DAMAGE_PER_SPEED;
         if (this.level() instanceof ServerLevel world) {
             this.applyCarDamage(world, amount);
+            this.hurtOccupants(amount);
         } else {
             CarNetworking.reportCrash(amount);
         }
@@ -3392,7 +3517,27 @@ public class CarEntity extends VehicleEntity {
             return;
         }
         this.crashCooldown = CRASH_COOLDOWN;
-        this.applyCarDamage(world, Mth.clamp(amount, 0.0F, MAX_HEALTH));
+        float capped = Mth.clamp(amount, 0.0F, MAX_HEALTH);
+        this.applyCarDamage(world, capped);
+        this.hurtOccupants(capped);
+    }
+
+    /** Below this much crash damage to the car, the people inside only feel a jolt. */
+    private static final float OCCUPANT_HARMLESS = 2.0F;
+    /** Of the crash damage past that, the share each person inside takes. */
+    private static final float OCCUPANT_SHARE = 0.6F;
+
+    /** A hard crash shakes up whoever is inside, belted in or not. */
+    private void hurtOccupants(float amount) {
+        float hurt = (amount - OCCUPANT_HARMLESS) * OCCUPANT_SHARE;
+        if (hurt <= 0.0F) {
+            return;
+        }
+        for (Entity passenger : this.getPassengers()) {
+            if (passenger instanceof LivingEntity living) {
+                living.hurt(this.damageSources().flyIntoWall(), hurt);
+            }
+        }
     }
 
     /**

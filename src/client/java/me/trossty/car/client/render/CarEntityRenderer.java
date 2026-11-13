@@ -92,6 +92,10 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.speed = car.getEngineSpeed();
         state.acceleration = car.getAcceleration(tickProgress);
         state.engineRunning = car.isEngineRunning();
+        state.headlights = car.getControllingPassenger() != null && car.hasFuel()
+                && lightAt(car) < LIGHTS_ON_BELOW;
+        state.braking = car.getControllingPassenger() != null && Math.abs(state.speed) > 0.02F
+                && state.acceleration * Math.signum(state.speed) < -BRAKE_LAMP_DECELERATION;
         state.restPose = car.getRestPose(tickProgress);
         state.damageWobbleTicks = car.getHurtTime() - tickProgress;
         state.damageWobbleSide = car.getHurtDir();
@@ -117,6 +121,9 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         this.extractRenderState(car, state, tickProgress);
         state.lightCoords = light;
         this.drawShadow(car, state, matrices, buffers);
+        if (state.headlights) {
+            this.drawBeam(car, state, matrices, buffers);
+        }
         matrices.pushPose();
         matrices.translate(0.0F, car.getStepOffset(tickProgress), 0.0F);
         matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
@@ -178,6 +185,15 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             if (glass != null) {
                 draw(glass, state, matrices, buffers, glass.renderType(texture));
             }
+            // The lamps drawn over themselves at full brightness: lit.
+            VehicleModel head = DefinedVehicleModel.headLampsOf(state.vehicleId, state.vehicle);
+            if (head != null && state.headlights) {
+                drawLit(head, state, matrices, buffers, head.renderType(texture));
+            }
+            VehicleModel tail = DefinedVehicleModel.tailLampsOf(state.vehicleId, state.vehicle);
+            if (tail != null && (state.headlights || state.braking)) {
+                drawLit(tail, state, matrices, buffers, tail.renderType(texture));
+            }
         }
         this.submitExtras(state, matrices, buffers);
         if (state.vehicle != null && state.vehicleId != null) {
@@ -226,18 +242,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             return;
         }
         float[] at = state.vehicle == null ? new float[] {-1.0F, 1.0F, -2.2F, 2.2F} : footprint(state.vehicle);
-        net.minecraft.core.BlockPos below = car.blockPosition();
-        double ground = car.getY();
-        for (int i = 0; i < 4; i++) {
-            net.minecraft.world.phys.shapes.VoxelShape shape = car.level().getBlockState(below)
-                    .getCollisionShape(car.level(), below);
-            if (!shape.isEmpty()) {
-                ground = Math.min(car.getY(), below.getY() + shape.max(net.minecraft.core.Direction.Axis.Y));
-                break;
-            }
-            below = below.below();
-            ground = below.getY();
-        }
+        double ground = groundBelow(car);
         float alpha = SHADOW_ALPHA * (float) Mth.clamp(1.0 - (car.getY() - ground) / SHADOW_FADE, 0.0, 1.0);
         if (alpha <= 0.01F) {
             return;
@@ -264,6 +269,85 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         org.joml.Vector3f at = pose.pose().transformPosition(x, 0.0F, z, new org.joml.Vector3f());
         out.addVertex(at.x(), at.y(), at.z(), colour, u, v, OverlayTexture.NO_OVERLAY,
                 net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, 0.0F, 1.0F, 0.0F);
+    }
+
+    /** Below this much light at the car (0 to 15), the lights come on by themselves. */
+    private static final int LIGHTS_ON_BELOW = 8;
+    /** Speed lost per tick, in blocks per tick, that counts as braking. */
+    private static final float BRAKE_LAMP_DECELERATION = 0.012F;
+    private static final net.minecraft.client.renderer.RenderType BEAM = net.minecraft.client.renderer.RenderType
+            .eyes(ResourceLocation.fromNamespaceAndPath(me.trossty.car.CarMain.MOD_ID, "textures/misc/headlight_beam.png"));
+    /** How far ahead of the bumper the headlamps light the ground, in blocks. */
+    private static final float BEAM_LENGTH = 11.0F;
+    /** How far past the car's sides the beam has spread at its far end. */
+    private static final float BEAM_SPREAD = 2.2F;
+
+    /**
+     * The headlamps' light on the road ahead: a pool laid on the ground,
+     * widening away from the bumper, added to whatever is drawn there. It
+     * is only a picture of light, so it lights nothing else.
+     */
+    private void drawBeam(CarEntity car, CarRenderState state, PoseStack matrices, MultiBufferSource buffers) {
+        float[] at = state.vehicle == null ? new float[] {-1.0F, 1.0F, -2.2F, 2.2F} : footprint(state.vehicle);
+        double ground = groundBelow(car);
+        if (car.getY() - ground > SHADOW_FADE) {
+            return;
+        }
+        float half = (at[1] - at[0]) / 2.0F * 0.8F;
+        float near = at[3] - 0.3F;
+        float far = at[3] + BEAM_LENGTH;
+        matrices.pushPose();
+        matrices.translate(0.0, ground - car.getY() + 0.02, 0.0);
+        matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
+        PoseStack.Pose pose = matrices.last();
+        com.mojang.blaze3d.vertex.VertexConsumer out = buffers.getBuffer(BEAM);
+        int colour = 0xFFFFFFFF;
+        // Mirrored like the model: the car's front is -z here.
+        // Wound to face up, as the shadow is, or it is culled from above.
+        shadowVertex(pose, out, colour, -(half + BEAM_SPREAD), -far, 0.0F, 1.0F);
+        shadowVertex(pose, out, colour, -half, -near, 0.0F, 0.0F);
+        shadowVertex(pose, out, colour, half, -near, 1.0F, 0.0F);
+        shadowVertex(pose, out, colour, half + BEAM_SPREAD, -far, 1.0F, 1.0F);
+        matrices.popPose();
+    }
+
+    /**
+     * How light it is where the car stands, 0 to 15: lamps and the sky as
+     * the time of day dims it. Worked out here, because a client level never
+     * updates its own sky darkening; the sum is the one the server uses.
+     */
+    private static int lightAt(CarEntity car) {
+        net.minecraft.world.level.Level level = car.level();
+        net.minecraft.core.BlockPos pos = car.blockPosition().above();
+        double rain = 1.0 - level.getRainLevel(1.0F) * 5.0F / 16.0;
+        double thunder = 1.0 - level.getThunderLevel(1.0F) * 5.0F / 16.0;
+        double day = 0.5 + 2.0 * Mth.clamp(Mth.cos(level.getTimeOfDay(1.0F) * (float) (Math.PI * 2)), -0.25, 0.25);
+        int darken = level.dimensionType().hasSkyLight() ? (int) ((1.0 - day * rain * thunder) * 11.0) : 0;
+        return Math.max(level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, pos),
+                level.getBrightness(net.minecraft.world.level.LightLayer.SKY, pos) - darken);
+    }
+
+    /** The top of whatever the car stands over, up to four blocks down. */
+    private static double groundBelow(CarEntity car) {
+        net.minecraft.core.BlockPos below = car.blockPosition();
+        double ground = car.getY();
+        for (int i = 0; i < 4; i++) {
+            net.minecraft.world.phys.shapes.VoxelShape shape = car.level().getBlockState(below)
+                    .getCollisionShape(car.level(), below);
+            if (!shape.isEmpty()) {
+                return Math.min(car.getY(), below.getY() + shape.max(net.minecraft.core.Direction.Axis.Y));
+            }
+            below = below.below();
+            ground = below.getY();
+        }
+        return ground;
+    }
+
+    private static void drawLit(VehicleModel model, CarRenderState state, PoseStack matrices,
+                                MultiBufferSource buffers, net.minecraft.client.renderer.RenderType type) {
+        model.setupAnim(state);
+        model.renderToBuffer(matrices, buffers.getBuffer(type), net.minecraft.client.renderer.LightTexture.FULL_BRIGHT,
+                OverlayTexture.NO_OVERLAY, -1);
     }
 
     private static void draw(VehicleModel model, CarRenderState state, PoseStack matrices,

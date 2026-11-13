@@ -55,7 +55,7 @@ public class DefinedVehicleModel extends VehicleModel {
     private static final String STEERING_WHEEL = "steering_wheel";
     private static final String STEERING_WHEEL_COLOUR = "#1E1E21";
     /** From the driver's seat to the middle of the wheel: up, and forwards. */
-    private static final float WHEEL_RISE = 6.5F;
+    private static final float WHEEL_RISE = 9.0F;
     private static final float WHEEL_REACH = 10.0F;
     /** Degrees the wheel leans back towards the driver. */
     private static final float WHEEL_RAKE = 28.0F;
@@ -96,6 +96,8 @@ public class DefinedVehicleModel extends VehicleModel {
     private record Built(VehicleDefinition definition, DefinedVehicleModel model,
                          @org.jetbrains.annotations.Nullable DefinedVehicleModel glass,
                          DefinedVehicleModel wheels,
+                         @org.jetbrains.annotations.Nullable DefinedVehicleModel headLamps,
+                         @org.jetbrains.annotations.Nullable DefinedVehicleModel tailLamps,
                          List<String> colours, Map<Integer, ResourceLocation> textures) {
     }
 
@@ -204,6 +206,7 @@ public class DefinedVehicleModel extends VehicleModel {
         Built fresh = new Built(definition, new DefinedVehicleModel(root, definition, false),
                 anyGlass ? new DefinedVehicleModel(build(definition, colours, true), definition, true) : null,
                 new DefinedVehicleModel(buildWheels(definition), definition, false),
+                lamps(definition, colours, HEAD_LAMPS), lamps(definition, colours, TAIL_LAMPS),
                 colours, new HashMap<>());
         CACHE.put(id, fresh);
         return fresh;
@@ -262,6 +265,29 @@ public class DefinedVehicleModel extends VehicleModel {
         }
     }
 
+    /** The colours every pack paints its headlamps and its tail lamps in. */
+    private static final java.util.Set<String> HEAD_LAMPS = java.util.Set.of("#F4F0D0", "#FFFDF2");
+    private static final java.util.Set<String> TAIL_LAMPS = java.util.Set.of("#C0201C", "#EE4A3C");
+
+    @org.jetbrains.annotations.Nullable
+    private static DefinedVehicleModel lamps(VehicleDefinition definition, List<String> colours,
+                                             java.util.Set<String> lamp) {
+        boolean any = definition.shape().stream().anyMatch(box -> lamp.contains(box.color()));
+        return any ? new DefinedVehicleModel(build(definition, colours, false, lamp), definition, false) : null;
+    }
+
+    /** Just the headlamps, drawn again lit up after dark; null if it has none. */
+    @org.jetbrains.annotations.Nullable
+    public static DefinedVehicleModel headLampsOf(ResourceLocation id, VehicleDefinition definition) {
+        return built(id, definition).headLamps();
+    }
+
+    /** Just the tail lamps, lit after dark and under braking; null if it has none. */
+    @org.jetbrains.annotations.Nullable
+    public static DefinedVehicleModel tailLampsOf(ResourceLocation id, VehicleDefinition definition) {
+        return built(id, definition).tailLamps();
+    }
+
     /** The see-through part of this vehicle, or null if it has none. */
     @org.jetbrains.annotations.Nullable
     public static DefinedVehicleModel glassOf(ResourceLocation id, VehicleDefinition definition) {
@@ -303,6 +329,12 @@ public class DefinedVehicleModel extends VehicleModel {
     }
 
     private static ModelPart build(VehicleDefinition definition, List<String> colours, boolean glass) {
+        return build(definition, colours, glass, null);
+    }
+
+    /** @param only when given, nothing but the boxes painted in these colours */
+    private static ModelPart build(VehicleDefinition definition, List<String> colours, boolean glass,
+                                   @org.jetbrains.annotations.Nullable java.util.Set<String> only) {
         MeshDefinition data = new MeshDefinition();
         PartDefinition root = data.getRoot();
         PartDefinition chassis = root.addOrReplaceChild(
@@ -350,7 +382,7 @@ public class DefinedVehicleModel extends VehicleModel {
         // Anything with a cabin gets a steering wheel in front of the driver,
         // where their hands reach: the seat is where the hips go, so the rim
         // sits a little above it and a forearm and a half forward.
-        if (!glass && !definition.seats().isEmpty()
+        if (!glass && only == null && !definition.seats().isEmpty()
                 && definition.chassis() != VehicleDefinition.Chassis.MOTORCYCLE
                 && definition.chassis() != VehicleDefinition.Chassis.TRAILER) {
             net.minecraft.world.phys.Vec3 seat = definition.seats().get(0);
@@ -397,7 +429,8 @@ public class DefinedVehicleModel extends VehicleModel {
         float[] lift = lifts(definition.shape());
         for (int index = 0; index < definition.shape().size(); index++) {
             VehicleDefinition.Box box = definition.shape().get(index);
-            if (isGlass(box.color()) != glass || isCargo(box.color())) {
+            if (isGlass(box.color()) != glass || isCargo(box.color())
+                    || only != null && !only.contains(box.color())) {
                 continue;
             }
             Vector3fc from = box.from();

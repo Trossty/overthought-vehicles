@@ -58,7 +58,7 @@ public class DashboardHud implements LayeredDraw.Layer {
     // ---- placement ----
     /** Half the hotbar's width; the dials sit clear of it on either side. */
     private static final int HOTBAR_HALF_WIDTH = 91;
-    private static final int HOTBAR_GAP = 10;
+    private static final int HOTBAR_GAP = 14;
     private static final int BOTTOM_MARGIN = 8;
     private static final int EDGE_MARGIN = 6;
     /** Between two dials on the same side. */

@@ -47,6 +47,8 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
     private static final int LIST_WIDTH = 80;
     private static final int ROW = 12;
     private static final int ROWS = 8;
+    /** Two lines of a name have to share one row: no bigger than this. */
+    private static final float TWO_LINE_SCALE = 0.62F;
 
     private static final int PREVIEW_X = 92;
     private static final int PREVIEW_Y = 18;
@@ -246,15 +248,33 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
                 context.fill(left, rowTop, left + LIST_WIDTH, rowTop + ROW, 0xFF9C9C9C);
             }
             String name = VehicleDefinition.nameOf(vehicles.get(index)).getString();
-            // A long name is drawn smaller to fit rather than cut off; only
-            // one too long even then loses its end.
+            // A long name is drawn smaller to fit rather than cut off, and one
+            // too long even then goes over two lines, split at the space that
+            // halves it best: "Mercedes-Benz / Atego Tanker".
             int room = LIST_WIDTH - 8;
-            float scale = Math.max(0.7F, Math.min(1.0F, (float) room / this.font.width(name)));
-            name = this.font.plainSubstrByWidth(name, (int) (room / scale));
+            String[] lines = {name};
+            float scale = Math.min(1.0F, (float) room / this.font.width(name));
+            if (scale < 0.7F && name.indexOf(' ') > 0) {
+                int best = -1;
+                for (int at = name.indexOf(' '); at >= 0; at = name.indexOf(' ', at + 1)) {
+                    if (best < 0 || Math.abs(this.font.width(name.substring(0, at)) - this.font.width(name.substring(at + 1)))
+                            < Math.abs(this.font.width(name.substring(0, best)) - this.font.width(name.substring(best + 1)))) {
+                        best = at;
+                    }
+                }
+                lines = new String[] {name.substring(0, best), name.substring(best + 1)};
+                int widest = Math.max(this.font.width(lines[0]), this.font.width(lines[1]));
+                scale = Math.min(TWO_LINE_SCALE, (float) room / widest);
+            }
+            scale = Math.max(0.5F, scale);
             context.pose().pushPose();
-            context.pose().translate(left + 3.0F, rowTop + 2.0F + (1.0F - scale) * 4.0F, 0.0F);
+            float height = lines.length * this.font.lineHeight * scale;
+            context.pose().translate(left + 3.0F, rowTop + (ROW - height) / 2.0F + 0.5F, 0.0F);
             context.pose().scale(scale, scale, 1.0F);
-            context.drawString(this.font, name, 0, 0, 0xFFFFFFFF, true);
+            for (int line = 0; line < lines.length; line++) {
+                context.drawString(this.font, this.font.plainSubstrByWidth(lines[line], (int) (room / scale)),
+                        0, line * this.font.lineHeight, 0xFFFFFFFF, true);
+            }
             context.pose().popPose();
         }
         if (this.maxScroll() > 0) {
