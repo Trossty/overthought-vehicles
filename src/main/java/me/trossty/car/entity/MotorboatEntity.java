@@ -145,4 +145,26 @@ public class MotorboatEntity extends CarEntity {
             this.level().addParticle(ParticleTypes.SPLASH, stern.x, surface, stern.z, 0.0, 0.1, 0.0);
         }
     }
+
+    /**
+     * A boat wrecked on the water goes down: a burst of spray, the hull
+     * filling with a gurgle of bubbles, and the wreck slipping under. One
+     * wrecked ashore just breaks up like anything else.
+     */
+    @Override
+    protected void wreckEffects(net.minecraft.server.level.ServerLevel world) {
+        if (!this.afloat()) {
+            return;
+        }
+        world.playSound(null, this.getX(), this.getY(), this.getZ(),
+                net.minecraft.sounds.SoundEvents.GENERIC_SPLASH, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 0.7F);
+        world.playSound(null, this.getX(), this.getY(), this.getZ(),
+                net.minecraft.sounds.SoundEvents.BUBBLE_COLUMN_UPWARDS_AMBIENT, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 0.8F);
+        world.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 0.6, this.getZ(),
+                80, 1.2, 0.2, 1.8, 0.2);
+        world.sendParticles(ParticleTypes.BUBBLE_COLUMN_UP, this.getX(), this.getY() - 0.3, this.getZ(),
+                60, 1.0, 0.3, 1.6, 0.05);
+        world.sendParticles(ParticleTypes.BUBBLE, this.getX(), this.getY() - 0.6, this.getZ(),
+                40, 1.0, 0.4, 1.6, 0.05);
+    }
 }

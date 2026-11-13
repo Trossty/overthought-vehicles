@@ -394,6 +394,18 @@ final class Playtest {
         server.runCommand("fill 92 %d %d 128 %d %d minecraft:stone_bricks".formatted(Y - 4, wallZ, Y + 3, wallZ + 1));
         hold(context, server, me.trossty.car.entity.MotorboatEntity.class, "boat ram", 50, o -> o.keyUp);
         log("boat rammed the quay: " + where(server, me.trossty.car.entity.MotorboatEntity.class));
+        // Rammed again until it gives: a boat wrecked afloat goes down.
+        context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+        for (int i = 0; i < 6 && context.computeOnClient(client -> client.player.getVehicle() != null); i++) {
+            server.runOnServer(minecraft -> minecraft.overworld().getEntitiesOfClass(
+                    me.trossty.car.entity.MotorboatEntity.class, new AABB(60, Y - 20, -80, 160, Y + 20, 80), e -> true)
+                    .forEach(boat -> boat.applyReportedCrash(minecraft.overworld(), 6.0F)));
+            context.waitTicks(12);
+        }
+        context.waitTicks(3);
+        context.takeScreenshot("play_boat_sunk");
+        context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+        log("boat wrecked: " + where(server, me.trossty.car.entity.MotorboatEntity.class));
         server.runCommand("gamemode creative @a");
     }
 
@@ -492,6 +504,7 @@ final class Playtest {
         }
         context.waitTicks(10);
         log("banked: " + attitude(context));
+        log("banked, as the server has it: " + serverAttitude(server));
         context.takeScreenshot("play_bank");
         context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
         context.waitTicks(2);
@@ -546,6 +559,22 @@ final class Playtest {
         });
         hold(context, server, plane, "cruise", 10, o -> o.keyUp);
         return plane;
+    }
+
+    /** The same, as the server works it out from the pilot's packets. */
+    private static String serverAttitude(TestServerContext server) {
+        String[] out = {"no plane"};
+        server.runOnServer(minecraft -> {
+            for (me.trossty.car.entity.AirplaneEntity v : minecraft.overworld().getEntitiesOfClass(
+                    me.trossty.car.entity.AirplaneEntity.class, new AABB(-400, -64, -400, 400, 320, 400), e -> true)) {
+                net.minecraft.world.entity.Entity pilot = v.getFirstPassenger();
+                out[0] = "yaw %.1f bank %.1f pitch %.1f, pilot off seat %s".formatted(v.getYRot(),
+                        v.getBodyRoll(1.0F), v.getBodyPitch(1.0F), pilot == null ? "-"
+                                : "%.2f %.2f %.2f".formatted(pilot.getX() - v.getX(), pilot.getY() - v.getY(),
+                                        pilot.getZ() - v.getZ()));
+            }
+        });
+        return out[0];
     }
 
     /** Heading, bank and pitch as the pilot sees them, and where the pilot sits against the plane. */

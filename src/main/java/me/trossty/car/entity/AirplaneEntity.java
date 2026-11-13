@@ -110,6 +110,9 @@ public class AirplaneEntity extends CarEntity {
     private float spinDirection = 1.0F;
     /** The bank the ailerons have put in, degrees, right wing down positive: the flying side's own. */
     private float flownBank;
+    /** Height and heading at the end of the last tick, for the climb and turn drawn. */
+    private double lastTickY = Double.NaN;
+    private float lastTickYaw;
     private float pitch;
     private float prevPitch;
     private float bank;
@@ -367,8 +370,6 @@ public class AirplaneEntity extends CarEntity {
         } else if (this.getControllingPassenger() == null || this.onGround()) {
             this.stalled = false;
         }
-        double yBefore = this.getY();
-        float yawBefore = this.getYRot();
         boolean airborne = !this.onGround() && this.getControllingPassenger() != null;
         double sink = -this.getDeltaMovement().y;
         super.tick();
@@ -377,7 +378,8 @@ public class AirplaneEntity extends CarEntity {
         }
         // A glide is not a fall: only coming down without the wings counts,
         // and a stalled wing coming down that fast is not holding anything.
-        if (!this.onGround() && this.lift() >= 0.8F && this.getY() - yBefore > -HARD_SINK) {
+        double sinceLastTick = Double.isNaN(this.lastTickY) ? 0.0 : this.getY() - this.lastTickY;
+        if (!this.onGround() && this.lift() >= 0.8F && sinceLastTick > -HARD_SINK) {
             this.resetFallDistance();
         }
         if (this.level().isClientSide() && this.isControlledByLocalInstance()
@@ -387,22 +389,26 @@ public class AirplaneEntity extends CarEntity {
                     net.minecraft.sounds.SoundEvents.NOTE_BLOCK_FLUTE.value(),
                     net.minecraft.sounds.SoundSource.NEUTRAL, 0.6F, this.stalled ? 1.6F : 2.0F, false);
         }
-        if (this.level().isClientSide()) {
-            this.prevPitch = this.pitch;
-            this.prevBank = this.bank;
-            float climb = 0.0F;
-            float turn = 0.0F;
-            if (!this.onGround()) {
-                double speed = Math.max(0.05, Math.abs(this.getEngineSpeed()));
-                climb = (float) Math.toDegrees(Math.atan2(this.getY() - yBefore, speed));
-                turn = Mth.wrapDegrees(this.getYRot() - yawBefore);
-            }
-            this.pitch += (Mth.clamp(climb, -MAX_PITCH, MAX_PITCH) - this.pitch) * 0.2F;
-            // Whoever flies it sees the bank they put in; anyone else, the
-            // bank its turn implies. A spinning stall banks it further.
-            float drawn = this.isControlledByLocalInstance() && !this.onGround() ? this.flownBank : this.bankFor(turn);
-            this.bank += (Mth.clamp(drawn, -MAX_BANK - 15.0F, MAX_BANK + 15.0F) - this.bank) * 0.3F;
+        // Worked out on every side, the server included, so that it seats the
+        // crew where their own screens show them. Measured tick to tick rather
+        // than across this tick's own move: the server moves a flown aircraft
+        // when its pilot's packets arrive, between ticks.
+        this.prevPitch = this.pitch;
+        this.prevBank = this.bank;
+        float climb = 0.0F;
+        float turn = 0.0F;
+        if (!this.onGround() && !Double.isNaN(this.lastTickY)) {
+            double speed = Math.max(0.05, Math.abs(this.getEngineSpeed()));
+            climb = (float) Math.toDegrees(Math.atan2(this.getY() - this.lastTickY, speed));
+            turn = Mth.wrapDegrees(this.getYRot() - this.lastTickYaw);
         }
+        this.lastTickY = this.getY();
+        this.lastTickYaw = this.getYRot();
+        this.pitch += (Mth.clamp(climb, -MAX_PITCH, MAX_PITCH) - this.pitch) * 0.2F;
+        // Whoever flies it sees the bank they put in; anyone else, the
+        // bank its turn implies. A spinning stall banks it further.
+        float drawn = this.isControlledByLocalInstance() && !this.onGround() ? this.flownBank : this.bankFor(turn);
+        this.bank += (Mth.clamp(drawn, -MAX_BANK - 15.0F, MAX_BANK + 15.0F) - this.bank) * 0.3F;
     }
 
     /** Nose up, degrees, as drawn. */

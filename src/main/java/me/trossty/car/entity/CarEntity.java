@@ -806,21 +806,28 @@ public class CarEntity extends VehicleEntity {
             if (!this.wasLogicalSide) {
                 this.flyDist = this.entityData.get(ENGINE_SPEED);
             }
-            float yawBefore = this.getYRot();
-            this.updateDriving();
-            if (this.getYRot() != yawBefore && !this.endsClear(this.getYRot(), 0.0, 0.0)
-                    && this.endsClear(yawBefore, 0.0, 0.0)) {
-                // The turn would swing the nose or tail into a wall.
-                this.setYRot(yawBefore);
+            if (this.level().isClientSide() && !this.worldLoadedAhead()) {
+                // The ground here has not reached this client yet: with nothing
+                // to stand on it would drop straight through, so it waits, speed
+                // kept, until it has.
+                this.setDeltaMovement(Vec3.ZERO);
+            } else {
+                float yawBefore = this.getYRot();
+                this.updateDriving();
+                if (this.getYRot() != yawBefore && !this.endsClear(this.getYRot(), 0.0, 0.0)
+                        && this.endsClear(yawBefore, 0.0, 0.0)) {
+                    // The turn would swing the nose or tail into a wall.
+                    this.setYRot(yawBefore);
+                }
+                Vec3 requested = this.getDeltaMovement();
+                Vec3 from = this.position();
+                boolean grounded = this.onGround();
+                this.moveKeepingEndsOut(requested);
+                if (grounded && !this.onGround() && requested.y <= 0.0) {
+                    this.followGroundDown();
+                }
+                this.checkForCrash(requested, from);
             }
-            Vec3 requested = this.getDeltaMovement();
-            Vec3 from = this.position();
-            boolean grounded = this.onGround();
-            this.moveKeepingEndsOut(requested);
-            if (grounded && !this.onGround() && requested.y <= 0.0) {
-                this.followGroundDown();
-            }
-            this.checkForCrash(requested, from);
         } else {
             this.setDeltaMovement(Vec3.ZERO);
             this.travelYaw = Float.NaN;
@@ -1776,6 +1783,16 @@ public class CarEntity extends VehicleEntity {
                 .zRot(-roll * Mth.DEG_TO_RAD)
                 .xRot(pitch * Mth.DEG_TO_RAD)
                 .add(0.0, middle, 0.0);
+    }
+
+    /** Whether the chunks under it and a few ticks ahead of it are loaded here. */
+    private boolean worldLoadedAhead() {
+        float yawRad = this.getYRot() * Mth.DEG_TO_RAD;
+        double reach = (Math.abs(this.flyDist) * 4.0 + 1.0) * (this.flyDist < 0.0F ? -1.0 : 1.0);
+        int aheadX = Mth.floor(this.getX() - Mth.sin(yawRad) * reach);
+        int aheadZ = Mth.floor(this.getZ() + Mth.cos(yawRad) * reach);
+        return this.level().hasChunkAt(this.getBlockX(), this.getBlockZ())
+                && this.level().hasChunkAt(aheadX, aheadZ);
     }
 
     /** Nose up, degrees, as drawn: level for anything on wheels. */
