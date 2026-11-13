@@ -2,7 +2,9 @@ package me.trossty.car.entity;
 
 import me.trossty.car.vehicle.VehicleDefinition;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -11,7 +13,7 @@ import java.util.Map;
  * between its front axle and its nose, the gearbox under its floor between its
  * axles, the exhaust at its own tail. A long van, a short hatch, a cab-over
  * lorry and a motorbike each get their own map, so pointing at the wheel of a
- * Transit is pointing at the wheel.
+ * long van is pointing at the wheel.
  *
  * <p>Worked in the definition's pixels — x across, y up, z towards the front —
  * and handed out as {@link CarPart.Anchor}s in blocks, in the model's sense
@@ -108,6 +110,51 @@ public final class PartLayout {
 
         corner(map, wheel);
         return map;
+    }
+
+    /** A tyre, and the brakes and strut behind it: one at every wheel, not only the first. */
+    private static boolean atEveryCorner(CarPart part) {
+        return part == CarPart.WHEELS || part == CarPart.BRAKE_PADS
+                || part == CarPart.BRAKE_DISCS || part == CarPart.SUSPENSION;
+    }
+
+    /**
+     * Every place you can get at each part: {@code primary}'s one spot for
+     * most, and for the wheel and what sits behind it, the same spot at every
+     * wheel the vehicle has, so a tyre comes off whichever side you stand.
+     */
+    public static Map<CarPart, List<CarPart.Anchor>> everywhere(VehicleDefinition definition,
+                                                              Map<CarPart, CarPart.Anchor> primary) {
+        Map<CarPart, List<CarPart.Anchor>> all = new EnumMap<>(CarPart.class);
+        primary.forEach((part, anchor) -> all.computeIfAbsent(part, p -> new ArrayList<>()).add(anchor));
+        // The plain map (no definition, or one with no body): its wheels are
+        // the one it has mirrored to the other three corners.
+        if (definition == null || definition.wheels().isEmpty()
+                || CarPart.ENGINE.anchor().equals(primary.get(CarPart.ENGINE))) {
+            for (CarPart part : CarPart.values()) {
+                CarPart.Anchor a = primary.get(part);
+                if (a == null || !atEveryCorner(part)) {
+                    continue;
+                }
+                for (float[] sign : new float[][]{{-1, 1}, {1, -1}, {-1, -1}}) {
+                    add(all, part, new CarPart.Anchor(a.x() * sign[0], a.y(), a.z() * sign[1], a.size()));
+                }
+            }
+            return all;
+        }
+        for (VehicleDefinition.Wheel wheel : definition.wheels()) {
+            Map<CarPart, CarPart.Anchor> here = new EnumMap<>(CarPart.class);
+            corner(here, wheel);
+            here.forEach((part, anchor) -> add(all, part, anchor));
+        }
+        return all;
+    }
+
+    private static void add(Map<CarPart, List<CarPart.Anchor>> all, CarPart part, CarPart.Anchor anchor) {
+        List<CarPart.Anchor> list = all.computeIfAbsent(part, p -> new ArrayList<>());
+        if (!list.contains(anchor)) {
+            list.add(anchor);
+        }
     }
 
     /** The wheel, and inboard of it the brakes and the strut above them. */

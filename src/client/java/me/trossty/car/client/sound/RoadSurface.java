@@ -1,10 +1,10 @@
 package me.trossty.car.client.sound;
 
 import me.trossty.car.entity.CarEntity;
-import net.minecraft.block.BlockState;
-import net.minecraft.sound.BlockSoundGroup;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * What the wheels are running on, as the ear and the seat feel it. Works from
@@ -18,12 +18,12 @@ public final class RoadSurface {
 
     /** The block the wheels are on: a snow layer or carpet on top wins over the block below. */
     public static BlockState under(CarEntity car) {
-        BlockPos pos = car.getBlockPos();
-        BlockState here = car.getEntityWorld().getBlockState(pos);
-        if (!here.isAir() && !here.getCollisionShape(car.getEntityWorld(), pos).isEmpty()) {
+        BlockPos pos = car.blockPosition();
+        BlockState here = car.level().getBlockState(pos);
+        if (!here.isAir() && !here.getCollisionShape(car.level(), pos).isEmpty()) {
             return here;
         }
-        return car.getSteppingBlockState();
+        return car.getBlockStateOn();
     }
 
     /**
@@ -35,22 +35,22 @@ public final class RoadSurface {
         if (state.isAir()) {
             return 0.0F;
         }
-        BlockSoundGroup group = state.getSoundGroup();
-        if (group == BlockSoundGroup.GRAVEL || group == BlockSoundGroup.SUSPICIOUS_GRAVEL) {
+        SoundType group = state.getSoundType();
+        if (group == SoundType.GRAVEL || group == SoundType.SUSPICIOUS_GRAVEL) {
             return 1.0F;
         }
-        if (group == BlockSoundGroup.SAND || group == BlockSoundGroup.SOUL_SAND
-                || group == BlockSoundGroup.ROOTED_DIRT || group == BlockSoundGroup.MUD) {
+        if (group == SoundType.SAND || group == SoundType.SOUL_SAND
+                || group == SoundType.ROOTED_DIRT || group == SoundType.MUD) {
             return 0.8F;
         }
-        if (group == BlockSoundGroup.GRASS || group == BlockSoundGroup.SNOW
-                || group == BlockSoundGroup.POWDER_SNOW) {
+        if (group == SoundType.GRASS || group == SoundType.SNOW
+                || group == SoundType.POWDER_SNOW) {
             return 0.65F;
         }
-        if (group == BlockSoundGroup.WOOD || group == BlockSoundGroup.NETHERRACK) {
+        if (group == SoundType.WOOD || group == SoundType.NETHERRACK) {
             return 0.5F;
         }
-        if (group == BlockSoundGroup.STONE) {
+        if (group == SoundType.STONE) {
             return 0.12F;
         }
         return 0.35F;
@@ -58,10 +58,10 @@ public final class RoadSurface {
 
     /** How much the car is shaking right now: surface roughness times how fast it is going over it. */
     public static float shake(CarEntity car) {
-        if (!car.isOnGround()) {
+        if (!car.onGround()) {
             return 0.0F;
         }
-        float speed = MathHelper.clamp(Math.abs(car.getEngineSpeed()) / CarEntity.MAX_SPEED, 0.0F, 1.0F);
+        float speed = Mth.clamp(Math.abs(car.getEngineSpeed()) / CarEntity.MAX_SPEED, 0.0F, 1.0F);
         return roughness(under(car)) * speed;
     }
 }

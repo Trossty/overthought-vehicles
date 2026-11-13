@@ -1,11 +1,11 @@
 package me.trossty.car.network;
 
 import me.trossty.car.CarMain;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Sent when a player presses the build button on a bench top.
@@ -22,20 +22,20 @@ import net.minecraft.util.math.BlockPos;
  * @param quality the grade to build to, as a {@code CarPart.Quality} ordinal
  */
 public record BenchBuildC2SPayload(BlockPos bench, int recipe, int quality)
-        implements CustomPayload {
+        implements CustomPacketPayload {
 
-    public static final CustomPayload.Id<BenchBuildC2SPayload> ID =
-            new CustomPayload.Id<>(CarMain.id("bench_build"));
+    public static final CustomPacketPayload.Type<BenchBuildC2SPayload> ID =
+            new CustomPacketPayload.Type<>(CarMain.id("bench_build"));
 
-    public static final PacketCodec<RegistryByteBuf, BenchBuildC2SPayload> CODEC =
-            PacketCodec.tuple(
-                    BlockPos.PACKET_CODEC, BenchBuildC2SPayload::bench,
-                    PacketCodecs.VAR_INT, BenchBuildC2SPayload::recipe,
-                    PacketCodecs.VAR_INT, BenchBuildC2SPayload::quality,
+    public static final StreamCodec<RegistryFriendlyByteBuf, BenchBuildC2SPayload> CODEC =
+            StreamCodec.composite(
+                    BlockPos.STREAM_CODEC, BenchBuildC2SPayload::bench,
+                    ByteBufCodecs.VAR_INT, BenchBuildC2SPayload::recipe,
+                    ByteBufCodecs.VAR_INT, BenchBuildC2SPayload::quality,
                     BenchBuildC2SPayload::new);
 
     @Override
-    public CustomPayload.Id<? extends CustomPayload> getId() {
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

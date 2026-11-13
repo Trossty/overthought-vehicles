@@ -1,6 +1,7 @@
 # Car
 
-MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. Fabric, Minecraft 1.21.11.
+MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.21.1
+(`neoforge-1.21.1` dalı; `main` dalı Fabric 1.21.11 sürümü).
 
 ## Durum
 
@@ -42,7 +43,7 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. Fabric, Minecraft 1.21
 - **Drift** — hızda el freni + direksiyon arkayı kaydırır
 - **Römork** — tek akslı kasalı römork; aracın arkasına bağlanır, 27 slotluk yük taşır, yük çekeni yavaşlatır
 - **İki tekerliler** — Vespa scooter ve Honda CBR spor motor; virajda yatıyorlar
-- **Gerçek araçlar** — Toyota Corolla, Tofaş Şahin, Jeep Wrangler, Ford Mustang (yarış arabası), Ford Transit dolmuş (11 kişilik), Toyota Hilux, Mercedes-Benz Atego tanker, Vespa Primavera, Honda CBR600RR ve kasalı römork; eski deneme arabası yok
+- **Gerçek araçlar** — Toyota Corolla, Tofaş Şahin, Jeep Wrangler, Ford Mustang (yarış arabası), Toyota Hilux, Mercedes-Benz Atego tanker, Vespa Primavera, Honda CBR600RR ve kasalı römork; eski deneme arabası yok
 - **3B istasyon blokları** — pompa, rafineri, arıtıcı, pumpjack, jeneratörler ve depo küp değil, kaideli/kolonlu/bacalı modeller
 - **Makine ekranları** — jeneratör, arıtıcı, pompa kulesi, akü ve şarj direği: depo, enerji, akış ve çalışıyor/boşta lambası
 - **Akü bankası ve şarj direği** — 200 000 E'lik depo (önünden verir, öbür yüzlerinden alır), yanındaki elektrikli aracı şarj eden direk
@@ -50,7 +51,6 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. Fabric, Minecraft 1.21
 - **Motor sesleri** — dört silindir, altı silindir, V8, dizel ve elektrik ayrı; makinelerin de kendi uğultusu
 - **Kilometre ve teşhis** — kilometre arttıkça ve parça yıprandıkça aşınma hızlanıyor; OBD tableti arızaları kodlarıyla, en kötüsü önde gösteriyor
 - **Yakıt kalitesi** — rafineriden çıkan ham yakıt bidona da dolar, ama motoru ve bujileri hızlı yer; arıtıcı ham bidonu kabul eder
-- **Terk edilmiş araçlar** — yeni oluşan nadir chunk'larda yıpranmış, eksik parçalı, bayat yakıtlı bir araba
 - **Asfalt ve yol boyası** — kar gibi katman katman serilen asfalt; yol boyası kutusunun menüsünden seçilen şerit, ok, yaya geçidi, dur çizgisi, viraj, park işareti çizilir
 - **OBD tableti** — kalın gövdeli, kauçuk köşeli 3B bir tablet; elde harita gibi tutulur, ekranında aracın arızaları, yakıtı, kaportası ve motor ısısı canlı görünür
 - **Başarımlar, ayar dosyası, Jade** — petrolden asfalta başarım zinciri, `config/car.json`, Jade kuruluysa araca bakınca durum özeti
@@ -169,7 +169,7 @@ Kabin oyuk olduğu için içi gerçekten görünüyor, o yüzden içi de var. He
 - `gauges`: sürücünün önünde siyah siperlik, iki krem kadran ve kırmızı ibreler.
 - `carpet`: kabin tabanı halı.
 
-Corolla, Wrangler, Hilux, Şahin, Mustang, Transit (üç sıra) ve Atego'nun
+Corolla, Wrangler, Hilux, Şahin, Mustang ve Atego'nun
 kabinleri bunlarla döşeli. Fotoğraf sahnesi: `cabins` (sürücü gözü, aşağı bakış,
 camdan).
 
@@ -700,25 +700,21 @@ ancak bu da yetmezse sonu kırpılıyor.
 
 ### Create ile uyum
 
-**Create'in Fabric 1.21.11 sürümü yok.** Modrinth'e göre Create Fabric 1.20.1'de
-kalmış, asıl Create ise yalnızca NeoForge 1.21.1'de. Yani bu mod bugün Create
-ile aynı oyuna yüklenemiyor ve Create'e karşı denenmiş hiçbir şey yok. Yapılan
-şey, Create geldiği gün çalışacak olan kısım:
+Mod NeoForge 1.21.1'e taşındı, yani Create ile aynı oyuna yüklenebiliyor.
+Create'e karşı oyun içinde henüz denenmedi; bağlantı NeoForge'un ortak
+kapılarından (capability) geçiyor, Create'in boruları da tam bunu soruyor:
 
 - **Benzin artık gerçek bir akışkan** (`car:petrol`). Dünyaya dökülmüyor, kovası
   yok, akmıyor — Create'in kendi çayı ve iksirleri gibi yalnızca depolarda
   tutulup sayılıyor.
-- **Yakıt deposu bir akışkan deposu olarak görünüyor** (Fabric Transfer API,
-  `FluidStorage.SIDED`). Create Fabric'in boruları ve pompaları yanındaki bloğa
+- **Yakıt deposu bir akışkan deposu olarak görünüyor** (NeoForge
+  `Capabilities.FluidHandler.BLOCK`). Create'in boruları ve pompaları yanındaki bloğa
   tam olarak bunu soruyor; cevap veren depo, iki mod birbirini hiç duymadan
   tesisata bağlanıyor. Bu, deponun aynı sayısına açılan ikinci bir kapı — modun
   kendi borusu, pompası ve rafinerisi eskisi gibi çalışıyor.
 - **Ölçü:** 1 birim benzin = 1 mB. Araba deposu 1 kova, yakıt deposu 16 kova.
-- **Yalnızca tam birim geçiyor.** Öbür modlar birimin 81'de biriyle sayıyor;
-  deponun alıp geri veremeyeceği bir kesir yakıtı yok etmek, yukarı yuvarlamak
-  ise yoktan var etmek olurdu.
-- **Vazgeçilen aktarım hiçbir iz bırakmıyor.** Öbür modlar aktarımı önce dener,
-  sonra iptal edebilir; depo bunu `SnapshotParticipant` ile geri alıyor.
+- **Deneme aktarımı iz bırakmıyor.** Öbür modlar önce `SIMULATE` ile sorar;
+  depo o zaman hiçbir şeyi değiştirmeden yalnızca ne kadar alacağını söyler.
 
 Bu kapı artık istasyonun her yerinde var (`fluid/PetrolSlot`):
 
@@ -733,7 +729,7 @@ Bu kapı artık istasyonun her yerinde var (`fluid/PetrolSlot`):
 | Biyoyakıt ve dizel jeneratörü | kendi yakıtını koyar |
 
 Ters yön de çalışıyor (`fluid/ForeignFluids`): bu modun borusu yanındaki
-**herhangi bir** Fabric sıvı deposuna — başka modun borusu, tankı, makinesi —
+**herhangi bir** NeoForge sıvı deposuna — başka modun borusu, tankı, makinesi —
 kol uzatıyor ve ona karşı yerli depo gibi yarı dolu oturuyor; valf de tek yönlü
 olarak oraya basıyor ya da oradan çekiyor.
 
@@ -808,15 +804,14 @@ arabasının deposu eskisi gibi 100 birim, bir kova benzin, bir dolu bidon.
 
 | Araç | Depo | Menzil (dolu depo, azami hızın %60'ı) |
 |------|------|--------------------------------------|
-| Toyota Corolla | 50 L | 6.3 km |
-| Tofaş Şahin | 50 L | 5.6 km |
-| Jeep Wrangler | 66 L | 4.1 km |
-| Ford Mustang | 61 L | 2.9 km |
-| Toyota Hilux | 80 L | 9.4 km |
-| Ford Transit | 80 L | 8.2 km |
-| Mercedes Atego | 200 L | 10.0 km |
-| Vespa Primavera | 8 L | 2.0 km |
-| Honda CBR600RR | 18 L | 2.8 km |
+| Toyota Corolla | 50 L | 6.3 kb |
+| Tofaş Şahin | 50 L | 5.6 kb |
+| Jeep Wrangler | 66 L | 4.1 kb |
+| Ford Mustang | 61 L | 2.9 kb |
+| Toyota Hilux | 80 L | 9.4 kb |
+| Mercedes Atego | 200 L | 10.0 kb |
+| Vespa Primavera | 8 L | 2.0 kb |
+| Honda CBR600RR | 18 L | 2.8 kb |
 
 Tüketim oranları (`fuel_use`) gerçek araçların 100 km'de yaktığına göre
 ayarlı: Vespa ~2.8, Corolla ~6, Mustang ~16, Atego ~15 L/100 km karşılığı.
@@ -1068,8 +1063,9 @@ I R I
 #### Elektrik ve kolon sıcaklığı
 
 Rafinerinin 10 000 E'lik bir tamponu var (pencerenin sağındaki ölçek), tick
-başına en çok 200 E alıyor. Enerji arayüzü **Team Reborn Energy** — Tech Reborn,
-Modern Industrialization, Powah gibi Fabric modlarının ortak API'si — olduğu
+başına en çok 200 E alıyor. Enerji arayüzü NeoForge'un ortak **Forge Energy** kapısı
+(`Capabilities.EnergyStorage.BLOCK`) — Mekanism, Powah, Create eklentileri gibi
+modların kullandığı — olduğu
 için o modların kablosu tesisin **herhangi bir parçasına** doğrudan bağlanıyor;
 pumpjack ve arıtıcı için de aynısı.
 
@@ -1271,7 +1267,7 @@ dört-dörtlük taban da. Her hücre 16 kova; tank toplamı hücre sayısı × 1
 - Sıvı **alttan yukarı** doluyor: önce en alt kat, katın içinde eşit pay. Her
   hücre kendi içindeki payı saklıyor ve çiziyor, yani kırılan hücre sadece kendi
   içindekini götürüyor.
-- Her hücrenin her yüzü **bütün tankın** kapısı (Fabric Transfer API): Create
+- Her hücrenin her yüzü **bütün tankın** kapısı (NeoForge sıvı kapısı): Create
   borusu nereye bağlanırsa bağlansın aynı sıvıyı görüyor.
 - Bir tankta tek sıvı olur. İki farklı sıvıyı birleştirecek yere hücre
   konulamıyor; suyla dolu tanka lav girmiyor.
@@ -1309,8 +1305,8 @@ Arabadan **%22 daha yavaş**, **8000 mB** (sekiz kova; sekiz dolu araba deposu)
 taşıyor ve modelde arabanın her şeyini aynen kullanıyor — kabin, koltuklar,
 direksiyon, oturma matematiği. Bir `CarEntity` alt sınıfı, ayrı bir araç değil.
 
-**"Herhangi bir sıvı" bir liste değil.** Varil, Fabric'in transfer API'sinde bir
-sıvı deposu (`SingleVariantStorage<FluidVariant>`). Yani transfer API'nin
+**"Herhangi bir sıvı" bir liste değil.** Varil, NeoForge'da bir
+sıvı deposu (`IFluidHandler`). Yani bu kapının
 taşıyabildiği her şeyi alıyor: kova, şişe, kazan, başka bir modun tankı ya da
 kabı. Minecraft'ta sıvı olarak bulunmayan süt ve bal için mod kendi sıvılarını
 kaydediyor (`car:milk`, `car:honey`, yanında `car:diesel`); süt kovası ve bal
@@ -1559,7 +1555,7 @@ kaşları ve Wrangler'ın tavanı açık krem renkte; camlar açık mavi ve yar�
 Üretici aracı (`tools/GenVehicles.java`) bunu her araca aynı biçimde uyguluyor:
 `grow` tekerin yazılan boyuna oranı, `widen` genişliğine oranı (1.1). Tekerler
 gerçek ölçüden biraz iri, yarıçapları 6.25 ile 7.5 piksel arasında: Corolla
-1.18, Şahin 1.25, Hilux 1.08, Wrangler 1.04, Mustang 1.08, Transit 1.12, Atego 1.0. (Eskiden tekerin boyu
+1.18, Şahin 1.25, Hilux 1.08, Wrangler 1.04, Mustang 1.08, Atego 1.0. (Eskiden tekerin boyu
 model her karede sıfırlandığı için hiç uygulanmıyordu, bütün tekerler aynı iri
 boyda çiziliyordu; artık `setAngles` her karede yeniden uyguluyor.)
 Gövde boyuna esnetilerek çiziliyor: her teker kemerinin çevresi yazıldığı gibi
@@ -1577,7 +1573,6 @@ değişmedi. Römork ve iki tekerliler eski ölçüsünde.
 | Corolla | 4.1 | 5.2 | 3.1 |
 | Mustang | 4.2 | 5.3 | 3.2 |
 | Wrangler | 4.3 | 5.4 | 3.2 |
-| Transit | 4.6 | 5.9 | 3.6 |
 | Hilux | 4.8 | 6.3 | 3.7 |
 | Atego | 5.8 | 6.8 | 4.1 |
 
@@ -1594,7 +1589,6 @@ Hepsi yukarıdaki yoldan, sıradan veri olarak geliyor (`tools/GenVehicles.java`
 | Tofaş Şahin | araba | | sıralı 4, benzin |
 | Jeep Wrangler | araba | | V6, benzin, arazi lastiği |
 | Ford Mustang | araba | | V8, benzin, spor lastik |
-| Ford Transit dolmuş | araba | | sıralı 4, dizel; 11 koltuk |
 | Toyota Hilux | kamyonet | kamyonetin varsayılanı | sıralı 4 turbo dizel |
 | Mercedes-Benz Atego | tanker | tankerin varsayılanı | dizel kamyon |
 | Honda CBR600RR | motosiklet | motosikletin varsayılanı | sıralı 4, benzin, spor lastik |
@@ -1606,9 +1600,7 @@ Yaratıcı sekmede hepsi ayrı duruyor; hayatta kalmada hepsi
 
 Mustang, 1967 fastback çizgisinde: uzun kaput, tavandan kuyruğa tek çizgide
 inen arka cam, kalkık kuyruk, her yanda üç stop lambası ve kaputtan kuyruğa iki
-beyaz şerit. Yarış arabası: en hızlısı ve en çok yakanı. Transit, İstanbul
-dolmuşu gibi sarı; yanında siyah-beyaz damalı şerit, sürgülü kapı, tavanda
-lamba, kabinde iki koltuk ve arkada üçer kişilik üç sıra var.
+beyaz şerit. Yarış arabası: en hızlısı ve en çok yakanı.
 
 Tekerlekler takılı lastiğe göre değişiyor (yol: gümüş jant, arazi ve kış:
 tırtıklı kara lastik, spor: ince kollu jant) ve Minecraft piksel dokulu.
@@ -1641,7 +1633,6 @@ araca geçiyor, tıpkı liftte olduğu gibi.
 | Tofaş Şahin | 2 demir külçe, 1 demir parmaklık |
 | Jeep Wrangler | 2 demir blok, 2 demir parmaklık, 2 deri |
 | Ford Mustang | 1 demir blok, 2 demir külçe, 1 kızıltaş bloğu |
-| Ford Transit | 2 demir blok, 1 demir külçe, 2 cam levha |
 | Vespa | motor, şanzıman, 2 süspansiyon, 2 lastik + 2 demir külçe, 1 deri |
 | Honda CBR | motor, şanzıman, 2 süspansiyon, 2 lastik + 3 demir külçe, 2 kızıltaş, 1 deri |
 | Kasalı römork | 2 süspansiyon + 1 sandık, 3 demir külçe, 3 meşe basamak |
@@ -1815,11 +1806,11 @@ Arabaya binince eşya çubuğunun iki yanında, ekranın altında tek sıra hâl
 analog kadranlar beliriyor: solda hızölçer ve onun dışında **devir saati**,
 sağda yakıt ve onun dışında küçük sıcaklık kadranı.
 
-**Devir saati:** 5 ileri vites benzetiliyor (`CarEntity.getGear/getEngineRpm`);
-her vites azami hızın eşit bir dilimini kaplıyor, ibre değiştirme noktasına
-kadar tırmanıyor, vites atınca düşüyor. Ortadaki pencerede vites (`R`, `1`–`5`).
-Kırmızı bölge motora göre: benzinde 7000, dizelde 4500 (V8'de 500 eksik);
-kadran benzinde 8000, dizelde 5000'e kadar. Motor sesi de aynı devri izliyor.
+**Devir saati:** 5 ileri vitesli otomatik şanzıman (`CarEntity.tickGearbox/getEngineRpm`);
+kısa alt vitesler, uzun üst vitesler; devir kırmızı çizginin %90'ına gelince vites
+büyür, %36'nın altına düşünce küçülür. Her geçiş 6 tik sürer: çekiş kısa bir an
+kesilir, devir yeni vitese iner, motor sesi alçalıp kısılır, sonra yeniden çeker.
+Ortadaki pencerede vites (`R`, `1`–`5`).
 
 | | Hızölçer | Yakıt | Sıcaklık |
 |---|---|---|---|
@@ -1836,11 +1827,13 @@ baskılı: ibrenin bandın içine girmesiyle gücün düşmesi aynı olay.
 baskılanıyor: yeniden örneklenmiş bir çerçeve, yanındaki iki keskin çerçevenin
 arasında hemen belli olurdu. Sağ tarafta duruyor çünkü sol taraf sohbetin yeri.
 
-Hız, arabanın gerçek sürat değerinden geliyor: bir blok bir metre, bir tik
-saniyenin yirmide biri, yani `blok/tik × 72 = km/sa`. Kadranın sonu sabit
-değil: `getRatedTopSpeed()` — aracın gövdesi, motoru, yakıtı, turbosu ve parça
-sınıfları, aşınma hariç — ×1,12 ve 30'un katına yuvarlanmış. Fabrika Corolla
-60'ta biten bir kadran görüyor; turbolu, performans motorlu bir V8 100'ü geçen.
+Hız, arabanın gerçek sürat değerinden geliyor ve dünyanın kendi biriminde,
+**blok/saniye** okunuyor: bir saniye yirmi tik, yani `blok/tik × 20`. Kadranın
+sonu sabit değil: `getRatedTopSpeed()` — aracın gövdesi, motoru, yakıtı,
+turbosu ve parça sınıfları, aşınma hariç — ×1,12 ve 3'ün katına yuvarlanmış.
+Fabrika Corolla 15'te biten bir kadran görüyor; turbolu, performans motorlu bir
+V8 daha uzununu. Kadranın altındaki yazılar (sayaç, menzil) kadrana sığmazsa
+küçülüyor.
 
 İbreler ani zıplamıyor: her kare hedefe doğru `NEEDLE_RESPONSE` kadar
 yaklaşıyorlar, kare süresi hesaba katıldığı için hız salınımı FPS'ten bağımsız.
@@ -1929,7 +1922,7 @@ yutuyor, duvar boyunca sıyırma neredeyse hiçbir şey.
 Hırpalanan araba:
 
 - **Yavaşlıyor.** Üst hız durumla birlikte düşüyor, boş durumda `MAX_SPEED`'in
-  yarısına kadar — ama oraya varmadan dağılıyor. %35'te ~30 km/sa.
+  yarısına kadar — ama oraya varmadan dağılıyor. %35'te ~8 blok/sn.
 - **Tütüyor.** %35'in altında kaputun önünden duman çıkıyor, %15'in altında
   duman kalınlaşıyor.
 - **Uyarı veriyor.** Hızölçerdeki anahtar ikonu kırmızı yanıyor.
@@ -2006,7 +1999,7 @@ oggenc -q 6 -o ../src/main/resources/assets/car/sounds/engine.ogg engine.wav
 ## Elektrik, teşhis ve yol
 
 [GELISTIRME.md](GELISTIRME.md)'deki listenin uygulanan kısmı. Her madde bir
-gametest ile korunuyor (`./gradlew runGametest`, şu an 29 test).
+gametest ile korunuyor (`./gradlew runGameTestServer`, şu an 39 test).
 
 ### Akü bankası ve şarj direği
 
@@ -2028,8 +2021,8 @@ geçer. Devir sınırı 4500.
 
 ### Kilometre, aşınma ve OBD tableti
 
-- Araç sürüldükçe **kilometre sayacı** artar (göstergede altı haneli), kayıtta
-  saklanır. 50 000 bloğa kadar her parça %50'ye varan oranda daha hızlı aşınır;
+- Araç sürüldükçe **sayaç** blok blok artar **kiloblok** cinsinden (1 kb = 1000 blok,
+  iki ondalıklı: 57 blok `0.06 kb`), kayıtta saklanır. Yalnızca tekerlekler yerdeyken sayar. 50 000 bloğa kadar her parça %50'ye varan oranda daha hızlı aşınır;
   yarı ömrünü bitirmiş bir parça kendi başına %25 daha hızlı gider. Servisi
   ertelemek servisin kendisinden pahalıya gelir.
 - **OBD tableti** gerçek bir atölye tableti gibi **3B**: kalın gövde, turuncu
@@ -2056,14 +2049,6 @@ yakıtla çalışır ama depo karışımı hacimce izler: tamamen ham bir depoda
 3 kat, bujiler 4 kat hızlı aşınır. Pompa ham bidonu kabul etmez; hidrojenle
 arıtıcıya tutulan ham bidon onun giriş deposuna boşalır. Depo boşalınca
 kirlilik de sıfırlanır.
-
-### Terk edilmiş araçlar
-
-Yeni oluşan her ~350 chunk'tan birine (ayar: `abandonedVehicleRarity`, 0
-kapatır) soluk renkli eski bir araba konur: kaporta %30–70, her parça
-%12–62, birkaç parça sökülmüş, akü bitik, 60 000+ km, depoda birkaç litre
-bayat (kirli sayılan) yakıt. Araç chunk yüklenirken değil bir sonraki tick
-konur.
 
 ### Asfalt ve yol boyası
 
@@ -2099,16 +2084,15 @@ kenarlarda kum → 16 asfalt.
 | `fuelUse` | 1.0 | Yakıt tüketimi çarpanı |
 | `generatorOutput` | 1.0 | Jeneratör çıkışı çarpanı |
 | `cableRate` | 250 | Kablonun tick başına taşıdığı E |
-| `abandonedVehicleRarity` | 350 | Kaç yeni chunk'ta bir terk edilmiş araç (0 = hiç) |
 
 ### Uyumluluk
 
 - **Jade** kuruluysa araca bakınca yakıt/şarj, kaporta, en kötü parça ve
-  kilometre görünür. Bağımlılık yalnızca derleme için (`modCompileOnly`);
+  kilometre görünür. Bağımlılık yalnızca derleme için (`compileOnly`);
   Jade yoksa eklenti hiç yüklenmez.
 - Yakıtlar `c:` ortak etiketlerinde (`c:crude_oil`, `c:diesel`,
   `c:gasoline`, `c:fuels/…`): başka modların boruları tanır.
-- EMI'nin 1.21.11 sürümü yok; REI var ama rafineri/arıtıcı tarif değil
+- EMI/REI: rafineri/arıtıcı tarif değil
   makine olduğu için şimdilik eklenmedi.
 
 ### Kablo ışığı ve lambalar
@@ -2120,15 +2104,11 @@ karanlıkta da yanar.
 
 ## Derleme
 
-Loom 1.19.4 **Gradle ≥ 9.8** ve Gradle'ı çalıştıran **JVM ≥ 25** istiyor
-(derleme hedefi Java 21 kalıyor). Bu makinede:
+ModDevGradle 2.0 ve NeoForge 21.1; derleme hedefi Java 21. Bu makinede:
 
 ```bash
 JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-26.jdk/Contents/Home ./gradlew build
 ```
-
-IntelliJ kullanıyorsan: Settings → Build Tools → Gradle → **Gradle JVM**'i 25+ bir
-sürüme ayarla, yoksa Loom açılışta hata verir.
 
 Dev istemcisini çalıştırmak:
 
@@ -2141,26 +2121,27 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-26.jdk/Contents/Home ./gradlew 
 İki tür test var:
 
 - **Sunucu gametest'leri** — [`CarMachineTests`](src/gametest/java/me/trossty/car/test/CarMachineTests.java),
-  29 gerçek iddia: pompa kulesi petrol çeker, rafineri 1:1 kırar ve katran
+  39 gerçek iddia: pompa kulesi petrol çeker, rafineri 1:1 kırar ve katran
   bırakır, arıtıcı her birimi temizler, kablo enerji taşır ve parlar, akü
   yalnız önünden verir, şarj direği elektrikli aracı doldurur, OBD en kötüyü
   öne koyar, asfalt kar gibi katmanlanır, boya çizer/döndürür/siler, tablet
-  eşleşir ve menzil dışında sinyali keser, ham yakıt hacimce karışır, terk edilmiş araç gerçekten yıpranmış…
+  eşleşir ve menzil dışında sinyali keser, ham yakıt hacimce karışır…
+  Hepsi modun boş şablonu `car:empty` üzerinde koşuyor.
 
   ```bash
-  ./gradlew runGametest
+  ./gradlew runGameTestServer
   ```
 
-- **Fotoğraf testi** — [`CarPhotoTest`](src/gametest/java/me/trossty/car/test/client/CarPhotoTest.java)
-  yalnızca bir resmin doğrulayabileceği şeylerin fotoğrafını çeker. Bir kez
-  bakılıp doğrulanan sahneler varsayılan olarak atlanır; hepsi için
-  `-Dcar.photo.all=true`.
+- **Fotoğraf testi** (`CarPhotoTest`) gerçek istemciyi açar, düz bir yaratıcı
+  dünyada sahneleri kurar, her birinin fotoğrafını
+  `build/run/photo/screenshots/` altına çeker ve kapanır. NeoForge'da Fabric'in
+  istemci test API'si olmadığından sahneleri `PhotoHarness` sürüyor. Daha önce
+  bakılmış sahneler atlanır; hepsi ya da yalnız seçilenler:
 
   ```bash
-  ./gradlew runClientGametest
+  ./gradlew runPhotoClient -Pcar.photo.all=true
+  ./gradlew runPhotoClient -Pcar.photo.scenes=pumpAndLift,blockGallery
   ```
-
-Görüntüler `build/run/clientGameTest/screenshots/` altına düşüyor.
 
 ## 3B eşyalar
 
@@ -2218,10 +2199,10 @@ Her dosyanın tek bir sahibi var: hangi üreticiyi çalıştırırsan çalışt�
 
 Henüz yapılmadı, MrCrayfish'te olan katmanlar:
 
-- **Daha fazla araç tipi** — yarış arabası (Mustang) ve dolmuş (Transit)
+- **Daha fazla araç tipi** — yarış arabası (Mustang)
   eklendi; yeni bir araç artık `tools/GenVehicles.java`'da bir yöntem ve bir
   tarif dosyası demek
 - **Ertelenenler** ([GELISTIRME.md](GELISTIRME.md)'de nedenleriyle):
   arıtıcının 2×2 yapılması, `CarEntity`'nin bileşenlere bölünmesi, iki
   istemcili çok oyunculu test, EMI/REI tarif gösterimi, WTHIT ve Create
-  uyumu (Create'in Fabric 1.21.11 sürümü yok)
+  uyumunun oyun içinde denenmesi

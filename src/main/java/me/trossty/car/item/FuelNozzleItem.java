@@ -6,21 +6,21 @@ import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarSetup;
 import me.trossty.car.registry.ModComponents;
 import me.trossty.car.registry.ModItems;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.consume.UseAction;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import org.jspecify.annotations.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The pump's nozzle, on the end of its hose.
@@ -38,29 +38,32 @@ public class FuelNozzleItem extends Item {
 
     private static final int USE_TICKS = 72000;
 
-    public FuelNozzleItem(Settings settings) {
+    public FuelNozzleItem(Properties settings) {
         super(settings);
     }
 
     /** A nozzle off the pump whose lower half is at {@code pump}. */
     public static ItemStack forPump(BlockPos pump) {
         ItemStack nozzle = new ItemStack(ModItems.FUEL_NOZZLE);
-        nozzle.set(ModComponents.PUMP, pump.toImmutable());
+        nozzle.set(ModComponents.PUMP, pump.immutable());
         return nozzle;
     }
 
     public static boolean isFrom(ItemStack stack, BlockPos pump) {
-        return stack.isOf(ModItems.FUEL_NOZZLE) && pump.equals(stack.get(ModComponents.PUMP));
+        return stack.is(ModItems.FUEL_NOZZLE) && pump.equals(stack.get(ModComponents.PUMP));
     }
 
     /** The pump this nozzle hangs on, or null if it is not there any more. */
-    public static @Nullable FuelPumpBlockEntity pumpOf(World world, ItemStack nozzle) {
+    public static @Nullable FuelPumpBlockEntity pumpOf(Level world, ItemStack nozzle) {
         BlockPos pump = nozzle.get(ModComponents.PUMP);
         return pump == null ? null : FuelPumpBlock.tankAt(world, pump);
     }
 
     @Override
-    public void inventoryTick(ItemStack stack, ServerWorld world, Entity entity, @Nullable EquipmentSlot slot) {
+    public void inventoryTick(ItemStack stack, Level world, Entity entity, int slot, boolean selected) {
+        if (world.isClientSide()) {
+            return;
+        }
         FuelPumpBlockEntity pump = pumpOf(world, stack);
         if (pump == null || !pump.isHeldBy(entity)) {
             stack.setCount(0);
@@ -68,81 +71,80 @@ public class FuelNozzleItem extends Item {
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
+    public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
         CarEntity car = CarEntity.fillerInSight(user);
         if (car == null) {
-            return ActionResult.PASS;
+            return net.minecraft.world.InteractionResultHolder.pass(user.getItemInHand(hand));
         }
         if (car.isTankFull()) {
-            if (!world.isClient()) {
+            if (!world.isClientSide()) {
                 car.fillingStopped(user);
             }
-            return ActionResult.CONSUME;
+            return net.minecraft.world.InteractionResultHolder.consume(user.getItemInHand(hand));
         }
-        user.setCurrentHand(hand);
-        return ActionResult.CONSUME;
+        user.startUsingItem(hand);
+        return net.minecraft.world.InteractionResultHolder.consume(user.getItemInHand(hand));
     }
 
     @Override
-    public void usageTick(World world, LivingEntity user, ItemStack nozzle, int remainingUseTicks) {
-        if (!(user instanceof PlayerEntity player)) {
+    public void onUseTick(Level world, LivingEntity user, ItemStack nozzle, int remainingUseTicks) {
+        if (!(user instanceof Player player)) {
             return;
         }
         CarEntity car = CarEntity.fillerInSight(player);
         if (car == null || car.isTankFull()) {
-            if (car != null && !world.isClient()) {
+            if (car != null && !world.isClientSide()) {
                 car.fillingStopped(player);
             }
-            user.stopUsingItem();
+            user.releaseUsingItem();
             return;
         }
-        if (world.isClient()) {
+        if (world.isClientSide()) {
             return;
         }
         FuelPumpBlockEntity pump = pumpOf(world, nozzle);
         if (pump == null || !pump.isHeldBy(player)) {
-            user.stopUsingItem();
+            user.releaseUsingItem();
             return;
         }
-        Vec3d outlet = FuelPumpBlock.hoseOutlet(world, pump.getPos());
-        Vec3d cap = car.fillerPos();
+        Vec3 outlet = FuelPumpBlock.hoseOutlet(world, pump.getBlockPos());
+        Vec3 cap = car.fillerPos();
         if (outlet == null || cap == null
-                || cap.squaredDistanceTo(outlet) > FuelPumpBlockEntity.HOSE_LENGTH * FuelPumpBlockEntity.HOSE_LENGTH) {
-            player.sendMessage(Text.translatable("message.car.hose_too_short"), true);
-            user.stopUsingItem();
+                || cap.distanceToSqr(outlet) > FuelPumpBlockEntity.HOSE_LENGTH * FuelPumpBlockEntity.HOSE_LENGTH) {
+            player.displayClientMessage(Component.translatable("message.car.hose_too_short"), true);
+            user.releaseUsingItem();
             return;
         }
 
         int spent = pump.refuel(car, CarEntity.NOZZLE_FLOW);
         if (spent <= 0) {
             if (pump.getPetrol() < FuelPumpBlockEntity.PETROL_PER_FUEL_UNIT) {
-                player.sendMessage(Text.translatable("message.car.pump_dry"), true);
+                player.displayClientMessage(Component.translatable("message.car.pump_dry"), true);
             } else if (car.hasFuel() && car.getTankFuel() != CarSetup.Fuel.PETROL) {
-                player.sendMessage(Text.translatable("message.car.tank_holds",
-                        Text.translatable("fuel.car." + car.getTankFuel().key())), true);
+                player.displayClientMessage(Component.translatable("message.car.tank_holds",
+                        Component.translatable("fuel.car." + car.getTankFuel().key())), true);
             } else {
                 car.fillingStopped(player);
             }
-            user.stopUsingItem();
+            user.releaseUsingItem();
             return;
         }
         car.fillingTick(player, USE_TICKS - remainingUseTicks, false);
     }
 
     @Override
-    public int getMaxUseTime(ItemStack stack, LivingEntity user) {
+    public int getUseDuration(ItemStack stack, LivingEntity user) {
         return USE_TICKS;
     }
 
     @Override
-    public UseAction getUseAction(ItemStack stack) {
-        return UseAction.NONE;
+    public UseAnim getUseAnimation(ItemStack stack) {
+        return UseAnim.NONE;
     }
 
     /** The gauge on the nozzle's own stack never changes, but don't bob the hand if it does. */
     @Override
-    public boolean allowComponentsUpdateAnimation(PlayerEntity player, Hand hand,
-                                                  ItemStack oldStack, ItemStack newStack) {
+    public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
         return false;
     }
 }

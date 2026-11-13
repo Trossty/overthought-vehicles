@@ -3,8 +3,7 @@ package me.trossty.car.workbench;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.entity.CarSetup;
 import me.trossty.car.registry.ModItems;
-import net.minecraft.item.Items;
-
+import net.minecraft.world.item.Items;
 import java.util.List;
 
 /**
@@ -233,7 +232,23 @@ public final class ModVehicleRecipes {
                     new VehicleRecipe.Material(ModItems.SUSPENSION, 2),
                     new VehicleRecipe.Material(ModItems.WHEEL, 2));
         }
-        net.minecraft.item.Item item = me.trossty.car.item.CarItem.itemFor(chassis);
+        if (chassis == me.trossty.car.vehicle.VehicleDefinition.Chassis.BOAT) {
+            // A hull and an outboard: the motor and its gearbox, nothing to roll on.
+            return List.of(
+                    new VehicleRecipe.Material(ModItems.CAR_BODY, 1),
+                    new VehicleRecipe.Material(ModItems.ENGINE, 1),
+                    new VehicleRecipe.Material(ModItems.TRANSMISSION, 1));
+        }
+        if (chassis == me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE) {
+            // A fuselage, an engine with the propeller on its crankshaft, and
+            // three legs of landing gear.
+            return List.of(
+                    new VehicleRecipe.Material(ModItems.CAR_BODY, 1),
+                    new VehicleRecipe.Material(ModItems.ENGINE, 1),
+                    new VehicleRecipe.Material(ModItems.SUSPENSION, 3),
+                    new VehicleRecipe.Material(ModItems.WHEEL, 3));
+        }
+        net.minecraft.world.item.Item item = me.trossty.car.item.CarItem.itemFor(chassis);
         for (VehicleRecipe recipe : VEHICLES) {
             if (recipe.result() == item) {
                 return recipe.materials();
@@ -243,7 +258,7 @@ public final class ModVehicleRecipes {
     }
 
     /** The recipe that makes this item, or null. */
-    public static VehicleRecipe byResult(List<VehicleRecipe> recipes, net.minecraft.item.Item item) {
+    public static VehicleRecipe byResult(List<VehicleRecipe> recipes, net.minecraft.world.item.Item item) {
         for (VehicleRecipe recipe : recipes) {
             if (recipe.result() == item && !recipe.refurbished() && recipe.variant() == 0) {
                 return recipe;

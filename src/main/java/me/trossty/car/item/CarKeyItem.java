@@ -1,14 +1,12 @@
 package me.trossty.car.item;
 
 import me.trossty.car.registry.ModComponents;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import java.util.function.Consumer;
 
 /**
@@ -19,29 +17,29 @@ import java.util.function.Consumer;
  */
 public class CarKeyItem extends Item {
 
-    public CarKeyItem(Settings settings) {
+    public CarKeyItem(Properties settings) {
         super(settings);
     }
 
     @Override
-    public boolean hasGlint(ItemStack stack) {
+    public boolean isFoil(ItemStack stack) {
         return false;
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context,
-                              TooltipDisplayComponent display,
-                              Consumer<Text> tooltip, TooltipType type) {
-        super.appendTooltip(stack, context, display, tooltip, type);
-        if (!stack.contains(ModComponents.VEHICLE_KEY)) {
-            tooltip.accept(Text.translatable("tooltip.car.key_blank").formatted(Formatting.DARK_GRAY));
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+                                java.util.List<Component> lines, TooltipFlag type) {
+        super.appendHoverText(stack, context, lines, type);
+        Consumer<Component> tooltip = lines::add;
+        if (!stack.has(ModComponents.VEHICLE_KEY)) {
+            tooltip.accept(Component.translatable("tooltip.car.key_blank").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        Identifier vehicle = stack.get(ModComponents.CAR_VEHICLE);
-        Text name = vehicle == null
-                ? Text.translatable("item.car.car")
+        ResourceLocation vehicle = stack.get(ModComponents.CAR_VEHICLE);
+        Component name = vehicle == null
+                ? Component.translatable("item.car.car")
                 : me.trossty.car.vehicle.VehicleDefinition.nameOf(vehicle);
-        tooltip.accept(Text.translatable("tooltip.car.key_for", name).formatted(Formatting.GOLD));
-        tooltip.accept(Text.translatable("tooltip.car.key_use").formatted(Formatting.DARK_GRAY));
+        tooltip.accept(Component.translatable("tooltip.car.key_for", name).withStyle(ChatFormatting.GOLD));
+        tooltip.accept(Component.translatable("tooltip.car.key_use").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

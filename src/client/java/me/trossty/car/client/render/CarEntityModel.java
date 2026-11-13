@@ -1,13 +1,12 @@
 package me.trossty.car.client.render;
 
-import net.minecraft.client.model.ModelData;
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.model.ModelPartBuilder;
-import net.minecraft.client.model.ModelPartData;
-import net.minecraft.client.model.ModelTransform;
-import net.minecraft.client.model.TexturedModelData;
-import net.minecraft.client.render.entity.model.EntityModel;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.util.Mth;
 
 /**
  * The car model. Built with negative Y pointing up and negative Z pointing
@@ -46,7 +45,7 @@ import net.minecraft.util.math.MathHelper;
  * spins would spin about the cabin's axis rather than the column's. Below a
  * tilted parent, the child's roll is the column's own axis.
  */
-public class CarEntityModel extends EntityModel<CarRenderState> {
+public class CarEntityModel extends VehicleModel {
 
     private static final String CHASSIS = "chassis";
     private static final String FRAME = "frame";
@@ -128,7 +127,7 @@ public class CarEntityModel extends EntityModel<CarRenderState> {
     private final ModelPart backRightWheel;
 
     public CarEntityModel(ModelPart root) {
-        super(root);
+        super(root, net.minecraft.client.renderer.RenderType::entityCutoutNoCull);
         this.chassis = root.getChild(CHASSIS);
         this.steeringWheel = this.chassis
                 .getChild(FRAME)
@@ -161,7 +160,7 @@ public class CarEntityModel extends EntityModel<CarRenderState> {
         PICKUP
     }
 
-    public static TexturedModelData getTexturedModelData() {
+    public static LayerDefinition getTexturedModelData() {
         return build(Variant.CAR);
     }
 
@@ -171,7 +170,7 @@ public class CarEntityModel extends EntityModel<CarRenderState> {
      * which is the point: the cabin, the seats and the whole seating arithmetic
      * are shared rather than copied.
      */
-    public static TexturedModelData getTankerModelData() {
+    public static LayerDefinition getTankerModelData() {
         return build(Variant.TANKER);
     }
 
@@ -181,172 +180,172 @@ public class CarEntityModel extends EntityModel<CarRenderState> {
      * back axle moves back with the bed, so the load sits over the wheels
      * instead of behind them.
      */
-    public static TexturedModelData getPickupModelData() {
+    public static LayerDefinition getPickupModelData() {
         return build(Variant.PICKUP);
     }
 
-    private static TexturedModelData build(Variant variant) {
-        ModelData modelData = new ModelData();
-        ModelPartData root = modelData.getRoot();
+    private static LayerDefinition build(Variant variant) {
+        MeshDefinition modelData = new MeshDefinition();
+        PartDefinition root = modelData.getRoot();
 
-        ModelPartData chassis = root.addChild(
-                CHASSIS, ModelPartBuilder.create(), ModelTransform.origin(0.0F, BODY_PIVOT_Y, 0.0F));
+        PartDefinition chassis = root.addOrReplaceChild(
+                CHASSIS, CubeListBuilder.create(), PartPose.offset(0.0F, BODY_PIVOT_Y, 0.0F));
         // Undoes the pivot, so everything below writes plain absolute coordinates.
-        ModelPartData frame = chassis.addChild(
-                FRAME, ModelPartBuilder.create(), ModelTransform.origin(0.0F, -BODY_PIVOT_Y, 0.0F));
+        PartDefinition frame = chassis.addOrReplaceChild(
+                FRAME, CubeListBuilder.create(), PartPose.offset(0.0F, -BODY_PIVOT_Y, 0.0F));
 
         // Floor pan and bodywork: world y 0.375 .. 0.75, the full 2.5 blocks long.
-        frame.addChild(
+        frame.addOrReplaceChild(
                 BODY,
-                ModelPartBuilder.create().uv(0, 0).cuboid(-10.0F, -12.0F, -20.0F, 20, 6, 40),
-                ModelTransform.NONE);
+                CubeListBuilder.create().texOffs(0, 0).addBox(-10.0F, -12.0F, -20.0F, 20, 6, 40),
+                PartPose.ZERO);
 
         // Cabin walls, 2 units thick, enclosing x -8..8 and z -10..12.
-        frame.addChild(CABIN_FRONT,
-                ModelPartBuilder.create().uv(0, 64).cuboid(-10.0F, -34.0F, -12.0F, 20, 22, 2),
-                ModelTransform.NONE);
-        frame.addChild(CABIN_BACK,
-                ModelPartBuilder.create().uv(48, 64).cuboid(-10.0F, -34.0F, 12.0F, 20, 22, 2),
-                ModelTransform.NONE);
-        frame.addChild(CABIN_LEFT,
-                ModelPartBuilder.create().uv(0, 96).cuboid(-10.0F, -34.0F, -10.0F, 2, 22, 22),
-                ModelTransform.NONE);
-        frame.addChild(CABIN_RIGHT,
-                ModelPartBuilder.create().uv(52, 96).cuboid(8.0F, -34.0F, -10.0F, 2, 22, 22),
-                ModelTransform.NONE);
-        frame.addChild(CABIN_ROOF,
-                ModelPartBuilder.create().uv(96, 64).cuboid(-10.0F, -35.0F, -12.0F, 20, 1, 26),
-                ModelTransform.NONE);
+        frame.addOrReplaceChild(CABIN_FRONT,
+                CubeListBuilder.create().texOffs(0, 64).addBox(-10.0F, -34.0F, -12.0F, 20, 22, 2),
+                PartPose.ZERO);
+        frame.addOrReplaceChild(CABIN_BACK,
+                CubeListBuilder.create().texOffs(48, 64).addBox(-10.0F, -34.0F, 12.0F, 20, 22, 2),
+                PartPose.ZERO);
+        frame.addOrReplaceChild(CABIN_LEFT,
+                CubeListBuilder.create().texOffs(0, 96).addBox(-10.0F, -34.0F, -10.0F, 2, 22, 22),
+                PartPose.ZERO);
+        frame.addOrReplaceChild(CABIN_RIGHT,
+                CubeListBuilder.create().texOffs(52, 96).addBox(8.0F, -34.0F, -10.0F, 2, 22, 22),
+                PartPose.ZERO);
+        frame.addOrReplaceChild(CABIN_ROOF,
+                CubeListBuilder.create().texOffs(96, 64).addBox(-10.0F, -35.0F, -12.0F, 20, 1, 26),
+                PartPose.ZERO);
 
         // --- interior ---
 
         // Across the cabin front, world y 0.9375 .. 1.3125. It stops short of the
         // seats in z so the riders' legs, which fold forward almost flat from the
         // hips, pass under it rather than through it.
-        frame.addChild(DASHBOARD,
-                ModelPartBuilder.create().uv(0, 144).cuboid(-8.0F, -21.0F, -10.0F, 16, 6, 2),
-                ModelTransform.NONE);
+        frame.addOrReplaceChild(DASHBOARD,
+                CubeListBuilder.create().texOffs(0, 144).addBox(-8.0F, -21.0F, -10.0F, 16, 6, 2),
+                PartPose.ZERO);
 
         // The hub is as far forward as the column will reach, and the wheel is
         // 7 units rather than a realistic 9. At a 70 degree field of view a
         // correctly placed wheel fills half the windscreen: the driver's eye is
         // genuinely about that close to it, and the only fix is to cheat.
-        ModelPartData steeringMount = frame.addChild(
+        PartDefinition steeringMount = frame.addOrReplaceChild(
                 STEERING_MOUNT,
-                ModelPartBuilder.create(),
-                ModelTransform.of(DRIVER_X, -20.0F, -6.0F, STEERING_TILT, 0.0F, 0.0F));
+                CubeListBuilder.create(),
+                PartPose.offsetAndRotation(DRIVER_X, -20.0F, -6.0F, STEERING_TILT, 0.0F, 0.0F));
         // Runs forward from the hub into the dashboard; the mount's tilt is what
         // drops its far end, so it is drawn straight here.
-        steeringMount.addChild(STEERING_COLUMN,
-                ModelPartBuilder.create().uv(44, 144).cuboid(-1.0F, -1.0F, -4.0F, 2, 2, 3),
-                ModelTransform.NONE);
-        steeringMount.addChild(STEERING_WHEEL,
-                ModelPartBuilder.create().uv(68, 144).cuboid(-3.5F, -3.5F, -0.5F, 7, 7, 1),
-                ModelTransform.NONE);
+        steeringMount.addOrReplaceChild(STEERING_COLUMN,
+                CubeListBuilder.create().texOffs(44, 144).addBox(-1.0F, -1.0F, -4.0F, 2, 2, 3),
+                PartPose.ZERO);
+        steeringMount.addOrReplaceChild(STEERING_WHEEL,
+                CubeListBuilder.create().texOffs(68, 144).addBox(-3.5F, -3.5F, -0.5F, 7, 7, 1),
+                PartPose.ZERO);
 
         // Backrests only. A cushion cannot rise above the floor without
         // swallowing the rider, whose hips sit level with it at 0.75, so the seat
         // pads are painted onto the floor pan's top face instead.
-        frame.addChild(SEAT_LEFT,
-                ModelPartBuilder.create().uv(96, 144).cuboid(-6.5F, -26.0F, 8.0F, 6, 14, 2),
-                ModelTransform.NONE);
-        frame.addChild(SEAT_RIGHT,
-                ModelPartBuilder.create().uv(116, 144).cuboid(0.5F, -26.0F, 8.0F, 6, 14, 2),
-                ModelTransform.NONE);
+        frame.addOrReplaceChild(SEAT_LEFT,
+                CubeListBuilder.create().texOffs(96, 144).addBox(-6.5F, -26.0F, 8.0F, 6, 14, 2),
+                PartPose.ZERO);
+        frame.addOrReplaceChild(SEAT_RIGHT,
+                CubeListBuilder.create().texOffs(116, 144).addBox(0.5F, -26.0F, 8.0F, 6, 14, 2),
+                PartPose.ZERO);
 
         // --- running gear, outside the chassis so the road keeps it level ---
 
-        root.addChild(WHEEL_FRONT_LEFT, ModelPartBuilder.create().uv(0, 48).cuboid(-1.5F, -3.0F, -3.0F, 3, 6, 6),
-                ModelTransform.origin(-11.0F, -3.0F, -14.0F));
-        root.addChild(WHEEL_FRONT_RIGHT, ModelPartBuilder.create().uv(20, 48).cuboid(-1.5F, -3.0F, -3.0F, 3, 6, 6),
-                ModelTransform.origin(11.0F, -3.0F, -14.0F));
+        root.addOrReplaceChild(WHEEL_FRONT_LEFT, CubeListBuilder.create().texOffs(0, 48).addBox(-1.5F, -3.0F, -3.0F, 3, 6, 6),
+                PartPose.offset(-11.0F, -3.0F, -14.0F));
+        root.addOrReplaceChild(WHEEL_FRONT_RIGHT, CubeListBuilder.create().texOffs(20, 48).addBox(-1.5F, -3.0F, -3.0F, 3, 6, 6),
+                PartPose.offset(11.0F, -3.0F, -14.0F));
         // The pickup's back axle follows its bed; everything else keeps the
         // car's wheelbase so the steering geometry stays honest.
         float backAxleZ = variant == Variant.PICKUP ? 24.0F : 14.0F;
-        root.addChild(WHEEL_BACK_LEFT, ModelPartBuilder.create().uv(40, 48).cuboid(-1.5F, -3.0F, -3.0F, 3, 6, 6),
-                ModelTransform.origin(-11.0F, -3.0F, backAxleZ));
-        root.addChild(WHEEL_BACK_RIGHT, ModelPartBuilder.create().uv(60, 48).cuboid(-1.5F, -3.0F, -3.0F, 3, 6, 6),
-                ModelTransform.origin(11.0F, -3.0F, backAxleZ));
+        root.addOrReplaceChild(WHEEL_BACK_LEFT, CubeListBuilder.create().texOffs(40, 48).addBox(-1.5F, -3.0F, -3.0F, 3, 6, 6),
+                PartPose.offset(-11.0F, -3.0F, backAxleZ));
+        root.addOrReplaceChild(WHEEL_BACK_RIGHT, CubeListBuilder.create().texOffs(60, 48).addBox(-1.5F, -3.0F, -3.0F, 3, 6, 6),
+                PartPose.offset(11.0F, -3.0F, backAxleZ));
 
         if (variant == Variant.PICKUP) {
             // A bed is four walls and a floor laid on the pan, nothing clever.
             // The floor sits one unit proud of the pan's top so the pan's paint
             // never shows through the planks.
-            frame.addChild(BED_FLOOR,
-                    ModelPartBuilder.create().uv(0, 204).cuboid(-10.0F, -14.0F, 14.0F, 20, 2, 20),
-                    ModelTransform.NONE);
-            frame.addChild(BED_LEFT,
-                    ModelPartBuilder.create().uv(84, 204).cuboid(-10.0F, -26.0F, 14.0F, 2, 12, 22),
-                    ModelTransform.NONE);
-            frame.addChild(BED_RIGHT,
-                    ModelPartBuilder.create().uv(136, 204).cuboid(8.0F, -26.0F, 14.0F, 2, 12, 22),
-                    ModelTransform.NONE);
-            frame.addChild(BED_TAIL,
-                    ModelPartBuilder.create().uv(188, 204).cuboid(-10.0F, -26.0F, 34.0F, 20, 12, 2),
-                    ModelTransform.NONE);
+            frame.addOrReplaceChild(BED_FLOOR,
+                    CubeListBuilder.create().texOffs(0, 204).addBox(-10.0F, -14.0F, 14.0F, 20, 2, 20),
+                    PartPose.ZERO);
+            frame.addOrReplaceChild(BED_LEFT,
+                    CubeListBuilder.create().texOffs(84, 204).addBox(-10.0F, -26.0F, 14.0F, 2, 12, 22),
+                    PartPose.ZERO);
+            frame.addOrReplaceChild(BED_RIGHT,
+                    CubeListBuilder.create().texOffs(136, 204).addBox(8.0F, -26.0F, 14.0F, 2, 12, 22),
+                    PartPose.ZERO);
+            frame.addOrReplaceChild(BED_TAIL,
+                    CubeListBuilder.create().texOffs(188, 204).addBox(-10.0F, -26.0F, 34.0F, 20, 12, 2),
+                    PartPose.ZERO);
             // The pan stops at z 20; this rail carries the rest of the bed. It
             // butts straight up against the bed floor, which the tanker's own
             // rail does not need to do and this one does — a gap under a flat
             // bed reads as two vehicles parked in the same place.
-            frame.addChild(BED_DECK,
-                    ModelPartBuilder.create().uv(188, 224).cuboid(-9.0F, -12.0F, 20.0F, 18, 4, 14),
-                    ModelTransform.NONE);
+            frame.addOrReplaceChild(BED_DECK,
+                    CubeListBuilder.create().texOffs(188, 224).addBox(-9.0F, -12.0F, 20.0F, 18, 4, 14),
+                    PartPose.ZERO);
         }
 
         if (variant == Variant.TANKER) {
             // The barrel starts flush with the back wall (z 14) and overhangs the
             // floor pan, so the rail below it is what it is standing on.
-            frame.addChild(TANKER_BARREL,
-                    ModelPartBuilder.create().uv(0, 168).cuboid(-9.0F, -30.0F, 14.0F, 18, 18, 18),
-                    ModelTransform.NONE);
-            frame.addChild(TANKER_DECK,
-                    ModelPartBuilder.create().uv(80, 168).cuboid(-8.0F, -10.0F, 20.0F, 16, 4, 12),
-                    ModelTransform.NONE);
-            frame.addChild(TANKER_CAP,
-                    ModelPartBuilder.create().uv(150, 168).cuboid(-3.0F, -32.0F, 20.0F, 6, 2, 6),
-                    ModelTransform.NONE);
+            frame.addOrReplaceChild(TANKER_BARREL,
+                    CubeListBuilder.create().texOffs(0, 168).addBox(-9.0F, -30.0F, 14.0F, 18, 18, 18),
+                    PartPose.ZERO);
+            frame.addOrReplaceChild(TANKER_DECK,
+                    CubeListBuilder.create().texOffs(80, 168).addBox(-8.0F, -10.0F, 20.0F, 16, 4, 12),
+                    PartPose.ZERO);
+            frame.addOrReplaceChild(TANKER_CAP,
+                    CubeListBuilder.create().texOffs(150, 168).addBox(-3.0F, -32.0F, 20.0F, 6, 2, 6),
+                    PartPose.ZERO);
 
             // A third axle under the load, reusing the back wheels' own texture.
-            root.addChild(WHEEL_MID_LEFT,
-                    ModelPartBuilder.create().uv(40, 48).cuboid(-1.5F, -3.0F, -3.0F, 3, 6, 6),
-                    ModelTransform.origin(-11.0F, -3.0F, 26.0F));
-            root.addChild(WHEEL_MID_RIGHT,
-                    ModelPartBuilder.create().uv(60, 48).cuboid(-1.5F, -3.0F, -3.0F, 3, 6, 6),
-                    ModelTransform.origin(11.0F, -3.0F, 26.0F));
+            root.addOrReplaceChild(WHEEL_MID_LEFT,
+                    CubeListBuilder.create().texOffs(40, 48).addBox(-1.5F, -3.0F, -3.0F, 3, 6, 6),
+                    PartPose.offset(-11.0F, -3.0F, 26.0F));
+            root.addOrReplaceChild(WHEEL_MID_RIGHT,
+                    CubeListBuilder.create().texOffs(60, 48).addBox(-1.5F, -3.0F, -3.0F, 3, 6, 6),
+                    PartPose.offset(11.0F, -3.0F, 26.0F));
         }
 
-        return TexturedModelData.of(modelData, TEXTURE_WIDTH, TEXTURE_HEIGHT);
+        return LayerDefinition.create(modelData, TEXTURE_WIDTH, TEXTURE_HEIGHT);
     }
 
     @Override
-    public void setAngles(CarRenderState state) {
-        super.setAngles(state);
+    public void setupAnim(CarRenderState state) {
+        super.setupAnim(state);
 
         float roll = state.wheelAngle * DEGREES;
         float steer = state.steerAngle * DEGREES;
 
         for (ModelPart wheel : this.rollingWheels) {
-            wheel.pitch = roll;
+            wheel.xRot = roll;
         }
 
-        this.frontLeftWheel.yaw = steer;
-        this.frontRightWheel.yaw = steer;
+        this.frontLeftWheel.yRot = steer;
+        this.frontRightWheel.yRot = steer;
 
         // Negated: steering left is a negative steerAngle, and a positive roll
         // about the column takes the top of the wheel to the driver's left.
-        this.steeringWheel.roll = -state.steerAngle * STEERING_RATIO * DEGREES;
+        this.steeringWheel.zRot = -state.steerAngle * STEERING_RATIO * DEGREES;
 
-        this.chassis.pitch = MathHelper.clamp(
+        this.chassis.xRot = Mth.clamp(
                 -state.acceleration * PITCH_PER_ACCELERATION, -MAX_PITCH, MAX_PITCH);
         // Leans away from the corner, and only once there is speed to lean with.
         float speedFraction = Math.min(1.0F, Math.abs(state.speed) / 0.4F);
-        this.chassis.roll = state.steerAngle * LEAN_PER_STEER_DEGREE * speedFraction;
+        this.chassis.zRot = state.steerAngle * LEAN_PER_STEER_DEGREE * speedFraction;
 
         float idle = state.engineRunning
                 ? 1.0F - Math.min(1.0F, Math.abs(state.speed) / IDLE_FADE_SPEED)
                 : 0.0F;
         float shake = idle * IDLE_SHAKE;
-        this.chassis.originX = MathHelper.cos(state.age * 2.3F) * shake * 0.6F;
-        this.chassis.originY = BODY_PIVOT_Y + MathHelper.sin(state.age * 1.9F) * shake;
+        this.chassis.x = Mth.cos(state.ageInTicks * 2.3F) * shake * 0.6F;
+        this.chassis.y = BODY_PIVOT_Y + Mth.sin(state.ageInTicks * 1.9F) * shake;
     }
 }

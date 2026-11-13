@@ -2,11 +2,21 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "I": "minecraft:iron_ingot",
-    "P": "minecraft:piston",
-    "C": "minecraft:copper_ingot",
-    "S": "minecraft:smooth_stone",
-    "B": "minecraft:iron_block"
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "P": {
+      "item": "minecraft:piston"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "S": {
+      "item": "minecraft:smooth_stone"
+    },
+    "B": {
+      "item": "minecraft:iron_block"
+    }
   },
   "pattern": [
     "III",

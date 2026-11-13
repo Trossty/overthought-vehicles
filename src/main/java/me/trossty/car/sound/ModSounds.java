@@ -1,11 +1,11 @@
 package me.trossty.car.sound;
 
 import me.trossty.car.CarMain;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
 
 /**
  * Sounds the car uses.
@@ -29,7 +29,7 @@ public final class ModSounds {
     public static final SoundEvent CAR_ENGINE = register("engine");
 
     /** One-shot horn blast: a 440 Hz / 554.37 Hz two-tone chord. */
-    public static final RegistryEntry<SoundEvent> CAR_HORN = registerReference("horn");
+    public static final Holder<SoundEvent> CAR_HORN = registerReference("horn");
 
     /** Tyre squeal for a car sliding sideways: a wavering whine over hiss. */
     public static final SoundEvent TYRE_SKID = register("skid");
@@ -42,6 +42,21 @@ public final class ModSounds {
 
     /** An electric motor's inverter whine: no firing, just a clean rising tone. */
     public static final SoundEvent ENGINE_ELECTRIC = register("engine_electric");
+
+    /** The starter cranking and the engine catching, once, as somebody gets in. */
+    public static final SoundEvent ENGINE_START = register("engine_start");
+
+    /** A pop out of the tailpipe: a misfire, or unburnt fuel lighting off on a lift. */
+    public static final SoundEvent BACKFIRE = register("backfire");
+
+    /** A turbo's blow-off valve letting the boost go as the throttle shuts. */
+    public static final SoundEvent BLOWOFF = register("blowoff");
+
+    /** A light aircraft's engine and propeller, looped. */
+    public static final SoundEvent ENGINE_PROPELLER = register("engine_propeller");
+
+    /** An outboard motor, looped. */
+    public static final SoundEvent ENGINE_OUTBOARD = register("engine_outboard");
 
     /** A generator set running, played now and then while it burns. */
     public static final SoundEvent GENERATOR_HUM = register("generator_hum");
@@ -59,13 +74,13 @@ public final class ModSounds {
     }
 
     private static SoundEvent register(String path) {
-        Identifier id = CarMain.id(path);
-        return Registry.register(Registries.SOUND_EVENT, id, SoundEvent.of(id));
+        ResourceLocation id = CarMain.id(path);
+        return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
     }
 
-    private static RegistryEntry.Reference<SoundEvent> registerReference(String path) {
-        Identifier id = CarMain.id(path);
-        return Registry.registerReference(Registries.SOUND_EVENT, id, SoundEvent.of(id));
+    private static Holder.Reference<SoundEvent> registerReference(String path) {
+        ResourceLocation id = CarMain.id(path);
+        return Registry.registerForHolder(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
     }
 
     /** Forces class loading so the static fields above are registered. */

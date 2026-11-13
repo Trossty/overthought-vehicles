@@ -1,7 +1,7 @@
 package me.trossty.car.machine;
 
 import me.trossty.car.fluid.UnitTank;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A machine that shows its gauges in the shared machine window: an energy

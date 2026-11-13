@@ -1,18 +1,18 @@
 package me.trossty.car.block.entity;
 
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-import net.minecraft.server.world.ServerWorld;
-import net.fabricmc.fabric.api.lookup.v1.block.BlockApiCache;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.EnergyStorageUtil;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * One length of cable, and the charge standing in it.
@@ -39,10 +39,10 @@ public class EnergyCableBlockEntity extends BlockEntity {
     /** The most one length passes on, to a machine or along the line, a tick, by default (see {@link #rate()}). */
     public static final int RATE = 250;
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(CAPACITY, RATE, RATE) {
+    private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, RATE, RATE) {
         @Override
-        protected void onFinalCommit() {
-            EnergyCableBlockEntity.this.markDirty();
+        protected void onChanged() {
+            EnergyCableBlockEntity.this.setChanged();
         }
     };
 
@@ -50,7 +50,7 @@ public class EnergyCableBlockEntity extends BlockEntity {
         super(ModBlockEntities.ENERGY_CABLE, pos, state);
     }
 
-    public EnergyStorage getEnergyStorage() {
+    public IEnergyStorage getEnergyStorage() {
         return this.energy;
     }
 
@@ -60,7 +60,7 @@ public class EnergyCableBlockEntity extends BlockEntity {
 
     public void setEnergy(int amount) {
         this.energy.amount = Math.max(0, Math.min(CAPACITY, amount));
-        this.markDirty();
+        this.setChanged();
     }
 
     /** The most one length passes on a tick, as the config has it. */
@@ -79,39 +79,40 @@ public class EnergyCableBlockEntity extends BlockEntity {
      * when the neighbour changes, so a long line costs little more than a short one.
      */
     @SuppressWarnings("unchecked")
-    private final BlockApiCache<EnergyStorage, Direction>[] neighbours = new BlockApiCache[6];
+    private final BlockCapabilityCache<IEnergyStorage, Direction>[] neighbours = new BlockCapabilityCache[6];
 
-    private BlockApiCache<EnergyStorage, Direction> neighbour(ServerWorld world, Direction side) {
-        BlockApiCache<EnergyStorage, Direction> cache = this.neighbours[side.ordinal()];
+    private BlockCapabilityCache<IEnergyStorage, Direction> neighbour(ServerLevel world, Direction side) {
+        BlockCapabilityCache<IEnergyStorage, Direction> cache = this.neighbours[side.ordinal()];
         if (cache == null) {
-            cache = BlockApiCache.create(EnergyStorage.SIDED, world, this.pos.offset(side));
+            cache = BlockCapabilityCache.create(Capabilities.EnergyStorage.BLOCK, world,
+                    this.worldPosition.relative(side), side.getOpposite());
             this.neighbours[side.ordinal()] = cache;
         }
         return cache;
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, EnergyCableBlockEntity cable) {
+    public static void tick(Level world, BlockPos pos, BlockState state, EnergyCableBlockEntity cable) {
         // Spread over the ten ticks by position, so a long line does not all update at once.
-        if (Math.floorMod(world.getTime() + pos.hashCode(), GLOW_EVERY) == 0) {
+        if (Math.floorMod(world.getGameTime() + pos.hashCode(), GLOW_EVERY) == 0) {
             cable.updateGlow(world, pos, state);
         }
-        if (cable.energy.amount <= 0 || !(world instanceof ServerWorld server)) {
+        if (cable.energy.amount <= 0 || !(world instanceof ServerLevel server)) {
             return;
         }
         // Machines first: whatever stands against the cable and takes power.
         EnergyCableBlockEntity[] cables = new EnergyCableBlockEntity[6];
         for (Direction side : Direction.values()) {
-            BlockApiCache<EnergyStorage, Direction> cache = cable.neighbour(server, side);
-            if (cache.getBlockEntity() instanceof EnergyCableBlockEntity other) {
+            BlockCapabilityCache<IEnergyStorage, Direction> cache = cable.neighbour(server, side);
+            if (server.getBlockEntity(cache.pos()) instanceof EnergyCableBlockEntity other) {
                 cables[side.ordinal()] = other;
                 continue;
             }
             if (cable.energy.amount <= 0) {
                 continue;
             }
-            EnergyStorage target = cache.find(side.getOpposite());
-            if (target != null && target.supportsInsertion()) {
-                EnergyStorageUtil.move(cable.energy, target, rate(), null);
+            IEnergyStorage target = cache.getCapability();
+            if (target != null && target.canReceive()) {
+                EnergyBuffer.move(cable.energy, target, rate());
             }
         }
         // Then level with the cables either side, downhill only.
@@ -124,33 +125,35 @@ public class EnergyCableBlockEntity extends BlockEntity {
                 long moved = Math.min(difference / 2, rate());
                 cable.energy.amount -= moved;
                 other.energy.amount += moved;
-                cable.markDirty();
-                other.markDirty();
+                cable.setChanged();
+                other.setChanged();
             }
         }
     }
 
-    private void updateGlow(World world, BlockPos pos, BlockState state) {
-        if (!state.contains(me.trossty.car.block.EnergyCableBlock.POWERED)) {
+    private void updateGlow(Level world, BlockPos pos, BlockState state) {
+        if (!state.hasProperty(me.trossty.car.block.EnergyCableBlock.POWERED)) {
             return;
         }
-        boolean lit = state.get(me.trossty.car.block.EnergyCableBlock.POWERED);
+        boolean lit = state.getValue(me.trossty.car.block.EnergyCableBlock.POWERED);
         boolean wanted = lit ? this.energy.amount > 0 : this.energy.amount >= GLOW_ON;
         if (wanted != lit) {
-            world.setBlockState(pos, state.with(me.trossty.car.block.EnergyCableBlock.POWERED, wanted),
-                    net.minecraft.block.Block.NOTIFY_LISTENERS);
+            world.setBlock(pos, state.setValue(me.trossty.car.block.EnergyCableBlock.POWERED, wanted),
+                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
         }
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getInt("Energy", 0)));
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
+        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getIntOr("Energy", 0)));
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         view.putInt("Energy", (int) this.energy.amount);
     }
 }

@@ -2,17 +2,16 @@ package me.trossty.car.recipe;
 
 import me.trossty.car.item.SprayCanItem;
 import me.trossty.car.registry.ModItems;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.DyedColorComponent;
-import net.minecraft.item.DyeItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.recipe.RecipeSerializer;
-import net.minecraft.recipe.SpecialCraftingRecipe;
-import net.minecraft.recipe.book.CraftingRecipeCategory;
-import net.minecraft.recipe.input.CraftingRecipeInput;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.world.World;
-
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.DyedItemColor;
+import net.minecraft.world.item.crafting.CraftingBookCategory;
+import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.item.crafting.CustomRecipe;
+import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraft.world.level.Level;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,27 +20,32 @@ import java.util.List;
  * that still has paint in it mixes the new dyes into that paint, exactly as
  * dyeing leather armour does; an empty one starts from clean.
  */
-public class SprayCanRefillRecipe extends SpecialCraftingRecipe {
+public class SprayCanRefillRecipe extends CustomRecipe {
 
     public static final RecipeSerializer<SprayCanRefillRecipe> SERIALIZER =
-            new SpecialRecipeSerializer<>(SprayCanRefillRecipe::new);
+            new net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer<>(SprayCanRefillRecipe::new);
 
-    public SprayCanRefillRecipe(CraftingRecipeCategory category) {
+    public SprayCanRefillRecipe(CraftingBookCategory category) {
         super(category);
+    }
+
+    @Override
+    public boolean canCraftInDimensions(int width, int height) {
+        return width * height >= 2;
     }
 
     private record Parts(ItemStack can, List<DyeItem> dyes) {
     }
 
-    private static Parts find(CraftingRecipeInput input) {
+    private static Parts find(CraftingInput input) {
         ItemStack can = ItemStack.EMPTY;
         List<DyeItem> dyes = new ArrayList<>();
         for (int i = 0; i < input.size(); i++) {
-            ItemStack stack = input.getStackInSlot(i);
+            ItemStack stack = input.getItem(i);
             if (stack.isEmpty()) {
                 continue;
             }
-            if (stack.isOf(ModItems.SPRAY_CAN)) {
+            if (stack.is(ModItems.SPRAY_CAN)) {
                 if (!can.isEmpty()) {
                     return null;
                 }
@@ -56,20 +60,20 @@ public class SprayCanRefillRecipe extends SpecialCraftingRecipe {
     }
 
     @Override
-    public boolean matches(CraftingRecipeInput input, World world) {
+    public boolean matches(CraftingInput input, Level world) {
         return find(input) != null;
     }
 
     @Override
-    public ItemStack craft(CraftingRecipeInput input, RegistryWrapper.WrapperLookup registries) {
+    public ItemStack assemble(CraftingInput input, HolderLookup.Provider registries) {
         Parts parts = find(input);
         if (parts == null) {
             return ItemStack.EMPTY;
         }
         ItemStack result = parts.can().copyWithCount(1);
         Integer old = SprayCanItem.isEmpty(result) ? null : SprayCanItem.colourOf(result);
-        result.set(DataComponentTypes.DYED_COLOR, new DyedColorComponent(mix(old, parts.dyes())));
-        result.setDamage(0);
+        result.set(DataComponents.DYED_COLOR, new DyedItemColor(mix(old, parts.dyes()), true));
+        result.setDamageValue(0);
         return result;
     }
 
@@ -85,7 +89,7 @@ public class SprayCanRefillRecipe extends SpecialCraftingRecipe {
             colours.add(base);
         }
         for (DyeItem dye : dyes) {
-            colours.add(dye.getColor().getEntityColor() & 0xFFFFFF);
+            colours.add(dye.getDyeColor().getTextureDiffuseColor() & 0xFFFFFF);
         }
         for (int colour : colours) {
             int cr = colour >> 16 & 0xFF;

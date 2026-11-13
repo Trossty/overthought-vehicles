@@ -5,40 +5,38 @@ import me.trossty.car.network.CarNetworking;
 import me.trossty.car.registry.ModComponents;
 import me.trossty.car.registry.ModItems;
 import me.trossty.car.sound.ModSounds;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityDimensions;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.MovementType;
-import net.minecraft.entity.PositionInterpolator;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.VehicleEntity;
-import net.minecraft.item.DyeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.predicate.entity.EntityPredicates;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Hand;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import net.minecraft.world.rule.GameRules;
-import org.jspecify.annotations.Nullable;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.VehicleEntity;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.GameRules;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -51,22 +49,22 @@ import java.util.List;
 public class CarEntity extends VehicleEntity {
 
     /** Signed horizontal speed, tracked so every client can animate the wheels. */
-    private static final TrackedData<Float> ENGINE_SPEED =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final EntityDataAccessor<Float> ENGINE_SPEED =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
 
     /**
      * Fuel left in the tank. Tracked because the driver's client decides whether
      * the throttle responds and draws the gauge, while the server owns the value.
      */
-    private static final TrackedData<Float> FUEL =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final EntityDataAccessor<Float> FUEL =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
 
     /**
      * A holed tank, dripping. Tracked because every client draws the drip and
      * the driver's dashboard says so.
      */
-    private static final TrackedData<Boolean> LEAKING =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> LEAKING =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
 
     /**
      * What {@link #FUEL} holds for a vehicle nobody has burned anything in yet:
@@ -80,8 +78,8 @@ public class CarEntity extends VehicleEntity {
      * Condition, from MAX_HEALTH down to 0. Tracked because the driver's client
      * caps its own top speed from it and every client draws the warning lamp.
      */
-    private static final TrackedData<Float> HEALTH =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final EntityDataAccessor<Float> HEALTH =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
 
     /**
      * Seat placement, in blocks from the car's own position. Half the cabin's
@@ -141,8 +139,12 @@ public class CarEntity extends VehicleEntity {
     private static final float PUNCTURE_MAX_CHANCE = 0.6F;
     /** Entity status: the engine coughed on an empty pickup. */
     public static final byte STATUS_SPUTTER = 103;
+    /** Entity status: a worn plug missed, and the exhaust popped. */
+    public static final byte STATUS_MISFIRE = 104;
 
     public static final float MAX_HEALTH = 20.0F;
+    /** What a player's own blow counts for, against the damage it says: eighty punches to a wreck. */
+    private static final float PLAYER_BLOW = 0.25F;
     /** Below this much condition the car smokes and the dashboard lamp lights. */
     public static final float DAMAGE_WARNING_FRACTION = 0.35F;
     /** Top speed multiplier at zero condition; a sound car keeps all of MAX_SPEED. */
@@ -178,6 +180,10 @@ public class CarEntity extends VehicleEntity {
     private static final float WORN_PLUGS_THROTTLE = 0.75F;
     /** Chance per tick of a stumble, with plugs at nothing. */
     private static final float MISFIRE_CHANCE = 0.05F;
+    /** Speed kept through a misfire. */
+    private static final float MISFIRE_STUMBLE = 0.82F;
+    /** Heat added, at full load, by oil that has stopped doing its job. */
+    private static final float DIRTY_OIL_HEAT = 0.25F;
 
     private static final float WORN_FILTER_SPEED = 0.92F;
     private static final float MISSING_FILTER_SPEED = 0.84F;
@@ -248,12 +254,12 @@ public class CarEntity extends VehicleEntity {
      * indexed by {@link CarPart#ordinal()}. Tracked rather than kept to the
      * server because the physics these feed runs on the driver's own client.
      */
-    private static final List<TrackedData<Float>> PART_CONDITION = registerPartConditions();
+    private static final List<EntityDataAccessor<Float>> PART_CONDITION = registerPartConditions();
 
-    private static List<TrackedData<Float>> registerPartConditions() {
-        List<TrackedData<Float>> entries = new java.util.ArrayList<>(CarPart.values().length);
+    private static List<EntityDataAccessor<Float>> registerPartConditions() {
+        List<EntityDataAccessor<Float>> entries = new java.util.ArrayList<>(CarPart.values().length);
         for (int index = 0; index < CarPart.values().length; index++) {
-            entries.add(DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.FLOAT));
+            entries.add(SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT));
         }
         return List.copyOf(entries);
     }
@@ -265,8 +271,8 @@ public class CarEntity extends VehicleEntity {
      * car fits in a single int: sixteen parts times two bits is exactly thirty
      * two. A seventeenth part would need a long here.
      */
-    private static final TrackedData<Integer> PART_QUALITY =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final EntityDataAccessor<Integer> PART_QUALITY =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.INT);
 
     /** Two bits per part, so each part has room for one {@code Quality}. */
     private static final int QUALITY_BITS = 2;
@@ -276,33 +282,33 @@ public class CarEntity extends VehicleEntity {
      * How hot the engine is running, 0 at ambient and 1 at boiling. Tracked
      * because the temperature gauge on the dashboard is drawn client side.
      */
-    private static final TrackedData<Float> ENGINE_TEMP =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final EntityDataAccessor<Float> ENGINE_TEMP =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
 
     /**
      * What kind of engine, tyres and filter are fitted, whether there is a
      * turbo, and what is in the tank. See {@link CarSetup}.
      */
-    private static final TrackedData<Integer> SETUP =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final EntityDataAccessor<Integer> SETUP =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.INT);
 
-    private static final TrackedData<Integer> COLOR =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final EntityDataAccessor<Integer> COLOR =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.INT);
 
     /**
      * How much of what is in the tank is raw fuel, 0 to 1, mixed by volume.
      * Raw fuel burns, but its sulphur and gum eat the engine and foul the plugs.
      */
-    private static final TrackedData<Float> DIRTY_FUEL =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final EntityDataAccessor<Float> DIRTY_FUEL =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
     /** At a tank of pure raw fuel the engine wears this many times again as fast... */
     public static final float DIRTY_ENGINE_WEAR = 2.0F;
     /** ...and the plugs foul faster still. */
     public static final float DIRTY_PLUG_WEAR = 3.0F;
 
     /** Blocks driven in this car's life, for the odometer and for how fast it wears. */
-    private static final TrackedData<Float> ODOMETER =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.FLOAT);
+    private static final EntityDataAccessor<Float> ODOMETER =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
 
     /**
      * The mileage at which a car counts as high-mileage: by then every part
@@ -320,20 +326,46 @@ public class CarEntity extends VehicleEntity {
      * dye colour. A spray can mixes dyes the way leather armour does, so this
      * can be any colour at all.
      */
-    private static final TrackedData<Integer> PAINT =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final EntityDataAccessor<Integer> PAINT =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.INT);
 
     /** Locked with its key: nobody gets in, opens it up or picks it up. */
-    private static final TrackedData<Boolean> LOCKED =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> LOCKED =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
 
     /**
      * The car has a key and the driver is not carrying it, so the engine will
      * not turn. Worked out on the server, which knows the lock; tracked, because
      * the engine runs on the driver's client.
      */
-    private static final TrackedData<Boolean> KEY_MISSING =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> KEY_MISSING =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
+
+    /**
+     * Water got into the engine: it will not run until it has dried out.
+     * Worked out on the server; tracked, because the engine runs on the
+     * driver's client.
+     */
+    private static final EntityDataAccessor<Boolean> FLOODED =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
+    /** The driver has the brake on; see {@link #areBrakeLampsOn}. */
+    private static final EntityDataAccessor<Boolean> BRAKE_LAMPS =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
+
+    /**
+     * How deep the water has to be, in blocks, to reach the air intake: a
+     * ford a block deep is crossed at a crawl, anything deeper drowns it.
+     */
+    private static final double FLOOD_DEPTH = 1.3;
+    /** How long a flooded engine takes to dry out once on land: 15 seconds. */
+    private static final int DRY_OUT_TICKS = 300;
+    /** Speed kept per tick with the wheels in water. */
+    private static final float WATER_DRAG = 0.86F;
+    /** Fastest a car wades, in blocks per tick. */
+    private static final float WADE_SPEED = 0.12F;
+
+    /** Ticks left before a flooded engine has dried out. Server only. */
+    private int floodedTicks;
 
     /** The number this car's keys carry; 0 for a car that has never had one. Server only. */
     private long lockCode;
@@ -350,8 +382,8 @@ public class CarEntity extends VehicleEntity {
      * Which data-pack vehicle this is, as its id; empty for the plain machine.
      * Tracked, because the client draws it and drives it from the same file.
      */
-    private static final TrackedData<String> MODEL =
-            DataTracker.registerData(CarEntity.class, TrackedDataHandlerRegistry.STRING);
+    private static final EntityDataAccessor<String> MODEL =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.STRING);
 
     private String definitionKey = "";
     private me.trossty.car.vehicle.VehicleDefinition definition;
@@ -394,20 +426,34 @@ public class CarEntity extends VehicleEntity {
     private static final double EXHAUST_SIDEWAYS = 0.34;
     private static final double EXHAUST_HEIGHT = 0.3;
     private static final double EXHAUST_BACK = -1.3;
+    /** Below this engine temperature the exhaust steams white. */
+    private static final float COLD_EXHAUST = 0.2F;
+    /** Speed gained in a tick, blocks per tick, that has a diesel blowing soot. */
+    private static final float DIESEL_SOOT_GAIN = 0.008F;
 
     /** Minimum ticks between two horn blasts. */
     private static final int HORN_COOLDOWN_TICKS = 12;
 
-    private final PositionInterpolator interpolator = new PositionInterpolator(this, 3);
+    /** Where the server last put the car, eased into over a few ticks on clients. */
+    private double lerpX;
+    private double lerpY;
+    private double lerpZ;
+    private float lerpYRot;
+    private float lerpXRot;
+    private int lerpSteps;
 
-    private boolean pressingForward;
-    private boolean pressingBack;
-    private boolean pressingLeft;
-    private boolean pressingRight;
-    private boolean pressingBrake;
+    protected boolean pressingForward;
+    protected boolean pressingBack;
+    protected boolean pressingLeft;
+    protected boolean pressingRight;
+    protected boolean pressingBrake;
 
     /** Signed speed, only meaningful on the logical side. */
-    private float speed;
+    private float flyDist;
+    /** Engine speed when the exhaust last looked, to see the car pulling hard. */
+    private float exhaustSpeed;
+    private me.trossty.car.vehicle.VehicleDefinition exhaustFor;
+    private Vec3 exhaustAt = new Vec3(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK);
     private float wheelAngle;
     private float lastWheelAngle;
     private float steerAngle;
@@ -425,6 +471,23 @@ public class CarEntity extends VehicleEntity {
     private double lastTickZ;
     /** Last tick's tracked speed, so the server can see braking happen. */
     private float lastTrackedSpeed;
+    private int brakeNoiseCooldown;
+    /** The raw travel of the last two ticks, newest first, on the server. */
+    private final float[] travelledBefore = new float[2];
+    /** Condition lost going under, before the part's own quality and age: see {@link #drown}. */
+    private static final float DROWNED_FILTER = 40.0F;
+    private static final float DROWNED_PLUGS = 30.0F;
+    private static final float DROWNED_ENGINE = 25.0F;
+    private static final float DROWNED_BATTERY = 35.0F;
+    /** Speed lost in a tick that only the brakes take off. */
+    private static final float BRAKING_SCRUB = 0.02F;
+    private static final int BRAKE_NOISE_COOLDOWN = 25;
+    /**
+     * Degrees a tick a car pulls to one side at full grip, with the rack or
+     * the springs completely worn: a tired car needs a hand on the wheel to
+     * go straight. Nothing below half condition, and growing from there.
+     */
+    private static final float MAX_PULL = 0.9F;
     private boolean hasLastTickPos;
     private boolean wasLogicalSide;
 
@@ -434,53 +497,111 @@ public class CarEntity extends VehicleEntity {
     private int hornCooldown;
     private int crashCooldown;
 
-    public CarEntity(EntityType<?> type, World world) {
+    /** The bonnet and the boot, which hang out past the square hit box. */
+    private final CarEnd[] ends;
+
+    public CarEntity(EntityType<?> type, Level world) {
         super(type, world);
+        this.ends = new CarEnd[] {new CarEnd(this, true), new CarEnd(this, false)};
+        // The ends' ids follow the car's, on the server and every client alike.
+        this.setId(ENTITY_COUNTER.getAndAdd(this.ends.length + 1) + 1);
         // The size is the body's, and the body is known from the first tick.
-        this.calculateDimensions();
+        this.refreshDimensions();
     }
 
     @Override
-    protected void initDataTracker(DataTracker.Builder builder) {
-        super.initDataTracker(builder);
-        builder.add(ENGINE_SPEED, 0.0F);
-        builder.add(FUEL, FACTORY_FULL);
-        builder.add(LEAKING, false);
-        builder.add(COLOR, DEFAULT_COLOR.getIndex());
-        builder.add(PAINT, -1);
-        builder.add(LOCKED, false);
-        builder.add(KEY_MISSING, false);
-        builder.add(HEALTH, MAX_HEALTH);
-        for (CarPart part : CarPart.values()) {
-            builder.add(PART_CONDITION.get(part.ordinal()), CarPart.MAX_CONDITION);
+    public void setId(int id) {
+        super.setId(id);
+        if (this.ends != null) {
+            for (int i = 0; i < this.ends.length; i++) {
+                this.ends[i].setId(id + i + 1);
+            }
         }
-        builder.add(ENGINE_TEMP, 0.0F);
-        builder.add(PART_QUALITY, defaultQualityBits());
-        builder.add(SETUP, CarSetup.DEFAULT);
-        builder.add(MODEL, "");
-        builder.add(ODOMETER, 0.0F);
-        builder.add(DIRTY_FUEL, 0.0F);
+    }
+
+    @Override
+    public boolean isMultipartEntity() {
+        return true;
+    }
+
+    @Override
+    public net.neoforged.neoforge.entity.PartEntity<?>[] getParts() {
+        return this.ends;
+    }
+
+    /** The car a crosshair is on, whether it found the car or one of its ends. */
+    @Nullable
+    public static CarEntity of(@Nullable Entity entity) {
+        if (entity instanceof CarEnd end) {
+            return end.getParent();
+        }
+        return entity instanceof CarEntity car ? car : null;
+    }
+
+    @Override
+    public void setPos(double x, double y, double z) {
+        super.setPos(x, y, z);
+        // Every move, lerp and teleport comes through here; the constructor's
+        // first call comes before the ends exist.
+        if (this.ends != null) {
+            this.placeEnds();
+        }
+    }
+
+    private void placeEnds() {
+        this.measureReach();
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double fx = -Mth.sin(yawRad);
+        double fz = Mth.cos(yawRad);
+        this.ends[0].place(this.getX(), this.getY(), this.getZ(), fx, fz, this.frontReach,
+                this.getBbWidth(), this.getBbHeight());
+        this.ends[1].place(this.getX(), this.getY(), this.getZ(), fx, fz, this.rearReach,
+                this.getBbWidth(), this.getBbHeight());
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(ENGINE_SPEED, 0.0F);
+        builder.define(FUEL, FACTORY_FULL);
+        builder.define(LEAKING, false);
+        builder.define(COLOR, DEFAULT_COLOR.getId());
+        builder.define(PAINT, -1);
+        builder.define(LOCKED, false);
+        builder.define(KEY_MISSING, false);
+        builder.define(FLOODED, false);
+        builder.define(BRAKE_LAMPS, false);
+        builder.define(HEALTH, MAX_HEALTH);
+        for (CarPart part : CarPart.values()) {
+            builder.define(PART_CONDITION.get(part.ordinal()), CarPart.MAX_CONDITION);
+        }
+        builder.define(ENGINE_TEMP, 0.0F);
+        builder.define(PART_QUALITY, defaultQualityBits());
+        builder.define(SETUP, CarSetup.DEFAULT);
+        builder.define(MODEL, "");
+        builder.define(ODOMETER, 0.0F);
+        builder.define(DIRTY_FUEL, 0.0F);
     }
 
     // ---- what a data pack says this vehicle is ----
 
     /** The id of the vehicle this is, or null for the plain machine. */
     /** What to call this car: its name tag if it has one, else what model it is ("Jeep Wrangler"). */
-    public Text getVehicleName() {
+    public Component getVehicleName() {
         return this.hasCustomName() && this.getCustomName() != null
                 ? this.getCustomName()
                 : me.trossty.car.vehicle.VehicleDefinition.nameOf(this.getModelId());
     }
 
-    public net.minecraft.util.Identifier getModelId() {
-        String key = this.dataTracker.get(MODEL);
+    public net.minecraft.resources.ResourceLocation getModelId() {
+        String key = this.entityData.get(MODEL);
         return key.isEmpty()
                 ? me.trossty.car.vehicle.VehicleDefinition.defaultFor(this.chassis())
-                : net.minecraft.util.Identifier.tryParse(key);
+                : net.minecraft.resources.ResourceLocation.tryParse(key);
     }
 
-    public void setModel(net.minecraft.util.Identifier id) {
-        this.dataTracker.set(MODEL, id == null ? "" : id.toString());
+    public void setModel(net.minecraft.resources.ResourceLocation id) {
+        this.entityData.set(MODEL, id == null ? "" : id.toString());
     }
 
     /**
@@ -489,16 +610,16 @@ public class CarEntity extends VehicleEntity {
      * then simply drives and looks like the machine underneath it.
      */
     public me.trossty.car.vehicle.VehicleDefinition getDefinition() {
-        String key = this.dataTracker.get(MODEL);
-        if (!key.equals(this.definitionKey) || (this.definition == null && this.age < 40)) {
+        String key = this.entityData.get(MODEL);
+        if (!key.equals(this.definitionKey) || (this.definition == null && this.tickCount < 40)) {
             this.definitionKey = key;
             this.definition = null;
-            net.minecraft.util.Identifier id = key.isEmpty()
+            net.minecraft.resources.ResourceLocation id = key.isEmpty()
                     ? me.trossty.car.vehicle.VehicleDefinition.defaultFor(this.chassis())
-                    : net.minecraft.util.Identifier.tryParse(key);
+                    : net.minecraft.resources.ResourceLocation.tryParse(key);
             if (id != null) {
-                this.definition = this.getEntityWorld().getRegistryManager()
-                        .getOptional(me.trossty.car.vehicle.VehicleDefinition.KEY)
+                this.definition = this.level().registryAccess()
+                        .registry(me.trossty.car.vehicle.VehicleDefinition.KEY)
                         .map(registry -> registry.get(id))
                         .orElse(null);
             }
@@ -509,12 +630,19 @@ public class CarEntity extends VehicleEntity {
     /** The part map for the definition it was worked out from. */
     private me.trossty.car.vehicle.VehicleDefinition layoutFor;
     private java.util.Map<CarPart, CarPart.Anchor> layout;
+    private java.util.Map<CarPart, java.util.List<CarPart.Anchor>> everywhere;
     private float roof;
 
     /** Where this part sits on this vehicle: its own wheel, its own engine bay. */
     public CarPart.Anchor anchorOf(CarPart part) {
         this.refreshLayout();
         return this.layout.get(part);
+    }
+
+    /** Every spot this part can be got at: each wheel for a tyre, one spot for most parts. */
+    public java.util.List<CarPart.Anchor> anchorsOf(CarPart part) {
+        this.refreshLayout();
+        return this.everywhere.getOrDefault(part, java.util.List.of());
     }
 
     /** How tall this vehicle stands, in blocks. */
@@ -528,6 +656,7 @@ public class CarEntity extends VehicleEntity {
         if (this.layout == null || definition != this.layoutFor) {
             this.layoutFor = definition;
             this.layout = PartLayout.of(definition);
+            this.everywhere = PartLayout.everywhere(definition, this.layout);
             this.roof = PartLayout.roof(definition);
         }
     }
@@ -537,23 +666,23 @@ public class CarEntity extends VehicleEntity {
         return me.trossty.car.vehicle.VehicleDefinition.Chassis.CAR;
     }
 
-    private me.trossty.car.vehicle.VehicleDefinition.Performance tuning() {
+    protected me.trossty.car.vehicle.VehicleDefinition.Performance tuning() {
         me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
         return defined == null
                 ? me.trossty.car.vehicle.VehicleDefinition.Performance.PLAIN : defined.performance();
     }
 
     @Override
-    public void onTrackedDataSet(TrackedData<?> data) {
-        super.onTrackedDataSet(data);
+    public void onSyncedDataUpdated(EntityDataAccessor<?> data) {
+        super.onSyncedDataUpdated(data);
         if (MODEL.equals(data)) {
             // A different vehicle is a different size.
-            this.calculateDimensions();
+            this.refreshDimensions();
         }
     }
 
     @Override
-    public EntityDimensions getDimensions(net.minecraft.entity.EntityPose pose) {
+    public EntityDimensions getDimensions(net.minecraft.world.entity.Pose pose) {
         me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
         EntityDimensions plain = super.getDimensions(pose);
         if (defined == null) {
@@ -572,14 +701,63 @@ public class CarEntity extends VehicleEntity {
         return bits;
     }
 
+    /**
+     * The short way round. A car's yaw is kept between -180 and 180, so
+     * heading north it flips from one to the other, and vanilla's straight
+     * lerp would spin the car through south for a frame.
+     */
     @Override
-    public PositionInterpolator getInterpolator() {
-        return this.interpolator;
+    public float getViewYRot(float partialTick) {
+        return partialTick == 1.0F ? this.getYRot() : Mth.rotLerp(partialTick, this.yRotO, this.getYRot());
+    }
+
+    @Override
+    public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        this.lerpX = x;
+        this.lerpY = y;
+        this.lerpZ = z;
+        this.lerpYRot = yRot;
+        this.lerpXRot = xRot;
+        this.lerpSteps = 3;
+    }
+
+    @Override
+    public double lerpTargetX() {
+        return this.lerpSteps > 0 ? this.lerpX : this.getX();
+    }
+
+    @Override
+    public double lerpTargetY() {
+        return this.lerpSteps > 0 ? this.lerpY : this.getY();
+    }
+
+    @Override
+    public double lerpTargetZ() {
+        return this.lerpSteps > 0 ? this.lerpZ : this.getZ();
+    }
+
+    @Override
+    public float lerpTargetYRot() {
+        return this.lerpSteps > 0 ? this.lerpYRot : this.getYRot();
+    }
+
+    @Override
+    public float lerpTargetXRot() {
+        return this.lerpSteps > 0 ? this.lerpXRot : this.getXRot();
+    }
+
+    /** Takes one step towards where the server put the car. */
+    private void stepLerp() {
+        if (this.lerpSteps > 0) {
+            this.lerpPositionAndRotationStep(this.lerpSteps, this.lerpX, this.lerpY, this.lerpZ,
+                    this.lerpYRot, this.lerpXRot);
+            this.lerpSteps--;
+        }
     }
 
     @Override
     public void tick() {
-        if (this.getEntityWorld().isClient()) {
+        if (this.level().isClientSide()) {
             this.prevRestPose = this.restPose;
             this.restPose += (this.restPoseTarget() - this.restPose) * 0.18F;
             if (this.lockFlashTicks > 0) {
@@ -590,11 +768,11 @@ public class CarEntity extends VehicleEntity {
                 this.lockFlashTicks--;
             }
         }
-        if (this.getDamageWobbleTicks() > 0) {
-            this.setDamageWobbleTicks(this.getDamageWobbleTicks() - 1);
+        if (this.getHurtTime() > 0) {
+            this.setHurtTime(this.getHurtTime() - 1);
         }
-        if (this.getDamageWobbleStrength() > 0.0F) {
-            this.setDamageWobbleStrength(this.getDamageWobbleStrength() - 1.0F);
+        if (this.getDamage() > 0.0F) {
+            this.setDamage(this.getDamage() - 1.0F);
         }
         if (this.hornCooldown > 0) {
             this.hornCooldown--;
@@ -608,47 +786,84 @@ public class CarEntity extends VehicleEntity {
             this.towed = null;
         }
 
+        double yBefore = this.getY();
         super.tick();
-        this.interpolator.tick();
+        this.stepLerp();
 
-        if (!this.getEntityWorld().isClient()) {
+        if (!this.level().isClientSide()) {
+            if (this.getControllingPassenger() == null && this.entityData.get(BRAKE_LAMPS)) {
+                this.setBrakeLamps(false);
+            }
             this.wearParts();
             this.tickTemperature();
+            this.tickWater();
         }
 
-        boolean logicalSide = this.isLogicalSideForUpdatingMovement();
+        boolean logicalSide = this.isControlledByLocalInstance();
         if (logicalSide) {
             // Control just moved to this side (somebody mounted or dismounted), so
             // pick up the speed the other side had instead of lurching to a stop.
             if (!this.wasLogicalSide) {
-                this.speed = this.dataTracker.get(ENGINE_SPEED);
+                this.flyDist = this.entityData.get(ENGINE_SPEED);
             }
-            this.updateDriving();
-            Vec3d requested = this.getVelocity();
-            Vec3d from = this.getEntityPos();
-            this.move(MovementType.SELF, requested);
-            this.checkForCrash(requested, from);
+            if (this.level().isClientSide() && !this.worldLoadedAhead()) {
+                // The ground here has not reached this client yet: with nothing
+                // to stand on it would drop straight through, so it waits, speed
+                // kept, until it has.
+                this.setDeltaMovement(Vec3.ZERO);
+            } else {
+                float yawBefore = this.getYRot();
+                this.updateDriving();
+                if (this.getYRot() != yawBefore && !this.endsClear(this.getYRot(), 0.0, 0.0)
+                        && this.endsClear(yawBefore, 0.0, 0.0)) {
+                    // The turn would swing the nose or tail into a wall.
+                    this.setYRot(yawBefore);
+                }
+                Vec3 requested = this.getDeltaMovement();
+                Vec3 from = this.position();
+                boolean grounded = this.onGround();
+                this.moveKeepingEndsOut(requested);
+                if (grounded && !this.onGround() && requested.y <= 0.0) {
+                    this.followGroundDown();
+                }
+                this.checkForCrash(requested, from);
+            }
         } else {
-            this.setVelocity(Vec3d.ZERO);
+            this.setDeltaMovement(Vec3.ZERO);
             this.travelYaw = Float.NaN;
         }
         this.wasLogicalSide = logicalSide;
+        this.tickGearbox();
+        if (this.level().isClientSide()) {
+            this.easeSteps(yBefore);
+        }
 
-        if (!this.getEntityWorld().isClient()) {
-            float travelled = this.measureTravelledSpeed();
-            this.dataTracker.set(ENGINE_SPEED, travelled);
+        if (!this.level().isClientSide()) {
+            // Position packets do not land one per tick: a tick with none reads
+            // as a dead stop and the next as twice the speed. Three ticks
+            // averaged are what the car actually did.
+            float raw = this.measureTravelledSpeed();
+            float travelled = (raw + this.travelledBefore[0] + this.travelledBefore[1]) / 3.0F;
+            this.travelledBefore[1] = this.travelledBefore[0];
+            this.travelledBefore[0] = raw;
+            this.entityData.set(ENGINE_SPEED, travelled);
             // On the road only: a car carried off by water or shoved about by
             // a piston has not been driven.
-            if (this.isOnGround() && this.getControllingPassenger() != null) {
+            if (this.underway() && this.getControllingPassenger() != null) {
                 this.setOdometer(this.getOdometer() + Math.abs(travelled));
             }
             // Braking only exists on the driver's client, so the brakes are
             // charged for the speed the car was actually seen to lose.
             this.wearBrakes(travelled);
-            this.dataTracker.set(KEY_MISSING, this.lockCode != 0
-                    && this.getControllingPassenger() instanceof PlayerEntity driver
+            this.entityData.set(KEY_MISSING, this.lockCode != 0
+                    && this.getControllingPassenger() instanceof Player driver
                     && !driver.isCreative() && !carriesKey(driver, this.lockCode));
             this.warnTheDriver();
+            // A tired set of plugs stumbles: decided here, so everybody near
+            // hears the pop and sees the puff, and the driver feels the jolt.
+            if (this.isEngineRunning() && this.misfiring()) {
+                this.level().broadcastEntityEvent(this, STATUS_MISFIRE);
+            }
             // Burned on the server, which owns the tank, from the distance actually
             // covered: while somebody drives, the throttle only exists on their client.
             this.burnFuel(travelled);
@@ -670,8 +885,9 @@ public class CarEntity extends VehicleEntity {
         this.hasLastTickPos = true;
 
         this.animateWheels();
-        this.tickBlockCollision();
+        this.checkInsideBlocks();
         this.pushNearbyEntities();
+        this.hitWhatIsInTheWay();
 
         // The trailer may already have ticked this tick, a step behind where
         // this has just got to: bring it along now, so it never lags.
@@ -723,6 +939,85 @@ public class CarEntity extends VehicleEntity {
         this.rearReach = -rear / 16.0;
     }
 
+    /**
+     * The hitbox is a square as wide as the car, so the bonnet and the boot
+     * hang out past it, front and back. This checks those overhangs against
+     * the blocks, a block-deep slice at a time, above the step the wheels can
+     * ride up. Where a slice finds that step, ground rising like a hillside,
+     * the slice past it allows one more, so the car still climbs a hill a
+     * step per block while a wall stops the bumper instead of swallowing it.
+     *
+     * @return true when, turned to {@code yaw} and moved by {@code dx, dz},
+     *         neither overhang is inside a block
+     */
+    private boolean endsClear(float yaw, double dx, double dz) {
+        this.measureReach();
+        float yawRad = yaw * ((float) Math.PI / 180.0F);
+        double fx = -Mth.sin(yawRad);
+        double fz = Mth.cos(yawRad);
+        double half = this.getBbWidth() / 2.0;
+        // Narrower than the car, so scraping along a wall is not a head-on hit.
+        double side = this.getBbWidth() * 0.8 / 2.0;
+        double step = this.maxUpStep();
+        double top = this.getY() + this.getBbHeight();
+        for (int end = 0; end < 2; end++) {
+            double sign = end == 0 ? 1.0 : -1.0;
+            double overhang = (end == 0 ? this.frontReach : this.rearReach) - half;
+            double lift = step;
+            for (int k = 0; k < overhang; k++) {
+                double near = half + k;
+                double far = half + Math.min(overhang, k + 1.0);
+                double mid = (near + far) / 2.0 * sign;
+                double length = (far - near) / 2.0;
+                double cx = this.getX() + dx + fx * mid;
+                double cz = this.getZ() + dz + fz * mid;
+                double ex = Math.abs(fx) * length + Math.abs(fz) * side;
+                double ez = Math.abs(fz) * length + Math.abs(fx) * side;
+                double bottom = this.getY() + lift + 0.01;
+                if (bottom < top && !this.level().noBlockCollision(this, new net.minecraft.world.phys.AABB(
+                        cx - ex, bottom, cz - ez, cx + ex, top, cz + ez))) {
+                    return false;
+                }
+                if (!this.level().noBlockCollision(this, new net.minecraft.world.phys.AABB(
+                        cx - ex, this.getY() + 0.01, cz - ez, cx + ex, bottom, cz + ez))) {
+                    lift += step;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Moves the car, then pulls it back as far as it takes to get the nose and
+     * tail out of a wall. Checked after the move so a kerb the wheels just
+     * climbed counts, and the bonnet is judged from the height it now rides
+     * at. A car that started out overlapping a block (placed against one, or
+     * pushed into one) is left to drive itself out.
+     */
+    private void moveKeepingEndsOut(Vec3 move) {
+        Vec3 from = this.position();
+        boolean wasClear = move.horizontalDistanceSqr() < 1.0E-8 || this.endsClear(this.getYRot(), 0.0, 0.0);
+        this.move(MoverType.SELF, move);
+        if (!wasClear || this.endsClear(this.getYRot(), 0.0, 0.0)) {
+            return;
+        }
+        double clear = 0.0;
+        double blocked = 1.0;
+        for (int i = 0; i < 4; i++) {
+            double mid = (clear + blocked) / 2.0;
+            this.setPos(from);
+            this.move(MoverType.SELF, new Vec3(move.x * mid, move.y, move.z * mid));
+            if (this.endsClear(this.getYRot(), 0.0, 0.0)) {
+                clear = mid;
+            } else {
+                blocked = mid;
+            }
+        }
+        this.setPos(from);
+        this.move(MoverType.SELF, new Vec3(move.x * clear, move.y, move.z * clear));
+        this.horizontalCollision = true;
+    }
+
     /** From the middle to the very front of the body, in blocks. */
     protected double frontReach() {
         this.measureReach();
@@ -730,12 +1025,12 @@ public class CarEntity extends VehicleEntity {
     }
 
     /** Where a trailer's coupler sits: on the tow ball just behind the rear bumper. */
-    public Vec3d hitchPoint() {
+    public Vec3 hitchPoint() {
         this.measureReach();
-        float yaw = this.getYaw() * ((float) Math.PI / 180.0F);
+        float yaw = this.getYRot() * ((float) Math.PI / 180.0F);
         double back = this.rearReach + 0.1;
-        return new Vec3d(this.getX() + MathHelper.sin(yaw) * back, this.getY(),
-                this.getZ() - MathHelper.cos(yaw) * back);
+        return new Vec3(this.getX() + Mth.sin(yaw) * back, this.getY(),
+                this.getZ() - Mth.cos(yaw) * back);
     }
 
     /**
@@ -749,11 +1044,11 @@ public class CarEntity extends VehicleEntity {
         }
         double dx = this.getX() - this.lastTickX;
         double dz = this.getZ() - this.lastTickZ;
-        float yawRad = this.getYaw() * ((float) Math.PI / 180.0F);
-        double forwardX = -MathHelper.sin(yawRad);
-        double forwardZ = MathHelper.cos(yawRad);
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double forwardX = -Mth.sin(yawRad);
+        double forwardZ = Mth.cos(yawRad);
         // Clamped so a teleport or a chunk reload cannot report an absurd speed.
-        return MathHelper.clamp(
+        return Mth.clamp(
                 (float) (dx * forwardX + dz * forwardZ), -MAX_SPEED * 2.5F, MAX_SPEED * 2.5F);
     }
 
@@ -763,19 +1058,19 @@ public class CarEntity extends VehicleEntity {
         this.lastAcceleration = this.acceleration;
 
         float rollingSpeed = this.getEngineSpeed();
-        this.wheelAngle = MathHelper.wrapDegrees(
+        this.wheelAngle = Mth.wrapDegrees(
                 this.wheelAngle + rollingSpeed / (2.0F * (float) Math.PI * WHEEL_RADIUS) * 360.0F);
 
         // Smoothed, because the raw per-tick difference is noisy enough to make
         // the bodyshell flutter rather than squat.
-        this.acceleration = MathHelper.lerp(
+        this.acceleration = Mth.lerp(
                 0.3F, this.acceleration, rollingSpeed - this.lastRollingSpeed);
         this.lastRollingSpeed = rollingSpeed;
     }
 
     /** Smoothed change in speed, in blocks per tick squared. */
     public float getAcceleration(float tickProgress) {
-        return MathHelper.lerp(tickProgress, this.lastAcceleration, this.acceleration);
+        return Mth.lerp(tickProgress, this.lastAcceleration, this.acceleration);
     }
 
     /** True while the engine is turning: somebody is aboard and there is fuel. */
@@ -784,49 +1079,48 @@ public class CarEntity extends VehicleEntity {
     }
 
     private void updateDriving() {
-        boolean onGround = this.isOnGround();
+        boolean onGround = this.onGround();
         LivingEntity driver = this.getControllingPassenger();
 
-        if (driver != null) {
+        if (driver != null && this.isFlying()) {
+            // Off the ground the wheel brakes grip nothing: only the throttle counts.
+            this.flyDist = this.airspeed(this.flyDist, this.pressingForward && this.hasFuel() && this.canRun());
+        } else if (driver != null) {
             if (!this.hasFuel() || !this.canRun()) {
                 // Dry tank, a missing essential or a flat battery: the throttle
                 // does nothing, but the car still rolls and steers, so you can
                 // coast to the roadside instead of stopping dead.
-                this.speed *= ENGINE_DRAG;
+                this.flyDist *= ENGINE_DRAG;
             } else if (this.pressingForward) {
                 float max = this.getMaxSpeed();
                 // Past top speed (downhill, say), the engine cannot hold it there.
-                this.speed = this.speed > max
-                        ? Math.max(max, this.speed * 0.985F)
-                        : Math.min(this.speed + this.throttleStep(), max);
+                this.flyDist = this.flyDist > max
+                        ? Math.max(max, this.flyDist * 0.985F)
+                        : Math.min(this.flyDist + this.throttleStep() * this.gearPull(), max);
             } else if (this.pressingBack) {
-                this.speed = Math.max(this.speed - this.throttleStep(), -this.maxReverseSpeed());
+                this.flyDist = Math.max(this.flyDist - this.throttleStep(), -this.maxReverseSpeed());
             } else {
-                this.speed *= ENGINE_DRAG;
+                this.flyDist *= ENGINE_DRAG;
             }
 
             if (this.pressingBrake) {
                 // Handbrake into a corner at speed: the back steps out
                 // instead of the car stopping.
                 boolean turning = this.pressingLeft != this.pressingRight;
-                float brake = turning && onGround && Math.abs(this.speed) > DRIFT_MIN_SPEED
+                float brake = turning && onGround && this.canDrift() && Math.abs(this.flyDist) > DRIFT_MIN_SPEED
                         ? this.brakeStrength() * DRIFT_BRAKE
                         : this.brakeStrength();
-                this.speed = approachZero(this.speed, brake);
+                this.flyDist = approachZero(this.flyDist, brake);
             }
 
-            // A tired set of plugs stumbles. It is brief and it is random, and
-            // it is the only symptom on the car you can feel before you can
-            // measure it.
-            if (this.isEngineRunning() && this.misfiring()) {
-                this.speed *= 0.82F;
-            }
         } else {
-            this.speed *= onGround ? ROLLING_FRICTION : AIR_DRAG;
+            this.flyDist *= onGround ? ROLLING_FRICTION : AIR_DRAG;
         }
 
-        if (Math.abs(this.speed) < SPEED_EPSILON) {
-            this.speed = 0.0F;
+        this.flyDist = this.limitSpeed(this.flyDist);
+
+        if (Math.abs(this.flyDist) < SPEED_EPSILON) {
+            this.flyDist = 0.0F;
         }
 
         float steerInput = 0.0F;
@@ -838,42 +1132,92 @@ public class CarEntity extends VehicleEntity {
                 steerInput += 1.0F;
             }
         }
-        this.steerAngle = MathHelper.lerp(0.35F, this.steerAngle, steerInput * MAX_STEER_ANGLE);
+        this.steerAngle = Mth.lerp(0.35F, this.steerAngle, steerInput * MAX_STEER_ANGLE);
 
-        boolean drifting = driver != null && this.pressingBrake && onGround && steerInput != 0.0F
-                && Math.abs(this.speed) > DRIFT_MIN_SPEED;
-        if (this.speed != 0.0F && steerInput != 0.0F) {
-            float grip = Math.min(1.0F, Math.abs(this.speed) / FULL_GRIP_SPEED);
-            float direction = this.speed < 0.0F ? -1.0F : 1.0F;
-            float tyres = this.steeringFactor();
-            this.setYaw(MathHelper.wrapDegrees(
-                    this.getYaw() + steerInput * MAX_TURN_RATE * tyres * grip * direction
-                            * (drifting ? DRIFT_TURN : 1.0F)));
+        boolean drifting = driver != null && this.pressingBrake && onGround && this.canDrift() && steerInput != 0.0F
+                && Math.abs(this.flyDist) > DRIFT_MIN_SPEED;
+        float turn = this.turnRate(steerInput, drifting);
+        if (turn != 0.0F) {
+            this.setYRot(Mth.wrapDegrees(this.getYRot() + turn));
+        }
+
+        float pull = this.pull();
+        if (pull != 0.0F && onGround && this.flyDist != 0.0F) {
+            float grip = Math.min(1.0F, Math.abs(this.flyDist) / FULL_GRIP_SPEED);
+            this.setYRot(Mth.wrapDegrees(this.getYRot() + pull * grip * Math.signum(this.flyDist)));
         }
 
         // The car goes where it is travelling, which in a slide is not where
         // it is pointing. In the air nothing turns the travel at all.
-        if (Float.isNaN(this.travelYaw) || Math.abs(this.speed) < 0.05F) {
-            this.travelYaw = this.getYaw();
-        } else if (onGround) {
-            this.travelYaw = MathHelper.lerpAngleDegrees(
-                    drifting ? DRIFT_GRIP : NORMAL_GRIP, this.travelYaw, this.getYaw());
+        if (Float.isNaN(this.travelYaw) || Math.abs(this.flyDist) < 0.05F) {
+            this.travelYaw = this.getYRot();
+        } else if (this.hasGrip(onGround)) {
+            this.travelYaw = Mth.rotLerp(
+                    drifting ? DRIFT_GRIP : NORMAL_GRIP, this.travelYaw, this.getYRot());
         }
         float yawRad = this.travelYaw * ((float) Math.PI / 180.0F);
+        double velocityY = this.verticalMotion(onGround);
+        this.setDeltaMovement(
+                -Mth.sin(yawRad) * this.flyDist,
+                velocityY,
+                Mth.cos(yawRad) * this.flyDist);
+
+        if (this.horizontalCollision) {
+            this.flyDist *= 0.5F;
+        }
+    }
+
+    /** Off the ground and held up by the air: only a plane ever is. */
+    protected boolean isFlying() {
+        return false;
+    }
+
+    /** Speed in the air, throttle open or not: only asked while {@link #isFlying}. */
+    protected float airspeed(float speed, boolean throttle) {
+        return speed;
+    }
+
+    /** What the surroundings allow of this speed: anything on wheels only wades through water. */
+    protected float limitSpeed(float speed) {
+        if (this.isInWater()) {
+            // Wading: the water holds the car back, hard.
+            return Mth.clamp(speed * WATER_DRAG, -WADE_SPEED, WADE_SPEED);
+        }
+        return speed;
+    }
+
+    /** Whether it goes where it points: tyres on the ground do that, nothing in the air does. */
+    protected boolean hasGrip(boolean onGround) {
+        return onGround;
+    }
+
+    /** Up and down this tick: gravity, and the ground holding it up. */
+    protected double verticalMotion(boolean onGround) {
         // 0.98 is vanilla's vertical drag; without it a long fall accelerates forever.
-        double velocityY = (this.getVelocity().y - this.getFinalGravity()) * 0.98;
+        double velocityY = (this.getDeltaMovement().y - this.getGravity()) * 0.98;
         if (onGround && velocityY < 0.0) {
             // Keep the car pinned to the ground instead of jittering on it.
             velocityY = -0.04;
         }
-        this.setVelocity(
-                -MathHelper.sin(yawRad) * this.speed,
-                velocityY,
-                MathHelper.cos(yawRad) * this.speed);
+        return velocityY;
+    }
 
-        if (this.horizontalCollision) {
-            this.speed *= 0.5F;
-        }
+    /** Whether deep water drowns it: anything with its intake in the hull, not a boat. */
+    protected boolean floods() {
+        return true;
+    }
+
+    /** Whether the handbrake kicks the back out: only something with a back axle to lock. */
+    protected boolean canDrift() {
+        return true;
+    }
+
+    /**
+     * Whether it is going somewhere under its own power rather than being
+     * carried: what the odometer counts. On wheels that means on the ground.
+     */
+    protected boolean underway() {
+        return this.onGround();
     }
 
     /**
@@ -885,7 +1229,7 @@ public class CarEntity extends VehicleEntity {
         if (this.skidSoundCooldown > 0) {
             this.skidSoundCooldown--;
         }
-        if (!this.hasLastTickPos || !this.isOnGround()) {
+        if (!this.hasLastTickPos || !this.onGround()) {
             return;
         }
         double dx = this.getX() - this.lastTickX;
@@ -894,24 +1238,24 @@ public class CarEntity extends VehicleEntity {
         if (moved < DRIFT_MIN_SPEED * 0.9) {
             return;
         }
-        float yawRad = this.getYaw() * ((float) Math.PI / 180.0F);
-        double forwardX = -MathHelper.sin(yawRad);
-        double forwardZ = MathHelper.cos(yawRad);
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double forwardX = -Mth.sin(yawRad);
+        double forwardZ = Mth.cos(yawRad);
         double along = Math.abs(dx * forwardX + dz * forwardZ) / moved;
         if (along > 0.97) {
             return;
         }
-        double back = this.getWidth() * 0.45;
+        double back = this.getBbWidth() * 0.45;
         for (int side = -1; side <= 1; side += 2) {
             double x = this.getX() - forwardX * back + forwardZ * side * 0.7;
             double z = this.getZ() - forwardZ * back - forwardX * side * 0.7;
-            this.getEntityWorld().addParticleClient(ParticleTypes.CLOUD, x, this.getY() + 0.15, z,
+            this.level().addParticle(ParticleTypes.CLOUD, x, this.getY() + 0.15, z,
                     (this.random.nextDouble() - 0.5) * 0.04, 0.02, (this.random.nextDouble() - 0.5) * 0.04);
         }
         if (this.skidSoundCooldown == 0) {
             this.skidSoundCooldown = 9;
-            this.getEntityWorld().playSoundClient(this.getX(), this.getY(), this.getZ(),
-                    ModSounds.TYRE_SKID, SoundCategory.NEUTRAL, 0.55F,
+            this.level().playLocalSound(this.getX(), this.getY(), this.getZ(),
+                    ModSounds.TYRE_SKID, SoundSource.NEUTRAL, 0.55F,
                     0.9F + this.random.nextFloat() * 0.2F, false);
         }
     }
@@ -923,25 +1267,104 @@ public class CarEntity extends VehicleEntity {
         return Math.min(0.0F, value + amount);
     }
 
-    private void pushNearbyEntities() {
-        List<Entity> nearby = this.getEntityWorld().getOtherEntities(
-                this,
-                this.getBoundingBox().expand(0.2F, -0.01F, 0.2F),
-                EntityPredicates.canBePushedBy(this));
-        for (Entity entity : nearby) {
-            if (!entity.hasPassenger(this) && !this.hitchedWith(entity)) {
-                this.pushAwayFrom(entity);
+    /** Slowest speed, in blocks per tick, at which hitting somebody hurts them. */
+    private static final float MIN_IMPACT_SPEED = 0.12F;
+    /** Health taken from whoever is hit, per block per tick of speed. */
+    private static final float IMPACT_DAMAGE_PER_SPEED = 22.0F;
+    /** Of the speed, how much is lost per cubic block of whatever is hit, and the most lost to one hit. */
+    private static final float IMPACT_SLOWING = 0.35F;
+    private static final float MAX_IMPACT_SLOWING = 0.7F;
+    /** Of the damage dealt, the share the car takes in dents. */
+    private static final float IMPACT_SHARE_TO_CAR = 0.15F;
+    private static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> RUN_OVER =
+            net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE,
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("car", "run_over"));
+
+    /** Who this car hit lately, and when: one blow each, not one a tick. */
+    private final java.util.Map<Integer, Integer> recentlyHit = new java.util.HashMap<>();
+
+    /**
+     * Whoever stands in the way of a moving car is struck: thrown aside and
+     * hurt by how fast it was going, and the car loses speed for it and takes
+     * a dent, more the bigger they were. Both sides look: the side simulating
+     * the car feels the slowing, the server deals the damage.
+     */
+    private void hitWhatIsInTheWay() {
+        this.recentlyHit.values().removeIf(at -> this.tickCount - at > 20);
+        float speed = this.level().isClientSide() || this.isControlledByLocalInstance()
+                ? this.flyDist : this.getEngineSpeed();
+        if (Math.abs(speed) < MIN_IMPACT_SPEED) {
+            return;
+        }
+        net.minecraft.world.phys.AABB zone = this.getBoundingBox()
+                .minmax(this.ends[speed > 0.0F ? 0 : 1].getBoundingBox()).inflate(0.15, 0.0, 0.15);
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        Vec3 forward = new Vec3(-Mth.sin(yawRad), 0.0, Mth.cos(yawRad)).scale(Math.signum(speed));
+        for (LivingEntity victim : this.level().getEntitiesOfClass(LivingEntity.class, zone,
+                e -> e.isAlive() && !e.isSpectator() && !e.isPassenger() && !this.hasPassenger(e))) {
+            // Only what is ahead of the middle: a car does not run over what it is leaving behind.
+            if (victim.position().subtract(this.position()).dot(forward) <= 0.0
+                    || this.recentlyHit.putIfAbsent(victim.getId(), this.tickCount) != null) {
+                continue;
+            }
+            float bulk = victim.getBbWidth() * victim.getBbWidth() * victim.getBbHeight();
+            if (this.isControlledByLocalInstance()) {
+                this.flyDist *= 1.0F - Math.min(MAX_IMPACT_SLOWING, bulk * IMPACT_SLOWING);
+            }
+            if (this.level() instanceof ServerLevel world) {
+                float damage = (Math.abs(speed) - MIN_IMPACT_SPEED * 0.5F) * IMPACT_DAMAGE_PER_SPEED;
+                Entity driver = this.getControllingPassenger();
+                victim.hurt(this.damageSources().source(RUN_OVER, this, driver), damage);
+                victim.push(forward.x * Math.abs(speed) * 1.6, 0.25 + Math.abs(speed) * 0.4,
+                        forward.z * Math.abs(speed) * 1.6);
+                victim.hurtMarked = true;
+                this.applyCarDamage(world, damage * IMPACT_SHARE_TO_CAR * Math.min(1.0F, bulk));
+                world.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
+                        SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.NEUTRAL, 1.0F, 0.7F);
             }
         }
     }
 
+    private void pushNearbyEntities() {
+        List<Entity> nearby = this.level().getEntities(
+                this,
+                this.getBoundingBox().inflate(0.2F, -0.01F, 0.2F),
+                EntitySelector.pushableBy(this));
+        for (Entity entity : nearby) {
+            if (!entity.hasPassenger(this) && !this.hitchedWith(entity)) {
+                this.push(entity);
+            }
+        }
+    }
+
+    /**
+     * Whether the brake lamps are lit: the pedal, or reverse held while still
+     * rolling forward, which is braking too. The driving client knows that
+     * itself; everybody else has it from the server, which the driver tells.
+     */
+    public boolean areBrakeLampsOn() {
+        if (this.getControllingPassenger() == null) {
+            return false;
+        }
+        return this.isControlledByLocalInstance() ? this.brakePedal() : this.entityData.get(BRAKE_LAMPS);
+    }
+
+    /** The driver's feet, on the driving client. */
+    public boolean brakePedal() {
+        return this.pressingBrake || this.pressingBack && this.flyDist > SPEED_EPSILON;
+    }
+
+    public void setBrakeLamps(boolean on) {
+        this.entityData.set(BRAKE_LAMPS, on);
+    }
+
     /** Called on the controlling client every tick with that player's held keys. */
-    public void setInputs(PlayerInput input) {
-        this.pressingForward = input.forward();
-        this.pressingBack = input.backward();
-        this.pressingLeft = input.left();
-        this.pressingRight = input.right();
-        this.pressingBrake = input.jump();
+    public void setInputs(boolean forward, boolean back, boolean left, boolean right, boolean brake) {
+        this.pressingForward = forward;
+        this.pressingBack = back;
+        this.pressingLeft = left;
+        this.pressingRight = right;
+        this.pressingBrake = brake;
     }
 
     /**
@@ -949,15 +1372,15 @@ public class CarEntity extends VehicleEntity {
      * the key down cannot spam the sound engine.
      */
     public void honk() {
-        if (this.hornCooldown > 0 || this.getEntityWorld().isClient()) {
+        if (this.hornCooldown > 0 || this.level().isClientSide()) {
             return;
         }
         this.hornCooldown = HORN_COOLDOWN_TICKS;
-        this.getEntityWorld().playSound(
+        this.level().playSound(
                 null,
                 this.getX(), this.getY() + 0.8, this.getZ(),
                 ModSounds.CAR_HORN,
-                SoundCategory.NEUTRAL,
+                SoundSource.NEUTRAL,
                 1.4F,
                 1.0F);
     }
@@ -1040,18 +1463,18 @@ public class CarEntity extends VehicleEntity {
             this.lowFuelWarned = false;
         } else if (fraction < LOW_FUEL_FRACTION && !this.lowFuelWarned) {
             this.lowFuelWarned = true;
-            this.getEntityWorld().playSound(null, this.getX(), this.getY() + 1.0, this.getZ(),
-                    SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), SoundCategory.NEUTRAL, 0.9F, 1.6F);
-            if (this.getControllingPassenger() instanceof PlayerEntity driver) {
-                driver.sendMessage(Text.translatable("message.car.low_fuel",
+            this.level().playSound(null, this.getX(), this.getY() + 1.0, this.getZ(),
+                    SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.NEUTRAL, 0.9F, 1.6F);
+            if (this.getControllingPassenger() instanceof Player driver) {
+                driver.displayClientMessage(Component.translatable("message.car.low_fuel",
                         formatDistance(this.rangeBlocks(this.getEngineSpeed()))), true);
             }
         }
         if (fraction < STARVING_FRACTION && this.isEngineRunning()
                 && this.random.nextFloat() < STARVE_CHANCE) {
-            this.getEntityWorld().sendEntityStatus(this, STATUS_SPUTTER);
-            this.getEntityWorld().playSound(null, this.getX(), this.getY() + 0.6, this.getZ(),
-                    SoundEvents.BLOCK_FIRE_EXTINGUISH, SoundCategory.NEUTRAL, 0.35F, 0.55F);
+            this.level().broadcastEntityEvent(this, STATUS_SPUTTER);
+            this.level().playSound(null, this.getX(), this.getY() + 0.6, this.getZ(),
+                    SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL, 0.35F, 0.55F);
         }
     }
 
@@ -1072,14 +1495,22 @@ public class CarEntity extends VehicleEntity {
     }
 
     /** A distance in blocks, as a person would say it: metres, then kilometres. */
-    public static Text formatDistance(float blocks) {
+    /** The odometer, always in kiloblocks: two decimals, so it moves every ten blocks. */
+    public static Component formatOdometer(float blocks) {
+        float kb = blocks / 1000.0F;
+        return Component.translatable("unit.car.kiloblocks",
+                String.format(java.util.Locale.ROOT, kb < 100.0F ? "%.2f" : "%.1f", kb));
+    }
+
+    public static Component formatDistance(float blocks) {
+        // Blocks up to a thousand, then kiloblocks: 1 kb = 1000 blocks.
         if (blocks < 1000.0F) {
-            return Text.translatable("unit.car.metres", Math.round(blocks / 10.0F) * 10);
+            return Component.translatable("unit.car.blocks", (int) blocks);
         }
-        float km = blocks / 1000.0F;
-        return Text.translatable("unit.car.km", km < 10.0F
-                ? String.format(java.util.Locale.ROOT, "%.1f", km)
-                : String.valueOf(Math.round(km)));
+        float kb = blocks / 1000.0F;
+        return Component.translatable("unit.car.kiloblocks", kb < 100.0F
+                ? String.format(java.util.Locale.ROOT, "%.1f", kb)
+                : String.valueOf(Math.round(kb)));
     }
 
     /** The tank, in fuel units: from the definition's litres, or a family car's. */
@@ -1089,12 +1520,12 @@ public class CarEntity extends VehicleEntity {
     }
 
     public float getFuel() {
-        float fuel = this.dataTracker.get(FUEL);
+        float fuel = this.entityData.get(FUEL);
         return fuel < 0.0F ? this.getMaxFuel() : fuel;
     }
 
     public void setFuel(float fuel) {
-        this.dataTracker.set(FUEL, MathHelper.clamp(fuel, 0.0F, this.getMaxFuel()));
+        this.entityData.set(FUEL, Mth.clamp(fuel, 0.0F, this.getMaxFuel()));
         if (this.getFuel() <= 0.0F) {
             this.setDirtyFuel(0.0F);   // an empty tank holds nothing, clean or dirty
         }
@@ -1102,11 +1533,11 @@ public class CarEntity extends VehicleEntity {
 
     /** How much of the tank is raw fuel, 0 to 1. */
     public float getDirtyFuel() {
-        return this.dataTracker.get(DIRTY_FUEL);
+        return this.entityData.get(DIRTY_FUEL);
     }
 
     public void setDirtyFuel(float fraction) {
-        this.dataTracker.set(DIRTY_FUEL, MathHelper.clamp(fraction, 0.0F, 1.0F));
+        this.entityData.set(DIRTY_FUEL, Mth.clamp(fraction, 0.0F, 1.0F));
     }
 
     public boolean hasFuel() {
@@ -1114,11 +1545,11 @@ public class CarEntity extends VehicleEntity {
     }
 
     public boolean isLeaking() {
-        return this.dataTracker.get(LEAKING);
+        return this.entityData.get(LEAKING);
     }
 
     public void setLeaking(boolean leaking) {
-        this.dataTracker.set(LEAKING, leaking);
+        this.entityData.set(LEAKING, leaking);
     }
 
     /** Fraction of a full tank, for the gauge. */
@@ -1184,7 +1615,7 @@ public class CarEntity extends VehicleEntity {
      * nothing at a petrol station will take.
      */
     public static boolean holdsDiesel(ItemStack can) {
-        return can.isOf(ModItems.JERRY_CAN) && can.getDamage() < can.getMaxDamage()
+        return can.is(ModItems.JERRY_CAN) && can.getDamageValue() < can.getMaxDamage()
                 && fuelIn(can) != CarSetup.Fuel.PETROL;
     }
 
@@ -1213,28 +1644,28 @@ public class CarEntity extends VehicleEntity {
     }
 
     public DyeColor getColor() {
-        return DyeColor.byIndex(this.dataTracker.get(COLOR));
+        return DyeColor.byId(this.entityData.get(COLOR));
     }
 
     public void setColor(DyeColor color) {
-        this.dataTracker.set(COLOR, color.getIndex());
-        this.dataTracker.set(PAINT, -1);
+        this.entityData.set(COLOR, color.getId());
+        this.entityData.set(PAINT, -1);
     }
 
     /** The sprayed colour as 0xRRGGBB, or -1 for the plain dye colour. */
     public int getPaint() {
-        return this.dataTracker.get(PAINT);
+        return this.entityData.get(PAINT);
     }
 
     public void setPaint(int rgb) {
-        this.dataTracker.set(PAINT, rgb < 0 ? -1 : rgb & 0xFFFFFF);
+        this.entityData.set(PAINT, rgb < 0 ? -1 : rgb & 0xFFFFFF);
     }
 
     /** Signed speed in blocks per tick, valid on both sides. */
     public float getEngineSpeed() {
-        return this.isLogicalSideForUpdatingMovement()
-                ? this.speed
-                : this.dataTracker.get(ENGINE_SPEED);
+        return this.isControlledByLocalInstance()
+                ? this.flyDist
+                : this.entityData.get(ENGINE_SPEED);
     }
 
     /**
@@ -1247,11 +1678,11 @@ public class CarEntity extends VehicleEntity {
      * at speed.
      */
     public void setSpeed(float speed) {
-        this.speed = MathHelper.clamp(speed, -MAX_REVERSE_SPEED, MAX_SPEED);
+        this.flyDist = Mth.clamp(speed, -MAX_REVERSE_SPEED, MAX_SPEED);
     }
 
     public float getWheelAngle(float tickProgress) {
-        return MathHelper.lerp(tickProgress, this.lastWheelAngle, this.wheelAngle);
+        return Mth.lerp(tickProgress, this.lastWheelAngle, this.wheelAngle);
     }
 
     /** Client status: the car was locked, and blinks once. */
@@ -1276,25 +1707,144 @@ public class CarEntity extends VehicleEntity {
     }
 
     public float getRestPose(float tickProgress) {
-        return MathHelper.lerp(tickProgress, this.prevRestPose, this.restPose);
+        return Mth.lerp(tickProgress, this.prevRestPose, this.restPose);
+    }
+
+    /**
+     * A slab or a path's edge lifts the whole box in one tick; drawn like
+     * that, the car hops. The body, and whoever rides in it, are drawn this
+     * far below the box instead and rise to it over a few frames. Client only.
+     */
+    private float stepOffset;
+    private float prevStepOffset;
+
+    private void easeSteps(double yBefore) {
+        this.prevStepOffset = this.stepOffset;
+        double rise = this.getY() - yBefore;
+        float offset = this.stepOffset;
+        // A step up, or a step down the car was kept on the ground over. A
+        // fall is already gradual, and a teleport is left alone.
+        if (rise > 0.02 && rise <= 1.1 || this.followedDown > 0.0F) {
+            offset -= (float) rise;
+        }
+        this.followedDown = 0.0F;
+        this.stepOffset = Math.abs(offset) < 0.002F ? 0.0F : offset * 0.55F;
+    }
+
+    /** How far the car was set down a step this tick; read by {@link #easeSteps}. */
+    private float followedDown;
+
+    /** Off the edge of a step, a block or less: a car's wheels stay on the road. */
+    private static final double STEP_DOWN = 1.05;
+
+    /**
+     * Rolled off the edge of a step: set the car down on the ground below,
+     * the way its wheels would drop onto it, instead of launching it off
+     * every block of a hillside. A real drop is left to fall.
+     */
+    private void followGroundDown() {
+        net.minecraft.world.phys.AABB below = this.getBoundingBox().expandTowards(0.0, -STEP_DOWN, 0.0);
+        if (this.level().noBlockCollision(this, below)) {
+            return;
+        }
+        double from = this.getY();
+        this.move(MoverType.SELF, new Vec3(0.0, -STEP_DOWN, 0.0));
+        this.followedDown = (float) (from - this.getY());
+    }
+
+    /**
+     * How far the steering turns it this tick, degrees, right positive: the
+     * front wheels' share of the speed, the tyres' condition, and a slide
+     * swinging the nose round further.
+     */
+    protected float turnRate(float steerInput, boolean drifting) {
+        if (this.flyDist == 0.0F || steerInput == 0.0F) {
+            return 0.0F;
+        }
+        float grip = Math.min(1.0F, Math.abs(this.flyDist) / FULL_GRIP_SPEED);
+        float direction = this.flyDist < 0.0F ? -1.0F : 1.0F;
+        return steerInput * MAX_TURN_RATE * this.steeringFactor() * grip * direction
+                * (drifting ? DRIFT_TURN : 1.0F);
+    }
+
+    /**
+     * Where a point given in the vehicle's own frame (left, up, forward)
+     * ends up once the body is pitched and banked as drawn, about the same
+     * middle the renderer turns it about.
+     */
+    public Vec3 withBodyAttitude(Vec3 local, float tickProgress) {
+        float pitch = this.getBodyPitch(tickProgress);
+        float roll = this.getBodyRoll(tickProgress);
+        if (pitch == 0.0F && roll == 0.0F) {
+            return local;
+        }
+        double middle = this.getBbHeight() / 2.0;
+        return local.subtract(0.0, middle, 0.0)
+                .zRot(-roll * Mth.DEG_TO_RAD)
+                .xRot(pitch * Mth.DEG_TO_RAD)
+                .add(0.0, middle, 0.0);
+    }
+
+    /** Whether the chunks under it and a few ticks ahead of it are loaded here. */
+    private boolean worldLoadedAhead() {
+        float yawRad = this.getYRot() * Mth.DEG_TO_RAD;
+        double reach = (Math.abs(this.flyDist) * 4.0 + 1.0) * (this.flyDist < 0.0F ? -1.0 : 1.0);
+        int aheadX = Mth.floor(this.getX() - Mth.sin(yawRad) * reach);
+        int aheadZ = Mth.floor(this.getZ() + Mth.cos(yawRad) * reach);
+        return this.level().hasChunkAt(this.getBlockX(), this.getBlockZ())
+                && this.level().hasChunkAt(aheadX, aheadZ);
+    }
+
+    /** Nose up, degrees, as drawn: level for anything on wheels. */
+    public float getBodyPitch(float tickProgress) {
+        return 0.0F;
+    }
+
+    /** Banked to the right, degrees, as drawn: level for anything on wheels. */
+    public float getBodyRoll(float tickProgress) {
+        return 0.0F;
+    }
+
+    public float getStepOffset(float tickProgress) {
+        return Mth.lerp(tickProgress, this.prevStepOffset, this.stepOffset);
     }
 
     @Override
-    public void handleStatus(byte status) {
+    protected void positionRider(Entity passenger, Entity.MoveFunction callback) {
+        float lift = this.level().isClientSide() ? this.stepOffset : 0.0F;
+        if (lift == 0.0F) {
+            super.positionRider(passenger, callback);
+        } else {
+            super.positionRider(passenger, (rider, x, y, z) -> callback.accept(rider, x, y + lift, z));
+        }
+    }
+
+    @Override
+    public void handleEntityEvent(byte status) {
         if (status == STATUS_LOCKED || status == STATUS_UNLOCKED) {
             this.lockFlashTicks = LOCK_FLASH_TICKS;
             this.lockFlashTwice = status == STATUS_UNLOCKED;
             return;
         }
+        if (status == STATUS_MISFIRE) {
+            if (this.isControlledByLocalInstance()) {
+                this.flyDist *= MISFIRE_STUMBLE;
+            }
+            this.coughExhaust();
+            this.level().playLocalSound(this.getX(), this.getY() + 0.5, this.getZ(),
+                    ModSounds.BACKFIRE, SoundSource.NEUTRAL, 0.7F,
+                    0.85F + this.random.nextFloat() * 0.3F, false);
+            return;
+        }
         if (status == STATUS_SPUTTER) {
             // The driver's client is the one moving the car: it feels the cough.
-            if (this.isLogicalSideForUpdatingMovement()) {
-                this.speed *= STARVE_STUMBLE;
+            if (this.isControlledByLocalInstance()) {
+                this.flyDist *= STARVE_STUMBLE;
             }
             this.coughExhaust();
             return;
         }
-        super.handleStatus(status);
+        super.handleEntityEvent(status);
     }
 
     /**
@@ -1303,16 +1853,16 @@ public class CarEntity extends VehicleEntity {
      * has none.
      */
     private void flashIndicators() {
-        World world = this.getEntityWorld();
-        float yawRad = this.getYaw() * ((float) Math.PI / 180.0F);
-        net.minecraft.particle.DustParticleEffect amber =
-                new net.minecraft.particle.DustParticleEffect(0xFFA51F, 0.8F);
-        List<Vec3d> lamps = new java.util.ArrayList<>();
+        Level world = this.level();
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        net.minecraft.core.particles.DustParticleOptions amber =
+                new net.minecraft.core.particles.DustParticleOptions(net.minecraft.world.phys.Vec3.fromRGB24(0xFFA51F).toVector3f(), 0.8F);
+        List<Vec3> lamps = new java.util.ArrayList<>();
         me.trossty.car.vehicle.VehicleDefinition definition = this.getDefinition();
         if (definition != null) {
             for (me.trossty.car.vehicle.VehicleDefinition.Box box : definition.shape()) {
                 if (INDICATOR_COLOUR.equalsIgnoreCase(box.color())) {
-                    lamps.add(new Vec3d(
+                    lamps.add(new Vec3(
                             (box.from().x() + box.to().x()) / 32.0,
                             (box.from().y() + box.to().y()) / 32.0,
                             (box.from().z() + box.to().z()) / 32.0));
@@ -1320,27 +1870,27 @@ public class CarEntity extends VehicleEntity {
             }
         }
         if (lamps.isEmpty()) {
-            double side = this.getWidth() / 2.0;
+            double side = this.getBbWidth() / 2.0;
             double reach = Math.max(0.5, this.frontReach());
             for (int corner = 0; corner < 4; corner++) {
-                lamps.add(new Vec3d(corner % 2 == 0 ? side : -side, 0.7, corner < 2 ? reach : -reach));
+                lamps.add(new Vec3(corner % 2 == 0 ? side : -side, 0.7, corner < 2 ? reach : -reach));
             }
         }
-        for (Vec3d lamp : lamps) {
-            Vec3d at = this.getEntityPos().add(lamp.rotateY(-yawRad));
+        for (Vec3 lamp : lamps) {
+            Vec3 at = this.position().add(lamp.yRot(-yawRad));
             for (int puff = 0; puff < 4; puff++) {
-                world.addParticleClient(amber,
+                world.addParticle(amber,
                         at.x + (this.random.nextDouble() - 0.5) * 0.12,
                         at.y + (this.random.nextDouble() - 0.5) * 0.12,
                         at.z + (this.random.nextDouble() - 0.5) * 0.12,
                         0.0, 0.0, 0.0);
             }
-            world.addParticleClient(ParticleTypes.WAX_ON, at.x, at.y, at.z, 0.0, 0.0, 0.0);
+            world.addParticle(ParticleTypes.WAX_ON, at.x, at.y, at.z, 0.0, 0.0, 0.0);
         }
     }
 
     public float getSteerAngle(float tickProgress) {
-        return MathHelper.lerp(tickProgress, this.lastSteerAngle, this.steerAngle);
+        return Mth.lerp(tickProgress, this.lastSteerAngle, this.steerAngle);
     }
 
     // ---- the parts underneath ----
@@ -1353,12 +1903,12 @@ public class CarEntity extends VehicleEntity {
      * gearbox is still a gearbox, and the car still has one.
      */
     public float getCondition(CarPart part) {
-        return this.dataTracker.get(PART_CONDITION.get(part.ordinal()));
+        return this.entityData.get(PART_CONDITION.get(part.ordinal()));
     }
 
     public void setCondition(CarPart part, float condition) {
-        this.dataTracker.set(PART_CONDITION.get(part.ordinal()),
-                MathHelper.clamp(condition, 0.0F, CarPart.MAX_CONDITION));
+        this.entityData.set(PART_CONDITION.get(part.ordinal()),
+                Mth.clamp(condition, 0.0F, CarPart.MAX_CONDITION));
     }
 
     /** Whether the part is on the car at all. */
@@ -1373,13 +1923,13 @@ public class CarEntity extends VehicleEntity {
 
     /** What the part in this slot was built to. */
     public CarPart.Quality getQuality(CarPart part) {
-        int bits = this.dataTracker.get(PART_QUALITY);
+        int bits = this.entityData.get(PART_QUALITY);
         return CarPart.Quality.byOrdinal((bits >>> (part.ordinal() * QUALITY_BITS)) & QUALITY_MASK);
     }
 
     public void setQuality(CarPart part, CarPart.Quality quality) {
-        this.dataTracker.set(PART_QUALITY,
-                withQuality(this.dataTracker.get(PART_QUALITY), part, quality));
+        this.entityData.set(PART_QUALITY,
+                withQuality(this.entityData.get(PART_QUALITY), part, quality));
     }
 
     /**
@@ -1394,11 +1944,11 @@ public class CarEntity extends VehicleEntity {
 
     /** Every slot's quality at once, for saving and for pocketing. */
     public int getQualityBits() {
-        return this.dataTracker.get(PART_QUALITY);
+        return this.entityData.get(PART_QUALITY);
     }
 
     public void setQualityBits(int bits) {
-        this.dataTracker.set(PART_QUALITY, bits);
+        this.entityData.set(PART_QUALITY, bits);
     }
 
     /**
@@ -1407,7 +1957,7 @@ public class CarEntity extends VehicleEntity {
      * without a single one of those rules having to know about quality.
      */
     private void wear(CarPart part, float amount) {
-        if (amount > 0.0F && this.isFitted(part)) {
+        if (amount > 0.0F && this.hasPart(part) && this.isFitted(part)) {
             this.setCondition(part, Math.max(CarPart.WORN_OUT,
                     this.getCondition(part) - amount * this.getQuality(part).wearFactor() * this.ageFactor(part)
                             * (float) me.trossty.car.CarConfig.get().partWear));
@@ -1425,16 +1975,16 @@ public class CarEntity extends VehicleEntity {
 
     /** 1 new, rising to {@code 1 + MILEAGE_WEAR} at {@link #HIGH_MILEAGE}, and no further. */
     public static float mileageFactor(float odometer) {
-        return 1.0F + MILEAGE_WEAR * MathHelper.clamp(odometer / HIGH_MILEAGE, 0.0F, 1.0F);
+        return 1.0F + MILEAGE_WEAR * Mth.clamp(odometer / HIGH_MILEAGE, 0.0F, 1.0F);
     }
 
     /** Blocks driven in this car's life. */
     public float getOdometer() {
-        return this.dataTracker.get(ODOMETER);
+        return this.entityData.get(ODOMETER);
     }
 
     public void setOdometer(float blocks) {
-        this.dataTracker.set(ODOMETER, Math.max(0.0F, blocks));
+        this.entityData.set(ODOMETER, Math.max(0.0F, blocks));
     }
 
     /** 1 with a fresh part, {@code worn} with a dead one, a line between. */
@@ -1451,7 +2001,7 @@ public class CarEntity extends VehicleEntity {
         if (!this.isFitted(part)) {
             return missing;
         }
-        return MathHelper.lerp(this.getConditionFraction(part), worn, 1.0F);
+        return Mth.lerp(this.getConditionFraction(part), worn, 1.0F);
     }
 
     /**
@@ -1480,11 +2030,11 @@ public class CarEntity extends VehicleEntity {
     // ---- what kind of car this is ----
 
     public int getSetup() {
-        return this.dataTracker.get(SETUP);
+        return this.entityData.get(SETUP);
     }
 
     public void setSetup(int setup) {
-        this.dataTracker.set(SETUP, setup);
+        this.entityData.set(SETUP, setup);
     }
 
     /** Which kind of part is in this slot; 0 for the parts that have no kinds. */
@@ -1557,29 +2107,33 @@ public class CarEntity extends VehicleEntity {
 
     /** Whether the wheels are on laid asphalt; a slab counts from inside its own block. */
     public boolean onAsphalt() {
-        return me.trossty.car.registry.ModBlocks.isAsphalt(this.getEntityWorld().getBlockState(this.getBlockPos()))
-                || me.trossty.car.registry.ModBlocks.isAsphalt(this.getEntityWorld().getBlockState(this.getBlockPos().down()));
+        return me.trossty.car.registry.ModBlocks.isAsphalt(this.level().getBlockState(this.blockPosition()))
+                || me.trossty.car.registry.ModBlocks.isAsphalt(this.level().getBlockState(this.blockPosition().below()));
     }
 
     /** What the wheels are on right now. */
     public CarSetup.Surface getSurface() {
         // A layer of snow is a block the car stands in, not on.
-        net.minecraft.block.BlockState around = this.getEntityWorld().getBlockState(this.getBlockPos());
-        if (around.isIn(net.minecraft.registry.tag.BlockTags.SNOW)) {
+        net.minecraft.world.level.block.state.BlockState around = this.level().getBlockState(this.blockPosition());
+        if (around.is(net.minecraft.tags.BlockTags.SNOW)) {
             return CarSetup.Surface.SNOW;
         }
         return CarSetup.Surface.of(
-                this.getEntityWorld().getBlockState(this.getBlockPos().down()));
+                this.level().getBlockState(this.blockPosition().below()));
     }
 
     /** How well the fitted tyres hold the ground the car is on. */
     public float getGrip() {
+        // No tyres on anything: a hull in the water, or wheels up in the air.
+        if (!this.hasPart(CarPart.WHEELS) || this.isFlying()) {
+            return 1.0F;
+        }
         CarSetup.Surface surface = this.getSurface();
         float grip = this.getTyre().grip(surface);
         float offroad = this.tuning().offroad();
         if (surface != CarSetup.Surface.ASPHALT && offroad > 0.0F && grip < 1.0F) {
             // Ground clearance and four driven wheels give back what the tyre loses.
-            grip = MathHelper.lerp(offroad, grip, 1.0F);
+            grip = Mth.lerp(offroad, grip, 1.0F);
         }
         return grip;
     }
@@ -1591,7 +2145,7 @@ public class CarEntity extends VehicleEntity {
 
     /** What everybody aboard but the driver costs in acceleration. */
     private float loadFactor() {
-        int riders = Math.max(0, this.getPassengerList().size() - 1);
+        int riders = Math.max(0, this.getPassengers().size() - 1);
         return (float) Math.pow(CarSetup.PULL_PER_PASSENGER, riders);
     }
 
@@ -1599,18 +2153,18 @@ public class CarEntity extends VehicleEntity {
      * Where seat number {@code seat} is, as (sideways, up, forward) in the
      * car's own frame. Seat 0 is the driver's.
      */
-    protected Vec3d seatPosition(int seat) {
+    protected Vec3 seatPosition(int seat) {
         me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
         if (defined != null && !defined.seats().isEmpty()) {
-            Vec3d at = defined.seats().get(Math.min(seat, defined.seats().size() - 1));
-            return at.multiply(1.0 / 16.0);
+            Vec3 at = defined.seats().get(Math.min(seat, defined.seats().size() - 1));
+            return at.scale(1.0 / 16.0);
         }
         return this.plainSeatPosition(seat);
     }
 
     /** Where this machine seats people when no data pack says otherwise. */
-    protected Vec3d plainSeatPosition(int seat) {
-        return new Vec3d(seat == 0 ? -SEAT_SIDEWAYS : SEAT_SIDEWAYS, SEAT_HEIGHT, SEAT_FORWARD);
+    protected Vec3 plainSeatPosition(int seat) {
+        return new Vec3(seat == 0 ? -SEAT_SIDEWAYS : SEAT_SIDEWAYS, SEAT_HEIGHT, SEAT_FORWARD);
     }
 
     /** How many can ride, the driver included. */
@@ -1636,7 +2190,7 @@ public class CarEntity extends VehicleEntity {
                 // A diesel lights itself.
                 continue;
             }
-            if (part.essential() && !this.isFitted(part)) {
+            if (part.essential() && this.hasPart(part) && !this.isFitted(part)) {
                 return part;
             }
         }
@@ -1651,7 +2205,74 @@ public class CarEntity extends VehicleEntity {
     /** Whether the engine can turn at all, fuel aside. */
     public boolean canRun() {
         return this.missingEssential() == null && !this.isBatteryFlat() && !this.hasWrongFuel()
-                && !this.dataTracker.get(KEY_MISSING);
+                && !this.entityData.get(KEY_MISSING) && !this.isFlooded();
+    }
+
+    /** Water in the engine: it will not start until it dries out. */
+    public boolean isFlooded() {
+        return this.entityData.get(FLOODED);
+    }
+
+    /**
+     * Water deep enough to reach the intake drowns the engine, and it stays
+     * drowned for a while after the car is back on land. Anybody whose head
+     * goes under gets out and swims for it: NeoForge leaves that to the
+     * vehicle, and a car is not something to sit in at the bottom of a lake.
+     */
+    private void tickWater() {
+        if (this.floods() && this.getFluidHeight(net.minecraft.tags.FluidTags.WATER) >= FLOOD_DEPTH) {
+            this.floodedTicks = DRY_OUT_TICKS;
+        } else if (this.floodedTicks > 0) {
+            this.floodedTicks--;
+        }
+        boolean flooded = this.floodedTicks > 0;
+        if (flooded != this.isFlooded()) {
+            if (flooded) {
+                this.drown(this.isEngineRunning());
+            }
+            this.entityData.set(FLOODED, flooded);
+            if (flooded) {
+                this.level().playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
+                        SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL, 0.8F, 0.6F);
+            }
+        }
+        for (Entity passenger : List.copyOf(this.getPassengers())) {
+            if (passenger instanceof LivingEntity living && eyeUnderWater(living)
+                    && !living.canBreatheUnderwater()) {
+                living.stopRiding();
+            }
+        }
+    }
+
+    /**
+     * Whether the water is over this rider's eyes where they sit now. Their
+     * own flag is from their last tick, before they climbed in: somebody
+     * swimming up to a boat would be thrown straight back out by it.
+     */
+    private static boolean eyeUnderWater(LivingEntity living) {
+        Vec3 eye = living.getEyePosition();
+        net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(eye);
+        net.minecraft.world.level.material.FluidState fluid = living.level().getFluidState(at);
+        return fluid.is(net.minecraft.tags.FluidTags.WATER)
+                && eye.y < at.getY() + fluid.getHeight(living.level(), at);
+    }
+
+    /**
+     * What going under does to the car, once, as the water comes in. The
+     * airbox soaks either way. A running engine also breathes the water in,
+     * and water does not compress: the plugs and the engine take a beating
+     * that drying out does not undo. An electric car shorts its battery.
+     */
+    private void drown(boolean running) {
+        if (this.isElectric()) {
+            this.wear(CarPart.BATTERY, DROWNED_BATTERY);
+            return;
+        }
+        this.wear(CarPart.AIR_FILTER, DROWNED_FILTER);
+        if (running) {
+            this.wear(CarPart.SPARK_PLUGS, DROWNED_PLUGS);
+            this.wear(CarPart.ENGINE, DROWNED_ENGINE);
+        }
     }
 
     /**
@@ -1660,32 +2281,34 @@ public class CarEntity extends VehicleEntity {
      * they have to go and find a clipboard.
      */
     private void warnTheDriver() {
-        if (!(this.getControllingPassenger() instanceof PlayerEntity driver)
-                || this.age % 80 != 0) {
+        if (!(this.getControllingPassenger() instanceof Player driver)
+                || this.tickCount % 80 != 0) {
             return;
         }
         CarPart missing = this.missingEssential();
         if (missing != null) {
-            driver.sendMessage(Text.translatable("message.car.wont_start",
-                    Text.translatable("part.car." + missing.key())), true);
-        } else if (this.dataTracker.get(KEY_MISSING)) {
-            driver.sendMessage(Text.translatable("message.car.need_key"), true);
+            driver.displayClientMessage(Component.translatable("message.car.wont_start",
+                    Component.translatable("part.car." + missing.key())), true);
+        } else if (this.isFlooded()) {
+            driver.displayClientMessage(Component.translatable("message.car.flooded"), true);
+        } else if (this.entityData.get(KEY_MISSING)) {
+            driver.displayClientMessage(Component.translatable("message.car.need_key"), true);
         } else if (this.isBatteryFlat()) {
-            driver.sendMessage(Text.translatable("gui.car.flat_battery"), true);
+            driver.displayClientMessage(Component.translatable("gui.car.flat_battery"), true);
         } else if (this.hasWrongFuel()) {
-            driver.sendMessage(Text.translatable("message.car.wrong_fuel",
-                    Text.translatable("fuel.car." + this.getTankFuel().key()),
-                    Text.translatable("fuel.car." + this.getEngineFuel().key())), true);
+            driver.displayClientMessage(Component.translatable("message.car.wrong_fuel",
+                    Component.translatable("fuel.car." + this.getTankFuel().key()),
+                    Component.translatable("fuel.car." + this.getEngineFuel().key())), true);
         } else if (this.isOverheating()) {
-            driver.sendMessage(Text.translatable("message.car.overheating"), true);
+            driver.displayClientMessage(Component.translatable("message.car.overheating"), true);
         } else if (this.isLeaking() && this.hasFuel()) {
-            driver.sendMessage(Text.translatable("message.car.tank_leaking"), true);
+            driver.displayClientMessage(Component.translatable("message.car.tank_leaking"), true);
         }
     }
 
     /** How hot the engine is: 0 cold, 1 boiling. */
     public float getEngineTemp() {
-        return this.dataTracker.get(ENGINE_TEMP);
+        return this.entityData.get(ENGINE_TEMP);
     }
 
     public boolean isOverheating() {
@@ -1705,11 +2328,14 @@ public class CarEntity extends VehicleEntity {
             float cooling = this.partFactor(
                     CarPart.RADIATOR, WORN_RADIATOR_COOLING, MISSING_RADIATOR_COOLING);
             float heat = this.getLayout().heat() * (this.hasTurbo() ? CarSetup.TURBO_HEAT : 1.0F);
+            // Old oil stops carrying the heat away: the gauge creeps up.
+            float oil = 1.0F - Math.min(1.0F,
+                    this.getConditionFraction(CarPart.OIL_FILTER) / FaultCodes.WARNING);
             target = Math.min(1.0F,
-                    (0.25F + 0.40F * load * heat) / (cooling * this.grade(CarPart.RADIATOR)));
+                    (0.25F + (0.40F * heat + DIRTY_OIL_HEAT * oil) * load) / (cooling * this.grade(CarPart.RADIATOR)));
         }
         float rate = target > temp ? TEMP_RISE : TEMP_FALL;
-        this.dataTracker.set(ENGINE_TEMP, MathHelper.lerp(rate, temp, target));
+        this.entityData.set(ENGINE_TEMP, Mth.lerp(rate, temp, target));
     }
 
     // ---- what each part is worth on the road ----
@@ -1735,7 +2361,7 @@ public class CarEntity extends VehicleEntity {
                 * this.loadFactor();
     }
 
-    private float maxReverseSpeed() {
+    protected float maxReverseSpeed() {
         return MAX_REVERSE_SPEED * this.partFactor(CarPart.TRANSMISSION, WORN_GEARBOX_REVERSE);
     }
 
@@ -1753,6 +2379,26 @@ public class CarEntity extends VehicleEntity {
                 * this.grade(CarPart.BRAKE_DISCS)
                 * this.minorGrade(CarPart.WHEELS)
                 * this.getGrip();
+    }
+
+    /**
+     * How hard this car pulls off a straight line, degrees a tick, signed by
+     * side. A worn rack or tired springs both do it; which way is the car's
+     * own, fixed by its identity, as a real one always drifts the same way.
+     */
+    public float pull() {
+        float worst = 1.0F;
+        if (this.hasPart(CarPart.STEERING_RACK) && this.isFitted(CarPart.STEERING_RACK)) {
+            worst = Math.min(worst, this.getConditionFraction(CarPart.STEERING_RACK));
+        }
+        if (this.hasPart(CarPart.SUSPENSION) && this.isFitted(CarPart.SUSPENSION)) {
+            worst = Math.min(worst, this.getConditionFraction(CarPart.SUSPENSION));
+        }
+        if (worst >= FaultCodes.ADVISORY) {
+            return 0.0F;
+        }
+        float side = (this.getUUID().getLeastSignificantBits() & 1L) == 0L ? -1.0F : 1.0F;
+        return side * MAX_PULL * (FaultCodes.ADVISORY - worst) / FaultCodes.ADVISORY;
     }
 
     /** Turn rate: the rack points the wheels, the tyres decide what happens. */
@@ -1820,9 +2466,12 @@ public class CarEntity extends VehicleEntity {
             this.wear(CarPart.TRANSMISSION, CarPart.TRANSMISSION.wearPerTick() * load * oil);
             this.wear(CarPart.CLUTCH, CarPart.CLUTCH.wearPerTick() * load);
             this.wear(CarPart.DRIVESHAFT, CarPart.DRIVESHAFT.wearPerTick() * load);
-            float road = this.onAsphalt() ? ASPHALT_WEAR : 1.0F;
-            this.wear(CarPart.WHEELS, CarPart.WHEELS.wearPerTick() * load * this.getTyre().wear() * road);
-            this.wear(CarPart.STEERING_RACK, CarPart.STEERING_RACK.wearPerTick() * load * road);
+            // Wheels up, nothing rolls and nothing steers them.
+            if (!this.isFlying()) {
+                float road = this.onAsphalt() ? ASPHALT_WEAR : 1.0F;
+                this.wear(CarPart.WHEELS, CarPart.WHEELS.wearPerTick() * load * this.getTyre().wear() * road);
+                this.wear(CarPart.STEERING_RACK, CarPart.STEERING_RACK.wearPerTick() * load * road);
+            }
         }
     }
 
@@ -1840,15 +2489,43 @@ public class CarEntity extends VehicleEntity {
     public void wearBrakes(float speedNow) {
         float scrubbed = Math.abs(this.lastTrackedSpeed) - Math.abs(speedNow);
         this.lastTrackedSpeed = speedNow;
-        // Still rolling, so this was braking rather than hitting something.
-        if (scrubbed <= 0.0F || Math.abs(speedNow) < 0.05F) {
+        // Still rolling, so this was braking rather than hitting something;
+        // and in the air the speed goes into the climb, not into the pads.
+        if (scrubbed <= 0.0F || Math.abs(speedNow) < 0.05F || this.isFlying()) {
             return;
         }
+        this.complainAboutBrakes(scrubbed);
         float work = scrubbed * BRAKE_WEAR_PER_DECEL;
         this.wear(CarPart.BRAKE_PADS, CarPart.BRAKE_PADS.wearPerTick() * work);
         float padsLeft = this.getConditionFraction(CarPart.BRAKE_PADS);
         this.wear(CarPart.BRAKE_DISCS, CarPart.BRAKE_DISCS.wearPerTick() * work
-                * MathHelper.lerp(padsLeft, PADS_EAT_DISCS, 1.0F));
+                * Mth.lerp(padsLeft, PADS_EAT_DISCS, 1.0F));
+    }
+
+    /**
+     * What tired brakes sound like from the road: a thin squeal once the pads
+     * are getting low, and metal on metal once they are gone and the discs are
+     * paying for it. Everyone nearby hears it, which is the point: the car
+     * says what it needs before anybody plugs a reader in.
+     */
+    private void complainAboutBrakes(float scrubbed) {
+        if (this.brakeNoiseCooldown > 0) {
+            this.brakeNoiseCooldown--;
+            return;
+        }
+        // Only real braking: engine drag alone never takes off this much a tick.
+        if (scrubbed < BRAKING_SCRUB || !this.hasPart(CarPart.BRAKE_PADS)) {
+            return;
+        }
+        float pads = this.getConditionFraction(CarPart.BRAKE_PADS);
+        if (pads > FaultCodes.WARNING) {
+            return;
+        }
+        boolean grinding = pads <= FaultCodes.CRITICAL;
+        this.level().playSound(null, this.getX(), this.getY() + 0.3, this.getZ(),
+                grinding ? SoundEvents.GRINDSTONE_USE : me.trossty.car.sound.ModSounds.TYRE_SKID,
+                SoundSource.NEUTRAL, grinding ? 0.8F : 0.35F, grinding ? 0.7F : 2.0F);
+        this.brakeNoiseCooldown = BRAKE_NOISE_COOLDOWN;
     }
 
     // ---- working on it ----
@@ -1878,10 +2555,14 @@ public class CarEntity extends VehicleEntity {
     /**
      * Whether this kind of vehicle has the part at all. A car has every one;
      * a trailer has no engine, gearbox or exhaust to service, only what it
-     * rolls and stops on.
+     * rolls and stops on. A motor burns nothing, so an electric car has no
+     * exhaust, plugs, filters or clutch to wear out.
      */
     public boolean hasPart(CarPart part) {
-        return true;
+        return !this.isElectric() || switch (part) {
+            case EXHAUST, SPARK_PLUGS, AIR_FILTER, OIL_FILTER, CLUTCH -> false;
+            default -> true;
+        };
     }
 
     /** The stack a part in the given condition comes off as. */
@@ -1905,33 +2586,33 @@ public class CarEntity extends VehicleEntity {
      * it was in is what comes out, and the slot is left empty, which is what
      * makes the part behind it reachable.
      */
-    public ActionResult removePart(PlayerEntity player, CarPart part) {
+    public InteractionResult removePart(Player player, CarPart part) {
         if (!this.hasPart(part)) {
             // Not a part this vehicle has: a trailer has no engine to fit.
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (this.isLocked()) {
             // Whichever window or click it came from, a locked car keeps its parts.
-            player.sendMessage(Text.translatable("message.car.locked"), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.locked"), true);
+            return InteractionResult.CONSUME;
         }
-        Text name = Text.translatable("part.car." + part.key());
-        if (!VehicleLiftBlock.isServicing(this.getEntityWorld(), this)) {
-            player.sendMessage(Text.translatable("message.car.needs_lift"), true);
-            return ActionResult.CONSUME;
+        Component name = Component.translatable("part.car." + part.key());
+        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
+            player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
+            return InteractionResult.CONSUME;
         }
         if (!this.isFitted(part)) {
-            player.sendMessage(Text.translatable("message.car.part_absent", name), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.part_absent", name), true);
+            return InteractionResult.CONSUME;
         }
         CarPart inTheWay = this.blockedBy(part);
         if (inTheWay != null) {
-            player.sendMessage(Text.translatable("message.car.part_blocked",
-                    Text.translatable("part.car." + inTheWay.key()), name), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.part_blocked",
+                    Component.translatable("part.car." + inTheWay.key()), name), true);
+            return InteractionResult.CONSUME;
         }
 
         float condition = this.getCondition(part);
@@ -1950,9 +2631,9 @@ public class CarEntity extends VehicleEntity {
             this.handAside(player, new ItemStack(ModItems.TURBO));
         }
         this.playWrench();
-        player.sendMessage(Text.translatable("message.car.part_removed", name,
+        player.displayClientMessage(Component.translatable("message.car.part_removed", name,
                 Math.round(condition / CarPart.MAX_CONDITION * 100.0F)), true);
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     /**
@@ -1962,30 +2643,30 @@ public class CarEntity extends VehicleEntity {
      * again, which feels like the car never let go of it. What does not fit
      * is dropped at the car.
      */
-    private void handAside(PlayerEntity player, ItemStack stack) {
-        net.minecraft.entity.player.PlayerInventory inventory = player.getInventory();
-        int hand = inventory.getSelectedSlot();
-        int size = net.minecraft.entity.player.PlayerInventory.MAIN_SIZE;
+    private void handAside(Player player, ItemStack stack) {
+        net.minecraft.world.entity.player.Inventory inventory = player.getInventory();
+        int hand = inventory.selected;
+        int size = net.minecraft.world.entity.player.Inventory.INVENTORY_SIZE;
         // Onto a stack of the same first, then into the first empty pocket,
         // the backpack before the hotbar.
         for (int slot = 0; slot < size && !stack.isEmpty(); slot++) {
-            ItemStack there = inventory.getStack(slot);
-            if (slot != hand && ItemStack.areItemsAndComponentsEqual(there, stack)
-                    && there.getCount() < there.getMaxCount()) {
-                int moved = Math.min(stack.getCount(), there.getMaxCount() - there.getCount());
-                there.increment(moved);
-                stack.decrement(moved);
+            ItemStack there = inventory.getItem(slot);
+            if (slot != hand && ItemStack.isSameItemSameComponents(there, stack)
+                    && there.getCount() < there.getMaxStackSize()) {
+                int moved = Math.min(stack.getCount(), there.getMaxStackSize() - there.getCount());
+                there.grow(moved);
+                stack.shrink(moved);
             }
         }
         for (int i = 0; i < size && !stack.isEmpty(); i++) {
-            int slot = (i + net.minecraft.entity.player.PlayerInventory.HOTBAR_SIZE) % size;
-            if (slot != hand && inventory.getStack(slot).isEmpty()) {
-                inventory.setStack(slot, stack.copy());
+            int slot = (i + net.minecraft.world.entity.player.Inventory.getSelectionSize()) % size;
+            if (slot != hand && inventory.getItem(slot).isEmpty()) {
+                inventory.setItem(slot, stack.copy());
                 stack.setCount(0);
             }
         }
-        if (!stack.isEmpty() && this.getEntityWorld() instanceof ServerWorld world) {
-            this.dropStack(world, stack);
+        if (!stack.isEmpty() && this.level() instanceof ServerLevel world) {
+            this.spawnAtLocation(stack);
         }
     }
 
@@ -1998,36 +2679,36 @@ public class CarEntity extends VehicleEntity {
      * swap, and the old part comes out in whatever state it was in, so you can
      * refit it later if you are the sort who keeps a shed.
      */
-    public ActionResult fitPart(PlayerEntity player, ItemStack spares, CarPart part) {
+    public InteractionResult fitPart(Player player, ItemStack spares, CarPart part) {
         if (!this.hasPart(part)) {
             // Not a part this vehicle has: a trailer has no engine to fit.
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (this.isLocked()) {
             // Whichever window or click it came from, a locked car keeps its parts.
-            player.sendMessage(Text.translatable("message.car.locked"), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.locked"), true);
+            return InteractionResult.CONSUME;
         }
-        Text name = Text.translatable("part.car." + part.key());
+        Component name = Component.translatable("part.car." + part.key());
         int fittedNow = Math.round(this.getConditionFraction(part) * 100.0F);
 
-        if (!VehicleLiftBlock.isServicing(this.getEntityWorld(), this)) {
-            player.sendMessage(Text.translatable("message.car.part_reading", name, fittedNow), true);
-            return ActionResult.CONSUME;
+        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
+            player.displayClientMessage(Component.translatable("message.car.part_reading", name, fittedNow), true);
+            return InteractionResult.CONSUME;
         }
         CarPart inTheWay = this.blockedBy(part);
         if (inTheWay != null) {
-            player.sendMessage(Text.translatable("message.car.part_blocked",
-                    Text.translatable("part.car." + inTheWay.key()), name), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.part_blocked",
+                    Component.translatable("part.car." + inTheWay.key()), name), true);
+            return InteractionResult.CONSUME;
         }
         if (spares.getCount() < part.count()) {
-            player.sendMessage(
-                    Text.translatable("message.car.part_needs", part.count(), name), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(
+                    Component.translatable("message.car.part_needs", part.count(), name), true);
+            return InteractionResult.CONSUME;
         }
 
         float removed = this.getCondition(part);
@@ -2045,62 +2726,63 @@ public class CarEntity extends VehicleEntity {
             // gain, though, so that one goes through — otherwise the only way
             // to put a good gearbox in a sound car would be to wear the
             // standard one out first.
-            player.sendMessage(Text.translatable("message.car.part_already_new", name), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.part_already_new", name), true);
+            return InteractionResult.CONSUME;
         }
         this.setCondition(part, fitting);
         this.setQuality(part, fittingQuality);
         this.setVariant(part, fittingVariant);
         if (!player.isCreative()) {
-            spares.decrement(part.count());
+            spares.shrink(part.count());
         }
 
         int fittedPercent = Math.round(fitting / CarPart.MAX_CONDITION * 100.0F);
         if (removed <= 0.0F) {
             // The slot was empty, so there is nothing to hand back.
             this.playWrench();
-            player.sendMessage(
-                    Text.translatable("message.car.part_fitted_new", name, fittedPercent), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(
+                    Component.translatable("message.car.part_fitted_new", name, fittedPercent), true);
+            return InteractionResult.CONSUME;
         }
         // The old one goes into your pockets rather than on the floor.
         this.handAside(player, asStack(part, removed, removedQuality, removedVariant));
         this.playWrench();
-        player.sendMessage(Text.translatable("message.car.part_fitted", name,
+        player.displayClientMessage(Component.translatable("message.car.part_fitted", name,
                 fittedNow, fittedPercent), true);
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     /**
      * Bolts a turbo to the engine. It is not a slot of its own: it goes on
      * the engine that is there, and it comes off when that engine does.
      */
-    public ActionResult fitTurbo(PlayerEntity player, ItemStack turbo) {
-        if (!this.hasPart(CarPart.ENGINE)) {
-            return ActionResult.PASS;
+    public InteractionResult fitTurbo(Player player, ItemStack turbo) {
+        // A turbo is driven by exhaust, and a motor has none.
+        if (!this.hasPart(CarPart.ENGINE) || this.isElectric()) {
+            return InteractionResult.PASS;
         }
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        if (!VehicleLiftBlock.isServicing(this.getEntityWorld(), this)) {
-            player.sendMessage(Text.translatable("message.car.needs_lift"), true);
-            return ActionResult.CONSUME;
+        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
+            player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
+            return InteractionResult.CONSUME;
         }
         if (!this.isFitted(CarPart.ENGINE)) {
-            player.sendMessage(Text.translatable("message.car.turbo_no_engine"), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.turbo_no_engine"), true);
+            return InteractionResult.CONSUME;
         }
         if (this.hasTurbo()) {
-            player.sendMessage(Text.translatable("message.car.turbo_already"), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.turbo_already"), true);
+            return InteractionResult.CONSUME;
         }
         this.setTurbo(true);
         if (!player.isCreative()) {
-            turbo.decrement(1);
+            turbo.shrink(1);
         }
         this.playWrench();
-        player.sendMessage(Text.translatable("message.car.turbo_fitted"), true);
-        return ActionResult.CONSUME;
+        player.displayClientMessage(Component.translatable("message.car.turbo_fitted"), true);
+        return InteractionResult.CONSUME;
     }
 
     /**
@@ -2109,13 +2791,13 @@ public class CarEntity extends VehicleEntity {
      * cheap one in its wrapper, because the cheap one will be worn out again
      * before the good one has got going.
      */
-    public static ItemStack bestSpare(PlayerEntity player, CarPart part) {
+    public static ItemStack bestSpare(Player player, CarPart part) {
         ItemStack best = ItemStack.EMPTY;
         int bestGrade = -1;
         float bestCondition = -1.0F;
-        for (int slot = 0; slot < player.getInventory().size(); slot++) {
-            ItemStack stack = player.getInventory().getStack(slot);
-            if (!stack.isOf(part.item()) || stack.getCount() < part.count()) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (!stack.is(part.item()) || stack.getCount() < part.count()) {
                 continue;
             }
             int grade = qualityOf(stack).rank();
@@ -2137,30 +2819,30 @@ public class CarEntity extends VehicleEntity {
      * <p>It decides nothing of its own — the lift, the teardown order and what
      * counts as a spare are all still {@link #removePart} and {@link #fitPart}.
      */
-    public ActionResult serviceByHand(PlayerEntity player, CarPart part) {
+    public InteractionResult serviceByHand(Player player, CarPart part) {
         // A locked car keeps its parts: the service packet is as much a way in
         // as a click is, so it is turned away at the same door.
         if (this.isLocked()) {
-            if (!this.getEntityWorld().isClient()) {
-                player.sendMessage(Text.translatable("message.car.locked"), true);
+            if (!this.level().isClientSide()) {
+                player.displayClientMessage(Component.translatable("message.car.locked"), true);
             }
-            return ActionResult.CONSUME;
+            return InteractionResult.CONSUME;
         }
         // What goes on is what is in your hand: an empty slot stays empty
         // until you pick the part up and offer it, so a slot you have just
         // emptied cannot quietly fill itself again on the next click.
-        ItemStack held = player.getMainHandStack();
-        boolean offering = held.isOf(part.item());
+        ItemStack held = player.getMainHandItem();
+        boolean offering = held.is(part.item());
         if (this.isFitted(part)) {
             // A spare in hand on a fitted part is a swap; an empty hand takes it off.
             return offering ? this.fitPart(player, held, part) : this.removePart(player, part);
         }
         if (!offering) {
-            if (!this.getEntityWorld().isClient()) {
-                player.sendMessage(Text.translatable("message.car.part_hold_spare",
-                        Text.translatable("part.car." + part.key())), true);
+            if (!this.level().isClientSide()) {
+                player.displayClientMessage(Component.translatable("message.car.part_hold_spare",
+                        Component.translatable("part.car." + part.key())), true);
             }
-            return ActionResult.CONSUME;
+            return InteractionResult.CONSUME;
         }
         return this.fitPart(player, held, part);
     }
@@ -2170,20 +2852,28 @@ public class CarEntity extends VehicleEntity {
      * crouching at it is the shortcut for somebody already holding a spanner's
      * worth of parts.
      */
-    public ActionResult openService(PlayerEntity player) {
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+    public InteractionResult openService(Player player) {
+        // Nothing to read off a car standing on its wheels: the sheet is
+        // filled in on the lift, where the parts can be seen.
+        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
+            if (!this.level().isClientSide()) {
+                player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
+            }
+            return InteractionResult.sidedSuccess(this.level().isClientSide());
         }
-        player.openHandledScreen(new net.minecraft.screen.SimpleNamedScreenHandlerFactory(
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        player.openMenu(new net.minecraft.world.SimpleMenuProvider(
                 (syncId, inventory, opener) ->
                         new me.trossty.car.service.CarServiceScreenHandler(syncId, inventory, this.getId()),
                 this.getDisplayName()));
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     private void playWrench() {
-        this.getEntityWorld().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
-                SoundEvents.BLOCK_ANVIL_USE, SoundCategory.NEUTRAL, 0.7F, 1.5F);
+        this.level().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
+                SoundEvents.ANVIL_USE, SoundSource.NEUTRAL, 0.7F, 1.5F);
     }
 
     /** A spare with no condition on it is a new one. */
@@ -2201,7 +2891,7 @@ public class CarEntity extends VehicleEntity {
     // ---- keys and the lock ----
 
     public boolean isLocked() {
-        return this.dataTracker.get(LOCKED);
+        return this.entityData.get(LOCKED);
     }
 
     public long getLockCode() {
@@ -2211,16 +2901,16 @@ public class CarEntity extends VehicleEntity {
     public void setLockCode(long code) {
         this.lockCode = code;
         if (code == 0) {
-            this.dataTracker.set(LOCKED, false);
+            this.entityData.set(LOCKED, false);
         }
     }
 
     /** Whether this player has a key with this number anywhere on them. */
-    public static boolean carriesKey(PlayerEntity player, long code) {
+    public static boolean carriesKey(Player player, long code) {
         var inventory = player.getInventory();
-        for (int slot = 0; slot < inventory.size(); slot++) {
-            ItemStack stack = inventory.getStack(slot);
-            if (stack.isOf(ModItems.CAR_KEY) && Long.valueOf(code).equals(stack.get(ModComponents.VEHICLE_KEY))) {
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (stack.is(ModItems.CAR_KEY) && Long.valueOf(code).equals(stack.get(ModComponents.VEHICLE_KEY))) {
                 return true;
             }
         }
@@ -2233,21 +2923,21 @@ public class CarEntity extends VehicleEntity {
      * {@link #interactUnlocked} instead, so a locked car stays locked.
      */
     @Override
-    public ActionResult interact(PlayerEntity player, Hand hand) {
-        ItemStack held = player.getStackInHand(hand);
-        if (held.isOf(ModItems.CAR_KEY)) {
-            ActionResult keyed = this.useKey(player, held);
-            if (keyed != ActionResult.PASS) {
+    public InteractionResult interact(Player player, InteractionHand hand) {
+        ItemStack held = player.getItemInHand(hand);
+        if (held.is(ModItems.CAR_KEY)) {
+            InteractionResult keyed = this.useKey(player, held);
+            if (keyed != InteractionResult.PASS) {
                 return keyed;
             }
         }
         if (this.isLocked()) {
-            if (!this.getEntityWorld().isClient()) {
-                player.sendMessage(Text.translatable("message.car.locked"), true);
-                this.getEntityWorld().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
-                        SoundEvents.BLOCK_CHEST_LOCKED, SoundCategory.NEUTRAL, 0.8F, 1.0F);
+            if (!this.level().isClientSide()) {
+                player.displayClientMessage(Component.translatable("message.car.locked"), true);
+                this.level().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
+                        SoundEvents.CHEST_LOCKED, SoundSource.NEUTRAL, 0.8F, 1.0F);
             }
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         return this.interactUnlocked(player, hand);
     }
@@ -2258,13 +2948,13 @@ public class CarEntity extends VehicleEntity {
      * key, crouching, locks and unlocks, and held normally lets you straight in
      * whether the car is locked or not.
      */
-    private ActionResult useKey(PlayerEntity player, ItemStack key) {
-        World world = this.getEntityWorld();
+    private InteractionResult useKey(Player player, ItemStack key) {
+        Level world = this.level();
         Long code = key.get(ModComponents.VEHICLE_KEY);
-        if (world.isClient()) {
+        if (world.isClientSide()) {
             // The client does not know the lock; the server sorts it out.
-            return code == null || player.shouldCancelInteraction()
-                    ? ActionResult.SUCCESS : ActionResult.PASS;
+            return code == null || player.isSecondaryUseActive()
+                    ? InteractionResult.SUCCESS : InteractionResult.PASS;
         }
         if (code == null) {
             if (this.lockCode == 0) {
@@ -2273,66 +2963,66 @@ public class CarEntity extends VehicleEntity {
             } else if (!this.isLocked() && carriesKey(player, this.lockCode)) {
                 this.cutKey(player, key, "message.car.key_copied");
             } else {
-                player.sendMessage(Text.translatable("message.car.key_taken"), true);
+                player.displayClientMessage(Component.translatable("message.car.key_taken"), true);
             }
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         if (code != this.lockCode) {
-            if (player.shouldCancelInteraction()) {
-                player.sendMessage(Text.translatable("message.car.wrong_key"), true);
-                return ActionResult.SUCCESS;
+            if (player.isSecondaryUseActive()) {
+                player.displayClientMessage(Component.translatable("message.car.wrong_key"), true);
+                return InteractionResult.SUCCESS;
             }
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        if (player.shouldCancelInteraction()) {
+        if (player.isSecondaryUseActive()) {
             boolean locked = !this.isLocked();
-            this.dataTracker.set(LOCKED, locked);
-            world.sendEntityStatus(this, locked ? STATUS_LOCKED : STATUS_UNLOCKED);
-            player.sendMessage(Text.translatable(locked ? "message.car.locked_now" : "message.car.unlocked_now"), true);
+            this.entityData.set(LOCKED, locked);
+            world.broadcastEntityEvent(this, locked ? STATUS_LOCKED : STATUS_UNLOCKED);
+            player.displayClientMessage(Component.translatable(locked ? "message.car.locked_now" : "message.car.unlocked_now"), true);
             world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
-                    locked ? SoundEvents.BLOCK_IRON_TRAPDOOR_CLOSE : SoundEvents.BLOCK_IRON_TRAPDOOR_OPEN,
-                    SoundCategory.NEUTRAL, 0.7F, 1.6F);
-            return ActionResult.SUCCESS;
+                    locked ? SoundEvents.IRON_TRAPDOOR_CLOSE : SoundEvents.IRON_TRAPDOOR_OPEN,
+                    SoundSource.NEUTRAL, 0.7F, 1.6F);
+            return InteractionResult.SUCCESS;
         }
         // The right key walks you past the lock.
         return this.interactUnlocked(player, hand(player, key));
     }
 
-    private static Hand hand(PlayerEntity player, ItemStack held) {
-        return player.getStackInHand(Hand.OFF_HAND) == held ? Hand.OFF_HAND : Hand.MAIN_HAND;
+    private static InteractionHand hand(Player player, ItemStack held) {
+        return player.getItemInHand(InteractionHand.OFF_HAND) == held ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
     }
 
     /** Makes one of the blank keys in this stack open this car. */
-    private void cutKey(PlayerEntity player, ItemStack blanks, String message) {
+    private void cutKey(Player player, ItemStack blanks, String message) {
         ItemStack cut = blanks.split(1);
         cut.set(ModComponents.VEHICLE_KEY, this.lockCode);
-        net.minecraft.util.Identifier model = this.getModelId();
+        net.minecraft.resources.ResourceLocation model = this.getModelId();
         if (model != null) {
             cut.set(ModComponents.CAR_VEHICLE, model);
         }
         if (blanks.isEmpty()) {
-            player.setStackInHand(hand(player, blanks), cut);
-        } else if (!player.giveItemStack(cut)) {
-            player.dropItem(cut, false);
+            player.setItemInHand(hand(player, blanks), cut);
+        } else if (!player.addItem(cut)) {
+            player.drop(cut, false);
         }
-        player.sendMessage(Text.translatable(message), true);
-        this.getEntityWorld().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
-                SoundEvents.BLOCK_CHAIN_PLACE, SoundCategory.NEUTRAL, 0.8F, 1.4F);
+        player.displayClientMessage(Component.translatable(message), true);
+        this.level().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
+                SoundEvents.CHAIN_PLACE, SoundSource.NEUTRAL, 0.8F, 1.4F);
     }
 
-    protected ActionResult interactUnlocked(PlayerEntity player, Hand hand) {
-        ActionResult result = super.interact(player, hand);
-        if (result != ActionResult.PASS) {
+    protected InteractionResult interactUnlocked(Player player, InteractionHand hand) {
+        InteractionResult result = super.interact(player, hand);
+        if (result != InteractionResult.PASS) {
             return result;
         }
         // Crouching is the gesture for "work on it" rather than "get in it",
         // and it is the only one a bare hand has spare.
-        if (player.shouldCancelInteraction()) {
+        if (player.isSecondaryUseActive()) {
             return this.openService(player);
         }
 
-        ItemStack held = player.getStackInHand(hand);
-        if (this.isLeaking() && (held.isOf(Items.SLIME_BALL) || held.isOf(Items.HONEYCOMB))) {
+        ItemStack held = player.getItemInHand(hand);
+        if (this.isLeaking() && (held.is(Items.SLIME_BALL) || held.is(Items.HONEYCOMB))) {
             return this.patchTank(player, held);
         }
 
@@ -2340,44 +3030,44 @@ public class CarEntity extends VehicleEntity {
         // keeping the button down, which is the item's business, not the
         // car's: PASS hands the click on to it (JerryCanItem, FuelNozzleItem).
         // Anywhere else on the car they are just something in your hand.
-        if ((held.isOf(ModItems.JERRY_CAN) || held.isOf(ModItems.FUEL_NOZZLE))
+        if ((held.is(ModItems.JERRY_CAN) || held.is(ModItems.FUEL_NOZZLE))
                 && this.isFillerInSight(player)) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        if (held.isOf(ModItems.SPRAY_CAN)) {
+        if (held.is(ModItems.SPRAY_CAN)) {
             return this.sprayWith(player, held);
         }
         if (held.getItem() instanceof DyeItem dye) {
-            ActionResult painted = this.paintWith(player, held, dye.getColor());
-            if (painted != ActionResult.PASS) {
+            InteractionResult painted = this.paintWith(player, held, dye.getDyeColor());
+            if (painted != InteractionResult.PASS) {
                 return painted;
             }
         }
-        if (held.isOf(ModItems.DIAGNOSTIC_SHEET)) {
+        if (held.is(ModItems.DIAGNOSTIC_SHEET)) {
             return this.openService(player);
         }
-        if (held.isOf(ModItems.OBD_SCANNER) && this.hasPart(CarPart.ENGINE)) {
+        if (held.is(ModItems.OBD_SCANNER) && this.hasPart(CarPart.ENGINE)) {
             // Something with an engine computer to read: not a trailer.
             me.trossty.car.item.ObdScannerItem.pair(held, this, player);
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
-        if (held.isOf(ModItems.TURBO)) {
+        if (held.is(ModItems.TURBO)) {
             return this.fitTurbo(player, held);
         }
         CarPart spare = CarPart.forItem(held.getItem());
         if (spare != null) {
             return this.fitPart(player, held, spare);
         }
-        if (held.isOf(Items.IRON_INGOT)) {
-            ActionResult repaired = this.repairWith(player, held);
-            if (repaired != ActionResult.PASS) {
+        if (held.is(Items.IRON_INGOT)) {
+            InteractionResult repaired = this.repairWith(player, held);
+            if (repaired != InteractionResult.PASS) {
                 return repaired;
             }
         }
-        if (!this.getEntityWorld().isClient() && !player.startRiding(this)) {
-            return ActionResult.PASS;
+        if (!this.level().isClientSide() && !player.startRiding(this)) {
+            return InteractionResult.PASS;
         }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     @Override
@@ -2389,11 +3079,11 @@ public class CarEntity extends VehicleEntity {
 
     @Override
     protected boolean canAddPassenger(Entity passenger) {
-        return this.getPassengerList().size() < this.seatCount();
+        return this.getPassengers().size() < this.seatCount();
     }
 
     @Override
-    protected Vec3d getPassengerAttachmentPos(Entity passenger, EntityDimensions dimensions, float scaleFactor) {
+    protected Vec3 getPassengerAttachmentPoint(Entity passenger, EntityDimensions dimensions, float scaleFactor) {
         // Local space is (sideways, up, forward); rotateY maps it into world space,
         // the same way vanilla boats place their seats.
         //
@@ -2410,26 +3100,100 @@ public class CarEntity extends VehicleEntity {
         // base, their hips sit level with the cabin floor at 0.75 so the legs
         // rest on it, their eyes reach 1.62 — standing height, square in the
         // window band — and the head tops out at 2.0, under the 2.125 ceiling.
-        return this.seatPosition(Math.max(0, this.getPassengerList().indexOf(passenger)))
-                .rotateY(-this.getYaw() * ((float) Math.PI / 180.0F));
+        //
+        // An aircraft carries its seats with it as it noses up or banks, so
+        // the crew stay in the cabin rather than the cabin swinging round them.
+        Vec3 seat = this.seatPosition(Math.max(0, this.getPassengers().indexOf(passenger)));
+        return this.withBodyAttitude(seat, 1.0F).yRot(-this.getYRot() * ((float) Math.PI / 180.0F));
     }
 
     @Override
-    protected double getGravity() {
+    protected void removePassenger(Entity passenger) {
+        super.removePassenger(passenger);
+        // While somebody drove, their client moved the car and ignored the
+        // server's small "moved this much since last time" updates, so it
+        // still counts them from wherever the car was when they got in. Sent
+        // now, the car's exact position resets that, or the car would show
+        // back there after they got out until the next full sync.
+        if (this.level() instanceof net.minecraft.server.level.ServerLevel server) {
+            server.getChunkSource().broadcast(this,
+                    new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(this));
+        }
+    }
+
+    /**
+     * Out through the door beside the seat, onto the ground, the way a boat
+     * puts you on the bank. Vanilla would stand you on the roof. If that side
+     * is walled in, the other door, then out the back or the front.
+     */
+    @Override
+    public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
+        Vec3 seat = this.seatPosition(Math.max(0, this.getPassengers().indexOf(passenger)));
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double door = seat.x < 0.0 ? -1.0 : 1.0;
+        Vec3[] ways = {new Vec3(door, 0.0, 0.0), new Vec3(-door, 0.0, 0.0),
+                new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 0.0, 1.0)};
+        for (Vec3 way : ways) {
+            Vec3 out = way.yRot(-yawRad);
+            // Just clear of the car's (square, unturned) box, whichever way it faces.
+            double reach = (this.getBbWidth() + passenger.getBbWidth() + 0.1) / 2.0
+                    / Math.max(Math.abs(out.x), Math.abs(out.z));
+            // Level with the seat when getting out of a door.
+            Vec3 along = way.x != 0.0 ? new Vec3(0.0, 0.0, seat.z).yRot(-yawRad) : Vec3.ZERO;
+            for (Vec3 offset : new Vec3[]{out.scale(reach).add(along), out.scale(reach)}) {
+                Vec3 found = this.dismountSpot(passenger, this.getX() + offset.x, this.getZ() + offset.z);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return super.getDismountLocationForPassenger(passenger);
+    }
+
+    /** Somewhere to stand at (x, z), near the car's own height and clear of it, or null. */
+    private Vec3 dismountSpot(LivingEntity passenger, double x, double z) {
+        BlockPos base = BlockPos.containing(x, this.getY() + 0.5, z);
+        for (BlockPos pos : new BlockPos[]{base, base.below(), base.above()}) {
+            double floor = this.level().getBlockFloorHeight(pos);
+            if (!net.minecraft.world.entity.vehicle.DismountHelper.isBlockFloorValid(floor)) {
+                continue;
+            }
+            Vec3 at = new Vec3(x, pos.getY() + floor, z);
+            for (net.minecraft.world.entity.Pose pose : passenger.getDismountPoses()) {
+                net.minecraft.world.phys.AABB box = passenger.getLocalBoundsForPose(pose).move(at);
+                if (!box.intersects(this.getBoundingBox())
+                        && net.minecraft.world.entity.vehicle.DismountHelper.canDismountTo(
+                                this.level(), passenger, box)) {
+                    passenger.setPose(pose);
+                    return at;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    protected double getDefaultGravity() {
         // Entity.getGravity() is 0 by default; vehicles have to opt in, as boats do.
         return 0.04;
     }
 
     @Override
-    public float getStepHeight() {
-        return 0.6F;
+    public float maxUpStep() {
+        // A block, as a wheel this size rides up a kerb: the land is made of them.
+        return 1.0F;
     }
 
     @Override
-    public boolean isCollidable(@Nullable Entity entity) {
+    public boolean canBeCollidedWith() {
+        return true;
+    }
+
+    @Override
+    public boolean canCollideWith(Entity entity) {
         // A car and the trailer on its hitch overlap on a tight turn; they
         // must not shove each other apart.
-        return entity == null || !this.hitchedWith(entity);
+        return !this.hitchedWith(entity) && super.canCollideWith(entity);
     }
 
     @Override
@@ -2438,17 +3202,17 @@ public class CarEntity extends VehicleEntity {
     }
 
     @Override
-    public boolean canHit() {
+    public boolean isPickable() {
         return true;
     }
 
     @Override
-    protected Entity.MoveEffect getMoveEffect() {
-        return Entity.MoveEffect.EVENTS;
+    protected Entity.MovementEmission getMovementEmission() {
+        return Entity.MovementEmission.EVENTS;
     }
 
     @Override
-    protected Item asItem() {
+    protected Item getDropItem() {
         return ModItems.CAR;
     }
 
@@ -2470,7 +3234,7 @@ public class CarEntity extends VehicleEntity {
 
     private me.trossty.car.vehicle.@Nullable VehicleDefinition fillerOf;
     private boolean fillerKnown;
-    private @Nullable Vec3d filler;
+    private @Nullable Vec3 filler;
 
     /**
      * Where the filler cap is, in the car's own frame (+x left, +z forward,
@@ -2481,20 +3245,20 @@ public class CarEntity extends VehicleEntity {
      * is on the saddle tank ahead of its back wheels; a bike's is on top of its
      * tank, in front of the rider.
      */
-    public @Nullable Vec3d fillerOffset() {
+    public @Nullable Vec3 fillerOffset() {
         me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
         if (!this.fillerKnown || defined != this.fillerOf) {
             this.fillerOf = defined;
             this.fillerKnown = true;
-            this.filler = findFiller(defined, this.getWidth());
+            this.filler = findFiller(defined, this.getBbWidth());
         }
         return this.filler;
     }
 
-    private static @Nullable Vec3d findFiller(me.trossty.car.vehicle.@Nullable VehicleDefinition defined,
+    private static @Nullable Vec3 findFiller(me.trossty.car.vehicle.@Nullable VehicleDefinition defined,
                                               float width) {
         if (defined == null || defined.wheels().isEmpty()) {
-            return new Vec3d(width / 2.0, 0.8, -0.9);
+            return new Vec3(width / 2.0, 0.8, -0.9);
         }
         if (defined.tank() <= 0.0F) {
             return null;
@@ -2523,7 +3287,7 @@ public class CarEntity extends VehicleEntity {
                     top = Math.max(top, Math.max(box.from().y(), box.to().y()) / 16.0);
                 }
             }
-            return new Vec3d(0.0, (top > 0.0 ? top : wheelTop + 0.3) + 0.03, z);
+            return new Vec3(0.0, (top > 0.0 ? top : wheelTop + 0.3) + 0.03, z);
         }
 
         double z;
@@ -2541,7 +3305,7 @@ public class CarEntity extends VehicleEntity {
                 side = Math.max(side, Math.max(Math.abs(box.from().x()), Math.abs(box.to().x())) / 16.0);
             }
         }
-        return new Vec3d((side > 0.0 ? side : width / 2.0) + 0.02, y, z);
+        return new Vec3((side > 0.0 ? side : width / 2.0) + 0.02, y, z);
     }
 
     private static boolean spans(float a, float b, double value) {
@@ -2549,37 +3313,37 @@ public class CarEntity extends VehicleEntity {
     }
 
     /** The filler cap in the world, or null when there is none. */
-    public @Nullable Vec3d fillerPos() {
-        Vec3d offset = this.fillerOffset();
-        return offset == null ? null : this.getEntityPos().add(
-                offset.rotateY(-this.getYaw() * ((float) Math.PI / 180.0F)));
+    public @Nullable Vec3 fillerPos() {
+        Vec3 offset = this.fillerOffset();
+        return offset == null ? null : this.position().add(
+                offset.yRot(-this.getYRot() * ((float) Math.PI / 180.0F)));
     }
 
     /** Whether the player is pointing at this car's filler cap from within reach. */
-    public boolean isFillerInSight(PlayerEntity player) {
-        Vec3d cap = this.fillerPos();
-        if (cap == null || player.hasVehicle()) {
+    public boolean isFillerInSight(Player player) {
+        Vec3 cap = this.fillerPos();
+        if (cap == null || player.isPassenger()) {
             return false;
         }
-        Vec3d eye = player.getEyePos();
-        Vec3d look = player.getRotationVector();
-        Vec3d toCap = cap.subtract(eye);
-        double along = toCap.dotProduct(look);
-        if (along < 0.0 || along > player.getEntityInteractionRange() + 0.5) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getLookAngle();
+        Vec3 toCap = cap.subtract(eye);
+        double along = toCap.dot(look);
+        if (along < 0.0 || along > player.entityInteractionRange() + 0.5) {
             return false;
         }
-        return toCap.subtract(look.multiply(along)).lengthSquared() <= FILLER_RADIUS * FILLER_RADIUS;
+        return toCap.subtract(look.scale(along)).lengthSqr() <= FILLER_RADIUS * FILLER_RADIUS;
     }
 
     /** The car whose filler cap the player is pointing at, the nearest if two. */
-    public static @Nullable CarEntity fillerInSight(PlayerEntity player) {
-        double reach = player.getEntityInteractionRange() + 3.0;
+    public static @Nullable CarEntity fillerInSight(Player player) {
+        double reach = player.entityInteractionRange() + 3.0;
         CarEntity best = null;
         double nearest = Double.MAX_VALUE;
-        for (CarEntity car : player.getEntityWorld().getEntitiesByClass(
-                CarEntity.class, player.getBoundingBox().expand(reach), CarEntity::isAlive)) {
+        for (CarEntity car : player.level().getEntitiesOfClass(
+                CarEntity.class, player.getBoundingBox().inflate(reach), CarEntity::isAlive)) {
             if (car.isFillerInSight(player)) {
-                double distance = car.fillerPos().squaredDistanceTo(player.getEyePos());
+                double distance = car.fillerPos().distanceToSqr(player.getEyePosition());
                 if (distance < nearest) {
                     nearest = distance;
                     best = car;
@@ -2599,9 +3363,9 @@ public class CarEntity extends VehicleEntity {
      * other way, draws it off into an empty can, which is how the wrong fuel
      * comes back out. Returns the units moved; nothing means stop.
      */
-    public int pourFrom(PlayerEntity player, ItemStack can, boolean siphon) {
+    public int pourFrom(Player player, ItemStack can, boolean siphon) {
         if (this.isElectric()) {
-            player.sendMessage(Text.translatable("message.car.no_filler"), true);
+            player.displayClientMessage(Component.translatable("message.car.no_filler"), true);
             return 0;
         }
         if (siphon) {
@@ -2624,8 +3388,8 @@ public class CarEntity extends VehicleEntity {
         float accepted = this.addFuel(pour, fuelIn(can), isRaw(can));
         if (accepted <= 0.0F) {
             if (this.hasFuel() && this.getTankFuel() != fuelIn(can)) {
-                player.sendMessage(Text.translatable("message.car.tank_holds",
-                        Text.translatable("fuel.car." + this.getTankFuel().key())), true);
+                player.displayClientMessage(Component.translatable("message.car.tank_holds",
+                        Component.translatable("fuel.car." + this.getTankFuel().key())), true);
             }
             return 0;
         }
@@ -2639,42 +3403,42 @@ public class CarEntity extends VehicleEntity {
      * What a tick of filling sounds and looks like: a thin amber stream into
      * the cap, a glug every few ticks, the gauge on the action bar.
      */
-    public void fillingTick(PlayerEntity player, int ticks, boolean siphon) {
-        Vec3d cap = this.fillerPos();
-        if (cap == null || !(this.getEntityWorld() instanceof ServerWorld world)) {
+    public void fillingTick(Player player, int ticks, boolean siphon) {
+        Vec3 cap = this.fillerPos();
+        if (cap == null || !(this.level() instanceof ServerLevel world)) {
             return;
         }
         if (!siphon) {
-            world.spawnParticles(ParticleTypes.FALLING_HONEY,
+            world.sendParticles(ParticleTypes.FALLING_HONEY,
                     cap.x, cap.y + 0.14, cap.z, 1, 0.02, 0.03, 0.02, 0.0);
         }
         if (ticks % 4 == 0) {
             world.playSound(null, cap.x, cap.y, cap.z,
-                    siphon ? SoundEvents.ITEM_BOTTLE_FILL : SoundEvents.ITEM_BOTTLE_EMPTY,
-                    SoundCategory.NEUTRAL, 0.45F, 0.8F + this.random.nextFloat() * 0.35F);
+                    siphon ? SoundEvents.BOTTLE_FILL : SoundEvents.BOTTLE_EMPTY,
+                    SoundSource.NEUTRAL, 0.45F, 0.8F + this.random.nextFloat() * 0.35F);
         }
         if (ticks % 5 == 0) {
-            player.sendMessage(Text.translatable("message.car.tank_level", this.tankReading()), true);
+            player.displayClientMessage(Component.translatable("message.car.tank_level", this.tankReading()), true);
         }
     }
 
     /** The flow stopped by itself: says why, with a different note for a full tank. */
-    public void fillingStopped(PlayerEntity player) {
-        Vec3d cap = this.fillerPos();
+    public void fillingStopped(Player player) {
+        Vec3 cap = this.fillerPos();
         if (this.isTankFull()) {
-            player.sendMessage(Text.translatable("message.car.tank_full", this.tankReading()), true);
+            player.displayClientMessage(Component.translatable("message.car.tank_full", this.tankReading()), true);
             if (cap != null) {
-                this.getEntityWorld().playSound(null, cap.x, cap.y, cap.z,
-                        SoundEvents.BLOCK_NOTE_BLOCK_BELL.value(), SoundCategory.NEUTRAL, 0.5F, 1.5F);
+                this.level().playSound(null, cap.x, cap.y, cap.z,
+                        SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.NEUTRAL, 0.5F, 1.5F);
             }
         } else {
-            player.sendMessage(Text.translatable("message.car.tank_level", this.tankReading()), true);
+            player.displayClientMessage(Component.translatable("message.car.tank_level", this.tankReading()), true);
         }
     }
 
     /** "34 / 50 L", for the action bar. */
-    public Text tankReading() {
-        return Text.translatable("unit.car.litres_of",
+    public Component tankReading() {
+        return Component.translatable("unit.car.litres_of",
                 me.trossty.car.item.JerryCans.litres(this.getFuel()),
                 me.trossty.car.item.JerryCans.litres(this.getMaxFuel()));
     }
@@ -2683,80 +3447,80 @@ public class CarEntity extends VehicleEntity {
      * A holed tank, stopped with what a Minecraft mechanic has to hand: a
      * slime ball or a piece of honeycomb pressed over the hole. It holds.
      */
-    private ActionResult patchTank(PlayerEntity player, ItemStack patch) {
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+    private InteractionResult patchTank(Player player, ItemStack patch) {
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         this.setLeaking(false);
         if (!player.isCreative()) {
-            patch.decrement(1);
+            patch.shrink(1);
         }
-        this.getEntityWorld().playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
-                patch.isOf(Items.HONEYCOMB) ? SoundEvents.ITEM_HONEYCOMB_WAX_ON : SoundEvents.BLOCK_SLIME_BLOCK_PLACE,
-                SoundCategory.NEUTRAL, 0.9F, 1.0F);
-        player.sendMessage(Text.translatable("message.car.tank_patched"), true);
-        return ActionResult.SUCCESS;
+        this.level().playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
+                patch.is(Items.HONEYCOMB) ? SoundEvents.HONEYCOMB_WAX_ON : SoundEvents.SLIME_BLOCK_PLACE,
+                SoundSource.NEUTRAL, 0.9F, 1.0F);
+        player.displayClientMessage(Component.translatable("message.car.tank_patched"), true);
+        return InteractionResult.SUCCESS;
     }
 
     /**
      * Repaints the car. Returns PASS when it is already that colour, so the
      * click falls through to mounting and the dye is not wasted.
      */
-    private ActionResult paintWith(PlayerEntity player, ItemStack dyeStack, DyeColor color) {
+    private InteractionResult paintWith(Player player, ItemStack dyeStack, DyeColor color) {
         if (this.getColor() == color && this.getPaint() < 0) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         this.setColor(color);
         if (!player.isCreative()) {
-            dyeStack.decrement(1);
+            dyeStack.shrink(1);
         }
-        this.getEntityWorld().playSound(
+        this.level().playSound(
                 null,
                 this.getX(), this.getY() + 0.8, this.getZ(),
-                SoundEvents.ITEM_DYE_USE,
-                SoundCategory.NEUTRAL,
+                SoundEvents.DYE_USE,
+                SoundSource.NEUTRAL,
                 1.0F,
                 1.0F);
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     /**
      * Sprays the whole body in the can's colour. Unlike a dye this always
      * claims the click, so an empty can tells you so instead of seating you.
      */
-    private ActionResult sprayWith(PlayerEntity player, ItemStack can) {
-        World world = this.getEntityWorld();
+    private InteractionResult sprayWith(Player player, ItemStack can) {
+        Level world = this.level();
         Integer colour = me.trossty.car.item.SprayCanItem.colourOf(can);
         if (colour == null || me.trossty.car.item.SprayCanItem.isEmpty(can)) {
-            if (!world.isClient()) {
-                player.sendMessage(Text.translatable(colour == null
+            if (!world.isClientSide()) {
+                player.displayClientMessage(Component.translatable(colour == null
                         ? "message.car.spray_no_colour" : "message.car.spray_empty"), true);
             }
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         if (this.getPaint() == colour) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         this.setPaint(colour);
         if (!player.isCreative()) {
             me.trossty.car.item.SprayCanItem.use(can);
         }
-        if (world instanceof ServerWorld server) {
-            net.minecraft.particle.DustParticleEffect dust =
-                    new net.minecraft.particle.DustParticleEffect(colour, 1.4F);
-            server.spawnParticles(dust, this.getX(), this.getY() + this.getHeight() * 0.6,
-                    this.getZ(), 40, this.getWidth() * 0.45, this.getHeight() * 0.35,
-                    this.getWidth() * 0.45, 0.0);
+        if (world instanceof ServerLevel server) {
+            net.minecraft.core.particles.DustParticleOptions dust =
+                    new net.minecraft.core.particles.DustParticleOptions(net.minecraft.world.phys.Vec3.fromRGB24(colour).toVector3f(), 1.4F);
+            server.sendParticles(dust, this.getX(), this.getY() + this.getBbHeight() * 0.6,
+                    this.getZ(), 40, this.getBbWidth() * 0.45, this.getBbHeight() * 0.35,
+                    this.getBbWidth() * 0.45, 0.0);
         }
         world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
-                SoundEvents.ENTITY_GENERIC_EXTINGUISH_FIRE, SoundCategory.NEUTRAL, 0.5F, 1.8F);
-        return ActionResult.SUCCESS;
+                SoundEvents.GENERIC_EXTINGUISH_FIRE, SoundSource.NEUTRAL, 0.5F, 1.8F);
+        return InteractionResult.SUCCESS;
     }
 
     /**
@@ -2765,15 +3529,15 @@ public class CarEntity extends VehicleEntity {
      * stood. Unloading and changing dimension keep it, as they should.
      */
     @Override
-    public void onRemove(Entity.RemovalReason reason) {
-        if (reason.shouldDestroy() && this.getEntityWorld() instanceof ServerWorld world) {
+    public void remove(Entity.RemovalReason reason) {
+        if (reason.shouldDestroy() && this.level() instanceof ServerLevel world) {
             this.spillCargo(world);
         }
-        super.onRemove(reason);
+        super.remove(reason);
     }
 
     /** Puts whatever the vehicle carries on the ground. Nothing, for a plain car. */
-    protected void spillCargo(ServerWorld world) {
+    protected void spillCargo(ServerLevel world) {
     }
 
     /** The four conditions as whole percents, in {@link CarPart} order. */
@@ -2794,15 +3558,15 @@ public class CarEntity extends VehicleEntity {
     }
 
     public float getHealth() {
-        return this.dataTracker.get(HEALTH);
+        return this.entityData.get(HEALTH);
     }
 
     public float getHealthFraction() {
-        return MathHelper.clamp(this.getHealth() / MAX_HEALTH, 0.0F, 1.0F);
+        return Mth.clamp(this.getHealth() / MAX_HEALTH, 0.0F, 1.0F);
     }
 
     public void setHealth(float health) {
-        this.dataTracker.set(HEALTH, MathHelper.clamp(health, 0.0F, MAX_HEALTH));
+        this.entityData.set(HEALTH, Mth.clamp(health, 0.0F, MAX_HEALTH));
     }
 
     /**
@@ -2812,7 +3576,7 @@ public class CarEntity extends VehicleEntity {
      */
     public float getMaxSpeed() {
         return (this.towingTicks > 0 && this.towed != null ? this.towed.towFactor() : 1.0F)
-                * this.tuning().speed() * MathHelper.lerp(this.getHealthFraction(), MAX_SPEED * WRECKED_SPEED_FACTOR, MAX_SPEED)
+                * this.tuning().speed() * Mth.lerp(this.getHealthFraction(), MAX_SPEED * WRECKED_SPEED_FACTOR, MAX_SPEED)
                 * this.partFactor(CarPart.ENGINE, WORN_ENGINE_SPEED)
                 * this.partFactor(CarPart.AIR_FILTER, WORN_FILTER_SPEED, MISSING_FILTER_SPEED)
                 * this.partFactor(CarPart.EXHAUST, WORN_EXHAUST_SPEED, MISSING_EXHAUST_SPEED)
@@ -2828,13 +3592,32 @@ public class CarEntity extends VehicleEntity {
                 * (this.isOverheating() ? OVERHEATING_POWER : 1.0F);
     }
 
-    // ---- gearbox, as the dashboard and the engine note see it ----
+    // ---- automatic gearbox ----
 
-    /** Forward gears. The driveline itself is continuous; the gears are what the driver hears and reads. */
+    /** Forward gears. */
     public static final int GEARS = 5;
-    /** Revs the box changes up at, as a share of the redline. */
-    private static final float UPSHIFT = 0.92F;
+    /**
+     * How much of the top speed each gear reaches at the redline. Short low
+     * gears, long high ones, as in a real box: first is over in a moment,
+     * fifth takes its time.
+     */
+    private static final float[] GEAR_TOP = {0.24F, 0.42F, 0.61F, 0.81F, 1.0F};
+    /** How hard each gear pulls, against the plain throttle step: first shoves, fifth leans. */
+    private static final float[] GEAR_PULL = {1.45F, 1.1F, 0.85F, 0.68F, 0.55F};
+    /** Revs, as a share of the redline, the box changes up at, and down at. */
+    private static final float UPSHIFT = 0.9F;
+    private static final float DOWNSHIFT = 0.36F;
+    /** How long a change takes, in ticks; the drive is mostly cut while it happens. */
+    private static final int SHIFT_TICKS = 6;
+    private static final float SHIFT_DRIVE = 0.2F;
     private static final float IDLE_RPM = 850.0F;
+    /** The pull of a single fixed ratio: about what the five gears give over a run to top speed. */
+    private static final float DIRECT_PULL = 1.0F;
+
+    /** The forward gear the box is in, 1 to {@link #GEARS}. Each side keeps its own. */
+    private int driveGear = 1;
+    private int shiftFromGear = 1;
+    private int shiftTicks;
 
     /**
      * What this car is built to do flat out: its body, engine, fuel, turbo and
@@ -2863,33 +3646,91 @@ public class CarEntity extends VehicleEntity {
         if (!this.isEngineRunning()) {
             return 0;
         }
-        float speed = this.getEngineSpeed();
-        if (speed < -0.005F) {
-            return -1;
-        }
-        float fraction = Math.abs(speed) / Math.max(0.01F, this.getRatedTopSpeed());
-        for (int gear = 1; gear < GEARS; gear++) {
-            if (fraction <= UPSHIFT * gear / GEARS) {
-                return gear;
-            }
-        }
-        return GEARS;
+        return this.getEngineSpeed() < -0.005F ? -1 : this.driveGear;
+    }
+
+    /** How far through a gear change the box is: 1 as it starts, 0 when it is done or not changing. */
+    public float getShift() {
+        return (float) this.shiftTicks / SHIFT_TICKS;
     }
 
     /**
-     * Engine revs. Each gear spans an even slice of the top speed, so the needle
-     * climbs to the change-up point, drops as the next gear goes in, and climbs
-     * again; reverse is geared like first.
+     * Whether there are gears to change at all. An electric motor pulls from
+     * nothing to flat out on one ratio, a propeller sits on the crankshaft and
+     * an outboard has forward and reverse only: none of them ever shifts.
+     */
+    public boolean hasGearbox() {
+        return !this.isElectric();
+    }
+
+    /** How hard the engine can push right now, against the plain throttle step. */
+    private float gearPull() {
+        if (!this.hasGearbox()) {
+            return DIRECT_PULL;
+        }
+        float pull = GEAR_PULL[this.driveGear - 1];
+        return this.shiftTicks > 0 ? pull * SHIFT_DRIVE : pull;
+    }
+
+    /** Engine revs in {@code gear} at the speed the car is doing. */
+    private float rpmIn(int gear) {
+        float fraction = Math.abs(this.getEngineSpeed()) / Math.max(0.01F, this.getRatedTopSpeed());
+        float redline = this.getRedlineRpm();
+        float top = this.hasGearbox() ? GEAR_TOP[gear - 1] : 1.0F;
+        return Mth.clamp(IDLE_RPM + (redline - IDLE_RPM) * fraction / top,
+                IDLE_RPM, redline * 1.04F);
+    }
+
+    /**
+     * Changes up near the redline and down when the revs sag, like an
+     * automatic, and takes a moment over each change. Run on every side from
+     * the speed that side sees, so the driver's needle, their engine note and
+     * a bystander's all change gear together.
+     */
+    private void tickGearbox() {
+        if (this.shiftTicks > 0) {
+            this.shiftTicks--;
+            return;
+        }
+        if (!this.isEngineRunning() || this.getEngineSpeed() < -0.005F || !this.hasGearbox()) {
+            this.driveGear = 1;
+            return;
+        }
+        float revs = this.rpmIn(this.driveGear) / this.getRedlineRpm();
+        if (revs >= UPSHIFT && this.driveGear < GEARS) {
+            this.changeGear(this.driveGear + 1);
+        } else if (this.driveGear > 1 && this.rpmIn(this.driveGear - 1) / this.getRedlineRpm() < UPSHIFT - 0.1F
+                && revs < DOWNSHIFT) {
+            this.changeGear(this.driveGear - 1);
+        }
+    }
+
+    private void changeGear(int gear) {
+        this.shiftFromGear = this.driveGear;
+        this.driveGear = gear;
+        this.shiftTicks = SHIFT_TICKS;
+    }
+
+    /**
+     * Engine revs. They climb through each gear to the change, fall as the
+     * next goes in — quickly, but not in one frame — and climb again; reverse
+     * is geared like first.
      */
     public float getEngineRpm() {
         int gear = this.getGear();
         if (gear == 0) {
             return 0.0F;
         }
-        float fraction = Math.abs(this.getEngineSpeed()) / Math.max(0.01F, this.getRatedTopSpeed());
-        float span = (float) Math.max(1, Math.abs(gear)) / GEARS;
-        float redline = this.getRedlineRpm();
-        return MathHelper.clamp(IDLE_RPM + (redline - IDLE_RPM) * fraction / span, IDLE_RPM, redline * 1.04F);
+        if (gear < 0) {
+            return this.rpmIn(1);
+        }
+        float rpm = this.rpmIn(gear);
+        if (this.shiftTicks > 0) {
+            // Over the first half of the change the revs swing to the new gear's.
+            float left = Math.min(1.0F, (this.shiftTicks - SHIFT_TICKS / 2.0F) / (SHIFT_TICKS / 2.0F));
+            rpm = Mth.lerp(Math.max(0.0F, left), rpm, this.rpmIn(this.shiftFromGear));
+        }
+        return rpm;
     }
 
     /**
@@ -2910,34 +3751,39 @@ public class CarEntity extends VehicleEntity {
      * away without giving anything back.
      */
     @Override
-    public boolean damage(ServerWorld world, DamageSource source, float amount) {
-        if (this.isRemoved()) {
+    public boolean hurt(DamageSource source, float amount) {
+        if (!(this.level() instanceof ServerLevel world) || this.isRemoved()) {
             return true;
         }
-        if (this.isAlwaysInvulnerableTo(source)) {
+        if (this.isInvulnerableTo(source)) {
             return false;
         }
         // A car once put down stays a car: nobody picks it back up. A
         // player's blows dent it like anything else, and enough of them wreck
         // it for scrap. Only a creative player can clear one away, and even
         // then nothing comes back as an item.
-        if (source.isDirect() && source.getAttacker() instanceof PlayerEntity player && player.isCreative()) {
-            if (!this.hasPassengers()) {
+        if (source.isDirect() && source.getEntity() instanceof Player player && player.isCreative()) {
+            if (!this.isVehicle()) {
                 this.discard();
             }
             return true;
+        }
+        // A fist or a sword is no crowbar: it takes a good while to beat a car
+        // to scrap by hand, where a blast or a falling anvil does it quickly.
+        if (source.isDirect() && source.getEntity() instanceof Player) {
+            amount *= PLAYER_BLOW;
         }
         this.applyCarDamage(world, amount);
         return true;
     }
 
     @Override
-    public boolean handleFallDamage(double fallDistance, float damagePerDistance, DamageSource damageSource) {
-        if (fallDistance > SAFE_FALL_BLOCKS && this.getEntityWorld() instanceof ServerWorld world) {
+    public boolean causeFallDamage(float fallDistance, float damagePerDistance, DamageSource damageSource) {
+        if (fallDistance > SAFE_FALL_BLOCKS && this.level() instanceof ServerLevel world) {
             this.applyCarDamage(world, (float) (fallDistance - SAFE_FALL_BLOCKS) * FALL_DAMAGE_PER_BLOCK);
         }
         // Still hands the drop on to whoever was inside, as vanilla vehicles do.
-        return super.handleFallDamage(fallDistance, damagePerDistance, damageSource);
+        return super.causeFallDamage(fallDistance, damagePerDistance, damageSource);
     }
 
     /**
@@ -2961,27 +3807,50 @@ public class CarEntity extends VehicleEntity {
      * @param requested the movement asked of {@link #move}
      * @param from      where the car stood before that move
      */
-    private void checkForCrash(Vec3d requested, Vec3d from) {
+    private void checkForCrash(Vec3 requested, Vec3 from) {
         if (this.crashCooldown > 0 || !this.horizontalCollision) {
             return;
         }
-        double covered = this.getEntityPos().subtract(from).horizontalLength();
-        float blocked = (float) (requested.horizontalLength() - covered);
+        double covered = this.position().subtract(from).horizontalDistance();
+        float blocked = (float) (requested.horizontalDistance() - covered);
         if (blocked < MIN_CRASH_SPEED) {
             return;
         }
         // Dead stop. Without it the throttle keeps shoving the car into the
         // wall and the same impact is billed again on the following tick.
-        this.speed = 0.0F;
-        this.setVelocity(0.0, this.getVelocity().y, 0.0);
+        this.flyDist = 0.0F;
+        this.setDeltaMovement(0.0, this.getDeltaMovement().y, 0.0);
         this.crashCooldown = CRASH_COOLDOWN;
 
-        float amount = (blocked - MIN_CRASH_SPEED) * CRASH_DAMAGE_PER_SPEED;
-        if (this.getEntityWorld() instanceof ServerWorld world) {
+        this.reportImpact((blocked - MIN_CRASH_SPEED) * CRASH_DAMAGE_PER_SPEED * this.crashFragility());
+    }
+
+    /** How much worse than a car's a crash is for this one: a light airframe crumples. */
+    protected float crashFragility() {
+        return 1.0F;
+    }
+
+    /**
+     * Bills an impact the simulating side saw: applied here on the server,
+     * reported to it from a driving client.
+     */
+    protected void reportImpact(float amount) {
+        if (amount <= 0.0F) {
+            return;
+        }
+        this.crashCooldown = CRASH_COOLDOWN;
+        if (this.level() instanceof ServerLevel world) {
+            // The people first: a wreck throws them out, and then nobody is inside to hurt.
+            this.hurtOccupants(amount);
             this.applyCarDamage(world, amount);
         } else {
             CarNetworking.reportCrash(amount);
         }
+    }
+
+    /** True while a crash was billed a moment ago: the same impact is not billed twice. */
+    protected boolean recentlyCrashed() {
+        return this.crashCooldown > 0;
     }
 
     /**
@@ -2989,12 +3858,32 @@ public class CarEntity extends VehicleEntity {
      * client, so it is capped: the worst a tampered-with client can do is wreck
      * the car it is sitting in, which it could manage by driving into a wall.
      */
-    public void applyReportedCrash(ServerWorld world, float amount) {
+    public void applyReportedCrash(ServerLevel world, float amount) {
         if (this.crashCooldown > 0) {
             return;
         }
         this.crashCooldown = CRASH_COOLDOWN;
-        this.applyCarDamage(world, MathHelper.clamp(amount, 0.0F, MAX_HEALTH));
+        float capped = Mth.clamp(amount, 0.0F, MAX_HEALTH);
+        this.hurtOccupants(capped);
+        this.applyCarDamage(world, capped);
+    }
+
+    /** Below this much crash damage to the car, the people inside only feel a jolt. */
+    private static final float OCCUPANT_HARMLESS = 2.0F;
+    /** Of the crash damage past that, the share each person inside takes. */
+    private static final float OCCUPANT_SHARE = 0.6F;
+
+    /** A hard crash shakes up whoever is inside, belted in or not. */
+    private void hurtOccupants(float amount) {
+        float hurt = (amount - OCCUPANT_HARMLESS) * OCCUPANT_SHARE;
+        if (hurt <= 0.0F) {
+            return;
+        }
+        for (Entity passenger : this.getPassengers()) {
+            if (passenger instanceof LivingEntity living) {
+                living.hurt(this.damageSources().flyIntoWall(), hurt);
+            }
+        }
     }
 
     /**
@@ -3003,7 +3892,7 @@ public class CarEntity extends VehicleEntity {
      * vanilla's rule of breaking once the wobble passes 40, which would have
      * healed itself a point a tick.
      */
-    private void applyCarDamage(ServerWorld world, float amount) {
+    private void applyCarDamage(ServerLevel world, float amount) {
         if (amount <= 0.0F || this.isRemoved()) {
             return;
         }
@@ -3014,28 +3903,30 @@ public class CarEntity extends VehicleEntity {
         // in the state they were in when it arrived, not the state it left them.
         amount *= this.partFactor(CarPart.SUSPENSION, WORN_SPRING_HARSHNESS);
         this.wear(CarPart.SUSPENSION, amount * SUSPENSION_WEAR_PER_DAMAGE);
-        this.setDamageWobbleSide(-this.getDamageWobbleSide());
-        this.setDamageWobbleTicks(10);
-        this.setDamageWobbleStrength(Math.min(this.getDamageWobbleStrength() + amount * 10.0F, 40.0F));
-        this.scheduleVelocityUpdate();
+        this.setHurtDir(-this.getHurtDir());
+        this.setHurtTime(10);
+        this.setDamage(Math.min(this.getDamage() + amount * 10.0F, 40.0F));
+        this.markHurt();
 
         // A hard enough knock holes the tank. It is not the end of the car,
         // but it is the end of the journey unless somebody patches it.
+        // One that wrecks it outright needs no word about the tank.
         if (!this.isLeaking() && this.getMaxFuel() > 0.0F && amount >= PUNCTURE_MIN_DAMAGE
+                && this.getHealth() - amount > 0.0F
                 && this.random.nextFloat() < Math.min(PUNCTURE_MAX_CHANCE,
                         (amount - PUNCTURE_MIN_DAMAGE + 1.0F) / PUNCTURE_SPREAD)) {
             this.setLeaking(true);
             world.playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
-                    SoundEvents.ENTITY_ITEM_BREAK.value(), SoundCategory.NEUTRAL, 0.9F, 0.6F);
-            if (this.getControllingPassenger() instanceof PlayerEntity driver) {
-                driver.sendMessage(Text.translatable("message.car.tank_holed"), true);
+                    SoundEvents.ITEM_BREAK, SoundSource.NEUTRAL, 0.9F, 0.6F);
+            if (this.getControllingPassenger() instanceof Player driver) {
+                driver.displayClientMessage(Component.translatable("message.car.tank_holed"), true);
             }
         }
 
         float health = this.getHealth() - amount;
         this.setHealth(health);
         world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
-                SoundEvents.ENTITY_IRON_GOLEM_DAMAGE, SoundCategory.NEUTRAL, 0.8F, 1.3F);
+                SoundEvents.IRON_GOLEM_DAMAGE, SoundSource.NEUTRAL, 0.8F, 1.3F);
         if (health <= 0.0F) {
             this.wreck(world);
         }
@@ -3045,14 +3936,19 @@ public class CarEntity extends VehicleEntity {
      * The car falls apart. It leaves scrap rather than the car item, so wrecking
      * one actually costs you something.
      */
-    private void wreck(ServerWorld world) {
+    /** Anything more a wreck makes of itself than smoke and a crunch: nothing, for a car. */
+    protected void wreckEffects(ServerLevel world) {
+    }
+
+    private void wreck(ServerLevel world) {
         world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
-                SoundEvents.BLOCK_ANVIL_DESTROY, SoundCategory.NEUTRAL, 0.9F, 0.8F);
-        world.spawnParticles(ParticleTypes.LARGE_SMOKE,
+                SoundEvents.ANVIL_DESTROY, SoundSource.NEUTRAL, 0.9F, 0.8F);
+        world.sendParticles(ParticleTypes.LARGE_SMOKE,
                 this.getX(), this.getY() + 0.9, this.getZ(), 30, 0.5, 0.4, 0.5, 0.02);
-        this.kill(world);
-        if (world.getGameRules().getValue(GameRules.ENTITY_DROPS)) {
-            this.dropStack(world, new ItemStack(Items.IRON_INGOT, WRECK_SCRAP));
+        this.wreckEffects(world);
+        this.kill();
+        if (world.getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS)) {
+            this.spawnAtLocation(new ItemStack(Items.IRON_INGOT, WRECK_SCRAP));
         }
     }
 
@@ -3062,32 +3958,71 @@ public class CarEntity extends VehicleEntity {
      * only outward sign that a parked car with somebody in it is still running.
      */
     private void emitExhaust() {
-        if (!this.isEngineRunning()) {
+        float speed = Math.abs(this.getEngineSpeed());
+        float gained = speed - this.exhaustSpeed;
+        this.exhaustSpeed = speed;
+        if (!this.isEngineRunning() || this.isElectric()) {
+            // A battery and a motor have no tailpipe.
             return;
         }
-        float speed = Math.abs(this.getEngineSpeed());
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        Vec3 at = this.position().add(this.exhaustOffset().yRot(-yawRad));
+        // Trails out behind the car rather than hanging where it was made.
+        double drift = -0.04 - speed * 0.5;
+        double driftX = -Mth.sin(yawRad) * drift;
+        double driftZ = Mth.cos(yawRad) * drift;
+
+        // A diesel worked hard off the line blows a cloud of soot.
+        if (gained > DIESEL_SOOT_GAIN && !this.getEngineFuel().needsSpark() && this.random.nextInt(2) == 0) {
+            for (int i = 0; i < 2; i++) {
+                this.level().addParticle(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z,
+                        driftX + (this.random.nextDouble() - 0.5) * 0.04, 0.03,
+                        driftZ + (this.random.nextDouble() - 0.5) * 0.04);
+            }
+        }
         if (this.random.nextInt(speed < 0.05F ? 7 : 2) != 0) {
             return;
         }
+        // A worn engine burns its oil: thick smoke, worse the harder it works.
+        boolean burningOil = this.hasPart(CarPart.ENGINE)
+                && this.getConditionFraction(CarPart.ENGINE) <= FaultCodes.WARNING;
+        // Cold, the water in the exhaust comes out as white steam until it warms through.
+        boolean cold = this.getEngineTemp() < COLD_EXHAUST;
+        this.level().addParticle(
+                burningOil ? ParticleTypes.LARGE_SMOKE
+                        : cold ? ParticleTypes.WHITE_SMOKE
+                        : speed > 0.25F ? ParticleTypes.SMOKE : ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                at.x, at.y, at.z, driftX, 0.015, driftZ);
+    }
 
-        float yawRad = this.getYaw() * ((float) Math.PI / 180.0F);
-        Vec3d at = this.getEntityPos()
-                .add(new Vec3d(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK).rotateY(-yawRad));
-        // Trails out behind the car rather than hanging where it was made.
-        double drift = -0.04 - speed * 0.5;
-        this.getEntityWorld().addParticleClient(
-                speed > 0.25F ? ParticleTypes.SMOKE : ParticleTypes.CAMPFIRE_COSY_SMOKE,
-                at.x, at.y, at.z,
-                -MathHelper.sin(yawRad) * drift, 0.015, MathHelper.cos(yawRad) * drift);
+    /**
+     * Where the tailpipe ends, in the vehicle's own frame (x across, z towards
+     * the front, in blocks): just behind its own tail, so a long lorry does not
+     * puff from the middle of its load bed and a scooter not from thin air.
+     */
+    protected Vec3 exhaustOffset() {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        if (defined != this.exhaustFor) {
+            this.exhaustFor = defined;
+            this.exhaustAt = new Vec3(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK);
+            if (defined != null) {
+                float rear = Float.MAX_VALUE;
+                for (me.trossty.car.vehicle.VehicleDefinition.Box box : defined.shape()) {
+                    rear = Math.min(rear, Math.min(box.from().z(), box.to().z()));
+                }
+                double side = Math.min(EXHAUST_SIDEWAYS, defined.width() / 2.0 - 0.15);
+                this.exhaustAt = new Vec3(side, EXHAUST_HEIGHT, rear / 16.0 - 0.05);
+            }
+        }
+        return this.exhaustAt;
     }
 
     /** A black puff out of the tailpipe: the engine coughing on air. */
     private void coughExhaust() {
-        float yawRad = this.getYaw() * ((float) Math.PI / 180.0F);
-        Vec3d at = this.getEntityPos()
-                .add(new Vec3d(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK).rotateY(-yawRad));
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        Vec3 at = this.position().add(this.exhaustOffset().yRot(-yawRad));
         for (int i = 0; i < 4; i++) {
-            this.getEntityWorld().addParticleClient(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z,
+            this.level().addParticle(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z,
                     (this.random.nextDouble() - 0.5) * 0.05, 0.02, (this.random.nextDouble() - 0.5) * 0.05);
         }
     }
@@ -3109,14 +4044,14 @@ public class CarEntity extends VehicleEntity {
             // Clear of the tyre, so the drip is not hidden behind it.
             back += 0.6;
         }
-        double side = this.getWidth() / 2.0 - 0.12;
-        float yawRad = this.getYaw() * ((float) Math.PI / 180.0F);
-        Vec3d at = this.getEntityPos().add(new Vec3d(
-                side, 0.45, back + (this.random.nextDouble() - 0.5) * 0.3).rotateY(-yawRad));
-        this.getEntityWorld().addParticleClient(ParticleTypes.FALLING_HONEY, at.x, at.y, at.z, 0.0, 0.0, 0.0);
+        double side = this.getBbWidth() / 2.0 - 0.12;
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        Vec3 at = this.position().add(new Vec3(
+                side, 0.45, back + (this.random.nextDouble() - 0.5) * 0.3).yRot(-yawRad));
+        this.level().addParticle(ParticleTypes.FALLING_HONEY, at.x, at.y, at.z, 0.0, 0.0, 0.0);
         // A steady drip leaves a wet patch behind it.
         if (this.random.nextInt(4) == 0) {
-            this.getEntityWorld().addParticleClient(ParticleTypes.LANDING_HONEY,
+            this.level().addParticle(ParticleTypes.LANDING_HONEY,
                     at.x + (this.random.nextDouble() - 0.5) * 0.4, this.getY() + 0.02,
                     at.z + (this.random.nextDouble() - 0.5) * 0.4, 0.0, 0.0, 0.0);
         }
@@ -3129,21 +4064,21 @@ public class CarEntity extends VehicleEntity {
      * not look the same from the driver's seat.
      */
     private void emitOverheatSteam() {
-        float yawRad = this.getYaw() * ((float) Math.PI / 180.0F);
-        this.getEntityWorld().addParticleClient(ParticleTypes.CLOUD,
-                this.getX() - MathHelper.sin(yawRad) * 1.3 + (this.random.nextDouble() - 0.5) * 0.6,
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        this.level().addParticle(ParticleTypes.CLOUD,
+                this.getX() - Mth.sin(yawRad) * 1.3 + (this.random.nextDouble() - 0.5) * 0.6,
                 this.getY() + 1.0,
-                this.getZ() + MathHelper.cos(yawRad) * 1.3 + (this.random.nextDouble() - 0.5) * 0.6,
+                this.getZ() + Mth.cos(yawRad) * 1.3 + (this.random.nextDouble() - 0.5) * 0.6,
                 0.0, 0.06, 0.0);
     }
 
     private void emitDamageSmoke() {
-        float yawRad = this.getYaw() * ((float) Math.PI / 180.0F);
-        this.getEntityWorld().addParticleClient(
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        this.level().addParticle(
                 this.getHealthFraction() < 0.15F ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SMOKE,
-                this.getX() - MathHelper.sin(yawRad) * 0.9,
+                this.getX() - Mth.sin(yawRad) * 0.9,
                 this.getY() + 0.8,
-                this.getZ() + MathHelper.cos(yawRad) * 0.9,
+                this.getZ() + Mth.cos(yawRad) * 0.9,
                 0.0, 0.03, 0.0);
     }
 
@@ -3151,57 +4086,58 @@ public class CarEntity extends VehicleEntity {
      * Beats one ingot's worth of dents out. Returns PASS on a sound car so the
      * click falls through to mounting and the iron is not wasted.
      */
-    private ActionResult repairWith(PlayerEntity player, ItemStack ingots) {
+    private InteractionResult repairWith(Player player, ItemStack ingots) {
         if (this.getHealth() >= MAX_HEALTH) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        if (!VehicleLiftBlock.isServicing(this.getEntityWorld(), this)) {
+        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
             // PASS, not FAIL: the click should still fall through to mounting, so
             // an ingot in hand never stops you getting in and driving to a garage.
-            if (player.getEntityWorld().isClient()) {
-                player.sendMessage(Text.translatable("message.car.needs_lift"), true);
+            if (player.level().isClientSide()) {
+                player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
             }
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         this.setHealth(this.getHealth() + REPAIR_PER_INGOT);
         if (!player.isCreative()) {
-            ingots.decrement(1);
+            ingots.shrink(1);
         }
-        this.getEntityWorld().playSound(
+        this.level().playSound(
                 null,
                 this.getX(), this.getY() + 0.8, this.getZ(),
-                SoundEvents.BLOCK_ANVIL_USE,
-                SoundCategory.NEUTRAL,
+                SoundEvents.ANVIL_USE,
+                SoundSource.NEUTRAL,
                 0.8F,
                 1.1F);
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     @Override
-    protected void readCustomData(ReadView view) {
+    protected void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueInput view = ValueInput.of(tag, this.registryAccess());
         // The model first: it says how big the tank is that the fuel goes into.
-        this.dataTracker.set(MODEL, view.getString("Model", ""));
-        float savedFuel = view.getFloat("Fuel", FACTORY_FULL);
+        this.entityData.set(MODEL, view.getStringOr("Model", ""));
+        float savedFuel = view.getFloatOr("Fuel", FACTORY_FULL);
         if (savedFuel < 0.0F) {
-            this.dataTracker.set(FUEL, FACTORY_FULL);
+            this.entityData.set(FUEL, FACTORY_FULL);
         } else {
             this.setFuel(savedFuel);
         }
-        this.setLeaking(view.getBoolean("Leaking", false));
-        this.dataTracker.set(COLOR,
-                MathHelper.clamp(view.getInt("Color", DEFAULT_COLOR.getIndex()), 0, 15));
-        this.setPaint(view.getInt("Paint", -1));
-        this.lockCode = view.getLong("LockCode", 0L);
-        this.dataTracker.set(LOCKED, this.lockCode != 0 && view.getBoolean("Locked", false));
-        this.setHealth(view.getFloat("Health", MAX_HEALTH));
+        this.setLeaking(view.getBooleanOr("Leaking", false));
+        this.entityData.set(COLOR,
+                Mth.clamp(view.getIntOr("Color", DEFAULT_COLOR.getId()), 0, 15));
+        this.setPaint(view.getIntOr("Paint", -1));
+        this.lockCode = view.getLongOr("LockCode", 0L);
+        this.entityData.set(LOCKED, this.lockCode != 0 && view.getBooleanOr("Locked", false));
+        this.setHealth(view.getFloatOr("Health", MAX_HEALTH));
         for (CarPart part : CarPart.values()) {
-            this.setCondition(part, view.getFloat("Part" + part.key(), CarPart.MAX_CONDITION));
+            this.setCondition(part, view.getFloatOr("Part" + part.key(), CarPart.MAX_CONDITION));
         }
-        int tiers = view.getInt("PartQuality", defaultQualityBits());
-        if (view.getInt("PartTiers", 0) == 0) {
+        int tiers = view.getIntOr("PartQuality", defaultQualityBits());
+        if (view.getIntOr("PartTiers", 0) == 0) {
             // Saved before parts were iron, gold, diamond and netherite.
             int converted = 0;
             for (CarPart part : CarPart.values()) {
@@ -3211,16 +4147,17 @@ public class CarEntity extends VehicleEntity {
             tiers = converted;
         }
         this.setQualityBits(tiers);
-        this.setSetup(view.getInt("Setup", CarSetup.DEFAULT));
-        this.setOdometer(view.getFloat("Odometer", 0.0F));
-        this.setDirtyFuel(view.getFloat("DirtyFuel", 0.0F));
+        this.setSetup(view.getIntOr("Setup", CarSetup.DEFAULT));
+        this.setOdometer(view.getFloatOr("Odometer", 0.0F));
+        this.setDirtyFuel(view.getFloatOr("DirtyFuel", 0.0F));
     }
 
     @Override
-    protected void writeCustomData(WriteView view) {
+    protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueOutput view = ValueOutput.of(tag, this.registryAccess());
         view.putFloat("Fuel", this.getFuel());
         view.putBoolean("Leaking", this.isLeaking());
-        view.putInt("Color", this.getColor().getIndex());
+        view.putInt("Color", this.getColor().getId());
         view.putInt("Paint", this.getPaint());
         view.putLong("LockCode", this.lockCode);
         view.putBoolean("Locked", this.isLocked());
@@ -3233,8 +4170,8 @@ public class CarEntity extends VehicleEntity {
         view.putInt("Setup", this.getSetup());
         view.putFloat("Odometer", this.getOdometer());
         view.putFloat("DirtyFuel", this.getDirtyFuel());
-        if (!this.dataTracker.get(MODEL).isEmpty()) {
-            view.putString("Model", this.dataTracker.get(MODEL));
+        if (!this.entityData.get(MODEL).isEmpty()) {
+            view.putString("Model", this.entityData.get(MODEL));
         }
     }
 }

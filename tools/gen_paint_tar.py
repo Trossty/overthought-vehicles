@@ -173,22 +173,6 @@ els = [box([0, 0, 0], [16, 0.5, 16], '#oil', None, ('up', 'down')),
 write_model('oil_seep', {'particle': 'car:block/oil_seep', 'oil': 'car:block/oil_seep', 'drop': 'car:block/oil_drop'},
             els)
 
-# ---- the item definitions that point at the new models ----
-for name in [p + '_road_paint' for p in PAINTS] + ['tar', 'oil_seep']:
-    path = R + 'items/' + name + '.json'
-    d = json.load(open(path))
-    def repoint(o):
-        if isinstance(o, dict):
-            if o.get('type') == 'minecraft:model':
-                o['model'] = 'car:item/' + name
-            for v in o.values():
-                repoint(v)
-        elif isinstance(o, list):
-            for v in o:
-                repoint(v)
-    repoint(d)
-    json.dump(d, open(path, 'w'), indent=2)
-d = json.load(open(R + 'items/asphalt.json'))
-d['model']['model'] = 'car:block/asphalt_height8'
-json.dump(d, open(R + 'items/asphalt.json', 'w'), indent=2)
+# ---- the asphalt item shows a full block of it ----
+json.dump({'parent': 'car:block/asphalt_height8'}, open(R + 'models/item/asphalt.json', 'w'), indent=2)
 print('written')

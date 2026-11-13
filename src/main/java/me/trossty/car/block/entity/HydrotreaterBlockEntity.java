@@ -6,19 +6,16 @@ import me.trossty.car.fluid.PetrolSource;
 import me.trossty.car.fluid.UnitTank;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModFluids;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.CombinedStorage;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import me.trossty.car.energy.EnergyBuffer;
 
 import java.util.List;
 
@@ -46,15 +43,15 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
 
     private final UnitTank input = new UnitTank(TANK_CAPACITY,
             fluid -> fluid == ModFluids.RAW_PETROL || fluid == ModFluids.RAW_DIESEL,
-            true, false, this::markDirty);
+            true, false, this::setChanged);
     private final UnitTank output = new UnitTank(TANK_CAPACITY,
             fluid -> fluid == ModFluids.PETROL || fluid == ModFluids.DIESEL,
-            false, true, this::markDirty);
+            false, true, this::setChanged);
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(ENERGY_CAPACITY, 200, 0) {
+    private final EnergyBuffer energy = new EnergyBuffer(ENERGY_CAPACITY, 200, 0) {
         @Override
-        protected void onFinalCommit() {
-            HydrotreaterBlockEntity.this.markDirty();
+        protected void onChanged() {
+            HydrotreaterBlockEntity.this.setChanged();
         }
     };
 
@@ -70,7 +67,7 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
                 : raw == ModFluids.RAW_PETROL ? ModFluids.PETROL : Fluids.EMPTY;
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, HydrotreaterBlockEntity plant) {
+    public static void tick(Level world, BlockPos pos, BlockState state, HydrotreaterBlockEntity plant) {
         if (!MultiblockBlock.checkIntact(world, pos, state)) {
             return;
         }
@@ -78,19 +75,19 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
 
         // Raw fuel off a refinery standing against either cell.
         if (plant.input.room() > 0 && state.getBlock() instanceof MultiblockBlock machine) {
-            Direction facing = state.get(MultiblockBlock.FACING);
+            Direction facing = state.getValue(MultiblockBlock.FACING);
             outer:
             for (int[] cell : machine.cells()) {
                 BlockPos at = MultiblockBlock.cellPos(pos, facing, cell);
                 for (Direction side : Direction.values()) {
-                    if (MultiblockBlock.controllerEntity(world, at.offset(side))
+                    if (MultiblockBlock.controllerEntity(world, at.relative(side))
                             instanceof FuelRefineryBlockEntity refinery) {
                         UnitTank product = refinery.getProductTank();
                         if (!product.isEmpty() && plant.input.canTake(product.getFluid())) {
                             Fluid raw = product.getFluid();
                             int moved = plant.input.fill(raw, product.drain(Math.min(DRAW_RATE, plant.input.room())));
                             if (moved > 0) {
-                                refinery.markDirty();
+                                refinery.setChanged();
                                 dirty = true;
                             }
                         }
@@ -117,7 +114,7 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
             dirty = true;
         }
         if (dirty) {
-            plant.markDirty();
+            plant.setChanged();
         }
     }
 
@@ -166,11 +163,11 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
 
     // ---- what the world sees ----
 
-    public Storage<FluidVariant> getFluidStorage() {
-        return new CombinedStorage<>(List.of(this.input, this.output));
+    public net.neoforged.neoforge.fluids.capability.IFluidHandler getFluidStorage() {
+        return new me.trossty.car.fluid.CombinedTanks(this.input, this.output);
     }
 
-    public SimpleEnergyStorage getEnergyStorage() {
+    public EnergyBuffer getEnergyStorage() {
         return this.energy;
     }
 
@@ -188,7 +185,7 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
 
     public void setEnergy(int amount) {
         this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, amount));
-        this.markDirty();
+        this.setChanged();
     }
 
     public boolean isWorking() {
@@ -203,23 +200,25 @@ public class HydrotreaterBlockEntity extends BlockEntity implements FluidSource,
         }
         int given = this.output.drain(amount);
         if (given > 0) {
-            this.markDirty();
+            this.setChanged();
         }
         return given;
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.input.read(view, "In");
         this.output.read(view, "Out");
-        this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, view.getInt("Energy", 0)));
-        this.working = view.getBoolean("Working", false);
+        this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, view.getIntOr("Energy", 0)));
+        this.working = view.getBooleanOr("Working", false);
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         this.input.write(view, "In");
         this.output.write(view, "Out");
         view.putInt("Energy", (int) this.energy.amount);

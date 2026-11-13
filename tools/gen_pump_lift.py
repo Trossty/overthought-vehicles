@@ -1,5 +1,6 @@
 """Fuel pump and vehicle lift models and textures. Run: python3 tools/gen_pump_lift.py"""
 import json, random
+from model_uv import fold_uvs
 from PIL import Image
 R='/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
 T=R+'textures/block/'; M=R+'models/block/'
@@ -88,7 +89,7 @@ def el(fr,to,t,rot=None,faces=('north','south','east','west','up','down'),uv=Non
     if rot: e['rotation']=rot
     return e
 def save(name,textures,els):
-    json.dump({'parent':'minecraft:block/block','textures':textures,'elements':els},open(M+name+'.json','w'),indent=1)
+    json.dump({'parent':'minecraft:block/block','textures':textures,'elements':fold_uvs(els)},open(M+name+'.json','w'),indent=1)
 
 PT={'particle':'car:block/pump_red','body':'car:block/pump_body','red':'car:block/pump_red','door':'car:block/pump_door',
     'screen':'car:block/pump_screen','sign':'car:block/pump_sign','plinth':'car:block/pump_plinth','rubber':'car:block/pump_rubber',
@@ -167,7 +168,7 @@ upper=[
  el([4,11.4,3.3],[12,12.6,3.5],'#label',uv={'north':F}),
  el([3,13,4],[13,14,12],'#dark'),
  # holster bracket and the hose coming up to it
- mx(el([13,5,6],[14,7,8.5],'#dark')),
+ mx(el([13,5,6.05],[14,7,8.5],'#dark')),
  mx(el([13.4,0,9],[14.4,5,10],'#hose')),
 ]+back_bezel(0,11)+[
  # the back has its own read-out and name plate, for the far lane

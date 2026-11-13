@@ -2,11 +2,11 @@ package me.trossty.car.mixin.client;
 
 import me.trossty.car.client.sound.RoadSurface;
 import me.trossty.car.entity.CarEntity;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.Camera;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,13 +21,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class CameraMixin {
 
     @Shadow
-    protected abstract void setPos(Vec3d pos);
+    protected abstract void setPosition(Vec3 pos);
 
     @Shadow
-    public abstract Vec3d getCameraPos();
+    public abstract Vec3 getPosition();
 
-    @Inject(method = "update", at = @At("TAIL"))
-    private void car$roadShake(World world, Entity focused, boolean thirdPerson, boolean inverseView,
+    @Inject(method = "setup", at = @At("TAIL"))
+    private void car$roadShake(BlockGetter world, Entity focused, boolean thirdPerson, boolean inverseView,
                                float tickProgress, CallbackInfo ci) {
         if (focused == null || !(focused.getVehicle() instanceof CarEntity car)) {
             return;
@@ -36,9 +36,9 @@ public abstract class CameraMixin {
         if (shake <= 0.01F) {
             return;
         }
-        float time = car.age + tickProgress;
+        float time = car.tickCount + tickProgress;
         // Two out-of-step waves read as a rough surface rather than a wobble.
-        float bump = MathHelper.sin(time * 2.7F) * 0.6F + MathHelper.sin(time * 6.1F + 1.3F) * 0.4F;
-        this.setPos(this.getCameraPos().add(0.0, bump * shake * 0.035, 0.0));
+        float bump = Mth.sin(time * 2.7F) * 0.6F + Mth.sin(time * 6.1F + 1.3F) * 0.4F;
+        this.setPosition(this.getPosition().add(0.0, bump * shake * 0.035, 0.0));
     }
 }

@@ -2,10 +2,10 @@ package me.trossty.car.client.screen;
 
 import me.trossty.car.block.entity.FuelRefineryBlockEntity;
 import me.trossty.car.refinery.FuelRefineryScreenHandler;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
 
 /**
  * The refinery window. Like the workbench's, it is drawn from plain rectangles
@@ -15,7 +15,7 @@ import net.minecraft.text.Text;
  * the right, both reading top-down like a gauge. Everything else — the burner,
  * the two progress arrows — only exists to explain why those two levels move.
  */
-public class FuelRefineryScreen extends HandledScreen<FuelRefineryScreenHandler> {
+public class FuelRefineryScreen extends AbstractContainerScreen<FuelRefineryScreenHandler> {
 
     private static final int PANEL = 0xFFC6C6C6;
     private static final int PANEL_LIGHT = 0xFFFFFFFF;
@@ -64,24 +64,24 @@ public class FuelRefineryScreen extends HandledScreen<FuelRefineryScreenHandler>
     private static final int THERMO_WIDTH = 5;
     private static final int THERMO_HEIGHT = 30;
 
-    public FuelRefineryScreen(FuelRefineryScreenHandler handler, PlayerInventory inventory, Text title) {
+    public FuelRefineryScreen(FuelRefineryScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title);
-        this.backgroundWidth = 176;
-        this.backgroundHeight = 166;
+        this.imageWidth = 176;
+        this.imageHeight = 166;
     }
 
     @Override
     protected void init() {
         super.init();
-        this.playerInventoryTitleY = this.backgroundHeight - 94;
+        this.inventoryLabelY = this.imageHeight - 94;
     }
 
     @Override
-    protected void drawBackground(DrawContext context, float deltaTicks, int mouseX, int mouseY) {
-        int left = this.x;
-        int top = this.y;
-        int right = left + this.backgroundWidth;
-        int bottom = top + this.backgroundHeight;
+    protected void renderBg(GuiGraphics context, float deltaTicks, int mouseX, int mouseY) {
+        int left = this.leftPos;
+        int top = this.topPos;
+        int right = left + this.imageWidth;
+        int bottom = top + this.imageHeight;
 
         context.fill(left, top, right, bottom, PANEL);
         context.fill(left, top, right, top + 1, PANEL_LIGHT);
@@ -89,37 +89,37 @@ public class FuelRefineryScreen extends HandledScreen<FuelRefineryScreenHandler>
         context.fill(left, bottom - 1, right, bottom, PANEL_SHADOW);
         context.fill(right - 1, top, right, bottom, PANEL_SHADOW);
 
-        for (net.minecraft.screen.slot.Slot slot : this.handler.slots) {
+        for (net.minecraft.world.inventory.Slot slot : this.menu.slots) {
             drawSlot(context, left + slot.x - 1, top + slot.y - 1);
         }
 
         this.drawThermometer(context);
         this.drawTank(context, left + ENERGY_X, top + TANK_TOP,
-                (float) this.handler.getEnergy() / FuelRefineryBlockEntity.ENERGY_CAPACITY,
+                (float) this.menu.getEnergy() / FuelRefineryBlockEntity.ENERGY_CAPACITY,
                 POWER, POWER_LIGHT);
-        drawArrow(context, left + 38, top + 21, this.handler.getDistillFraction());
+        drawArrow(context, left + 38, top + 21, this.menu.getDistillFraction());
         this.drawTank(context, left + BIOMASS_TANK_X, top + TANK_TOP,
-                (float) this.handler.getBiomass() / FuelRefineryBlockEntity.BIOMASS_CAPACITY,
-                this.handler.getFeed() == FuelRefineryBlockEntity.FEED_CRUDE ? CRUDE : BIOMASS,
-                this.handler.getFeed() == FuelRefineryBlockEntity.FEED_CRUDE ? CRUDE_LIGHT : BIOMASS_LIGHT);
-        drawArrow(context, left + 90, top + 21, this.handler.getRefineFraction());
+                (float) this.menu.getBiomass() / FuelRefineryBlockEntity.BIOMASS_CAPACITY,
+                this.menu.getFeed() == FuelRefineryBlockEntity.FEED_CRUDE ? CRUDE : BIOMASS,
+                this.menu.getFeed() == FuelRefineryBlockEntity.FEED_CRUDE ? CRUDE_LIGHT : BIOMASS_LIGHT);
+        drawArrow(context, left + 90, top + 21, this.menu.getRefineFraction());
         this.drawTank(context, left + PETROL_TANK_X, top + TANK_TOP,
-                (float) this.handler.getPetrol() / FuelRefineryBlockEntity.PETROL_CAPACITY,
-                switch (this.handler.getOutput()) {
+                (float) this.menu.getPetrol() / FuelRefineryBlockEntity.PETROL_CAPACITY,
+                switch (this.menu.getOutput()) {
                     case FuelRefineryBlockEntity.PRODUCT_RAW_DIESEL -> RAW_DIESEL;
                     case FuelRefineryBlockEntity.PRODUCT_BIOFUEL -> BIOFUEL;
                     default -> RAW_PETROL;
                 },
-                switch (this.handler.getOutput()) {
+                switch (this.menu.getOutput()) {
                     case FuelRefineryBlockEntity.PRODUCT_RAW_DIESEL -> RAW_DIESEL_LIGHT;
                     case FuelRefineryBlockEntity.PRODUCT_BIOFUEL -> BIOFUEL_LIGHT;
                     default -> RAW_PETROL_LIGHT;
                 });
-        drawArrow(context, left + 118, top + 39, this.handler.getPetrol() > 0 ? 1.0F : 0.0F);
+        drawArrow(context, left + 118, top + 39, this.menu.getPetrol() > 0 ? 1.0F : 0.0F);
     }
 
     /** A tank drains from the top, which is how a gauge is read. */
-    private void drawTank(DrawContext context, int x, int y, float fill, int body, int highlight) {
+    private void drawTank(GuiGraphics context, int x, int y, float fill, int body, int highlight) {
         context.fill(x - 1, y - 1, x + TANK_WIDTH + 1, y + TANK_HEIGHT + 1, TANK_WALL);
         context.fill(x, y, x + TANK_WIDTH, y + TANK_HEIGHT, TANK_EMPTY);
 
@@ -141,13 +141,13 @@ public class FuelRefineryScreen extends HandledScreen<FuelRefineryScreenHandler>
      * The column's temperature, with a tick where it starts to work and
      * another where it starts to work fast.
      */
-    private void drawThermometer(DrawContext context) {
-        int x = this.x + THERMO_X;
-        int y = this.y + THERMO_Y;
+    private void drawThermometer(GuiGraphics context) {
+        int x = this.leftPos + THERMO_X;
+        int y = this.topPos + THERMO_Y;
         context.fill(x - 1, y - 1, x + THERMO_WIDTH + 1, y + THERMO_HEIGHT + 1, TANK_WALL);
         context.fill(x, y, x + THERMO_WIDTH, y + THERMO_HEIGHT, TANK_EMPTY);
 
-        int temperature = this.handler.getTemperature();
+        int temperature = this.menu.getTemperature();
         int filled = Math.round((float) temperature
                 / FuelRefineryBlockEntity.MAX_TEMPERATURE * THERMO_HEIGHT);
         if (filled > 0) {
@@ -164,7 +164,7 @@ public class FuelRefineryScreen extends HandledScreen<FuelRefineryScreenHandler>
     }
 
     /** A chevron that fills left to right as its stage runs. */
-    private static void drawArrow(DrawContext context, int x, int y, float progress) {
+    private static void drawArrow(GuiGraphics context, int x, int y, float progress) {
         int width = 16;
         context.fill(x, y + 3, x + width, y + 7, ARROW);
         context.fill(x + width - 4, y + 1, x + width - 3, y + 9, ARROW);
@@ -177,7 +177,7 @@ public class FuelRefineryScreen extends HandledScreen<FuelRefineryScreenHandler>
         }
     }
 
-    private static void drawSlot(DrawContext context, int x, int y) {
+    private static void drawSlot(GuiGraphics context, int x, int y) {
         context.fill(x, y, x + 18, y + 18, SLOT_BODY);
         context.fill(x, y, x + 18, y + 1, SLOT_DARK);
         context.fill(x, y, x + 1, y + 18, SLOT_DARK);
@@ -186,63 +186,63 @@ public class FuelRefineryScreen extends HandledScreen<FuelRefineryScreenHandler>
     }
 
     @Override
-    protected void drawForeground(DrawContext context, int mouseX, int mouseY) {
-        context.drawText(this.textRenderer, this.title, this.titleX, this.titleY, TEXT, false);
-        context.drawText(this.textRenderer, this.playerInventoryTitle,
-                this.playerInventoryTitleX, this.playerInventoryTitleY, TEXT, false);
+    protected void renderLabels(GuiGraphics context, int mouseX, int mouseY) {
+        context.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, TEXT, false);
+        context.drawString(this.font, this.playerInventoryTitle,
+                this.inventoryLabelX, this.inventoryLabelY, TEXT, false);
 
         // Whether it is working, as the other machines say it: a lamp and a word.
-        boolean on = this.handler.getDistillFraction() > 0.0F || this.handler.getRefineFraction() > 0.0F;
-        Text state = Text.translatable(on ? "gui.car.machine.running" : "gui.car.machine.idle");
-        int stateX = this.backgroundWidth - 8 - this.textRenderer.getWidth(state);
-        context.fill(stateX - 7, this.titleY + 1, stateX - 2, this.titleY + 6, on ? LAMP_ON : LAMP_OFF);
-        context.drawText(this.textRenderer, state, stateX, this.titleY, TEXT, false);
+        boolean on = this.menu.getDistillFraction() > 0.0F || this.menu.getRefineFraction() > 0.0F;
+        Component state = Component.translatable(on ? "gui.car.machine.running" : "gui.car.machine.idle");
+        int stateX = this.imageWidth - 8 - this.font.width(state);
+        context.fill(stateX - 7, this.titleLabelY + 1, stateX - 2, this.titleLabelY + 6, on ? LAMP_ON : LAMP_OFF);
+        context.drawString(this.font, state, stateX, this.titleLabelY, TEXT, false);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         this.renderBackground(context, mouseX, mouseY, deltaTicks);
         super.render(context, mouseX, mouseY, deltaTicks);
         this.drawTankTooltips(context, mouseX, mouseY);
-        this.drawMouseoverTooltip(context, mouseX, mouseY);
+        this.renderTooltip(context, mouseX, mouseY);
     }
 
     /** Hovering a tank says how much is in it, since a bar alone does not. */
-    private void drawTankTooltips(DrawContext context, int mouseX, int mouseY) {
-        if (overTank(mouseX, mouseY, this.x + BIOMASS_TANK_X)) {
-            context.drawTooltip(this.textRenderer,
-                    Text.translatable(this.handler.getFeed() == FuelRefineryBlockEntity.FEED_CRUDE
-                                    && this.handler.getBiomass() > 0 ? "tooltip.car.crude" : "tooltip.car.biomass",
-                            this.handler.getBiomass(), FuelRefineryBlockEntity.BIOMASS_CAPACITY),
+    private void drawTankTooltips(GuiGraphics context, int mouseX, int mouseY) {
+        if (overTank(mouseX, mouseY, this.leftPos + BIOMASS_TANK_X)) {
+            context.renderTooltip(this.font,
+                    Component.translatable(this.menu.getFeed() == FuelRefineryBlockEntity.FEED_CRUDE
+                                    && this.menu.getBiomass() > 0 ? "tooltip.car.crude" : "tooltip.car.biomass",
+                            this.menu.getBiomass(), FuelRefineryBlockEntity.BIOMASS_CAPACITY),
                     mouseX, mouseY);
-        } else if (overTank(mouseX, mouseY, this.x + ENERGY_X)) {
-            context.drawTooltip(this.textRenderer,
-                    Text.translatable("tooltip.car.energy",
-                            this.handler.getEnergy(), FuelRefineryBlockEntity.ENERGY_CAPACITY),
+        } else if (overTank(mouseX, mouseY, this.leftPos + ENERGY_X)) {
+            context.renderTooltip(this.font,
+                    Component.translatable("tooltip.car.energy",
+                            this.menu.getEnergy(), FuelRefineryBlockEntity.ENERGY_CAPACITY),
                     mouseX, mouseY);
-        } else if (mouseX >= this.x + THERMO_X - 1 && mouseX < this.x + THERMO_X + THERMO_WIDTH + 3
-                && mouseY >= this.y + THERMO_Y && mouseY < this.y + THERMO_Y + THERMO_HEIGHT) {
-            int temperature = this.handler.getTemperature();
+        } else if (mouseX >= this.leftPos + THERMO_X - 1 && mouseX < this.leftPos + THERMO_X + THERMO_WIDTH + 3
+                && mouseY >= this.topPos + THERMO_Y && mouseY < this.topPos + THERMO_Y + THERMO_HEIGHT) {
+            int temperature = this.menu.getTemperature();
             String state = temperature >= FuelRefineryBlockEntity.HOT_TEMPERATURE ? "hot"
                     : temperature >= FuelRefineryBlockEntity.WORKING_TEMPERATURE ? "working" : "cold";
-            context.drawTooltip(this.textRenderer,
-                    Text.translatable("tooltip.car.column_" + state, 20 + temperature * 2 / 5),
+            context.renderTooltip(this.font,
+                    Component.translatable("tooltip.car.column_" + state, 20 + temperature * 2 / 5),
                     mouseX, mouseY);
-        } else if (overTank(mouseX, mouseY, this.x + PETROL_TANK_X)) {
-            context.drawTooltip(this.textRenderer,
-                    Text.translatable(this.handler.getPetrol() == 0 ? "tooltip.car.product_empty"
-                                    : switch (this.handler.getOutput()) {
+        } else if (overTank(mouseX, mouseY, this.leftPos + PETROL_TANK_X)) {
+            context.renderTooltip(this.font,
+                    Component.translatable(this.menu.getPetrol() == 0 ? "tooltip.car.product_empty"
+                                    : switch (this.menu.getOutput()) {
                                         case FuelRefineryBlockEntity.PRODUCT_RAW_DIESEL -> "tooltip.car.raw_diesel";
                                         case FuelRefineryBlockEntity.PRODUCT_BIOFUEL -> "tooltip.car.biofuel";
                                         default -> "tooltip.car.raw_petrol";
                                     },
-                            this.handler.getPetrol(), FuelRefineryBlockEntity.PETROL_CAPACITY),
+                            this.menu.getPetrol(), FuelRefineryBlockEntity.PETROL_CAPACITY),
                     mouseX, mouseY);
         }
     }
 
     private boolean overTank(int mouseX, int mouseY, int tankX) {
         return mouseX >= tankX && mouseX < tankX + TANK_WIDTH
-                && mouseY >= this.y + TANK_TOP && mouseY < this.y + TANK_TOP + TANK_HEIGHT;
+                && mouseY >= this.topPos + TANK_TOP && mouseY < this.topPos + TANK_TOP + TANK_HEIGHT;
     }
 }

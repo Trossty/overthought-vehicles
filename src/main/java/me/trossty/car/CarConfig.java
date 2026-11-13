@@ -6,7 +6,7 @@ import com.google.gson.JsonParseException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import net.fabricmc.loader.api.FabricLoader;
+import net.neoforged.fml.loading.FMLPaths;
 
 /**
  * The few balance knobs a server owner might want to turn, in
@@ -30,12 +30,6 @@ public final class CarConfig {
     /** Energy a cable passes along per tick. */
     public int cableRate = 250;
 
-    /**
-     * One newly generated chunk in this many has an abandoned vehicle on it;
-     * 0 never places one.
-     */
-    public int abandonedVehicleRarity = 350;
-
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static CarConfig current = new CarConfig();
 
@@ -45,7 +39,7 @@ public final class CarConfig {
 
     /** Reads the file, or writes one with the defaults when there is none. */
     public static void load() {
-        Path file = FabricLoader.getInstance().getConfigDir().resolve("car.json");
+        Path file = FMLPaths.CONFIGDIR.get().resolve("car.json");
         try {
             if (Files.exists(file)) {
                 CarConfig read = GSON.fromJson(Files.readString(file), CarConfig.class);
@@ -67,7 +61,6 @@ public final class CarConfig {
         this.fuelUse = rate(this.fuelUse);
         this.generatorOutput = rate(this.generatorOutput);
         this.cableRate = Math.max(1, this.cableRate);
-        this.abandonedVehicleRarity = Math.max(0, this.abandonedVehicleRarity);
         return this;
     }
 

@@ -7,36 +7,33 @@ import me.trossty.car.block.entity.FuelTankBlockEntity;
 import me.trossty.car.registry.ModComponents;
 import me.trossty.car.registry.ModFluids;
 import me.trossty.car.registry.ModItems;
-import net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
-import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
-import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleVariantStorage;
-import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import org.jspecify.annotations.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.minecraft.world.phys.Vec3;
+import me.trossty.car.fluid.Liquids;
+import me.trossty.car.fluid.UnitTank;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.FluidUtil;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The tanker: a lorry with a barrel on the back, and the barrel will carry
@@ -96,11 +93,11 @@ public class TankerEntity extends CarEntity {
     private static final float SELF_REFUEL_BELOW = 20.0F;
 
     /** The load, in millibuckets, for the sight glass. */
-    private static final TrackedData<Integer> CARGO_AMOUNT =
-            DataTracker.registerData(TankerEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final EntityDataAccessor<Integer> CARGO_AMOUNT =
+            SynchedEntityData.defineId(TankerEntity.class, EntityDataSerializers.INT);
     /** Which fluid it is, by registry number; -1 for none. */
-    private static final TrackedData<Integer> CARGO_FLUID =
-            DataTracker.registerData(TankerEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final EntityDataAccessor<Integer> CARGO_FLUID =
+            SynchedEntityData.defineId(TankerEntity.class, EntityDataSerializers.INT);
 
     /** What the hose does with the nearest thing holding liquid. */
     public enum Hose {
@@ -117,46 +114,31 @@ public class TankerEntity extends CarEntity {
 
     private Hose hose = Hose.AUTO;
 
-    private final SingleVariantStorage<FluidVariant> barrel = new SingleVariantStorage<>() {
-        @Override
-        protected FluidVariant getBlankVariant() {
-            return FluidVariant.blank();
-        }
+    private final UnitTank barrel = new UnitTank(CARGO_CAPACITY, liquid -> true, true, true, this::cargoChanged);
 
-        @Override
-        protected long getCapacity(FluidVariant variant) {
-            return CARGO_CAPACITY * ModFluids.UNIT;
-        }
-
-        @Override
-        protected void onFinalCommit() {
-            TankerEntity.this.cargoChanged();
-        }
-    };
-
-    public TankerEntity(EntityType<?> type, World world) {
+    public TankerEntity(EntityType<?> type, Level world) {
         super(type, world);
     }
 
     @Override
-    protected void initDataTracker(DataTracker.Builder builder) {
-        super.initDataTracker(builder);
-        builder.add(CARGO_AMOUNT, 0);
-        builder.add(CARGO_FLUID, -1);
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(CARGO_AMOUNT, 0);
+        builder.define(CARGO_FLUID, -1);
     }
 
     // ---- the load ----
 
-    /** The barrel, for anything that moves liquid through the transfer API. */
-    public Storage<FluidVariant> getCargoStorage() {
+    /** The barrel, for anything that moves liquid through NeoForge's fluid handlers. */
+    public IFluidHandler getCargoStorage() {
         return this.barrel;
     }
 
     /** The load in millibuckets, on either side. */
     public int getCargo() {
-        return this.getEntityWorld().isClient()
-                ? this.dataTracker.get(CARGO_AMOUNT)
-                : (int) (this.barrel.amount / ModFluids.UNIT);
+        return this.level().isClientSide()
+                ? this.entityData.get(CARGO_AMOUNT)
+                : this.barrel.getUnits();
     }
 
     public int getCargoCapacity() {
@@ -164,13 +146,13 @@ public class TankerEntity extends CarEntity {
     }
 
     /** What the load is, blank when there is none, on either side. */
-    public FluidVariant getLiquid() {
-        if (this.getEntityWorld().isClient()) {
-            int raw = this.dataTracker.get(CARGO_FLUID);
-            Fluid fluid = raw < 0 ? null : Registries.FLUID.get(raw);
-            return fluid == null || fluid == Fluids.EMPTY ? FluidVariant.blank() : FluidVariant.of(fluid);
+    public Fluid getLiquid() {
+        if (this.level().isClientSide()) {
+            int raw = this.entityData.get(CARGO_FLUID);
+            Fluid fluid = raw < 0 ? null : BuiltInRegistries.FLUID.byId(raw);
+            return fluid == null ? Fluids.EMPTY : fluid;
         }
-        return this.barrel.variant;
+        return this.barrel.getFluid();
     }
 
     public Hose getHose() {
@@ -182,73 +164,61 @@ public class TankerEntity extends CarEntity {
     }
 
     /** Sets the load outright: so many millibuckets of one liquid. */
-    public void setCargo(FluidVariant liquid, int millibuckets) {
+    public void setCargo(Fluid liquid, int millibuckets) {
         int amount = Math.max(0, Math.min(CARGO_CAPACITY, millibuckets));
-        if (liquid.isBlank() || amount == 0) {
-            this.barrel.variant = FluidVariant.blank();
-            this.barrel.amount = 0;
-        } else {
-            this.barrel.variant = liquid;
-            this.barrel.amount = amount * ModFluids.UNIT;
-        }
+        this.barrel.set(liquid, amount);
         this.cargoChanged();
     }
 
     /** Petrol, as every load was before the barrel learnt any other liquid. */
     public void setCargo(int petrol) {
-        this.setCargo(FluidVariant.of(ModFluids.PETROL), petrol);
+        this.setCargo(ModFluids.PETROL, petrol);
     }
 
     /** Puts up to {@code millibuckets} of a liquid in; reports how much went. */
-    public int fill(FluidVariant liquid, int millibuckets) {
-        if (millibuckets <= 0 || liquid.isBlank()) {
+    public int fill(Fluid liquid, int millibuckets) {
+        if (millibuckets <= 0 || Liquids.isBlank(liquid)) {
             return 0;
         }
-        try (Transaction transaction = Transaction.openOuter()) {
-            long moved = this.barrel.insert(liquid, millibuckets * ModFluids.UNIT, transaction);
-            transaction.commit();
-            return (int) (moved / ModFluids.UNIT);
-        }
+        int moved = this.barrel.fill(liquid, millibuckets);
+        this.cargoChanged();
+        return moved;
     }
 
     /** Takes up to {@code millibuckets} of a liquid out; reports how much came. */
-    public int drain(FluidVariant liquid, int millibuckets) {
-        if (millibuckets <= 0 || liquid.isBlank()) {
+    public int drain(Fluid liquid, int millibuckets) {
+        if (millibuckets <= 0 || Liquids.isBlank(liquid)) {
             return 0;
         }
-        try (Transaction transaction = Transaction.openOuter()) {
-            long moved = this.barrel.extract(liquid, millibuckets * ModFluids.UNIT, transaction);
-            transaction.commit();
-            return (int) (moved / ModFluids.UNIT);
+        if (this.barrel.getFluid() != liquid) {
+            return 0;
         }
+        int moved = this.barrel.drain(millibuckets);
+        this.cargoChanged();
+        return moved;
     }
 
     /** Room for a liquid: all the space left if it matches the load or there is none, otherwise nothing. */
-    public int roomFor(FluidVariant liquid) {
-        boolean fits = this.barrel.isResourceBlank() || this.barrel.variant.equals(liquid);
-        return fits ? CARGO_CAPACITY - (int) (this.barrel.amount / ModFluids.UNIT) : 0;
+    public int roomFor(Fluid liquid) {
+        return this.barrel.canTake(liquid) ? this.barrel.room() : 0;
     }
 
     private void cargoChanged() {
-        if (this.barrel.amount <= 0) {
-            this.barrel.amount = 0;
-            this.barrel.variant = FluidVariant.blank();
-        }
-        if (!this.getEntityWorld().isClient()) {
-            this.dataTracker.set(CARGO_AMOUNT, (int) (this.barrel.amount / ModFluids.UNIT));
-            this.dataTracker.set(CARGO_FLUID, this.barrel.isResourceBlank()
-                    ? -1 : Registries.FLUID.getRawId(this.barrel.variant.getFluid()));
+        if (!this.level().isClientSide()) {
+            this.entityData.set(CARGO_AMOUNT, this.barrel.getUnits());
+            this.entityData.set(CARGO_FLUID, this.barrel.isEmpty()
+                    ? -1 : BuiltInRegistries.FLUID.getId(this.barrel.getFluid()));
         }
     }
 
     /** What the gauge calls the load. */
-    public Text liquidName() {
-        FluidVariant liquid = this.getLiquid();
-        return liquid.isBlank() ? Text.translatable("tanker.car.empty") : FluidVariantAttributes.getName(liquid);
+    public Component liquidName() {
+        Fluid liquid = this.getLiquid();
+        return Liquids.isBlank(liquid) ? Component.translatable("tanker.car.empty") : Liquids.name(liquid);
     }
 
     @Override
-    protected Item asItem() {
+    protected Item getDropItem() {
         return ModItems.FUEL_TANKER;
     }
 
@@ -261,11 +231,11 @@ public class TankerEntity extends CarEntity {
     @Override
     public void tick() {
         super.tick();
-        if (this.getEntityWorld().isClient() || this.isRemoved()) {
+        if (this.level().isClientSide() || this.isRemoved()) {
             return;
         }
         this.drawFromOwnCargo();
-        if (this.age % SCAN_INTERVAL == 0) {
+        if (this.tickCount % SCAN_INTERVAL == 0) {
             this.workTheHose();
         }
     }
@@ -278,12 +248,12 @@ public class TankerEntity extends CarEntity {
 
     /** A tanker that runs dry while carrying eight tanks of its own fuel is a joke. */
     private void drawFromOwnCargo() {
-        if (this.getFuel() >= SELF_REFUEL_BELOW || this.barrel.isResourceBlank()) {
+        if (this.getFuel() >= SELF_REFUEL_BELOW || this.barrel.isEmpty()) {
             return;
         }
         // Only the fuel its engine takes: a diesel lorry hauling petrol, or
         // milk, fills up like anybody else.
-        CarSetup.Fuel fuel = ModFluids.fuelOf(this.barrel.variant.getFluid());
+        CarSetup.Fuel fuel = ModFluids.fuelOf(this.barrel.getFluid());
         if (fuel == null || !this.getEngineFuel().burns(fuel)) {
             return;
         }
@@ -291,7 +261,7 @@ public class TankerEntity extends CarEntity {
         int units = (int) Math.min(this.getMaxFuel() - this.getFuel(), this.getCargo() / perUnit);
         if (units > 0) {
             int accepted = Math.round(this.addFuel(units, fuel));
-            this.drain(this.barrel.variant, accepted * perUnit);
+            this.drain(this.barrel.getFluid(), accepted * perUnit);
         }
     }
 
@@ -305,24 +275,24 @@ public class TankerEntity extends CarEntity {
         if (this.getControllingPassenger() != null || this.hose == Hose.OFF) {
             return;
         }
-        World world = this.getEntityWorld();
-        BlockPos at = this.getBlockPos();
+        Level world = this.level();
+        BlockPos at = this.blockPosition();
         int batch = HOSE_RATE * SCAN_INTERVAL;
 
         BlockPos nearest = null;
-        Storage<FluidVariant> storage = null;
+        IFluidHandler storage = null;
         double nearestDistance = Double.MAX_VALUE;
-        for (BlockPos pos : BlockPos.iterate(at.add(-HOSE_REACH, -2, -HOSE_REACH),
-                at.add(HOSE_REACH, 2, HOSE_REACH))) {
-            double distance = pos.getSquaredDistance(this.getEntityPos());
+        for (BlockPos pos : BlockPos.betweenClosed(at.offset(-HOSE_REACH, -2, -HOSE_REACH),
+                at.offset(HOSE_REACH, 2, HOSE_REACH))) {
+            double distance = pos.distToCenterSqr(this.position());
             if (distance >= nearestDistance || isPlumbing(world, pos)) {
                 continue;
             }
-            Direction facing = Direction.getFacing(this.getEntityPos().subtract(Vec3d.ofCenter(pos)));
-            Storage<FluidVariant> found = FluidStorage.SIDED.find(world, pos, facing);
+            Direction facing = Direction.getNearest(this.position().subtract(Vec3.atCenterOf(pos)));
+            IFluidHandler found = world.getCapability(Capabilities.FluidHandler.BLOCK, pos, facing);
             if (found != null) {
                 nearestDistance = distance;
-                nearest = pos.toImmutable();
+                nearest = pos.immutable();
                 storage = found;
             }
         }
@@ -339,7 +309,7 @@ public class TankerEntity extends CarEntity {
             default -> false;
         };
 
-        FluidVariant petrol = FluidVariant.of(ModFluids.PETROL);
+        Fluid petrol = ModFluids.PETROL;
         if (loading && pump != null) {
             // A pump hands petrol over through its own counter, not its pipe
             // connection, which only takes it in.
@@ -347,7 +317,7 @@ public class TankerEntity extends CarEntity {
             int taken = room <= 0 ? 0 : pump.drain(Math.min(batch, room));
             if (taken > 0) {
                 this.fill(petrol, taken);
-                this.playHoseSound(FluidVariantAttributes.getFillSound(petrol), 1.1F);
+                this.playHoseSound(Liquids.fillSound(petrol), 1.1F);
             }
             return;
         }
@@ -355,109 +325,100 @@ public class TankerEntity extends CarEntity {
         long moved = this.pipe(storage, loading, batch * ModFluids.UNIT);
         if (moved == 0) {
             // A cauldron, or anything else that only deals in whole buckets.
-            moved = this.pipe(storage, loading, net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET);
+            moved = this.pipe(storage, loading, net.neoforged.neoforge.fluids.FluidType.BUCKET_VOLUME);
         }
         if (moved > 0) {
-            FluidVariant liquid = loading ? this.barrel.variant : StorageUtil.findStoredResource(storage);
-            if (liquid != null && !liquid.isBlank()) {
-                this.playHoseSound(loading ? FluidVariantAttributes.getFillSound(liquid)
-                        : FluidVariantAttributes.getEmptySound(liquid), loading ? 1.1F : 0.8F);
+            Fluid liquid = loading ? this.barrel.getFluid() : Liquids.storedIn(storage);
+            if (!Liquids.isBlank(liquid)) {
+                this.playHoseSound(loading ? Liquids.fillSound(liquid)
+                        : Liquids.emptySound(liquid), loading ? 1.1F : 0.8F);
             }
         }
     }
 
-    private long pipe(Storage<FluidVariant> other, boolean loading, long amount) {
+    private long pipe(IFluidHandler other, boolean loading, int amount) {
         return loading
-                ? StorageUtil.move(other, this.barrel, variant -> true, amount, null)
-                : StorageUtil.move(this.barrel, other, variant -> true, amount, null);
+                ? Liquids.move(other, this.barrel, null, amount)
+                : Liquids.move(this.barrel, other, null, amount);
     }
 
     /** The yard's pipes and valves carry liquid past; they are not somewhere to load or unload. */
-    private static boolean isPlumbing(World world, BlockPos pos) {
+    private static boolean isPlumbing(Level world, BlockPos pos) {
         var block = world.getBlockState(pos).getBlock();
         return block instanceof me.trossty.car.block.FuelPipeBlock
                 || block instanceof me.trossty.car.block.FuelValveBlock;
     }
 
     private void playHoseSound(SoundEvent sound, float pitch) {
-        this.getEntityWorld().playSound(null, this.getBlockPos(), sound, SoundCategory.NEUTRAL, 0.5F, pitch);
+        this.level().playSound(null, this.blockPosition(), sound, SoundSource.NEUTRAL, 0.5F, pitch);
     }
 
     // ---- sneaking is the cargo ----
 
     @Override
-    protected ActionResult interactUnlocked(PlayerEntity player, Hand hand) {
-        if (!player.shouldCancelInteraction()) {
+    protected InteractionResult interactUnlocked(Player player, InteractionHand hand) {
+        if (!player.isSecondaryUseActive()) {
             return super.interactUnlocked(player, hand);
         }
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
 
-        ItemStack held = player.getStackInHand(hand);
+        ItemStack held = player.getItemInHand(hand);
         if (held.isEmpty()) {
             this.hose = this.hose.next();
-        } else if (held.isOf(ModItems.JERRY_CAN)) {
+        } else if (held.is(ModItems.JERRY_CAN)) {
             this.useJerryCan(player, held);
         } else {
             this.useContainer(player, hand);
         }
         this.showGauge(player);
-        return ActionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     /** The gauge: what, how much, and what the hose is doing. */
-    public void showGauge(PlayerEntity player) {
-        player.sendMessage(Text.translatable("message.car.tanker_gauge", this.liquidName(),
-                this.getCargo(), CARGO_CAPACITY, Text.translatable("hose.car." + this.hose.key())), true);
+    public void showGauge(Player player) {
+        player.displayClientMessage(Component.translatable("message.car.tanker_gauge", this.liquidName(),
+                this.getCargo(), CARGO_CAPACITY, Component.translatable("hose.car." + this.hose.key())), true);
     }
 
     /** A bucket, a bottle, or another mod's tank item: whichever way it can go, it goes. */
-    private void useContainer(PlayerEntity player, Hand hand) {
-        Storage<FluidVariant> item = ContainerItemContext.forPlayerInteraction(player, hand).find(FluidStorage.ITEM);
-        if (item == null) {
+    private void useContainer(Player player, InteractionHand hand) {
+        Fluid before = this.barrel.getFluid();
+        if (FluidUtil.interactWithFluidHandler(player, hand, this.barrel)) {
             return;
         }
-        FluidVariant before = this.barrel.variant;
-        long poured = StorageUtil.move(item, this.barrel, variant -> true, Long.MAX_VALUE, null);
-        if (poured > 0) {
-            this.playHoseSound(FluidVariantAttributes.getEmptySound(this.barrel.variant), 1.0F);
-            return;
-        }
-        long drawn = StorageUtil.move(this.barrel, item, variant -> true, Long.MAX_VALUE, null);
-        if (drawn > 0) {
-            this.playHoseSound(FluidVariantAttributes.getFillSound(before), 1.0F);
-            return;
-        }
-        FluidVariant offered = StorageUtil.findStoredResource(item);
-        if (offered != null && !this.barrel.isResourceBlank() && !offered.equals(this.barrel.variant)) {
-            player.sendMessage(Text.translatable("message.car.tanker_holds", this.liquidName()), true);
+        // Nothing moved: say why, if it is because the load is something else.
+        var item = FluidUtil.getFluidHandler(player.getItemInHand(hand).copyWithCount(1)).orElse(null);
+        Fluid offered = item == null ? Fluids.EMPTY : Liquids.storedIn(item);
+        if (!Liquids.isBlank(offered) && !this.barrel.isEmpty() && offered != before) {
+            player.displayClientMessage(Component.translatable("message.car.tanker_holds", this.liquidName()), true);
         }
     }
 
     /** A jerry can is fuel only: it tops up from a load of its own fuel, or tips into one. */
-    private void useJerryCan(PlayerEntity player, ItemStack can) {
-        FluidVariant inCan = FluidVariant.of(ModFluids.fluidOf(fuelIn(can)));
-        CarSetup.Fuel loaded = this.barrel.isResourceBlank() ? null : ModFluids.fuelOf(this.barrel.variant.getFluid());
+    private void useJerryCan(Player player, ItemStack can) {
+        Fluid inCan = ModFluids.fluidOf(fuelIn(can));
+        CarSetup.Fuel loaded = this.barrel.isEmpty() ? null : ModFluids.fuelOf(this.barrel.getFluid());
 
         if (!me.trossty.car.item.JerryCans.isFull(can) && loaded != null
                 && (me.trossty.car.item.JerryCans.isEmpty(can) || fuelIn(can) == loaded)) {
-            FluidVariant load = this.barrel.variant;
+            Fluid load = this.barrel.getFluid();
             if (me.trossty.car.item.JerryCans.topUp(can, this.getCargo(), amount -> this.drain(load, amount)) > 0) {
                 markFuel(can, loaded);
-                this.playHoseSound(FluidVariantAttributes.getFillSound(load), 1.1F);
+                this.playHoseSound(Liquids.fillSound(load), 1.1F);
                 return;
             }
         }
         if (!me.trossty.car.item.JerryCans.isEmpty(can)) {
             if (me.trossty.car.item.JerryCans.emptyInto(can, this.roomFor(inCan),
                     amount -> this.fill(inCan, amount)) > 0) {
-                this.playHoseSound(FluidVariantAttributes.getEmptySound(inCan), 0.8F);
+                this.playHoseSound(Liquids.emptySound(inCan), 0.8F);
                 return;
             }
         }
-        if (!this.barrel.isResourceBlank() && loaded == null) {
-            player.sendMessage(Text.translatable("message.car.tanker_holds", this.liquidName()), true);
+        if (!this.barrel.isEmpty() && loaded == null) {
+            player.displayClientMessage(Component.translatable("message.car.tanker_holds", this.liquidName()), true);
         }
     }
 
@@ -465,19 +426,20 @@ public class TankerEntity extends CarEntity {
     public void loadFrom(ItemStack stack) {
         Integer cargo = stack.get(ModComponents.TANKER_CARGO);
         if (cargo != null) {
-            FluidVariant liquid = stack.get(ModComponents.TANKER_LIQUID);
-            this.setCargo(liquid == null ? FluidVariant.of(ModFluids.PETROL) : liquid, cargo);
+            Fluid liquid = stack.get(ModComponents.TANKER_LIQUID);
+            this.setCargo(liquid == null ? ModFluids.PETROL : liquid, cargo);
         }
     }
 
     @Override
-    protected void readCustomData(ReadView view) {
-        super.readCustomData(view);
-        int cargo = view.getInt("Cargo", 0);
-        FluidVariant liquid = view.read("Liquid", FluidVariant.CODEC)
-                .orElseGet(() -> FluidVariant.of(ModFluids.PETROL));
+    protected void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueInput view = ValueInput.of(tag, this.registryAccess());
+        super.readAdditionalSaveData(tag);
+        int cargo = view.getIntOr("Cargo", 0);
+        Fluid liquid = view.read("Liquid", Liquids.CODEC)
+                .orElseGet(() -> ModFluids.PETROL);
         this.setCargo(liquid, cargo);
-        String hose = view.getString("Hose", Hose.AUTO.name());
+        String hose = view.getStringOr("Hose", Hose.AUTO.name());
         try {
             this.hose = Hose.valueOf(hose);
         } catch (IllegalArgumentException unknown) {
@@ -486,11 +448,12 @@ public class TankerEntity extends CarEntity {
     }
 
     @Override
-    protected void writeCustomData(WriteView view) {
-        super.writeCustomData(view);
+    protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueOutput view = ValueOutput.of(tag, this.registryAccess());
+        super.addAdditionalSaveData(tag);
         view.putInt("Cargo", this.getCargo());
-        if (!this.barrel.isResourceBlank()) {
-            view.put("Liquid", FluidVariant.CODEC, this.barrel.variant);
+        if (!this.barrel.isEmpty()) {
+            view.store("Liquid", Liquids.CODEC, this.barrel.getFluid());
         }
         view.putString("Hose", this.hose.name());
     }
@@ -501,7 +464,7 @@ public class TankerEntity extends CarEntity {
     }
 
     /** Whether this liquid glows in the glass: lava, or anything else as bright. */
-    public static boolean glows(@Nullable FluidVariant liquid) {
-        return liquid != null && !liquid.isBlank() && FluidVariantAttributes.getLuminance(liquid) > 0;
+    public static boolean glows(@Nullable Fluid liquid) {
+        return Liquids.luminance(liquid) > 0;
     }
 }

@@ -1,23 +1,23 @@
 package me.trossty.car.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-import org.jspecify.annotations.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A machine bigger than a block.
@@ -38,12 +38,12 @@ import org.jspecify.annotations.Nullable;
  * parts as it ticks, so one blown away by a creeper takes the rest with it
  * rather than leaving half a refinery standing.
  */
-public abstract class MultiblockBlock extends BlockWithEntity {
+public abstract class MultiblockBlock extends ModelEntityBlock {
 
-    public static final EnumProperty<Direction> FACING = Properties.HORIZONTAL_FACING;
-    public static final BooleanProperty LIT = Properties.LIT;
+    public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final BooleanProperty LIT = BlockStateProperties.LIT;
 
-    protected MultiblockBlock(Settings settings) {
+    protected MultiblockBlock(Properties settings) {
         super(settings);
     }
 
@@ -51,15 +51,15 @@ public abstract class MultiblockBlock extends BlockWithEntity {
     public abstract int[][] cells();
 
     /** The part number, which has to cover every cell (and any render-only pieces). */
-    public abstract IntProperty partProperty();
+    public abstract IntegerProperty partProperty();
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING, LIT, this.partProperty());
     }
 
     public int partOf(BlockState state) {
-        return state.get(this.partProperty());
+        return state.getValue(this.partProperty());
     }
 
     public boolean isController(BlockState state) {
@@ -68,8 +68,8 @@ public abstract class MultiblockBlock extends BlockWithEntity {
 
     /** Where a cell of a machine standing at {@code controller} is. */
     public static BlockPos cellPos(BlockPos controller, Direction facing, int[] cell) {
-        return controller.offset(facing.rotateYClockwise(), cell[0]).up(cell[1])
-                .offset(facing.getOpposite(), cell[2]);
+        return controller.relative(facing.getClockWise(), cell[0]).above(cell[1])
+                .relative(facing.getOpposite(), cell[2]);
     }
 
     /** Where the controller of the machine this cell belongs to is. */
@@ -79,13 +79,13 @@ public abstract class MultiblockBlock extends BlockWithEntity {
             return pos;
         }
         int[] cell = this.cells()[part];
-        Direction facing = state.get(FACING);
-        return pos.offset(facing.rotateYClockwise(), -cell[0]).down(cell[1])
-                .offset(facing.getOpposite(), -cell[2]);
+        Direction facing = state.getValue(FACING);
+        return pos.relative(facing.getClockWise(), -cell[0]).below(cell[1])
+                .relative(facing.getOpposite(), -cell[2]);
     }
 
     /** The controller's block entity, from any of its cells; null if there is none. */
-    public static @Nullable BlockEntity controllerEntity(World world, BlockPos pos) {
+    public static @Nullable BlockEntity controllerEntity(Level world, BlockPos pos) {
         BlockState state = world.getBlockState(pos);
         if (state.getBlock() instanceof MultiblockBlock machine) {
             return world.getBlockEntity(machine.controllerOf(pos, state));
@@ -94,46 +94,46 @@ public abstract class MultiblockBlock extends BlockWithEntity {
     }
 
     @Override
-    public @Nullable BlockState getPlacementState(ItemPlacementContext context) {
-        Direction facing = context.getHorizontalPlayerFacing().getOpposite();
-        BlockPos origin = context.getBlockPos();
-        World world = context.getWorld();
+    public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
+        Direction facing = context.getHorizontalDirection().getOpposite();
+        BlockPos origin = context.getClickedPos();
+        Level world = context.getLevel();
         int[][] cells = this.cells();
         for (int i = 1; i < cells.length; i++) {
             BlockPos at = cellPos(origin, facing, cells[i]);
-            if (!world.isInBuildLimit(at) || !world.getBlockState(at).canReplace(context)) {
+            if (!world.isInWorldBounds(at) || !world.getBlockState(at).canBeReplaced(context)) {
                 return null;
             }
         }
-        return this.getDefaultState().with(FACING, facing).with(LIT, false).with(this.partProperty(), 0);
+        return this.defaultBlockState().setValue(FACING, facing).setValue(LIT, false).setValue(this.partProperty(), 0);
     }
 
     @Override
-    public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
-        super.onPlaced(world, pos, state, placer, stack);
-        if (world.isClient() || !this.isController(state)) {
+    public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(world, pos, state, placer, stack);
+        if (world.isClientSide() || !this.isController(state)) {
             return;
         }
         this.placeParts(world, pos, state);
     }
 
     /** Puts every cell but the controller down, for placing by hand or by command. */
-    public void placeParts(World world, BlockPos pos, BlockState controller) {
-        Direction facing = controller.get(FACING);
+    public void placeParts(Level world, BlockPos pos, BlockState controller) {
+        Direction facing = controller.getValue(FACING);
         int[][] cells = this.cells();
         for (int i = 1; i < cells.length; i++) {
-            world.setBlockState(cellPos(pos, facing, cells[i]),
-                    controller.with(this.partProperty(), i), Block.NOTIFY_ALL);
+            world.setBlock(cellPos(pos, facing, cells[i]),
+                    controller.setValue(this.partProperty(), i), Block.UPDATE_ALL);
         }
     }
 
     /** Whether every cell is still standing. */
-    public boolean isIntact(World world, BlockPos controller, BlockState state) {
-        Direction facing = state.get(FACING);
+    public boolean isIntact(Level world, BlockPos controller, BlockState state) {
+        Direction facing = state.getValue(FACING);
         int[][] cells = this.cells();
         for (int i = 1; i < cells.length; i++) {
             BlockState there = world.getBlockState(cellPos(controller, facing, cells[i]));
-            if (!there.isOf(this) || this.partOf(there) != i || there.get(FACING) != facing) {
+            if (!there.is(this) || this.partOf(there) != i || there.getValue(FACING) != facing) {
                 return false;
             }
         }
@@ -144,32 +144,32 @@ public abstract class MultiblockBlock extends BlockWithEntity {
      * Lights the whole machine, or puts it out: the parts carry the flag too,
      * so a chimney knows to smoke and a lamp three blocks up knows to glow.
      */
-    public void setLit(World world, BlockPos controller, BlockState state, boolean lit) {
-        if (state.get(LIT) == lit) {
+    public void setLit(Level world, BlockPos controller, BlockState state, boolean lit) {
+        if (state.getValue(LIT) == lit) {
             return;
         }
-        Direction facing = state.get(FACING);
+        Direction facing = state.getValue(FACING);
         int[][] cells = this.cells();
         for (int i = 0; i < cells.length; i++) {
             BlockPos at = cellPos(controller, facing, cells[i]);
             BlockState there = world.getBlockState(at);
-            if (there.isOf(this)) {
-                world.setBlockState(at, there.with(LIT, lit), Block.NOTIFY_LISTENERS);
+            if (there.is(this)) {
+                world.setBlock(at, there.setValue(LIT, lit), Block.UPDATE_CLIENTS);
             }
         }
     }
 
     /** A part broken by hand takes the controller, and so the item, with it. */
     @Override
-    public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
-        if (!world.isClient() && !this.isController(state)) {
+    public BlockState playerWillDestroy(Level world, BlockPos pos, BlockState state, Player player) {
+        if (!world.isClientSide() && !this.isController(state)) {
             BlockPos controller = this.controllerOf(pos, state);
             BlockState there = world.getBlockState(controller);
-            if (there.isOf(this) && this.isController(there)) {
-                world.breakBlock(controller, !player.isCreative(), player);
+            if (there.is(this) && this.isController(there)) {
+                world.destroyBlock(controller, !player.isCreative(), player);
             }
         }
-        return super.onBreak(world, pos, state, player);
+        return super.playerWillDestroy(world, pos, state, player);
     }
 
     /**
@@ -177,36 +177,35 @@ public abstract class MultiblockBlock extends BlockWithEntity {
      * contents first and then call this.
      */
     @Override
-    protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
-        if (this.isController(state)) {
-            Direction facing = state.get(FACING);
-            int[][] cells = this.cells();
-            for (int i = 1; i < cells.length; i++) {
-                BlockPos at = cellPos(pos, facing, cells[i]);
-                BlockState there = world.getBlockState(at);
-                if (there.isOf(this) && this.partOf(there) == i) {
-                    world.setBlockState(at, net.minecraft.block.Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+    protected void onRemove(BlockState state, net.minecraft.world.level.Level world, BlockPos pos,
+                            BlockState newState, boolean moved) {
+        // Only when the block really goes, not when its state changes.
+        if (!world.isClientSide() && !state.is(newState.getBlock())) {
+            if (this.isController(state)) {
+                Direction facing = state.getValue(FACING);
+                int[][] cells = this.cells();
+                for (int i = 1; i < cells.length; i++) {
+                    BlockPos at = cellPos(pos, facing, cells[i]);
+                    BlockState there = world.getBlockState(at);
+                    if (there.is(this) && this.partOf(there) == i) {
+                        world.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                    }
                 }
             }
         }
-        super.onStateReplaced(state, world, pos, moved);
-    }
-
-    @Override
-    protected net.minecraft.block.BlockRenderType getRenderType(BlockState state) {
-        return net.minecraft.block.BlockRenderType.MODEL;
+        super.onRemove(state, world, pos, newState, moved);
     }
 
     /**
      * For the controller's ticker: a machine missing a part is a broken
      * machine, and goes the way a broken one would, item and all.
      */
-    public static boolean checkIntact(World world, BlockPos pos, BlockState state) {
-        if (world.getTime() % 20 != (pos.asLong() & 15)) {
+    public static boolean checkIntact(Level world, BlockPos pos, BlockState state) {
+        if (world.getGameTime() % 20 != (pos.asLong() & 15)) {
             return true;
         }
         if (state.getBlock() instanceof MultiblockBlock machine && !machine.isIntact(world, pos, state)) {
-            world.breakBlock(pos, true);
+            world.destroyBlock(pos, true);
             return false;
         }
         return true;

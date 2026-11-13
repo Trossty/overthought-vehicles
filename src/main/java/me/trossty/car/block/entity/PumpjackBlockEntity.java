@@ -6,21 +6,17 @@ import me.trossty.car.fluid.UnitTank;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModBlocks;
 import me.trossty.car.registry.ModFluids;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
-import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-import org.jspecify.annotations.Nullable;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import org.jetbrains.annotations.Nullable;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * What the pumpjack keeps: the crude it has brought up, the electricity it
@@ -50,12 +46,12 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
     private static final int IDLE_SCAN = 200;
 
     private final UnitTank crude = new UnitTank(TANK_CAPACITY,
-            fluid -> fluid == ModFluids.CRUDE_OIL, false, true, this::markDirty);
+            fluid -> fluid == ModFluids.CRUDE_OIL, false, true, this::setChanged);
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(ENERGY_CAPACITY, 200, 0) {
+    private final EnergyBuffer energy = new EnergyBuffer(ENERGY_CAPACITY, 200, 0) {
         @Override
-        protected void onFinalCommit() {
-            PumpjackBlockEntity.this.markDirty();
+        protected void onChanged() {
+            PumpjackBlockEntity.this.setChanged();
         }
     };
 
@@ -69,13 +65,13 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
         super(ModBlockEntities.PUMPJACK, pos, state);
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, PumpjackBlockEntity jack) {
+    public static void tick(Level world, BlockPos pos, BlockState state, PumpjackBlockEntity jack) {
         if (!MultiblockBlock.checkIntact(world, pos, state)) {
             return;
         }
         boolean dirty = false;
 
-        if (jack.target != null && !world.getBlockState(jack.target).isOf(ModBlocks.OIL_DEPOSIT)) {
+        if (jack.target != null && !world.getBlockState(jack.target).is(ModBlocks.OIL_DEPOSIT)) {
             jack.target = null;
         }
         if (jack.target == null && --jack.scanCooldown <= 0) {
@@ -109,14 +105,14 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
             dirty = true;
         }
         if (dirty) {
-            jack.markDirty();
+            jack.setChanged();
         }
     }
 
     /** The nearest deposit block under the wellhead, the shallowest first. */
-    public static @Nullable BlockPos findDeposit(World world, BlockPos wellhead) {
-        BlockPos.Mutable at = new BlockPos.Mutable();
-        for (int y = wellhead.getY() - 1; y >= world.getBottomY(); y--) {
+    public static @Nullable BlockPos findDeposit(Level world, BlockPos wellhead) {
+        BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        for (int y = wellhead.getY() - 1; y >= world.getMinBuildHeight(); y--) {
             for (int r = 0; r <= REACH; r++) {
                 for (int dx = -r; dx <= r; dx++) {
                     for (int dz = -r; dz <= r; dz++) {
@@ -124,8 +120,8 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
                             continue;
                         }
                         at.set(wellhead.getX() + dx, y, wellhead.getZ() + dz);
-                        if (world.getBlockState(at).isOf(ModBlocks.OIL_DEPOSIT)) {
-                            return at.toImmutable();
+                        if (world.getBlockState(at).is(ModBlocks.OIL_DEPOSIT)) {
+                            return at.immutable();
                         }
                     }
                 }
@@ -135,29 +131,30 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
     }
 
     /** A drained block goes back to being the rock it was found in. */
-    private static void spend(World world, BlockPos pos) {
+    private static void spend(Level world, BlockPos pos) {
         Block rock = pos.getY() < 0 ? Blocks.DEEPSLATE : Blocks.STONE;
-        world.setBlockState(pos, rock.getDefaultState(), Block.NOTIFY_ALL);
+        world.setBlock(pos, rock.defaultBlockState(), Block.UPDATE_ALL);
     }
 
     /** Offers crude to everything touching the jack that is not the jack. */
-    private static boolean pushCrude(World world, BlockPos pos, BlockState state, PumpjackBlockEntity jack) {
-        if (!(state.getBlock() instanceof MultiblockBlock machine) || world.getTime() % 5 != 0) {
+    private static boolean pushCrude(Level world, BlockPos pos, BlockState state, PumpjackBlockEntity jack) {
+        if (!(state.getBlock() instanceof MultiblockBlock machine) || world.getGameTime() % 5 != 0) {
             return false;
         }
-        Direction facing = state.get(MultiblockBlock.FACING);
+        Direction facing = state.getValue(MultiblockBlock.FACING);
         boolean moved = false;
         for (int[] cell : machine.cells()) {
             BlockPos at = MultiblockBlock.cellPos(pos, facing, cell);
             for (Direction side : Direction.values()) {
-                BlockPos next = at.offset(side);
-                if (world.getBlockState(next).isOf(state.getBlock())
+                BlockPos next = at.relative(side);
+                if (world.getBlockState(next).is(state.getBlock())
                         || world.getBlockState(next).getBlock() instanceof me.trossty.car.block.FuelPipeBlock) {
                     continue;
                 }
-                Storage<FluidVariant> other = FluidStorage.SIDED.find(world, next, side.getOpposite());
-                if (other != null && other.supportsInsertion()
-                        && StorageUtil.move(jack.crude, other, variant -> true, RATE * 5L * ModFluids.UNIT, null) > 0) {
+                var other = world.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+                        next, side.getOpposite());
+                if (other != null
+                        && me.trossty.car.fluid.Liquids.move(jack.crude, other, null, RATE * 5 * ModFluids.UNIT) > 0) {
                     moved = true;
                 }
                 if (jack.crude.isEmpty()) {
@@ -202,7 +199,7 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
     /** Crude left within reach; looked up once a second, not every sync. */
     @Override
     public int gaugeExtra() {
-        long now = this.world == null ? 0 : this.world.getTime();
+        long now = this.level == null ? 0 : this.level.getGameTime();
         if (now - this.reserveCheckedAt >= 20) {
             this.reserveSeen = this.estimateReserve();
             this.reserveCheckedAt = now;
@@ -217,16 +214,16 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
 
     /** Roughly how much crude is left within reach, for the gauge. */
     public int estimateReserve() {
-        if (this.world == null) {
+        if (this.level == null) {
             return 0;
         }
         int blocks = 0;
-        BlockPos.Mutable at = new BlockPos.Mutable();
-        for (int y = this.pos.getY() - 1; y >= this.world.getBottomY(); y--) {
+        BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        for (int y = this.worldPosition.getY() - 1; y >= this.level.getMinBuildHeight(); y--) {
             for (int dx = -REACH; dx <= REACH; dx++) {
                 for (int dz = -REACH; dz <= REACH; dz++) {
-                    at.set(this.pos.getX() + dx, y, this.pos.getZ() + dz);
-                    if (this.world.getBlockState(at).isOf(ModBlocks.OIL_DEPOSIT)) {
+                    at.set(this.worldPosition.getX() + dx, y, this.worldPosition.getZ() + dz);
+                    if (this.level.getBlockState(at).is(ModBlocks.OIL_DEPOSIT)) {
                         blocks++;
                     }
                 }
@@ -238,11 +235,11 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
         return (blocks - (this.target != null ? 1 : 0)) * CRUDE_PER_DEPOSIT + (this.target != null ? this.left : 0);
     }
 
-    public Storage<FluidVariant> getFluidStorage() {
+    public net.neoforged.neoforge.fluids.capability.IFluidHandler getFluidStorage() {
         return this.crude;
     }
 
-    public SimpleEnergyStorage getEnergyStorage() {
+    public EnergyBuffer getEnergyStorage() {
         return this.energy;
     }
 
@@ -256,7 +253,7 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
 
     public void setEnergy(int amount) {
         this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, amount));
-        this.markDirty();
+        this.setChanged();
     }
 
     public boolean isWorking() {
@@ -264,24 +261,26 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.crude.read(view, "Crude");
-        this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, view.getInt("Energy", 0)));
-        this.left = view.getInt("Left", 0);
-        this.working = view.getBoolean("Working", false);
+        this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, view.getIntOr("Energy", 0)));
+        this.left = view.getIntOr("Left", 0);
+        this.working = view.getBooleanOr("Working", false);
         this.target = view.read("Target", BlockPos.CODEC).orElse(null);
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         this.crude.write(view, "Crude");
         view.putInt("Energy", (int) this.energy.amount);
         view.putInt("Left", this.left);
         view.putBoolean("Working", this.working);
         if (this.target != null) {
-            view.put("Target", BlockPos.CODEC, this.target);
+            view.store("Target", BlockPos.CODEC, this.target);
         }
     }
 }

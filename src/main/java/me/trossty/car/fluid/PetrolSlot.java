@@ -1,26 +1,20 @@
 package me.trossty.car.fluid;
 
 import me.trossty.car.registry.ModFluids;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
-import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
-import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
 /**
  * Any of the mod's petrol holders — pipe, valve, pump, refinery outlet — as the
- * rest of Fabric sees it: one slot of petrol in the transfer API.
+ * rest of NeoForge sees it: one tank of petrol behind the fluid capability.
  *
  * <p>This is the door another mod's pipe uses. It opens on the same number the
  * mod's own blocks use, so there is still only one store of fuel.
- *
- * <p>Only whole units cross. The API counts in eighty-oneths of a unit, and a
- * holder that took the odd fraction and could not give it back would be
- * destroying fuel, so less than one unit is declined.
  */
-public final class PetrolSlot extends SnapshotParticipant<Integer> implements SingleSlotStorage<FluidVariant> {
+public final class PetrolSlot implements IFluidHandler {
 
     private final IntSupplier amount;
     private final IntConsumer set;
@@ -39,76 +33,65 @@ public final class PetrolSlot extends SnapshotParticipant<Integer> implements Si
         this.changed = changed;
     }
 
-    @Override
-    public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-        if (!this.insertable || !resource.isOf(ModFluids.PETROL)) {
-            return 0;
-        }
-        int units = (int) Math.min(maxAmount / ModFluids.UNIT, this.capacity - this.amount.getAsInt());
-        if (units <= 0) {
-            return 0;
-        }
-        this.updateSnapshots(transaction);
-        this.set.accept(this.amount.getAsInt() + units);
-        return units * ModFluids.UNIT;
-    }
-
-    @Override
-    public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-        if (!this.extractable || !resource.isOf(ModFluids.PETROL)) {
-            return 0;
-        }
-        int units = (int) Math.min(maxAmount / ModFluids.UNIT, this.amount.getAsInt());
-        if (units <= 0) {
-            return 0;
-        }
-        this.updateSnapshots(transaction);
-        this.set.accept(this.amount.getAsInt() - units);
-        return units * ModFluids.UNIT;
-    }
-
-    @Override
     public boolean supportsInsertion() {
         return this.insertable;
     }
 
     @Override
-    public boolean supportsExtraction() {
-        return this.extractable;
+    public int getTanks() {
+        return 1;
     }
 
     @Override
-    public boolean isResourceBlank() {
-        return this.amount.getAsInt() <= 0;
+    public FluidStack getFluidInTank(int tank) {
+        int held = this.amount.getAsInt();
+        return held <= 0 ? FluidStack.EMPTY : new FluidStack(ModFluids.PETROL, held);
     }
 
     @Override
-    public FluidVariant getResource() {
-        return this.isResourceBlank() ? FluidVariant.blank() : FluidVariant.of(ModFluids.PETROL);
+    public int getTankCapacity(int tank) {
+        return this.capacity;
     }
 
     @Override
-    public long getAmount() {
-        return this.amount.getAsInt() * ModFluids.UNIT;
+    public boolean isFluidValid(int tank, FluidStack stack) {
+        return stack.is(ModFluids.PETROL);
     }
 
     @Override
-    public long getCapacity() {
-        return this.capacity * ModFluids.UNIT;
+    public int fill(FluidStack resource, FluidAction action) {
+        if (!this.insertable || !resource.is(ModFluids.PETROL)) {
+            return 0;
+        }
+        int units = Math.min(resource.getAmount(), this.capacity - this.amount.getAsInt());
+        if (units <= 0) {
+            return 0;
+        }
+        if (action.execute()) {
+            this.set.accept(this.amount.getAsInt() + units);
+            this.changed.run();
+        }
+        return units;
     }
 
     @Override
-    protected Integer createSnapshot() {
-        return this.amount.getAsInt();
+    public FluidStack drain(FluidStack resource, FluidAction action) {
+        return resource.is(ModFluids.PETROL) ? this.drain(resource.getAmount(), action) : FluidStack.EMPTY;
     }
 
     @Override
-    protected void readSnapshot(Integer snapshot) {
-        this.set.accept(snapshot);
-    }
-
-    @Override
-    protected void onFinalCommit() {
-        this.changed.run();
+    public FluidStack drain(int maxDrain, FluidAction action) {
+        if (!this.extractable) {
+            return FluidStack.EMPTY;
+        }
+        int units = Math.min(maxDrain, this.amount.getAsInt());
+        if (units <= 0) {
+            return FluidStack.EMPTY;
+        }
+        if (action.execute()) {
+            this.set.accept(this.amount.getAsInt() - units);
+            this.changed.run();
+        }
+        return new FluidStack(ModFluids.PETROL, units);
     }
 }

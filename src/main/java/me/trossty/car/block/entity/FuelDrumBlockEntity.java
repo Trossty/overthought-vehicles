@@ -3,17 +3,15 @@ package me.trossty.car.block.entity;
 import me.trossty.car.block.LiquidStores;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModComponents;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.fluid.base.SingleFluidStorage;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.component.ComponentMap;
-import net.minecraft.component.ComponentsAccess;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import me.trossty.car.fluid.UnitTank;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 
 /**
  * A drum: one liquid, eight buckets of it, and nothing else going on. It does
@@ -28,106 +26,99 @@ import net.minecraft.util.math.BlockPos;
  * {@link ModComponents#STORED_FLUID} component, and putting it down again
  * pours it back in.
  */
-public class FuelDrumBlockEntity extends BlockEntity
-        implements net.fabricmc.fabric.api.blockview.v2.RenderDataBlockEntity {
+public class FuelDrumBlockEntity extends BlockEntity {
 
-    public static final long CAPACITY = 8 * FluidConstants.BUCKET;
+    public static final long CAPACITY = 8 * 1000L;
 
-    private final SingleFluidStorage storage = SingleFluidStorage.withFixedCapacity(CAPACITY, this::changed);
+    private final UnitTank storage = new UnitTank((int) CAPACITY, fluid -> true, true, true, this::changed);
 
     /** The liquid the clients were last told about. */
-    private FluidVariant shown = FluidVariant.blank();
+    private Fluid shown = Fluids.EMPTY;
 
     public FuelDrumBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.FUEL_DRUM, pos, state);
     }
 
-    public SingleSlotStorage<FluidVariant> getFluidStorage() {
+    public UnitTank getFluidStorage() {
         return this.storage;
     }
 
-    public FluidVariant getFluid() {
-        return this.storage.variant;
+    public Fluid getFluid() {
+        return this.storage.getFluid();
     }
 
-    /** In droplets. */
+    /** In millibuckets. */
     public long getAmount() {
-        return this.storage.amount;
+        return this.storage.getUnits();
     }
 
     public int comparatorOutput() {
-        return LiquidStores.comparatorOutput(this.storage.amount, CAPACITY);
+        return LiquidStores.comparatorOutput(this.storage.getUnits(), CAPACITY);
     }
 
     /** The liquid, for the block's colour. Read on the render thread, so a snapshot. */
-    @Override
     public Object getRenderData() {
-        return this.storage.amount > 0 ? this.storage.variant : FluidVariant.blank();
+        return this.storage.getUnits() > 0 ? this.storage.getFluid() : Fluids.EMPTY;
     }
 
     private void changed() {
-        this.markDirty();
-        FluidVariant now = (FluidVariant) this.getRenderData();
-        if (!now.equals(this.shown) && this.world != null && !this.world.isClient()) {
+        this.setChanged();
+        Fluid now = (Fluid) this.getRenderData();
+        if (!now.equals(this.shown) && this.level != null && !this.level.isClientSide()) {
             this.shown = now;
-            this.world.updateListeners(this.pos, this.getCachedState(), this.getCachedState(),
-                    net.minecraft.block.Block.NOTIFY_LISTENERS);
+            this.level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(),
+                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
         }
     }
 
-    private void setContents(FluidVariant fluid, long amount) {
-        if (fluid.isBlank() || amount <= 0) {
-            this.storage.variant = FluidVariant.blank();
-            this.storage.amount = 0;
-        } else {
-            this.storage.variant = fluid;
-            this.storage.amount = Math.min(amount, CAPACITY);
-        }
+    private void setContents(Fluid fluid, long amount) {
+        this.storage.set(fluid, (int) Math.min(amount, CAPACITY));
     }
 
     // ---- saving, and travelling in the item ----
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        this.setContents(view.read("Fluid", FluidVariant.CODEC).orElse(FluidVariant.blank()),
-                view.getLong("Amount", 0L));
-        FluidVariant now = (FluidVariant) this.getRenderData();
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
+        this.setContents(view.read("Fluid", me.trossty.car.fluid.Liquids.CODEC).orElse(Fluids.EMPTY),
+                view.getLongOr("Amount", 0L));
+        Fluid now = (Fluid) this.getRenderData();
         if (!now.equals(this.shown)) {
             this.shown = now;
             // The client has just been told of a new liquid: repaint.
-            if (this.world != null && this.world.isClient()) {
-                this.world.updateListeners(this.pos, this.getCachedState(), this.getCachedState(),
-                        net.minecraft.block.Block.NOTIFY_LISTENERS);
+            if (this.level != null && this.level.isClientSide()) {
+                this.level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(),
+                        net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
             }
         }
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
-        if (!this.storage.isResourceBlank() && this.storage.amount > 0) {
-            view.put("Fluid", FluidVariant.CODEC, this.storage.variant);
-            view.putLong("Amount", this.storage.amount);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
+        if (!this.storage.isEmpty() && this.storage.getUnits() > 0) {
+            view.store("Fluid", me.trossty.car.fluid.Liquids.CODEC, this.storage.getFluid());
+            view.putLong("Amount", this.storage.getUnits());
         }
     }
 
     @Override
-    public net.minecraft.network.packet.@org.jspecify.annotations.Nullable Packet<
-            net.minecraft.network.listener.ClientPlayPacketListener> toUpdatePacket() {
-        return net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket.create(this);
+    public net.minecraft.network.protocol.@org.jetbrains.annotations.Nullable Packet<
+            net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public net.minecraft.nbt.NbtCompound toInitialChunkDataNbt(
-            net.minecraft.registry.RegistryWrapper.WrapperLookup registries) {
-        return this.createNbt(registries);
+    public net.minecraft.nbt.CompoundTag getUpdateTag(
+            net.minecraft.core.HolderLookup.Provider registries) {
+        return this.saveWithoutMetadata(registries);
     }
 
     @Override
-    protected void readComponents(ComponentsAccess components) {
-        super.readComponents(components);
-        ModComponents.StoredFluid held = components.get(ModComponents.STORED_FLUID);
+    protected void applyImplicitComponents(BlockEntity.DataComponentInput components) {
+                ModComponents.StoredFluid held = components.get(ModComponents.STORED_FLUID);
         if (held != null) {
             this.setContents(held.fluid(), held.amount());
             // Put down full: the clients need to know what colour it is.
@@ -136,19 +127,20 @@ public class FuelDrumBlockEntity extends BlockEntity
     }
 
     @Override
-    protected void addComponents(ComponentMap.Builder builder) {
-        super.addComponents(builder);
-        if (!this.storage.isResourceBlank() && this.storage.amount > 0) {
-            builder.add(ModComponents.STORED_FLUID,
-                    new ModComponents.StoredFluid(this.storage.variant, this.storage.amount));
+    protected void collectImplicitComponents(DataComponentMap.Builder builder) {
+        super.collectImplicitComponents(builder);
+        if (!this.storage.isEmpty() && this.storage.getUnits() > 0) {
+            builder.set(ModComponents.STORED_FLUID,
+                    new ModComponents.StoredFluid(this.storage.getFluid(), this.storage.getUnits()));
         }
     }
 
     /** The liquid travels in the component; the item's copy of the block data leaves it out. */
     @Override
-    public void removeFromCopiedStackData(WriteView view) {
-        super.removeFromCopiedStackData(view);
-        view.remove("Fluid");
-        view.remove("Amount");
+    public void removeComponentsFromTag(net.minecraft.nbt.CompoundTag tag) {
+        ValueOutput view = ValueOutput.of(tag, null);
+        super.removeComponentsFromTag(tag);
+        view.discard("Fluid");
+        view.discard("Amount");
     }
 }

@@ -1,9 +1,11 @@
 package me.trossty.car.client.render;
 
-import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.util.DyeColor;
+import net.minecraft.world.item.DyeColor;
 
-public class CarRenderState extends EntityRenderState {
+public class CarRenderState {
+    /** Ticks the entity has lived, with the partial tick. */
+    public float ageInTicks;
+    public int lightCoords;
     public float yaw;
     /** Paint colour, picking which body texture the renderer uses. */
     public DyeColor color = DyeColor.RED;
@@ -11,7 +13,7 @@ public class CarRenderState extends EntityRenderState {
     public int paint = -1;
 
     /** The data-pack vehicle to draw instead of the built-in model, if any. */
-    public net.minecraft.util.Identifier vehicleId;
+    public net.minecraft.resources.ResourceLocation vehicleId;
     public me.trossty.car.vehicle.VehicleDefinition vehicle;
     public String tyre = "road";
     /** Whether the tyres are on; off, the wheels are drawn as bare hubs, or not at all with the discs off too. */
@@ -27,6 +29,10 @@ public class CarRenderState extends EntityRenderState {
     public float acceleration;
     /** Whether the engine is actually turning: somebody aboard, fuel in the tank. */
     public boolean engineRunning;
+    /** Lights on: somebody aboard after dark. */
+    public boolean headlights;
+    /** Slowing hard enough to light the brake lamps. */
+    public boolean braking;
     /** How settled into its parked pose: a bike on its stand, a trailer on its jockey wheel. */
     public float restPose;
     public int damageWobbleSide;

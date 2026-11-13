@@ -6,6 +6,7 @@
   "performance": { "speed": 1.3, "acceleration": 1.3, "fuel_use": 1.35, "braking": 1.1, "steering": 1.0, "offroad": 0.0 },
   "factory": { "engine": "v8", "fuel": "petrol", "tyres": "sport" },
   "tank": 61,
+  "lights": { "length": 13, "spread": 3 },
   "materials": [ { "item": "minecraft:iron_block", "count": 1 }, { "item": "minecraft:iron_ingot", "count": 2 }, { "item": "minecraft:redstone_block", "count": 1 } ],
   "seats": [
     [6.4, 5.36, 3.2],

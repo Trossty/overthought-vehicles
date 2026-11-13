@@ -5,15 +5,14 @@ import me.trossty.car.entity.CarPart;
 import me.trossty.car.entity.CarSetup;
 import me.trossty.car.item.CarItem;
 import me.trossty.car.registry.ModComponents;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import java.util.List;
 
 /**
@@ -57,11 +56,11 @@ public final class BenchWork {
         return List.copyOf(all);
     }
 
-    public static int count(Inventory source, Item item) {
+    public static int count(Container source, Item item) {
         int total = 0;
-        for (int slot = 0; slot < source.size(); slot++) {
-            ItemStack stack = source.getStack(slot);
-            if (stack.isOf(item)) {
+        for (int slot = 0; slot < source.getContainerSize(); slot++) {
+            ItemStack stack = source.getItem(slot);
+            if (stack.is(item)) {
                 total += stack.getCount();
             }
         }
@@ -69,11 +68,11 @@ public final class BenchWork {
     }
 
     /** Only the tired ones: a rebuild will not take a part that is still good. */
-    public static int countWorn(Inventory source, Item item) {
+    public static int countWorn(Container source, Item item) {
         int total = 0;
-        for (int slot = 0; slot < source.size(); slot++) {
-            ItemStack stack = source.getStack(slot);
-            if (stack.isOf(item) && CarEntity.conditionOf(stack) < CarPart.REFURBISHED) {
+        for (int slot = 0; slot < source.getContainerSize(); slot++) {
+            ItemStack stack = source.getItem(slot);
+            if (stack.is(item) && CarEntity.conditionOf(stack) < CarPart.REFURBISHED) {
                 total += stack.getCount();
             }
         }
@@ -84,13 +83,13 @@ public final class BenchWork {
      * How many of a material are on hand that this recipe would accept. For
      * the part a rebuild is rebuilding that means worn ones only.
      */
-    public static int have(Inventory source, VehicleRecipe recipe, VehicleRecipe.Material material) {
+    public static int have(Container source, VehicleRecipe recipe, VehicleRecipe.Material material) {
         return recipe.refurbished() && material.item() == recipe.result()
                 ? countWorn(source, material.item())
                 : count(source, material.item());
     }
 
-    public static boolean hasMaterials(Inventory source, VehicleRecipe recipe,
+    public static boolean hasMaterials(Container source, VehicleRecipe recipe,
                                        CarPart.Quality quality) {
         for (VehicleRecipe.Material material : materialsFor(recipe, quality)) {
             if (have(source, recipe, material) < material.count()) {
@@ -104,7 +103,7 @@ public final class BenchWork {
      * Takes the materials and returns what they made, or an empty stack — and
      * takes nothing — if they were not all there.
      */
-    public static ItemStack build(Inventory source, VehicleRecipe recipe, CarPart.Quality quality) {
+    public static ItemStack build(Container source, VehicleRecipe recipe, CarPart.Quality quality) {
         if (!hasMaterials(source, recipe, quality)) {
             return ItemStack.EMPTY;
         }
@@ -166,7 +165,7 @@ public final class BenchWork {
      *
      * @return whether anything was built
      */
-    public static boolean buildFromPockets(PlayerEntity player, BlockPos bench,
+    public static boolean buildFromPockets(Player player, BlockPos bench,
                                            List<VehicleRecipe> catalogue, int index,
                                            CarPart.Quality quality) {
         if (index < 0 || index >= catalogue.size()) {
@@ -175,25 +174,25 @@ public final class BenchWork {
         VehicleRecipe recipe = catalogue.get(index);
         ItemStack result = build(player.getInventory(), recipe, quality);
         if (result.isEmpty()) {
-            player.sendMessage(Text.translatable("message.car.bench_short",
-                    recipe.createResult().getName()), true);
+            player.displayClientMessage(Component.translatable("message.car.bench_short",
+                    recipe.createResult().getHoverName()), true);
             return false;
         }
-        if (!player.getInventory().insertStack(result)) {
-            player.dropItem(result, false);
+        if (!player.getInventory().add(result)) {
+            player.drop(result, false);
         }
-        player.getEntityWorld().playSound(null, bench,
-                recipe.refurbished() ? SoundEvents.BLOCK_GRINDSTONE_USE : SoundEvents.BLOCK_ANVIL_USE,
-                SoundCategory.BLOCKS, recipe.refurbished() ? 0.7F : 0.6F,
+        player.level().playSound(null, bench,
+                recipe.refurbished() ? SoundEvents.GRINDSTONE_USE : SoundEvents.ANVIL_USE,
+                SoundSource.BLOCKS, recipe.refurbished() ? 0.7F : 0.6F,
                 recipe.refurbished() ? 1.0F : 1.6F);
         return true;
     }
 
     /** The kind of the first of these on hand, which is the first to be taken. */
-    public static int firstVariant(Inventory source, Item item) {
-        for (int slot = 0; slot < source.size(); slot++) {
-            ItemStack stack = source.getStack(slot);
-            if (stack.isOf(item)) {
+    public static int firstVariant(Container source, Item item) {
+        for (int slot = 0; slot < source.getContainerSize(); slot++) {
+            ItemStack stack = source.getItem(slot);
+            if (stack.is(item)) {
                 return CarEntity.variantOf(stack);
             }
         }
@@ -201,39 +200,39 @@ public final class BenchWork {
     }
 
     /** The same, for the worn one a rebuild is about to take. */
-    private static int wornVariant(Inventory source, Item item) {
-        for (int slot = 0; slot < source.size(); slot++) {
-            ItemStack stack = source.getStack(slot);
-            if (stack.isOf(item) && CarEntity.conditionOf(stack) < CarPart.REFURBISHED) {
+    private static int wornVariant(Container source, Item item) {
+        for (int slot = 0; slot < source.getContainerSize(); slot++) {
+            ItemStack stack = source.getItem(slot);
+            if (stack.is(item) && CarEntity.conditionOf(stack) < CarPart.REFURBISHED) {
                 return CarEntity.variantOf(stack);
             }
         }
         return 0;
     }
 
-    private static CarPart.Quality takeWorn(Inventory source, Item item, int count) {
+    private static CarPart.Quality takeWorn(Container source, Item item, int count) {
         int remaining = count;
         CarPart.Quality taken = CarPart.Quality.DEFAULT;
-        for (int slot = 0; slot < source.size() && remaining > 0; slot++) {
-            ItemStack stack = source.getStack(slot);
-            if (!stack.isOf(item) || CarEntity.conditionOf(stack) >= CarPart.REFURBISHED) {
+        for (int slot = 0; slot < source.getContainerSize() && remaining > 0; slot++) {
+            ItemStack stack = source.getItem(slot);
+            if (!stack.is(item) || CarEntity.conditionOf(stack) >= CarPart.REFURBISHED) {
                 continue;
             }
             taken = CarEntity.qualityOf(stack);
             int moved = Math.min(remaining, stack.getCount());
-            stack.decrement(moved);
+            stack.shrink(moved);
             remaining -= moved;
         }
         return taken;
     }
 
     /** Takes the items and reports the worst grade among them, if they are parts. */
-    public static CarPart.Quality consume(Inventory source, Item item, int count) {
+    public static CarPart.Quality consume(Container source, Item item, int count) {
         int remaining = count;
         CarPart.Quality worst = null;
-        for (int slot = 0; slot < source.size() && remaining > 0; slot++) {
-            ItemStack stack = source.getStack(slot);
-            if (!stack.isOf(item)) {
+        for (int slot = 0; slot < source.getContainerSize() && remaining > 0; slot++) {
+            ItemStack stack = source.getItem(slot);
+            if (!stack.is(item)) {
                 continue;
             }
             if (CarPart.forItem(item) != null) {
@@ -243,7 +242,7 @@ public final class BenchWork {
                 }
             }
             int taken = Math.min(remaining, stack.getCount());
-            stack.decrement(taken);
+            stack.shrink(taken);
             remaining -= taken;
         }
         return worst;

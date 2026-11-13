@@ -1,10 +1,10 @@
 package me.trossty.car.network;
 
 import me.trossty.car.CarMain;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
  * Sent by a driving client when its car hits something.
@@ -14,16 +14,16 @@ import net.minecraft.network.packet.CustomPayload;
  * payload carries the severity in condition points; the server clamps it and
  * accepts it only from the car's own driver.
  */
-public record CrashC2SPayload(float severity) implements CustomPayload {
+public record CrashC2SPayload(float severity) implements CustomPacketPayload {
 
-    public static final CustomPayload.Id<CrashC2SPayload> ID =
-            new CustomPayload.Id<>(CarMain.id("crash"));
+    public static final CustomPacketPayload.Type<CrashC2SPayload> ID =
+            new CustomPacketPayload.Type<>(CarMain.id("crash"));
 
-    public static final PacketCodec<RegistryByteBuf, CrashC2SPayload> CODEC =
-            PacketCodec.tuple(PacketCodecs.FLOAT, CrashC2SPayload::severity, CrashC2SPayload::new);
+    public static final StreamCodec<RegistryFriendlyByteBuf, CrashC2SPayload> CODEC =
+            StreamCodec.composite(ByteBufCodecs.FLOAT, CrashC2SPayload::severity, CrashC2SPayload::new);
 
     @Override
-    public CustomPayload.Id<? extends CustomPayload> getId() {
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

@@ -2,11 +2,21 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "I": "minecraft:iron_ingot",
-    "C": "minecraft:copper_ingot",
-    "R": "minecraft:redstone",
-    "G": "minecraft:glass_pane",
-    "E": "car:energy_cable"
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "G": {
+      "item": "minecraft:glass_pane"
+    },
+    "E": {
+      "item": "car:energy_cable"
+    }
   },
   "pattern": [
     "IGI",

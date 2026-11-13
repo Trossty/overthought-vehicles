@@ -6,15 +6,14 @@ import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.workbench.BenchWork;
 import me.trossty.car.workbench.VehicleRecipe;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.LayeredDraw;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.Util;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector4f;
 
 import java.util.ArrayList;
@@ -32,7 +31,7 @@ import java.util.List;
  * machine — a tooltip box slid in beside the crosshair, with the thing itself
  * drawn at its head, saying what state it is in and what the click will do.
  */
-public class ServiceHud implements HudElement {
+public class ServiceHud implements LayeredDraw.Layer {
 
     /** The edge Create gives its value-box labels. */
     private static final int LABEL_EDGE = 0xFF333333;
@@ -61,7 +60,7 @@ public class ServiceHud implements HudElement {
     private static final int PLATE_HEIGHT = 12;
 
     /** One line of the tooltip. */
-    private record Row(Text text, int colour) {
+    private record Row(Component text, int colour) {
     }
 
     /**
@@ -72,13 +71,13 @@ public class ServiceHud implements HudElement {
      * @param rows  what there is to say about it, the last being what a click does
      * @param since when the crosshair came to rest on it, for the slide
      */
-    private record Tooltip(ItemStack icon, Text title, List<Row> rows, long since) {
+    private record Tooltip(ItemStack icon, Component title, List<Row> rows, long since) {
     }
 
     @Override
-    public void render(DrawContext context, RenderTickCounter tickCounter) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.options.hudHidden) {
+    public void render(GuiGraphics context, DeltaTracker tickCounter) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.options.hideGui) {
             return;
         }
 
@@ -88,19 +87,19 @@ public class ServiceHud implements HudElement {
             return;
         }
 
-        int width = ICON + 4 + client.textRenderer.getWidth(tooltip.title());
+        int width = ICON + 4 + client.font.width(tooltip.title());
         for (Row row : tooltip.rows()) {
-            width = Math.max(width, client.textRenderer.getWidth(row.text()));
+            width = Math.max(width, client.font.width(row.text()));
         }
         int height = ICON + 2 + tooltip.rows().size() * LINE - 2;
 
         // Beside the crosshair rather than under it, where the goggles put
         // theirs: the thing and its label are at the crosshair already, and a
         // box on top of them would hide what it is describing.
-        int x = Math.min(context.getScaledWindowWidth() / 2 + BOX_OFFSET,
-                context.getScaledWindowWidth() - width - 20);
-        int y = Math.min(context.getScaledWindowHeight() / 2 - height / 2,
-                context.getScaledWindowHeight() - height - 20);
+        int x = Math.min(context.guiWidth() / 2 + BOX_OFFSET,
+                context.guiWidth() - width - 20);
+        int y = Math.min(context.guiHeight() / 2 - height / 2,
+                context.guiHeight() - height - 20);
 
         // The labels go down first, and keep out from under the box: it is
         // see-through, and a name showing through it reads as part of it.
@@ -108,26 +107,26 @@ public class ServiceHud implements HudElement {
                 new int[] {x - 5, y - 5, x + width + 5 + SLIDE_PIXELS, y + height + 5});
 
         double left = 1.0 - Math.min(1.0,
-                (Util.getMeasuringTimeMs() - tooltip.since()) / SLIDE_MS);
-        context.getMatrices().pushMatrix();
-        context.getMatrices().translate((float) (left * left * left * SLIDE_PIXELS), 0.0F);
+                (Util.getMillis() - tooltip.since()) / SLIDE_MS);
+        context.pose().pushPose();
+        context.pose().translate((float) (left * left * left * SLIDE_PIXELS), 0.0F, 0.0F);
 
         tooltipBox(context, x, y, width, height);
         // The thing itself at the head of the box, where the goggles draw
         // themselves: you are told about it by being shown it.
-        context.drawItem(tooltip.icon(), x, y);
-        context.drawText(client.textRenderer, tooltip.title(), x + ICON + 4, y + 4, ACCENT, true);
+        context.renderItem(tooltip.icon(), x, y);
+        context.drawString(client.font, tooltip.title(), x + ICON + 4, y + 4, ACCENT, true);
         int line = y + ICON + 2;
         for (Row row : tooltip.rows()) {
-            context.drawText(client.textRenderer, row.text(), x, line, row.colour(), true);
+            context.drawString(client.font, row.text(), x, line, row.colour(), true);
             line += LINE;
         }
 
-        context.getMatrices().popMatrix();
+        context.pose().popPose();
     }
 
     /** The part of a car under the crosshair, or null if there is none. */
-    private static Tooltip partTooltip(MinecraftClient client) {
+    private static Tooltip partTooltip(Minecraft client) {
         CarEntity car = CarServiceOverlay.aimedCar();
         CarPart part = CarServiceOverlay.aimedPart();
         if (car == null || part == null) {
@@ -135,34 +134,34 @@ public class ServiceHud implements HudElement {
         }
 
         boolean fitted = car.isFitted(part);
-        ItemStack held = client.player.getMainHandStack();
-        boolean offering = held.isOf(part.item());
+        ItemStack held = client.player.getMainHandItem();
+        boolean offering = held.is(part.item());
         List<Row> rows = new ArrayList<>();
         if (fitted) {
             float fraction = car.getConditionFraction(part);
             rows.add(new Row(
-                    Text.translatable("tooltip.car.condition", Math.round(fraction * 100.0F)),
+                    Component.translatable("tooltip.car.condition", Math.round(fraction * 100.0F)),
                     fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD)));
             rows.add(new Row(
-                    Text.translatable("quality.car." + car.getQuality(part).key()), GREY));
+                    Component.translatable("quality.car." + car.getQuality(part).key()), GREY));
         } else {
-            rows.add(new Row(Text.translatable("gui.car.part_missing"), BAD));
+            rows.add(new Row(Component.translatable("gui.car.part_missing"), BAD));
         }
         if (offering) {
-            rows.add(new Row(Text.translatable("gui.car.spare",
+            rows.add(new Row(Component.translatable("gui.car.spare",
                     Math.round(CarEntity.conditionOf(held) / CarPart.MAX_CONDITION * 100.0F) + "%"), GOOD));
         }
-        rows.add(new Row(Text.translatable(fitted
+        rows.add(new Row(Component.translatable(fitted
                         ? (offering ? "gui.car.service_swap" : "gui.car.service_remove")
                         : (offering ? "gui.car.service_fit" : "gui.car.service_hold")),
                 HINT));
         return new Tooltip(new ItemStack(part.item()),
-                Text.translatable("part.car." + part.key()), rows,
+                Component.translatable("part.car." + part.key()), rows,
                 CarServiceOverlay.aimedSince());
     }
 
     /** A vanilla tooltip's frame, drawn by hand so that it can be see-through. */
-    private static void tooltipBox(DrawContext context, int x, int y, int width, int height) {
+    private static void tooltipBox(GuiGraphics context, int x, int y, int width, int height) {
         int x1 = x - 3;
         int y1 = y - 3;
         int x2 = x + width + 3;
@@ -179,13 +178,13 @@ public class ServiceHud implements HudElement {
     }
 
     /** Letters with a dark edge all round, readable over sky and bodywork alike. */
-    private static void outlined(DrawContext context, MinecraftClient client,
-                                 Text text, int x, int y, int colour) {
-        context.drawText(client.textRenderer, text, x - 1, y, LABEL_EDGE, false);
-        context.drawText(client.textRenderer, text, x + 1, y, LABEL_EDGE, false);
-        context.drawText(client.textRenderer, text, x, y - 1, LABEL_EDGE, false);
-        context.drawText(client.textRenderer, text, x, y + 1, LABEL_EDGE, false);
-        context.drawText(client.textRenderer, text, x, y, colour, false);
+    private static void outlined(GuiGraphics context, Minecraft client,
+                                 Component text, int x, int y, int colour) {
+        context.drawString(client.font, text, x - 1, y, LABEL_EDGE, false);
+        context.drawString(client.font, text, x + 1, y, LABEL_EDGE, false);
+        context.drawString(client.font, text, x, y - 1, LABEL_EDGE, false);
+        context.drawString(client.font, text, x, y + 1, LABEL_EDGE, false);
+        context.drawString(client.font, text, x, y, colour, false);
     }
 
     /**
@@ -195,21 +194,21 @@ public class ServiceHud implements HudElement {
      *
      * @param box the tooltip's rectangle to keep clear of, or null if there is none
      */
-    private void drawLabels(DrawContext context, MinecraftClient client, int[] box) {
+    private void drawLabels(GuiGraphics context, Minecraft client, int[] box) {
         List<WorldLabels.Label> labels = WorldLabels.labels();
         if (labels.isEmpty()) {
             return;
         }
 
-        int width = context.getScaledWindowWidth();
-        int height = context.getScaledWindowHeight();
+        int width = context.guiWidth();
+        int height = context.guiHeight();
         // The game's own projection lives on the graphics card now, so the
         // labels are projected the long way round: the view matrix kept from
         // the world pass, then the field of view, which is all a perspective
         // projection is.
-        double tangent = Math.tan(Math.toRadians(client.options.getFov().getValue()) / 2.0);
+        double tangent = Math.tan(Math.toRadians(client.options.fov().get()) / 2.0);
         double aspect = (double) width / height;
-        Vec3d camera = WorldLabels.camera();
+        Vec3 camera = WorldLabels.camera();
 
         // Project first, then draw: where two labels land on top of each other
         // they have to be told apart, and that cannot be known one at a time.
@@ -244,7 +243,7 @@ public class ServiceHud implements HudElement {
             int x = plate.x();
             int y = plate.y();
             if (plate.label().icon().isEmpty()) {
-                int half = client.textRenderer.getWidth(plate.label().text()) / 2;
+                int half = client.font.width(plate.label().text()) / 2;
                 boolean moved = true;
                 while (moved) {
                     moved = false;
@@ -252,7 +251,7 @@ public class ServiceHud implements HudElement {
                         if (!other.label().icon().isEmpty()) {
                             continue;
                         }
-                        int otherHalf = client.textRenderer.getWidth(other.label().text()) / 2;
+                        int otherHalf = client.font.width(other.label().text()) / 2;
                         if (Math.abs(y - other.y()) < PLATE_HEIGHT
                                 && x - half < other.x() + otherHalf
                                 && x + half > other.x() - otherHalf) {
@@ -275,7 +274,7 @@ public class ServiceHud implements HudElement {
                 continue;
             }
             boolean pictured = !label.icon().isEmpty();
-            int half = pictured ? ICON / 2 : client.textRenderer.getWidth(label.text()) / 2;
+            int half = pictured ? ICON / 2 : client.font.width(label.text()) / 2;
             int top = pictured ? y - ICON : y - 1;
             if (box != null && x + half > box[0] && x - half < box[2]
                     && y + 9 > box[1] && top < box[3]) {
@@ -284,7 +283,7 @@ public class ServiceHud implements HudElement {
             if (pictured) {
                 // Standing on the point, not centred on it: the point is the
                 // top of a button and the thing should look set down there.
-                context.drawItem(label.icon(), x - ICON / 2, y - ICON);
+                context.renderItem(label.icon(), x - ICON / 2, y - ICON);
             } else {
                 // No box behind it: Create writes its labels straight onto the
                 // world with a dark edge round the letters.

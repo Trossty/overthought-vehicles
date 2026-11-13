@@ -6,6 +6,7 @@
   "performance": { "speed": 0.92, "acceleration": 1.05, "fuel_use": 1.25, "braking": 0.95, "steering": 0.9, "offroad": 0.8 },
   "factory": { "engine": "v6", "fuel": "petrol", "tyres": "dirt" },
   "tank": 66,
+  "lights": { "length": 15, "spread": 4 },
   "materials": [ { "item": "minecraft:iron_block", "count": 2 }, { "item": "minecraft:iron_bars", "count": 2 }, { "item": "minecraft:leather", "count": 2 } ],
   "seats": [
     [6.4, 8.96, 3.2],

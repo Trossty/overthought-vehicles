@@ -1,4 +1,5 @@
 import json, random
+from model_uv import fold_uvs
 from PIL import Image
 R='/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
 T=R+'textures/block/'; M=R+'models/block/'
@@ -32,7 +33,7 @@ def el(fr,to,tex,uv=None,faces=('north','south','east','west','up','down'),rot=N
     if rot: e['rotation']=rot
     return e
 def save(name,textures,els,parent='minecraft:block/block'):
-    json.dump({'parent':parent,'textures':textures,'elements':els},open(M+name+'.json','w'),indent=1)
+    json.dump({'parent':parent,'textures':textures,'elements':fold_uvs(els)},open(M+name+'.json','w'),indent=1)
 
 TX={'particle':'car:block/shop_red','steel':'car:block/shop_steel','red':'car:block/shop_red','chrome':'car:block/shop_chrome',
     'rubber':'car:block/shop_rubber','hazard':'car:block/shop_hazard','wood':'car:block/shop_wood',

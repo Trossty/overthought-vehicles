@@ -6,31 +6,25 @@ import me.trossty.car.refinery.FuelRefineryScreenHandler;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModItems;
 import me.trossty.car.registry.ModTags;
-import net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
-import net.fabricmc.fabric.api.transfer.v1.storage.StorageView;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.InsertionOnlyStorage;
-import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
-import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
+import net.minecraft.core.BlockPos;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.minecraft.core.NonNullList;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.SimpleContainerData;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 import me.trossty.car.registry.ModFluids;
-import net.minecraft.block.BlockState;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
-import net.minecraft.block.entity.LockableContainerBlockEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.ArrayPropertyDelegate;
-import net.minecraft.screen.PropertyDelegate;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * The middle of the production line.
@@ -54,7 +48,7 @@ import net.minecraft.world.World;
  * biofuel as it is made; the raw fuels leave through the product door, for a
  * hydrotreater standing against the plant, a tanker's hose or another mod's pipe.
  */
-public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implements me.trossty.car.fluid.FluidSource {
+public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements me.trossty.car.fluid.FluidSource {
 
     public static final int ORGANIC_SLOT = 0;
     /** A bucket of somebody else's crude oil, emptied into the feedstock tank. */
@@ -123,7 +117,7 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
     public static final int PROPERTY_COUNT = 8;
 
     /** What a product turns into once hydrotreated; biofuel needs nothing doing. */
-    private static net.minecraft.fluid.Fluid cleanOf(net.minecraft.fluid.Fluid product) {
+    private static net.minecraft.world.level.material.Fluid cleanOf(net.minecraft.world.level.material.Fluid product) {
         return product == ModFluids.BIOFUEL ? product : HydrotreaterBlockEntity.cleanOf(product);
     }
 
@@ -134,7 +128,7 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
     public static final int FEED_BIOMASS = 0;
     public static final int FEED_CRUDE = 1;
 
-    private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(SIZE, ItemStack.EMPTY);
+    private NonNullList<ItemStack> inventory = NonNullList.withSize(SIZE, ItemStack.EMPTY);
 
     private int temperature;
     private boolean working;
@@ -143,11 +137,11 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
      * The buffer. It only takes: nothing is allowed to pull power back out of
      * a refinery, so a cable network cannot use one as a battery.
      */
-    private final SimpleEnergyStorage energy =
-            new SimpleEnergyStorage(ENERGY_CAPACITY, ENERGY_MAX_INPUT, 0) {
+    private final EnergyBuffer energy =
+            new EnergyBuffer(ENERGY_CAPACITY, ENERGY_MAX_INPUT, 0) {
                 @Override
-                protected void onFinalCommit() {
-                    FuelRefineryBlockEntity.this.markDirty();
+                protected void onChanged() {
+                    FuelRefineryBlockEntity.this.setChanged();
                 }
             };
 
@@ -155,43 +149,57 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
      * The feedstock tank as another mod's pipe sees it: somewhere crude oil
      * can be pushed in, a millibucket for a unit, and nothing taken out.
      */
-    private final Storage<FluidVariant> oilInlet = new OilInlet();
+    private final IFluidHandler oilInlet = new OilInlet();
 
-    private final class OilInlet extends SnapshotParticipant<Integer>
-            implements InsertionOnlyStorage<FluidVariant> {
+    private final class OilInlet implements IFluidHandler {
 
         @Override
-        public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-            if (resource.isBlank() || !isCrudeOil(resource)
+        public int getTanks() {
+            return 1;
+        }
+
+        @Override
+        public FluidStack getFluidInTank(int tank) {
+            return FluidStack.EMPTY;
+        }
+
+        @Override
+        public int getTankCapacity(int tank) {
+            return BIOMASS_CAPACITY;
+        }
+
+        @Override
+        public boolean isFluidValid(int tank, FluidStack stack) {
+            return isCrudeOil(stack.getFluid());
+        }
+
+        @Override
+        public int fill(FluidStack resource, FluidAction action) {
+            if (resource.isEmpty() || !isCrudeOil(resource.getFluid())
                     || (FuelRefineryBlockEntity.this.biomass > 0
                             && FuelRefineryBlockEntity.this.feed != FEED_CRUDE)) {
                 return 0;
             }
-            long units = Math.min(maxAmount / ModFluids.UNIT,
-                    BIOMASS_CAPACITY - FuelRefineryBlockEntity.this.biomass);
+            int units = Math.min(resource.getAmount(), BIOMASS_CAPACITY - FuelRefineryBlockEntity.this.biomass);
             if (units <= 0) {
                 return 0;
             }
-            this.updateSnapshots(transaction);
-            FuelRefineryBlockEntity.this.biomass += (int) units;
-            FuelRefineryBlockEntity.this.feed = FEED_CRUDE;
-            return units * ModFluids.UNIT;
+            if (action.execute()) {
+                FuelRefineryBlockEntity.this.biomass += units;
+                FuelRefineryBlockEntity.this.feed = FEED_CRUDE;
+                FuelRefineryBlockEntity.this.setChanged();
+            }
+            return units;
         }
 
         @Override
-        protected Integer createSnapshot() {
-            return FuelRefineryBlockEntity.this.biomass * 2 + FuelRefineryBlockEntity.this.feed;
+        public FluidStack drain(FluidStack resource, FluidAction action) {
+            return FluidStack.EMPTY;
         }
 
         @Override
-        protected void readSnapshot(Integer snapshot) {
-            FuelRefineryBlockEntity.this.biomass = snapshot / 2;
-            FuelRefineryBlockEntity.this.feed = snapshot % 2;
-        }
-
-        @Override
-        protected void onFinalCommit() {
-            FuelRefineryBlockEntity.this.markDirty();
+        public FluidStack drain(int maxDrain, FluidAction action) {
+            return FluidStack.EMPTY;
         }
     }
     private int distillProgress;
@@ -207,9 +215,9 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
     private final me.trossty.car.fluid.UnitTank product = new me.trossty.car.fluid.UnitTank(
             PETROL_CAPACITY,
             fluid -> fluid == ModFluids.RAW_PETROL || fluid == ModFluids.RAW_DIESEL || fluid == ModFluids.BIOFUEL,
-            false, true, this::markDirty);
+            false, true, this::setChanged);
 
-    private final PropertyDelegate properties = new ArrayPropertyDelegate(PROPERTY_COUNT) {
+    private final ContainerData properties = new SimpleContainerData(PROPERTY_COUNT) {
         @Override
         public int get(int index) {
             return switch (index) {
@@ -249,19 +257,18 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
     }
 
     /** What other mods' cables talk to. */
-    public EnergyStorage getEnergyStorage() {
+    public IEnergyStorage getEnergyStorage() {
         return this.energy;
     }
 
     /** What other mods' pipes push crude oil into. */
-    public Storage<FluidVariant> getOilInlet() {
+    public IFluidHandler getOilInlet() {
         return this.oilInlet;
     }
 
     /** Both doors at once: crude in, product out. */
-    public Storage<FluidVariant> getFluidStorage() {
-        return new net.fabricmc.fabric.api.transfer.v1.storage.base.CombinedStorage<>(
-                java.util.List.of(this.oilInlet, this.product));
+    public IFluidHandler getFluidStorage() {
+        return new me.trossty.car.fluid.CombinedTanks(this.oilInlet, this.product);
     }
 
     /** The product tank itself, for the hydrotreater drawing from it and for tests. */
@@ -287,8 +294,8 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
     }
 
     /** Whether a fluid is crude oil as far as this machine is concerned. */
-    public static boolean isCrudeOil(FluidVariant fluid) {
-        return fluid.getRegistryEntry().isIn(ModTags.CRUDE_OIL);
+    public static boolean isCrudeOil(net.minecraft.world.level.material.Fluid fluid) {
+        return fluid.builtInRegistryHolder().is(ModTags.CRUDE_OIL);
     }
 
     /**
@@ -300,13 +307,15 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
         if (stack.isEmpty()) {
             return 0;
         }
-        Storage<FluidVariant> held = ContainerItemContext.withConstant(stack).find(FluidStorage.ITEM);
+        IFluidHandler held = stack.copyWithCount(1).getCapability(
+                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.ITEM);
         if (held == null) {
             return 0;
         }
         long found = 0;
-        for (StorageView<FluidVariant> view : held) {
-            if (!view.isResourceBlank() && isCrudeOil(view.getResource())) {
+        for (int tank = 0; tank < held.getTanks(); tank++) {
+            FluidStack view = held.getFluidInTank(tank);
+            if (!view.isEmpty() && isCrudeOil(view.getFluid())) {
                 found += view.getAmount();
             }
         }
@@ -338,7 +347,7 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
 
     /** What the product tank holds, as one of the {@code PRODUCT_} numbers. */
     public int getProduct() {
-        net.minecraft.fluid.Fluid fluid = this.product.getFluid();
+        net.minecraft.world.level.material.Fluid fluid = this.product.getFluid();
         return fluid == ModFluids.RAW_DIESEL ? PRODUCT_RAW_DIESEL
                 : fluid == ModFluids.BIOFUEL ? PRODUCT_BIOFUEL : PRODUCT_RAW_PETROL;
     }
@@ -350,11 +359,11 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
     }
 
     /** What this catalyst makes of what is in the feed tank. */
-    public static net.minecraft.fluid.Fluid productOf(int feed, ItemStack catalyst) {
+    public static net.minecraft.world.level.material.Fluid productOf(int feed, ItemStack catalyst) {
         if (feed == FEED_BIOMASS) {
             return ModFluids.BIOFUEL;
         }
-        return catalyst.isIn(ModTags.REFINERY_DIESEL_CATALYST) ? ModFluids.RAW_DIESEL : ModFluids.RAW_PETROL;
+        return catalyst.is(ModTags.REFINERY_DIESEL_CATALYST) ? ModFluids.RAW_DIESEL : ModFluids.RAW_PETROL;
     }
 
     /** One tar into the out slot, if it has room; a full slot just loses it, as residue does. */
@@ -362,24 +371,24 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
         ItemStack tar = this.inventory.get(TAR_SLOT);
         if (tar.isEmpty()) {
             this.inventory.set(TAR_SLOT, new ItemStack(ModItems.TAR));
-        } else if (tar.isOf(ModItems.TAR) && tar.getCount() < tar.getMaxCount()) {
-            tar.increment(1);
+        } else if (tar.is(ModItems.TAR) && tar.getCount() < tar.getMaxStackSize()) {
+            tar.grow(1);
         }
     }
 
     /** What a slot will accept, which the screen handler and hoppers both honour. */
-    public static boolean isValidFor(int slot, ItemStack stack, World world) {
+    public static boolean isValidFor(int slot, ItemStack stack, Level world) {
         return switch (slot) {
-            case ORGANIC_SLOT -> stack.isIn(ModTags.REFINERY_ORGANIC);
+            case ORGANIC_SLOT -> stack.is(ModTags.REFINERY_ORGANIC);
             case OIL_SLOT -> oilIn(stack) > 0;
-            case CATALYST_SLOT -> stack.isIn(ModTags.REFINERY_CATALYST)
-                    || stack.isIn(ModTags.REFINERY_DIESEL_CATALYST);
-            case CAN_SLOT -> stack.isOf(ModItems.JERRY_CAN);
+            case CATALYST_SLOT -> stack.is(ModTags.REFINERY_CATALYST)
+                    || stack.is(ModTags.REFINERY_DIESEL_CATALYST);
+            case CAN_SLOT -> stack.is(ModItems.JERRY_CAN);
             default -> false;
         };
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, FuelRefineryBlockEntity refinery) {
+    public static void tick(Level world, BlockPos pos, BlockState state, FuelRefineryBlockEntity refinery) {
         if (!me.trossty.car.block.MultiblockBlock.checkIntact(world, pos, state)) {
             return;
         }
@@ -392,11 +401,11 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
         int carried = oilIn(oil);
         if (carried > 0 && refinery.biomass + carried <= BIOMASS_CAPACITY
                 && (refinery.biomass == 0 || refinery.feed == FEED_CRUDE)) {
-            ItemStack emptied = oil.getItem().getRecipeRemainder();
+            ItemStack emptied = oil.getCraftingRemainingItem();
             if (oil.getCount() == 1 || emptied.isEmpty()) {
                 refinery.biomass += carried;
                 refinery.feed = FEED_CRUDE;
-                oil.decrement(1);
+                oil.shrink(1);
                 if (oil.isEmpty()) {
                     // The bucket is still a bucket; only what was in it is gone.
                     refinery.inventory.set(OIL_SLOT, emptied);
@@ -416,7 +425,7 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
             refinery.distillProgress++;
             if (refinery.distillProgress >= DISTILL_TIME) {
                 refinery.distillProgress = 0;
-                organic.decrement(1);
+                organic.shrink(1);
                 refinery.biomass += BIOMASS_PER_ITEM;
                 refinery.feed = FEED_BIOMASS;
                 dirty = true;
@@ -428,7 +437,7 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
 
         // --- stage two: a catalyst cracks feedstock in the column, hot ---
         ItemStack catalyst = refinery.inventory.get(CATALYST_SLOT);
-        net.minecraft.fluid.Fluid making = productOf(refinery.feed, catalyst);
+        net.minecraft.world.level.material.Fluid making = productOf(refinery.feed, catalyst);
         boolean canRefine = !catalyst.isEmpty()
                 && refinery.product.canTake(making)
                 && refinery.biomass >= BIOMASS_PER_REFINE
@@ -446,7 +455,7 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
                 refinery.refineProgress = 0;
                 refinery.biomass -= BIOMASS_PER_REFINE;
                 refinery.product.fill(making, PETROL_PER_REFINE);
-                catalyst.decrement(1);
+                catalyst.shrink(1);
                 if (refinery.feed == FEED_CRUDE) {
                     refinery.leaveTar();
                 }
@@ -473,7 +482,7 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
         CarSetup.Fuel canFuel = ModFluids.fuelOf(cleanOf(refinery.product.getFluid()));
         boolean raw = refinery.product.getFluid() != ModFluids.BIOFUEL;
         if (canFuel != null && !refinery.product.isEmpty()
-                && can.isOf(ModItems.JERRY_CAN) && !me.trossty.car.item.JerryCans.isFull(can)
+                && can.is(ModItems.JERRY_CAN) && !me.trossty.car.item.JerryCans.isFull(can)
                 && (me.trossty.car.item.JerryCans.isEmpty(can)
                         || CarEntity.fuelIn(can) == canFuel && CarEntity.isRaw(can) == raw)) {
             int perUnit = PETROL_PER_POUR / me.trossty.car.item.JerryCans.POUR;
@@ -495,60 +504,62 @@ public class FuelRefineryBlockEntity extends LockableContainerBlockEntity implem
             plant.setLit(world, pos, state, refinery.working);
         }
         if (dirty) {
-            refinery.markDirty();
+            refinery.setChanged();
         }
     }
 
     // ---- plumbing ----
 
     @Override
-    protected Text getContainerName() {
-        return Text.translatable("container.car.fuel_refinery");
+    protected Component getDefaultName() {
+        return Component.translatable("container.car.fuel_refinery");
     }
 
     @Override
-    protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
+    protected AbstractContainerMenu createMenu(int syncId, Inventory playerInventory) {
         return new FuelRefineryScreenHandler(syncId, playerInventory, this, this.properties);
     }
 
     @Override
-    protected DefaultedList<ItemStack> getHeldStacks() {
+    protected NonNullList<ItemStack> getItems() {
         return this.inventory;
     }
 
     @Override
-    protected void setHeldStacks(DefaultedList<ItemStack> stacks) {
+    protected void setItems(NonNullList<ItemStack> stacks) {
         this.inventory = stacks;
     }
 
     @Override
-    public int size() {
+    public int getContainerSize() {
         return SIZE;
     }
 
     @Override
-    public boolean isValid(int slot, ItemStack stack) {
-        return isValidFor(slot, stack, this.getWorld());
+    public boolean canPlaceItem(int slot, ItemStack stack) {
+        return isValidFor(slot, stack, this.getLevel());
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        this.inventory = DefaultedList.ofSize(SIZE, ItemStack.EMPTY);
-        Inventories.readData(view, this.inventory);
-        this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, view.getInt("Energy", 0)));
-        this.temperature = view.getInt("Temperature", 0);
-        this.distillProgress = view.getInt("DistillProgress", 0);
-        this.refineProgress = view.getInt("RefineProgress", 0);
-        this.biomass = view.getInt("Biomass", 0);
-        this.feed = view.getInt("Feed", FEED_BIOMASS);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
+        this.inventory = NonNullList.withSize(SIZE, ItemStack.EMPTY);
+        ContainerHelper.loadAllItems(view.tag(), this.inventory, view.registries());
+        this.energy.amount = Math.max(0, Math.min(ENERGY_CAPACITY, view.getIntOr("Energy", 0)));
+        this.temperature = view.getIntOr("Temperature", 0);
+        this.distillProgress = view.getIntOr("DistillProgress", 0);
+        this.refineProgress = view.getIntOr("RefineProgress", 0);
+        this.biomass = view.getIntOr("Biomass", 0);
+        this.feed = view.getIntOr("Feed", FEED_BIOMASS);
         this.product.read(view, "Product");
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
-        Inventories.writeData(view, this.inventory);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
+        ContainerHelper.saveAllItems(view.tag(), this.inventory, view.registries());
         view.putInt("Energy", (int) this.energy.amount);
         view.putInt("Temperature", this.temperature);
         view.putInt("DistillProgress", this.distillProgress);

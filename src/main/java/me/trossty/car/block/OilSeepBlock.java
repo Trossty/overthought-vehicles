@@ -1,18 +1,16 @@
 package me.trossty.car.block;
 
 import com.mojang.serialization.MapCodec;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.WorldView;
-import net.minecraft.world.tick.ScheduledTickView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * A black, glistening puddle where crude has worked its way up to the
@@ -21,42 +19,41 @@ import net.minecraft.world.tick.ScheduledTickView;
  */
 public class OilSeepBlock extends Block {
 
-    public static final MapCodec<OilSeepBlock> CODEC = createCodec(OilSeepBlock::new);
+    public static final MapCodec<OilSeepBlock> CODEC = simpleCodec(OilSeepBlock::new);
 
-    private static final VoxelShape SHAPE = Block.createCuboidShape(0, 0, 0, 16, 1, 16);
+    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 1, 16);
 
-    public OilSeepBlock(Settings settings) {
+    public OilSeepBlock(Properties settings) {
         super(settings);
     }
 
     @Override
-    protected MapCodec<? extends Block> getCodec() {
+    protected MapCodec<? extends Block> codec() {
         return CODEC;
     }
 
     @Override
-    protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPE;
     }
 
     @Override
-    protected boolean canPlaceAt(BlockState state, WorldView world, BlockPos pos) {
-        return world.getBlockState(pos.down()).isSideSolidFullSquare(world, pos.down(), Direction.UP);
+    protected boolean canSurvive(BlockState state, LevelReader world, BlockPos pos) {
+        return world.getBlockState(pos.below()).isFaceSturdy(world, pos.below(), Direction.UP);
     }
 
     @Override
-    protected BlockState getStateForNeighborUpdate(BlockState state, WorldView world, ScheduledTickView tickView,
-                                                   BlockPos pos, Direction direction, BlockPos neighborPos,
-                                                   BlockState neighborState, Random random) {
-        return direction == Direction.DOWN && !this.canPlaceAt(state, world, pos)
-                ? net.minecraft.block.Blocks.AIR.getDefaultState()
-                : super.getStateForNeighborUpdate(state, world, tickView, pos, direction, neighborPos, neighborState, random);
+    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
+                                     net.minecraft.world.level.LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+        return direction == Direction.DOWN && !this.canSurvive(state, world, pos)
+                ? net.minecraft.world.level.block.Blocks.AIR.defaultBlockState()
+                : super.updateShape(state, direction, neighborState, world, pos, neighborPos);
     }
 
     @Override
-    public void randomDisplayTick(BlockState state, net.minecraft.world.World world, BlockPos pos, Random random) {
+    public void animateTick(BlockState state, net.minecraft.world.level.Level world, BlockPos pos, RandomSource random) {
         if (random.nextInt(4) == 0) {
-            world.addParticleClient(ParticleTypes.SMOKE,
+            world.addParticle(ParticleTypes.SMOKE,
                     pos.getX() + 0.2 + random.nextDouble() * 0.6, pos.getY() + 0.1,
                     pos.getZ() + 0.2 + random.nextDouble() * 0.6, 0.0, 0.01, 0.0);
         }

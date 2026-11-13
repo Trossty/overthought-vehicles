@@ -3,19 +3,18 @@ package me.trossty.car.block.entity;
 import me.trossty.car.block.GeneratorBlock;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModItems;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.EnergyStorageUtil;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * Where the electricity comes from, if nothing better is about.
@@ -36,7 +35,7 @@ import team.reborn.energy.api.base.SimpleEnergyStorage;
  * slot). Coal also goes in by hand or by hopper; liquid by a jerry can held
  * against it, a tanker's hose or another mod's pipe.
  */
-public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.trossty.car.machine.GaugeSource {
+public class GeneratorBlockEntity extends BlockEntity implements Container, me.trossty.car.machine.GaugeSource {
 
     public static final int CAPACITY = 20_000;
 
@@ -60,9 +59,9 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
         /** Ticks one unit of liquid lasts; 0 for the coal one. */
         public final int ticksPerUnit;
         /** What liquid it runs on; null for the coal one. */
-        public final me.trossty.car.entity.CarSetup.@org.jspecify.annotations.Nullable Fuel fuel;
+        public final me.trossty.car.entity.CarSetup.@org.jetbrains.annotations.Nullable Fuel fuel;
 
-        Kind(int output, int ticksPerUnit, me.trossty.car.entity.CarSetup.@org.jspecify.annotations.Nullable Fuel fuel) {
+        Kind(int output, int ticksPerUnit, me.trossty.car.entity.CarSetup.@org.jetbrains.annotations.Nullable Fuel fuel) {
             this.output = output;
             this.ticksPerUnit = ticksPerUnit;
             this.fuel = fuel;
@@ -72,8 +71,8 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
             return this.fuel != null;
         }
 
-        public net.minecraft.fluid.Fluid fluid() {
-            return this.fuel == null ? net.minecraft.fluid.Fluids.EMPTY : me.trossty.car.registry.ModFluids.fluidOf(this.fuel);
+        public net.minecraft.world.level.material.Fluid fluid() {
+            return this.fuel == null ? net.minecraft.world.level.material.Fluids.EMPTY : me.trossty.car.registry.ModFluids.fluidOf(this.fuel);
         }
     }
 
@@ -86,19 +85,19 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
     private int burnTime;
     private int burnTimeTotal;
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(CAPACITY, 0, MAX_TRANSFER) {
+    private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, 0, MAX_TRANSFER) {
         @Override
-        protected void onFinalCommit() {
-            GeneratorBlockEntity.this.markDirty();
+        protected void onChanged() {
+            GeneratorBlockEntity.this.setChanged();
         }
     };
 
     public GeneratorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.GENERATOR, pos, state);
         this.kind = state.getBlock() instanceof GeneratorBlock block ? block.getKind() : Kind.COAL;
-        net.minecraft.fluid.Fluid liquid = this.kind.fluid();
+        net.minecraft.world.level.material.Fluid liquid = this.kind.fluid();
         this.tank = new me.trossty.car.fluid.UnitTank(this.kind.burnsLiquid() ? TANK_CAPACITY : 0,
-                fluid -> fluid == liquid, true, false, this::markDirty);
+                fluid -> fluid == liquid, true, false, this::setChanged);
     }
 
     public Kind getKind() {
@@ -110,7 +109,7 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
         return this.tank;
     }
 
-    public EnergyStorage getEnergyStorage() {
+    public IEnergyStorage getEnergyStorage() {
         return this.energy;
     }
 
@@ -131,14 +130,14 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
     }
 
     /** How long this would burn in the coal one's firebox; nothing if it would not. */
-    public static int burnTicks(ItemStack stack, World world) {
-        if (stack.isEmpty() || stack.isOf(ModItems.JERRY_CAN)) {
+    public static int burnTicks(ItemStack stack, Level world) {
+        if (stack.isEmpty() || stack.is(ModItems.JERRY_CAN)) {
             return 0;
         }
-        return world == null ? 0 : world.getFuelRegistry().getFuelTicks(stack);
+        return world == null ? 0 : stack.getBurnTime(null);
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, GeneratorBlockEntity generator) {
+    public static void tick(Level world, BlockPos pos, BlockState state, GeneratorBlockEntity generator) {
         boolean wasBurning = generator.isBurning();
         boolean dirty = false;
 
@@ -163,8 +162,8 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
             if (ticks > 0) {
                 generator.burnTime = ticks;
                 generator.burnTimeTotal = ticks;
-                ItemStack left = generator.fuel.getItem().getRecipeRemainder();
-                generator.fuel.decrement(1);
+                ItemStack left = generator.fuel.getCraftingRemainingItem();
+                generator.fuel.shrink(1);
                 if (generator.fuel.isEmpty()) {
                     generator.fuel = left;
                 }
@@ -175,10 +174,9 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
         // Offer what is in the buffer to everything standing against the block.
         if (generator.energy.amount > 0) {
             for (Direction side : Direction.values()) {
-                EnergyStorage target = EnergyStorage.SIDED.find(
-                        world, pos.offset(side), side.getOpposite());
-                if (target != null && target.supportsInsertion()) {
-                    if (EnergyStorageUtil.move(generator.energy, target, MAX_TRANSFER, null) > 0) {
+                IEnergyStorage target = world.getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos.relative(side), side.getOpposite());
+                if (target != null && target.canReceive()) {
+                    if (EnergyBuffer.move(generator.energy, target, MAX_TRANSFER) > 0) {
                         dirty = true;
                     }
                 }
@@ -186,11 +184,11 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
         }
 
         if (wasBurning != generator.isBurning()) {
-            world.setBlockState(pos, state.with(GeneratorBlock.LIT, generator.isBurning()), 3);
+            world.setBlock(pos, state.setValue(GeneratorBlock.LIT, generator.isBurning()), 3);
             dirty = true;
         }
         if (dirty) {
-            generator.markDirty();
+            generator.setChanged();
         }
     }
 
@@ -216,7 +214,7 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
     }
 
     @Override
-    public me.trossty.car.fluid.@org.jspecify.annotations.Nullable UnitTank gaugeTankA() {
+    public me.trossty.car.fluid.@org.jetbrains.annotations.Nullable UnitTank gaugeTankA() {
         return this.kind.burnsLiquid() ? this.tank : null;
     }
 
@@ -232,8 +230,8 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
         if (this.kind.burnsLiquid()) {
             return (this.tank.getUnits() * this.kind.ticksPerUnit + this.burnTime) / 20;
         }
-        int queued = this.fuel.isEmpty() || this.world == null ? 0
-                : burnTicks(this.fuel, this.world) * this.fuel.getCount();
+        int queued = this.fuel.isEmpty() || this.level == null ? 0
+                : burnTicks(this.fuel, this.level) * this.fuel.getCount();
         return (queued + this.burnTime) / 20;
     }
 
@@ -251,7 +249,7 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
     // ---- the one slot, so a hopper can keep it fed ----
 
     @Override
-    public int size() {
+    public int getContainerSize() {
         return this.kind.burnsLiquid() ? 0 : 1;
     }
 
@@ -261,69 +259,71 @@ public class GeneratorBlockEntity extends BlockEntity implements Inventory, me.t
     }
 
     @Override
-    public ItemStack getStack(int slot) {
+    public ItemStack getItem(int slot) {
         return slot == 0 ? this.fuel : ItemStack.EMPTY;
     }
 
     @Override
-    public ItemStack removeStack(int slot, int amount) {
+    public ItemStack removeItem(int slot, int amount) {
         if (slot != 0 || this.fuel.isEmpty() || amount <= 0) {
             return ItemStack.EMPTY;
         }
         ItemStack taken = this.fuel.split(amount);
-        this.markDirty();
+        this.setChanged();
         return taken;
     }
 
     @Override
-    public ItemStack removeStack(int slot) {
+    public ItemStack removeItemNoUpdate(int slot) {
         if (slot != 0) {
             return ItemStack.EMPTY;
         }
         ItemStack taken = this.fuel;
         this.fuel = ItemStack.EMPTY;
-        this.markDirty();
+        this.setChanged();
         return taken;
     }
 
     @Override
-    public void setStack(int slot, ItemStack stack) {
+    public void setItem(int slot, ItemStack stack) {
         if (slot == 0) {
             this.fuel = stack;
-            this.markDirty();
+            this.setChanged();
         }
     }
 
     @Override
-    public boolean isValid(int slot, ItemStack stack) {
-        return slot == 0 && !this.kind.burnsLiquid() && burnTicks(stack, this.getWorld()) > 0;
+    public boolean canPlaceItem(int slot, ItemStack stack) {
+        return slot == 0 && !this.kind.burnsLiquid() && burnTicks(stack, this.getLevel()) > 0;
     }
 
     @Override
-    public boolean canPlayerUse(PlayerEntity player) {
-        return Inventory.canPlayerUse(this, player);
+    public boolean stillValid(Player player) {
+        return Container.stillValidBlockEntity(this, player);
     }
 
     @Override
-    public void clear() {
+    public void clearContent() {
         this.fuel = ItemStack.EMPTY;
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
         this.fuel = view.read("Fuel", ItemStack.CODEC).orElse(ItemStack.EMPTY);
-        this.burnTime = view.getInt("BurnTime", 0);
-        this.burnTimeTotal = view.getInt("BurnTimeTotal", 0);
-        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getInt("Energy", 0)));
+        this.burnTime = view.getIntOr("BurnTime", 0);
+        this.burnTimeTotal = view.getIntOr("BurnTimeTotal", 0);
+        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getIntOr("Energy", 0)));
         this.tank.read(view, "Tank");
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         if (!this.fuel.isEmpty()) {
-            view.put("Fuel", ItemStack.CODEC, this.fuel);
+            view.store("Fuel", ItemStack.CODEC, this.fuel);
         }
         view.putInt("BurnTime", this.burnTime);
         view.putInt("BurnTimeTotal", this.burnTimeTotal);

@@ -1,32 +1,31 @@
 package me.trossty.car.entity;
 
 import me.trossty.car.registry.ModItems;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.Item;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.ItemScatterer;
-import net.minecraft.util.Uuids;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import org.jspecify.annotations.Nullable;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
+import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.Level;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.UUID;
@@ -55,6 +54,15 @@ public class TrailerEntity extends CarEntity {
 
     public static final int LOAD_SLOTS = 27;
 
+    /** The game tick this last ticked, and the one the tractor last pulled it before that. */
+    private long tickedAt = Long.MIN_VALUE;
+    private long pulledAt = Long.MIN_VALUE;
+    private boolean ticking;
+    private double pulledFromX;
+    private double pulledFromY;
+    private double pulledFromZ;
+    private float pulledFromYRot;
+
     public static final float EMPTY_TOW_FACTOR = 0.92F;
     public static final float LADEN_TOW_FACTOR = 0.78F;
 
@@ -65,33 +73,33 @@ public class TrailerEntity extends CarEntity {
     private static final double BREAK_DISTANCE = 6.0;
 
     /** The tractor's entity id, so a client can find it; -1 when free. */
-    private static final TrackedData<Integer> TRACTOR =
-            DataTracker.registerData(TrailerEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final EntityDataAccessor<Integer> TRACTOR =
+            SynchedEntityData.defineId(TrailerEntity.class, EntityDataSerializers.INT);
 
-    private final SimpleInventory load = new SimpleInventory(LOAD_SLOTS);
+    private final SimpleContainer load = new SimpleContainer(LOAD_SLOTS);
 
     /** Kept for the save file: entity ids do not survive a reload. */
     private @Nullable UUID tractorUuid;
 
-    public TrailerEntity(EntityType<?> type, World world) {
+    public TrailerEntity(EntityType<?> type, Level world) {
         super(type, world);
     }
 
     @Override
-    protected void initDataTracker(DataTracker.Builder builder) {
-        super.initDataTracker(builder);
-        builder.add(TRACTOR, -1);
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(TRACTOR, -1);
     }
 
-    public Inventory getLoad() {
+    public Container getLoad() {
         return this.load;
     }
 
     /** 0 empty, 1 with every slot taken. */
     public float getLoadFraction() {
         int used = 0;
-        for (int slot = 0; slot < this.load.size(); slot++) {
-            if (!this.load.getStack(slot).isEmpty()) {
+        for (int slot = 0; slot < this.load.getContainerSize(); slot++) {
+            if (!this.load.getItem(slot).isEmpty()) {
                 used++;
             }
         }
@@ -100,15 +108,15 @@ public class TrailerEntity extends CarEntity {
 
     /** What the tractor's top speed is multiplied by while it pulls this. */
     public float towFactor() {
-        return MathHelper.lerp(this.getLoadFraction(), EMPTY_TOW_FACTOR, LADEN_TOW_FACTOR);
+        return Mth.lerp(this.getLoadFraction(), EMPTY_TOW_FACTOR, LADEN_TOW_FACTOR);
     }
 
     public @Nullable CarEntity getTractor() {
-        int id = this.dataTracker.get(TRACTOR);
+        int id = this.entityData.get(TRACTOR);
         if (id < 0) {
             return null;
         }
-        return this.getEntityWorld().getEntityById(id) instanceof CarEntity car && !car.isRemoved()
+        return this.level().getEntity(id) instanceof CarEntity car && !car.isRemoved()
                 && !(car instanceof TrailerEntity) ? car : null;
     }
 
@@ -119,12 +127,12 @@ public class TrailerEntity extends CarEntity {
     }
 
     public boolean isHitched() {
-        return this.dataTracker.get(TRACTOR) >= 0;
+        return this.entityData.get(TRACTOR) >= 0;
     }
 
     private void hitchTo(@Nullable CarEntity tractor) {
-        this.dataTracker.set(TRACTOR, tractor == null ? -1 : tractor.getId());
-        this.tractorUuid = tractor == null ? null : tractor.getUuid();
+        this.entityData.set(TRACTOR, tractor == null ? -1 : tractor.getId());
+        this.tractorUuid = tractor == null ? null : tractor.getUUID();
     }
 
     /** Hitches straight on, wherever the two stand: for commands and tests. */
@@ -137,7 +145,7 @@ public class TrailerEntity extends CarEntity {
 
     @Override
     protected boolean hitchedWith(Entity other) {
-        return other != null && this.dataTracker.get(TRACTOR) == other.getId();
+        return other != null && this.entityData.get(TRACTOR) == other.getId();
     }
 
     // ---- it is not something you sit in or start ----
@@ -165,7 +173,7 @@ public class TrailerEntity extends CarEntity {
     }
 
     @Override
-    protected Item asItem() {
+    protected Item getDropItem() {
         return ModItems.TRAILER;
     }
 
@@ -178,21 +186,37 @@ public class TrailerEntity extends CarEntity {
 
     @Override
     public void tick() {
-        super.tick();
+        long now = this.level().getGameTime();
+        if (this.pulledAt == now) {
+            // The tractor ticked first this tick and already dragged us along,
+            // after the game had noted where we started. Put that start back,
+            // or the step it took is never drawn and the trailer judders.
+            this.xo = this.xOld = this.pulledFromX;
+            this.yo = this.yOld = this.pulledFromY;
+            this.zo = this.zOld = this.pulledFromZ;
+            this.yRotO = this.pulledFromYRot;
+        }
+        this.tickedAt = now;
+        this.ticking = true;
+        try {
+            super.tick();
+        } finally {
+            this.ticking = false;
+        }
         if (this.isRemoved()) {
             return;
         }
-        if (!this.getEntityWorld().isClient()) {
+        if (!this.level().isClientSide()) {
             if (this.tractorUuid != null && !this.isHitched()
-                    && this.getEntityWorld() instanceof ServerWorld server
+                    && this.level() instanceof ServerLevel server
                     && server.getEntity(this.tractorUuid) instanceof CarEntity found
                     && !(found instanceof TrailerEntity)) {
                 // Loaded back in: the tractor has a new entity id now.
                 this.hitchTo(found);
             }
             if (this.isHitched() && this.getTractor() == null && this.tractorUuid != null
-                    && this.getEntityWorld() instanceof ServerWorld server
-                    && server.getEntity(this.tractorUuid) == null && this.age > 100) {
+                    && this.level() instanceof ServerLevel server
+                    && server.getEntity(this.tractorUuid) == null && this.tickCount > 100) {
                 // Wrecked, cleared away or unloaded without us: let go.
                 this.hitchTo(null);
             }
@@ -211,35 +235,56 @@ public class TrailerEntity extends CarEntity {
      * the tractor finished, never a tick behind it.
      */
     void follow(CarEntity tractor) {
-        Vec3d ball = tractor.hitchPoint();
+        long now = this.level().getGameTime();
+        if (!this.ticking && this.tickedAt != now && this.pulledAt != now) {
+            // Moved before our own tick this tick: remember where from.
+            this.pulledAt = now;
+            this.pulledFromX = this.getX();
+            this.pulledFromY = this.getY();
+            this.pulledFromZ = this.getZ();
+            this.pulledFromYRot = this.getYRot();
+        }
+        Vec3 ball = tractor.hitchPoint();
         double dx = ball.x - this.getX();
         double dz = ball.z - this.getZ();
         double length = Math.sqrt(dx * dx + dz * dz);
         if (length > BREAK_DISTANCE + this.couplerReach()) {
-            if (!this.getEntityWorld().isClient()) {
+            if (!this.level().isClientSide()) {
                 this.hitchTo(null);
-                this.playSound(SoundEvents.BLOCK_CHAIN_BREAK, 1.0F, 1.0F);
+                this.playSound(SoundEvents.CHAIN_BREAK, 1.0F, 1.0F);
             }
             return;
         }
         double dirX;
         double dirZ;
         if (length < 1.0E-4) {
-            float yaw = this.getYaw() * MathHelper.RADIANS_PER_DEGREE;
-            dirX = -MathHelper.sin(yaw);
-            dirZ = MathHelper.cos(yaw);
+            float yaw = this.getYRot() * Mth.DEG_TO_RAD;
+            dirX = -Mth.sin(yaw);
+            dirZ = Mth.cos(yaw);
         } else {
             dirX = dx / length;
             dirZ = dz / length;
         }
         double reach = this.couplerReach();
-        double y = MathHelper.lerp(0.5, this.getY(), tractor.getY());
+        double y = Mth.lerp(0.5, this.getY(), tractor.getY());
         // Moved, not placed, so a trailer dragged into a wall stops at it; if
         // it is held back far enough the coupling breaks, as above.
-        this.move(net.minecraft.entity.MovementType.SELF, new Vec3d(
+        this.move(net.minecraft.world.entity.MoverType.SELF, new Vec3(
                 ball.x - dirX * reach - this.getX(), y - this.getY(), ball.z - dirZ * reach - this.getZ()));
-        this.setYaw((float) Math.toDegrees(Math.atan2(-dirX, dirZ)));
-        this.setVelocity(Vec3d.ZERO);
+        this.setYRot((float) Math.toDegrees(Math.atan2(-dirX, dirZ)));
+        this.setDeltaMovement(Vec3.ZERO);
+    }
+
+    /**
+     * Hitched on, a client places the trailer itself, behind its own view of
+     * the tractor; the server's word on where it is would only drag it a step
+     * behind that, and the two fighting is a judder. Unhitched, it listens.
+     */
+    @Override
+    public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        if (this.getTractor() == null) {
+            super.lerpTo(x, y, z, yRot, xRot, steps);
+        }
     }
 
     /** From the middle of the trailer forward to the tip of its drawbar, in blocks. */
@@ -250,54 +295,54 @@ public class TrailerEntity extends CarEntity {
     // ---- clicking: hitch, unhitch, or open the load ----
 
     @Override
-    protected ActionResult interactUnlocked(PlayerEntity player, Hand hand) {
-        if (player.shouldCancelInteraction()) {
-            if (this.getEntityWorld().isClient()) {
-                return ActionResult.SUCCESS;
+    protected InteractionResult interactUnlocked(Player player, InteractionHand hand) {
+        if (player.isSecondaryUseActive()) {
+            if (this.level().isClientSide()) {
+                return InteractionResult.SUCCESS;
             }
-            player.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+            player.openMenu(new SimpleMenuProvider(
                     (syncId, playerInventory, ignored) ->
-                            GenericContainerScreenHandler.createGeneric9x3(syncId, playerInventory, this.load),
-                    Text.translatable("container.car.trailer")));
-            return ActionResult.CONSUME;
+                            ChestMenu.threeRows(syncId, playerInventory, this.load),
+                    Component.translatable("container.car.trailer")));
+            return InteractionResult.CONSUME;
         }
-        if (!player.getStackInHand(hand).isEmpty()) {
+        if (!player.getItemInHand(hand).isEmpty()) {
             return super.interactUnlocked(player, hand);
         }
-        if (this.getEntityWorld().isClient()) {
-            return ActionResult.SUCCESS;
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (this.isHitched()) {
             this.hitchTo(null);
-            this.playSound(SoundEvents.BLOCK_CHAIN_HIT, 1.0F, 0.8F);
-            player.sendMessage(Text.translatable("message.car.trailer_unhitched"), true);
-            return ActionResult.CONSUME;
+            this.playSound(SoundEvents.CHAIN_HIT, 1.0F, 0.8F);
+            player.displayClientMessage(Component.translatable("message.car.trailer_unhitched"), true);
+            return InteractionResult.CONSUME;
         }
         CarEntity tractor = this.nearestTractor();
         if (tractor == null) {
-            player.sendMessage(Text.translatable("message.car.trailer_no_vehicle"), true);
-            return ActionResult.CONSUME;
+            player.displayClientMessage(Component.translatable("message.car.trailer_no_vehicle"), true);
+            return InteractionResult.CONSUME;
         }
         this.hitchTo(tractor);
         this.follow(tractor);
-        this.playSound(SoundEvents.BLOCK_CHAIN_PLACE, 1.0F, 1.0F);
-        this.playSound(SoundEvents.BLOCK_IRON_TRAPDOOR_CLOSE, 0.6F, 1.4F);
-        player.sendMessage(Text.translatable("message.car.trailer_hitched", tractor.getDisplayName()), true);
-        return ActionResult.CONSUME;
+        this.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 1.0F);
+        this.playSound(SoundEvents.IRON_TRAPDOOR_CLOSE, 0.6F, 1.4F);
+        player.displayClientMessage(Component.translatable("message.car.trailer_hitched", tractor.getDisplayName()), true);
+        return InteractionResult.CONSUME;
     }
 
     /** The vehicle whose tow ball is nearest this coupler, if one is close enough and free. */
     private @Nullable CarEntity nearestTractor() {
-        float yaw = this.getYaw() * MathHelper.RADIANS_PER_DEGREE;
-        Vec3d coupler = this.getEntityPos().add(
-                -MathHelper.sin(yaw) * this.couplerReach(), 0.0, MathHelper.cos(yaw) * this.couplerReach());
-        List<CarEntity> near = this.getEntityWorld().getEntitiesByClass(CarEntity.class,
-                this.getBoundingBox().expand(8.0), car -> car != this && !(car instanceof TrailerEntity)
+        float yaw = this.getYRot() * Mth.DEG_TO_RAD;
+        Vec3 coupler = this.position().add(
+                -Mth.sin(yaw) * this.couplerReach(), 0.0, Mth.cos(yaw) * this.couplerReach());
+        List<CarEntity> near = this.level().getEntitiesOfClass(CarEntity.class,
+                this.getBoundingBox().inflate(8.0), car -> car != this && !(car instanceof TrailerEntity)
                         && !car.isRemoved() && !car.isTowing(this));
         CarEntity best = null;
         double bestDistance = HITCH_REACH * HITCH_REACH;
         for (CarEntity car : near) {
-            double distance = car.hitchPoint().squaredDistanceTo(coupler.x, car.hitchPoint().y, coupler.z);
+            double distance = car.hitchPoint().distanceToSqr(coupler.x, car.hitchPoint().y, coupler.z);
             if (distance < bestDistance) {
                 best = car;
                 bestDistance = distance;
@@ -309,24 +354,26 @@ public class TrailerEntity extends CarEntity {
     // ---- the load goes where the trailer goes ----
 
     @Override
-    protected void spillCargo(ServerWorld world) {
-        ItemScatterer.spawn(world, (Entity) this, this.load);
-        this.load.clear();
+    protected void spillCargo(ServerLevel world) {
+        Containers.dropContents(world, (Entity) this, this.load);
+        this.load.clearContent();
     }
 
     @Override
-    protected void readCustomData(ReadView view) {
-        super.readCustomData(view);
-        Inventories.readData(view, this.load.getHeldStacks());
-        this.tractorUuid = view.read("Tractor", Uuids.INT_STREAM_CODEC).orElse(null);
+    protected void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueInput view = ValueInput.of(tag, this.registryAccess());
+        super.readAdditionalSaveData(tag);
+        ContainerHelper.loadAllItems(view.tag(), this.load.getItems(), view.registries());
+        this.tractorUuid = view.read("Tractor", UUIDUtil.CODEC).orElse(null);
     }
 
     @Override
-    protected void writeCustomData(WriteView view) {
-        super.writeCustomData(view);
-        Inventories.writeData(view, this.load.getHeldStacks());
+    protected void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        ValueOutput view = ValueOutput.of(tag, this.registryAccess());
+        super.addAdditionalSaveData(tag);
+        ContainerHelper.saveAllItems(view.tag(), this.load.getItems(), view.registries());
         if (this.tractorUuid != null && this.isHitched()) {
-            view.put("Tractor", Uuids.INT_STREAM_CODEC, this.tractorUuid);
+            view.store("Tractor", UUIDUtil.CODEC, this.tractorUuid);
         }
     }
 }

@@ -2,9 +2,8 @@ package me.trossty.car.workbench;
 
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.registry.ModComponents;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import java.util.List;
 
 /**
@@ -59,7 +58,7 @@ public record VehicleRecipe(Item result, int resultDamage, List<Material> materi
     public ItemStack createResult() {
         ItemStack stack = new ItemStack(this.result);
         if (this.resultDamage > 0) {
-            stack.setDamage(this.resultDamage);
+            stack.setDamageValue(this.resultDamage);
         }
         if (this.variant != 0) {
             stack.set(ModComponents.PART_VARIANT, this.variant);

@@ -4,13 +4,12 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import me.trossty.car.CarMain;
 import me.trossty.car.entity.CarSetup;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.dynamic.Codecs;
-import net.minecraft.util.math.Vec3d;
-
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.phys.Vec3;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -35,19 +34,23 @@ import java.util.Optional;
  *
  * <p>{@code tank} is the fuel tank, in litres: eight for a scooter, fifty for
  * a family car, two hundred for a lorry. A trailer has none.
+ *
+ * <p>{@code lights} is how far the head lamps throw their light down the
+ * road, and how wide it has spread at the far end, both in blocks.
  */
 public record VehicleDefinition(
         Chassis chassis,
         float width,
         float height,
         Optional<DyeColor> color,
-        List<Vec3d> seats,
+        List<Vec3> seats,
         List<Wheel> wheels,
         Performance performance,
         Factory factory,
         List<Box> shape,
         List<Cost> materials,
-        float tank) {
+        float tank,
+        Lights lights) {
 
     /** A tank nobody wrote down: a family car's, fifty litres. */
     public static final float DEFAULT_TANK_LITRES = 50.0F;
@@ -56,15 +59,15 @@ public record VehicleDefinition(
      * Something the vehicle workstation takes to build this vehicle, on top of
      * the parts every vehicle of its chassis is assembled from.
      */
-    public record Cost(net.minecraft.item.Item item, int count) {
+    public record Cost(net.minecraft.world.item.Item item, int count) {
         public static final Codec<Cost> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                net.minecraft.registry.Registries.ITEM.getCodec().fieldOf("item").forGetter(Cost::item),
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.byNameCodec().fieldOf("item").forGetter(Cost::item),
                 Codec.intRange(1, 64).optionalFieldOf("count", 1).forGetter(Cost::count)
         ).apply(instance, Cost::new));
     }
 
-    public static final RegistryKey<Registry<VehicleDefinition>> KEY =
-            RegistryKey.ofRegistry(CarMain.id("vehicle"));
+    public static final ResourceKey<Registry<VehicleDefinition>> KEY =
+            ResourceKey.createRegistryKey(CarMain.id("vehicle"));
 
     /** A sane ceiling on how much a pack can ask a client to draw. */
     public static final int MAX_BOXES = 512;
@@ -77,7 +80,11 @@ public record VehicleDefinition(
         /** Pulled, not driven: no engine, no seats, a hitch at the front. */
         TRAILER,
         /** Two wheels, a rider and a pillion. */
-        MOTORCYCLE;
+        MOTORCYCLE,
+        /** Floats: driven on water by a propeller, stranded on land. */
+        BOAT,
+        /** Taxies on its wheels, lifts off with enough speed and flies. */
+        PLANE;
 
         public static final Codec<Chassis> CODEC = Codec.STRING.xmap(
                 name -> switch (name.toLowerCase(Locale.ROOT)) {
@@ -85,19 +92,32 @@ public record VehicleDefinition(
                     case "tanker" -> TANKER;
                     case "trailer" -> TRAILER;
                     case "motorcycle" -> MOTORCYCLE;
+                    case "boat" -> BOAT;
+                    case "plane" -> PLANE;
                     default -> CAR;
                 },
                 chassis -> chassis.name().toLowerCase(Locale.ROOT));
     }
 
     /** One wheel: where its centre is, how big it is, and whether it steers. */
-    public record Wheel(org.joml.Vector3fc at, float radius, float width, boolean steers) {
+    public record Wheel(org.joml.Vector3f at, float radius, float width, boolean steers) {
         public static final Codec<Wheel> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                Codecs.VECTOR_3F.fieldOf("at").forGetter(Wheel::at),
+                ExtraCodecs.VECTOR3F.fieldOf("at").forGetter(Wheel::at),
                 Codec.floatRange(0.5F, 16.0F).optionalFieldOf("radius", 3.0F).forGetter(Wheel::radius),
                 Codec.floatRange(0.5F, 16.0F).optionalFieldOf("width", 3.0F).forGetter(Wheel::width),
                 Codec.BOOL.optionalFieldOf("steers", false).forGetter(Wheel::steers)
         ).apply(instance, Wheel::new));
+    }
+
+    /** The head lamps' pool of light on the road: its length and how far it fans out past the sides. */
+    public record Lights(float length, float spread) {
+
+        public static final Lights PLAIN = new Lights(11.0F, 3.0F);
+
+        public static final Codec<Lights> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.floatRange(2.0F, 32.0F).optionalFieldOf("length", PLAIN.length()).forGetter(Lights::length),
+                Codec.floatRange(0.0F, 8.0F).optionalFieldOf("spread", PLAIN.spread()).forGetter(Lights::spread)
+        ).apply(instance, Lights::new));
     }
 
     /**
@@ -171,14 +191,25 @@ public record VehicleDefinition(
      * degrees: positive tips its top towards the back of the car, which is
      * what a windscreen does, and negative towards the front. {@code steers}
      * turns the box with the front wheel — a fork, handlebars, a headset.
+     * {@code roll} leans it about its own middle the other way, about the
+     * line from back to front, in degrees: positive lifts its left-hand end
+     * (+x) — a wing strut, a landing-gear leg. {@code spins} turns it with
+     * the engine about the middle of the first box that spins: a propeller.
+     * {@code yaw} turns it about its own upright, in degrees: positive swings
+     * its front towards the left (+x) — a panel along a tapering tail. A box
+     * is tilted first, then turned, then rolled.
      */
-    public record Box(org.joml.Vector3fc from, org.joml.Vector3fc to, String color, float tilt, boolean steers) {
+    public record Box(org.joml.Vector3f from, org.joml.Vector3f to, String color, float tilt, boolean steers,
+                      float roll, boolean spins, float yaw) {
         public static final Codec<Box> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                Codecs.VECTOR_3F.fieldOf("from").forGetter(Box::from),
-                Codecs.VECTOR_3F.fieldOf("to").forGetter(Box::to),
+                ExtraCodecs.VECTOR3F.fieldOf("from").forGetter(Box::from),
+                ExtraCodecs.VECTOR3F.fieldOf("to").forGetter(Box::to),
                 Codec.STRING.optionalFieldOf("color", "paint").forGetter(Box::color),
                 Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("tilt", 0.0F).forGetter(Box::tilt),
-                Codec.BOOL.optionalFieldOf("steers", false).forGetter(Box::steers)
+                Codec.BOOL.optionalFieldOf("steers", false).forGetter(Box::steers),
+                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("roll", 0.0F).forGetter(Box::roll),
+                Codec.BOOL.optionalFieldOf("spins", false).forGetter(Box::spins),
+                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("yaw", 0.0F).forGetter(Box::yaw)
         ).apply(instance, Box::new));
     }
 
@@ -187,7 +218,7 @@ public record VehicleDefinition(
             Codec.floatRange(0.5F, 4.0F).optionalFieldOf("width", 1.6F).forGetter(VehicleDefinition::width),
             Codec.floatRange(0.5F, 4.0F).optionalFieldOf("height", 2.1875F).forGetter(VehicleDefinition::height),
             DyeColor.CODEC.optionalFieldOf("color").forGetter(VehicleDefinition::color),
-            Vec3d.CODEC.listOf(0, 16).optionalFieldOf("seats", List.of()).forGetter(VehicleDefinition::seats),
+            Vec3.CODEC.listOf(0, 16).optionalFieldOf("seats", List.of()).forGetter(VehicleDefinition::seats),
             Wheel.CODEC.listOf(0, 12).optionalFieldOf("wheels", List.of()).forGetter(VehicleDefinition::wheels),
             Performance.CODEC.optionalFieldOf("performance", Performance.PLAIN)
                     .forGetter(VehicleDefinition::performance),
@@ -195,25 +226,28 @@ public record VehicleDefinition(
             Box.CODEC.listOf(1, MAX_BOXES).fieldOf("shape").forGetter(VehicleDefinition::shape),
             Cost.CODEC.listOf(0, 16).optionalFieldOf("materials", List.of()).forGetter(VehicleDefinition::materials),
             Codec.floatRange(0.0F, 1000.0F).optionalFieldOf("tank", DEFAULT_TANK_LITRES)
-                    .forGetter(VehicleDefinition::tank)
+                    .forGetter(VehicleDefinition::tank),
+            Lights.CODEC.optionalFieldOf("lights", Lights.PLAIN).forGetter(VehicleDefinition::lights)
     ).apply(instance, VehicleDefinition::new));
 
     /**
      * What each machine is when nothing says otherwise. There is no "plain"
      * car any more: a car is a Corolla, a pickup a Hilux, a tanker an Atego.
      */
-    public static Identifier defaultFor(Chassis chassis) {
+    public static ResourceLocation defaultFor(Chassis chassis) {
         return CarMain.id(switch (chassis) {
             case PICKUP -> "toyota_hilux";
             case TANKER -> "mercedes_atego";
             case TRAILER -> "box_trailer";
             case MOTORCYCLE -> "honda_cbr600rr";
             case CAR -> "toyota_corolla";
+            case BOAT -> "bayliner_bowrider";
+            case PLANE -> "cessna_172";
         });
     }
 
     /** The key a vehicle's name is looked up under, and what to call it otherwise. */
-    public static net.minecraft.text.Text nameOf(Identifier id) {
+    public static net.minecraft.network.chat.Component nameOf(ResourceLocation id) {
         StringBuilder plain = new StringBuilder();
         for (String word : id.getPath().split("[_/]")) {
             if (word.isEmpty()) {
@@ -224,7 +258,7 @@ public record VehicleDefinition(
             }
             plain.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
         }
-        return net.minecraft.text.Text.translatableWithFallback(
+        return net.minecraft.network.chat.Component.translatableWithFallback(
                 "vehicle." + id.getNamespace() + "." + id.getPath().replace('/', '.'), plain.toString());
     }
 

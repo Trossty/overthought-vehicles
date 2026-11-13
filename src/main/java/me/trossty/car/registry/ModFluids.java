@@ -2,18 +2,9 @@ package me.trossty.car.registry;
 
 import me.trossty.car.CarMain;
 import me.trossty.car.fluid.TankOnlyFluid;
-import net.fabricmc.fabric.api.transfer.v1.fluid.base.EmptyItemFluidStorage;
-import net.fabricmc.fabric.api.transfer.v1.fluid.base.FullItemFluidStorage;
-import net.minecraft.item.Items;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributeHandler;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.material.Fluid;
 
 /**
  * Petrol, and the door it comes and goes through.
@@ -36,7 +27,7 @@ public final class ModFluids {
      * fluids they can go in a tanker, and come back out into a bucket or a
      * bottle at the other end.
      */
-    public static final Fluid MILK = tankOnly("milk");
+    public static final Fluid MILK = tankOnly("milk", net.minecraft.world.item.Items.MILK_BUCKET);
     public static final Fluid HONEY = tankOnly("honey");
 
     /**
@@ -52,24 +43,31 @@ public final class ModFluids {
     public static final Fluid BIOFUEL = tankOnly("biofuel");
 
     /** A honey bottle is a quarter of a honey block, so a quarter bucket. */
-    public static final long HONEY_BOTTLE = FluidConstants.BUCKET / 4;
+    public static final int HONEY_BOTTLE = 250;
 
     /**
      * One of this mod's petrol units in the transfer API's own measure. A car's
      * tank is a thousand units, so a unit is a millibucket and a car holds one
      * bucket — which is the size other mods will expect a bucket to be.
      */
-    public static final long UNIT = FluidConstants.BUCKET / 1000;
+    public static final int UNIT = 1;
 
     private ModFluids() {
     }
 
     private static Fluid tankOnly(String name) {
-        return Registry.register(Registries.FLUID, CarMain.id(name), new TankOnlyFluid());
+        return tankOnly(name, net.minecraft.world.item.Items.AIR);
+    }
+
+    private static Fluid tankOnly(String name, net.minecraft.world.item.Item bucket) {
+        TankOnlyFluid fluid = Registry.register(BuiltInRegistries.FLUID, CarMain.id(name), new TankOnlyFluid(name, bucket));
+        Registry.register(net.neoforged.neoforge.registries.NeoForgeRegistries.FLUID_TYPES, CarMain.id(name),
+                fluid.getFluidType());
+        return fluid;
     }
 
     /** The fuel a fluid is, or null for anything that will not run an engine. */
-    public static me.trossty.car.entity.CarSetup.@org.jspecify.annotations.Nullable Fuel fuelOf(Fluid fluid) {
+    public static me.trossty.car.entity.CarSetup.@org.jetbrains.annotations.Nullable Fuel fuelOf(Fluid fluid) {
         if (fluid == PETROL) {
             return me.trossty.car.entity.CarSetup.Fuel.PETROL;
         }
@@ -91,95 +89,79 @@ public final class ModFluids {
         };
     }
 
+    /** Forces class loading so the static fields above are registered. */
     public static void register() {
-        named(PETROL, "petrol");
-        named(DIESEL, "diesel");
-        named(MILK, "milk");
-        named(HONEY, "honey");
-        named(CRUDE_OIL, "crude_oil");
-        named(RAW_PETROL, "raw_petrol");
-        named(RAW_DIESEL, "raw_diesel");
-        named(BIOFUEL, "biofuel");
+    }
+
+    /**
+     * Every liquid door of the mod's blocks, and the containers the mod pours
+     * from, through NeoForge's capabilities: other mods' pipes, cables and
+     * buckets reach them the same way the mod's own blocks do.
+     */
+    public static void registerCapabilities(net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent event) {
+        var fluids = net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK;
+        var energy = net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK;
+        var items = net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.ITEM;
 
         // A milk bucket and a honey bottle are containers of those two, both
-        // ways, for anything that moves liquid through the transfer API.
-        FluidStorage.combinedItemApiProvider(Items.MILK_BUCKET).register(context ->
-                new FullItemFluidStorage(context, Items.BUCKET, FluidVariant.of(MILK), FluidConstants.BUCKET));
-        FluidStorage.combinedItemApiProvider(Items.BUCKET).register(context ->
-                new EmptyItemFluidStorage(context, Items.MILK_BUCKET, MILK, FluidConstants.BUCKET));
-        FluidStorage.combinedItemApiProvider(Items.HONEY_BOTTLE).register(context ->
-                new FullItemFluidStorage(context, Items.GLASS_BOTTLE, FluidVariant.of(HONEY), HONEY_BOTTLE));
-        FluidStorage.combinedItemApiProvider(Items.GLASS_BOTTLE).register(context ->
-                new EmptyItemFluidStorage(context, Items.HONEY_BOTTLE, HONEY, HONEY_BOTTLE));
+        // ways. An empty bucket fills with milk by itself: milk's bucket is the
+        // milk bucket.
+        event.registerItem(items, (stack, context) -> new me.trossty.car.fluid.FixedContainer(
+                stack, net.minecraft.world.item.Items.BUCKET, MILK, 1000), net.minecraft.world.item.Items.MILK_BUCKET);
+        event.registerItem(items, (stack, context) -> new me.trossty.car.fluid.FixedContainer(
+                stack, net.minecraft.world.item.Items.GLASS_BOTTLE, HONEY, HONEY_BOTTLE), net.minecraft.world.item.Items.HONEY_BOTTLE);
+        event.registerItem(items, (stack, context) -> me.trossty.car.fluid.FixedContainer.empty(
+                stack, net.minecraft.world.item.Items.HONEY_BOTTLE, HONEY, HONEY_BOTTLE), net.minecraft.world.item.Items.GLASS_BOTTLE);
 
-        FluidStorage.SIDED.registerForBlockEntity(
-                (tank, side) -> tank.getFluidStorage(), ModBlockEntities.FUEL_TANK);
-        FluidStorage.SIDED.registerForBlockEntity(
-                (drum, side) -> drum.getFluidStorage(), ModBlockEntities.FUEL_DRUM);
+        event.registerBlockEntity(fluids, ModBlockEntities.FUEL_TANK, (tank, side) -> tank.getFluidStorage());
+        event.registerBlockEntity(fluids, ModBlockEntities.FUEL_DRUM, (drum, side) -> drum.getFluidStorage());
 
         // The production line, every cell of every machine: crude into a
         // refinery and its product out, raw fuel into a hydrotreater and clean
         // fuel out, crude out of a pumpjack, liquid fuel into a generator.
-        FluidStorage.SIDED.registerForBlocks((world, pos, state, blockEntity, side) ->
+        event.registerBlock(fluids, (world, pos, state, blockEntity, side) ->
                 me.trossty.car.block.MultiblockBlock.controllerEntity(world, pos)
                         instanceof me.trossty.car.block.entity.FuelRefineryBlockEntity refinery
                         ? refinery.getFluidStorage() : null, ModBlocks.FUEL_REFINERY);
-        FluidStorage.SIDED.registerForBlocks((world, pos, state, blockEntity, side) ->
+        event.registerBlock(fluids, (world, pos, state, blockEntity, side) ->
                 me.trossty.car.block.MultiblockBlock.controllerEntity(world, pos)
                         instanceof me.trossty.car.block.entity.HydrotreaterBlockEntity plant
                         ? plant.getFluidStorage() : null, ModBlocks.HYDROTREATER);
-        FluidStorage.SIDED.registerForBlocks((world, pos, state, blockEntity, side) ->
+        event.registerBlock(fluids, (world, pos, state, blockEntity, side) ->
                 me.trossty.car.block.MultiblockBlock.controllerEntity(world, pos)
                         instanceof me.trossty.car.block.entity.PumpjackBlockEntity jack
                         ? jack.getFluidStorage() : null, ModBlocks.PUMPJACK);
-        FluidStorage.SIDED.registerForBlockEntity((generator, side) ->
-                generator.getKind().burnsLiquid() ? generator.getTank() : null, ModBlockEntities.GENERATOR);
+        event.registerBlockEntity(fluids, ModBlockEntities.GENERATOR, (generator, side) ->
+                generator.getKind().burnsLiquid() ? generator.getTank() : null);
 
         // ...and the station's own plumbing is open to other mods' pipes all
         // the way along: a Create pipe can feed a pump, draw off a line, or
         // stand in for a run of this mod's pipe entirely.
-        FluidStorage.SIDED.registerForBlockEntity(
-                (pipe, side) -> pipe.getFluidStorage(), ModBlockEntities.FUEL_PIPE);
-        FluidStorage.SIDED.registerForBlockEntity(
-                (valve, side) -> valve.getFluidStorage(), ModBlockEntities.FUEL_VALVE);
+        event.registerBlockEntity(fluids, ModBlockEntities.FUEL_PIPE, (pipe, side) -> pipe.getFluidStorage());
+        event.registerBlockEntity(fluids, ModBlockEntities.FUEL_VALVE, (valve, side) -> valve.getFluidStorage());
         // Either half of a pump: the upper half has no block entity of its own.
-        FluidStorage.SIDED.registerForBlocks((world, pos, state, blockEntity, side) -> {
+        event.registerBlock(fluids, (world, pos, state, blockEntity, side) -> {
             var pump = me.trossty.car.block.FuelPumpBlock.tankAt(world, pos);
             return pump == null ? null : pump.getFluidStorage();
         }, ModBlocks.FUEL_PUMP);
 
         // ...and another mod's cable can power one, or be fed by a generator.
-        team.reborn.energy.api.EnergyStorage.SIDED.registerForBlocks((world, pos, state, blockEntity, side) ->
+        event.registerBlock(energy, (world, pos, state, blockEntity, side) ->
                 me.trossty.car.block.MultiblockBlock.controllerEntity(world, pos)
                         instanceof me.trossty.car.block.entity.FuelRefineryBlockEntity refinery
                         ? refinery.getEnergyStorage() : null, ModBlocks.FUEL_REFINERY);
-        team.reborn.energy.api.EnergyStorage.SIDED.registerForBlocks((world, pos, state, blockEntity, side) ->
+        event.registerBlock(energy, (world, pos, state, blockEntity, side) ->
                 me.trossty.car.block.MultiblockBlock.controllerEntity(world, pos)
                         instanceof me.trossty.car.block.entity.HydrotreaterBlockEntity plant
                         ? plant.getEnergyStorage() : null, ModBlocks.HYDROTREATER);
-        team.reborn.energy.api.EnergyStorage.SIDED.registerForBlocks((world, pos, state, blockEntity, side) ->
+        event.registerBlock(energy, (world, pos, state, blockEntity, side) ->
                 me.trossty.car.block.MultiblockBlock.controllerEntity(world, pos)
                         instanceof me.trossty.car.block.entity.PumpjackBlockEntity jack
                         ? jack.getEnergyStorage() : null, ModBlocks.PUMPJACK);
-        team.reborn.energy.api.EnergyStorage.SIDED.registerForBlockEntity(
-                (generator, side) -> generator.getEnergyStorage(), ModBlockEntities.GENERATOR);
-        team.reborn.energy.api.EnergyStorage.SIDED.registerForBlockEntity(
-                (cable, side) -> cable.getEnergyStorage(), ModBlockEntities.ENERGY_CABLE);
-        team.reborn.energy.api.EnergyStorage.SIDED.registerForBlockEntity(
-                (bank, side) -> bank.sideStorage(side == null ? net.minecraft.util.math.Direction.UP : side),
-                ModBlockEntities.BATTERY_BANK);
-        team.reborn.energy.api.EnergyStorage.SIDED.registerForBlockEntity(
-                (post, side) -> post.getEnergyStorage(), ModBlockEntities.CHARGING_POST);
-    }
-
-    private static void named(Fluid fluid, String key) {
-        // Without this the fluid would be called "Air" in every other mod's
-        // tooltips, after the block it does not have.
-        FluidVariantAttributes.register(fluid, new FluidVariantAttributeHandler() {
-            @Override
-            public Text getName(FluidVariant variant) {
-                return Text.translatable("fluid.car." + key);
-            }
-        });
+        event.registerBlockEntity(energy, ModBlockEntities.GENERATOR, (generator, side) -> generator.getEnergyStorage());
+        event.registerBlockEntity(energy, ModBlockEntities.ENERGY_CABLE, (cable, side) -> cable.getEnergyStorage());
+        event.registerBlockEntity(energy, ModBlockEntities.BATTERY_BANK,
+                (bank, side) -> bank.sideStorage(side == null ? net.minecraft.core.Direction.UP : side));
+        event.registerBlockEntity(energy, ModBlockEntities.CHARGING_POST, (post, side) -> post.getEnergyStorage());
     }
 }

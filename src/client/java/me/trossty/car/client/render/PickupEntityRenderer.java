@@ -1,6 +1,6 @@
 package me.trossty.car.client.render;
 
-import net.minecraft.client.render.entity.EntityRendererFactory;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
 
 /**
  * Same renderer again, pointed at the model with the bed on the back. Paint,
@@ -8,7 +8,7 @@ import net.minecraft.client.render.entity.EntityRendererFactory;
  */
 public class PickupEntityRenderer extends CarEntityRenderer {
 
-    public PickupEntityRenderer(EntityRendererFactory.Context context) {
+    public PickupEntityRenderer(EntityRendererProvider.Context context) {
         super(context, ModEntityModelLayers.PICKUP);
     }
 }

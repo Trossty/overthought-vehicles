@@ -1,11 +1,10 @@
 package me.trossty.car.entity;
 
 import me.trossty.car.registry.ModItems;
-import net.minecraft.item.Item;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -122,16 +121,16 @@ public enum CarPart {
     public enum Quality {
 
         /** The plain part. The yardstick everything else is measured against. */
-        IRON("iron", 1.00F, 1.00F, net.minecraft.util.Formatting.GRAY, 0xFFD8D8D8),
+        IRON("iron", 1.00F, 1.00F, net.minecraft.ChatFormatting.GRAY, 0xFFD8D8D8),
 
         /** Like a golden pickaxe: lively while it lasts, and it does not last. */
-        GOLD("gold", 1.80F, 1.08F, net.minecraft.util.Formatting.GOLD, 0xFFFFC832),
+        GOLD("gold", 1.80F, 1.08F, net.minecraft.ChatFormatting.GOLD, 0xFFFFC832),
 
         /** Better at the job and roughly twice the life. */
-        DIAMOND("diamond", 0.55F, 1.05F, net.minecraft.util.Formatting.AQUA, 0xFF4FE3D6),
+        DIAMOND("diamond", 0.55F, 1.05F, net.minecraft.ChatFormatting.AQUA, 0xFF4FE3D6),
 
         /** The best of both, at the price of a netherite ingot. */
-        NETHERITE("netherite", 0.40F, 1.10F, net.minecraft.util.Formatting.DARK_PURPLE, 0xFF8A6F7A);
+        NETHERITE("netherite", 0.40F, 1.10F, net.minecraft.ChatFormatting.DARK_PURPLE, 0xFF8A6F7A);
 
         /** What a part carries when nothing says otherwise. */
         public static final Quality DEFAULT = IRON;
@@ -139,11 +138,11 @@ public enum CarPart {
         private final String key;
         private final float wearFactor;
         private final float performance;
-        private final net.minecraft.util.Formatting formatting;
+        private final net.minecraft.ChatFormatting formatting;
         private final int argb;
 
         Quality(String key, float wearFactor, float performance,
-                net.minecraft.util.Formatting formatting, int argb) {
+                net.minecraft.ChatFormatting formatting, int argb) {
             this.key = key;
             this.wearFactor = wearFactor;
             this.performance = performance;
@@ -170,7 +169,7 @@ public enum CarPart {
         }
 
         /** The colour its name is written in, as an item's rarity is. */
-        public net.minecraft.util.Formatting formatting() {
+        public net.minecraft.ChatFormatting formatting() {
             return this.formatting;
         }
 
@@ -180,12 +179,12 @@ public enum CarPart {
         }
 
         /** What the bench shows on the tier's button, and charges on top of the plain recipe. */
-        public net.minecraft.item.Item material() {
+        public net.minecraft.world.item.Item material() {
             return switch (this) {
-                case IRON -> net.minecraft.item.Items.IRON_INGOT;
-                case GOLD -> net.minecraft.item.Items.GOLD_INGOT;
-                case DIAMOND -> net.minecraft.item.Items.DIAMOND;
-                case NETHERITE -> net.minecraft.item.Items.NETHERITE_INGOT;
+                case IRON -> net.minecraft.world.item.Items.IRON_INGOT;
+                case GOLD -> net.minecraft.world.item.Items.GOLD_INGOT;
+                case DIAMOND -> net.minecraft.world.item.Items.DIAMOND;
+                case NETHERITE -> net.minecraft.world.item.Items.NETHERITE_INGOT;
             };
         }
 
@@ -194,18 +193,18 @@ public enum CarPart {
          * all: nothing for iron, a gold ingot for every four, a diamond for
          * every six, and for netherite the diamonds and one ingot on top.
          */
-        public java.util.List<net.minecraft.item.ItemStack> extra(int plain) {
+        public java.util.List<net.minecraft.world.item.ItemStack> extra(int plain) {
             int quarter = Math.max(1, (plain + 3) / 4);
             int sixth = Math.max(1, (plain + 5) / 6);
             return switch (this) {
                 case IRON -> java.util.List.of();
-                case GOLD -> java.util.List.of(new net.minecraft.item.ItemStack(
-                        net.minecraft.item.Items.GOLD_INGOT, quarter));
-                case DIAMOND -> java.util.List.of(new net.minecraft.item.ItemStack(
-                        net.minecraft.item.Items.DIAMOND, sixth));
+                case GOLD -> java.util.List.of(new net.minecraft.world.item.ItemStack(
+                        net.minecraft.world.item.Items.GOLD_INGOT, quarter));
+                case DIAMOND -> java.util.List.of(new net.minecraft.world.item.ItemStack(
+                        net.minecraft.world.item.Items.DIAMOND, sixth));
                 case NETHERITE -> java.util.List.of(
-                        new net.minecraft.item.ItemStack(net.minecraft.item.Items.DIAMOND, sixth),
-                        new net.minecraft.item.ItemStack(net.minecraft.item.Items.NETHERITE_INGOT, 1));
+                        new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND, sixth),
+                        new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.NETHERITE_INGOT, 1));
             };
         }
 
@@ -387,11 +386,11 @@ public enum CarPart {
          * positive z and its right negative x, which is why both are negated
          * before the yaw is applied.
          */
-        public Box box(Vec3d pos, float yaw) {
-            Vec3d offset = new Vec3d(-this.x, this.y, -this.z)
-                    .rotateY(-yaw * MathHelper.RADIANS_PER_DEGREE);
+        public AABB box(Vec3 pos, float yaw) {
+            Vec3 offset = new Vec3(-this.x, this.y, -this.z)
+                    .yRot(-yaw * Mth.DEG_TO_RAD);
             double side = this.size * 2.0;
-            return Box.of(pos.add(offset), side, side, side);
+            return AABB.ofSize(pos.add(offset), side, side, side);
         }
     }
 

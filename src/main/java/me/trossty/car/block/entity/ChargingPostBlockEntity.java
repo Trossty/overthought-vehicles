@@ -5,17 +5,17 @@ import me.trossty.car.block.ChargingPostBlock;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.machine.GaugeSource;
 import me.trossty.car.registry.ModBlockEntities;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
-import org.jspecify.annotations.Nullable;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.minecraft.world.phys.AABB;
+import org.jetbrains.annotations.Nullable;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * Takes power off a cable into a small buffer and pours it into the nearest
@@ -32,10 +32,10 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
     /** How far its lead reaches, from the post's centre. */
     public static final double REACH = 3.5;
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(CAPACITY, INPUT, 0) {
+    private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, INPUT, 0) {
         @Override
-        protected void onFinalCommit() {
-            ChargingPostBlockEntity.this.markDirty();
+        protected void onChanged() {
+            ChargingPostBlockEntity.this.setChanged();
         }
     };
 
@@ -47,7 +47,7 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
         super(ModBlockEntities.CHARGING_POST, pos, state);
     }
 
-    public EnergyStorage getEnergyStorage() {
+    public IEnergyStorage getEnergyStorage() {
         return this.energy;
     }
 
@@ -57,20 +57,20 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
 
     public void setEnergy(long amount) {
         this.energy.amount = Math.max(0, Math.min(CAPACITY, amount));
-        this.markDirty();
+        this.setChanged();
     }
 
     /** The electric car nearest the post, within reach; null when none is parked there. */
-    public static @Nullable CarEntity nearestElectric(World world, BlockPos pos) {
-        Box reach = new Box(pos).expand(REACH);
-        return world.getEntitiesByClass(CarEntity.class, reach, car -> car.isAlive() && car.isElectric())
+    public static @Nullable CarEntity nearestElectric(Level world, BlockPos pos) {
+        AABB reach = new AABB(pos).inflate(REACH);
+        return world.getEntitiesOfClass(CarEntity.class, reach, car -> car.isAlive() && car.isElectric())
                 .stream()
-                .min(Comparator.comparingDouble(car -> car.squaredDistanceTo(pos.toCenterPos())))
+                .min(Comparator.comparingDouble(car -> car.distanceToSqr(pos.getCenter())))
                 .orElse(null);
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, ChargingPostBlockEntity post) {
-        CarEntity car = world.getTime() % 5 == 0 || post.carPresent ? nearestElectric(world, pos) : null;
+    public static void tick(Level world, BlockPos pos, BlockState state, ChargingPostBlockEntity post) {
+        CarEntity car = world.getGameTime() % 5 == 0 || post.carPresent ? nearestElectric(world, pos) : null;
         int rate = 0;
         if (car != null) {
             float room = car.getMaxFuel() - car.getFuel();
@@ -79,7 +79,7 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
             if (moved > 0) {
                 car.charge(moved / (float) CarEntity.ENERGY_PER_CHARGE_UNIT);
                 post.energy.amount -= moved;
-                post.markDirty();
+                post.setChanged();
                 rate = (int) moved;
             }
             float max = car.getMaxFuel();
@@ -91,8 +91,8 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
         post.lastRate = rate;
 
         boolean lit = rate > 0;
-        if (state.get(ChargingPostBlock.LIT) != lit) {
-            world.setBlockState(pos, state.with(ChargingPostBlock.LIT, lit), Block.NOTIFY_LISTENERS);
+        if (state.getValue(ChargingPostBlock.LIT) != lit) {
+            world.setBlock(pos, state.setValue(ChargingPostBlock.LIT, lit), Block.UPDATE_CLIENTS);
         }
     }
 
@@ -131,14 +131,16 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
     }
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getLong("Energy", 0L)));
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
+        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getLongOr("Energy", 0L)));
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         view.putLong("Energy", this.energy.amount);
     }
 }

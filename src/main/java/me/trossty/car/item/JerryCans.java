@@ -1,6 +1,6 @@
 package me.trossty.car.item;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * What is in a jerry can, in the same units a car's tank is measured in.
@@ -28,12 +28,12 @@ public final class JerryCans {
 
     /** Units of fuel in the can. */
     public static int units(ItemStack can) {
-        return Math.max(0, can.getMaxDamage() - can.getDamage());
+        return Math.max(0, can.getMaxDamage() - can.getDamageValue());
     }
 
     /** Units it would still take. */
     public static int room(ItemStack can) {
-        return Math.max(0, can.getDamage());
+        return Math.max(0, can.getDamageValue());
     }
 
     public static boolean isEmpty(ItemStack can) {
@@ -46,7 +46,7 @@ public final class JerryCans {
 
     /** Sets the contents. setDamage, never damage(): an emptied can survives to be refilled. */
     public static void setUnits(ItemStack can, int units) {
-        can.setDamage(can.getMaxDamage() - Math.max(0, Math.min(can.getMaxDamage(), units)));
+        can.setDamageValue(can.getMaxDamage() - Math.max(0, Math.min(can.getMaxDamage(), units)));
     }
 
     /** Takes up to {@code amount} out and reports how much came. */

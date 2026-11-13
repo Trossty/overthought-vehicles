@@ -1,0 +1,11 @@
+{
+  "parent": "car:item/vehicle_cessna_172",
+  "overrides": [
+    {
+      "predicate": {
+        "car:vehicle": 11
+      },
+      "model": "car:item/vehicle_cessna_172"
+    }
+  ]
+}

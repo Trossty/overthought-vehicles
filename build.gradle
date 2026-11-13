@@ -1,6 +1,6 @@
 plugins {
-    id 'fabric-loom' version '1.19-SNAPSHOT'
-    id 'maven-publish'
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
 }
 
 version = project.mod_version
@@ -10,57 +10,96 @@ base {
     archivesName = project.archives_base_name
 }
 
-loom {
-    splitEnvironmentSourceSets()
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-    mods {
-        "car" {
-            sourceSet sourceSets.main
-            sourceSet sourceSets.client
+// One mod, one jar. The client code keeps its own folder so it is easy to see
+// what never runs on a dedicated server, but NeoForge loads it from the same
+// source set: the client entry point is only ever touched on Dist.CLIENT.
+sourceSets {
+    main {
+        java.srcDir 'src/client/java'
+        resources.srcDir 'src/client/resources'
+    }
+    gametest {
+        compileClasspath += main.output
+        runtimeClasspath += main.output
+    }
+}
+
+configurations {
+    gametestImplementation.extendsFrom implementation
+    gametestCompileOnly.extendsFrom compileOnly
+}
+
+neoForge {
+    version = project.neo_version
+    addModdingDependenciesTo sourceSets.gametest
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        // The real client walks through CarPhotoTest's scenes, photographs
+        // them into build/run/photo/screenshots and quits. Scenes already
+        // looked at are skipped: -Pcar.photo.all=true runs all of them,
+        // -Pcar.photo.scenes=pumpAndLift,blockGallery just those.
+        photoClient {
+            client()
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('build/run/photo')
+            systemProperty 'car.photo', 'true'
+            systemProperty 'car.photo.all', project.findProperty('car.photo.all') ?: 'false'
+            systemProperty 'car.photo.scenes', project.findProperty('car.photo.scenes') ?: ''
+        }
+        // Two players on a real dedicated server: mpServer, then mpAlice and
+        // mpBob alongside it. The server sets the scene and quits when it is
+        // done; Alice drives, Bob rides, and both photograph what they see.
+        mpServer {
+            server()
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('build/run/mp/server')
+            programArgument '--nogui'
+            systemProperty 'car.mp.server', 'true'
+        }
+        mpAlice {
+            client()
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('build/run/mp/alice')
+            programArguments.addAll '--username', 'Alice'
+            systemProperty 'car.mp', 'alice'
+        }
+        mpBob {
+            client()
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('build/run/mp/bob')
+            programArguments.addAll '--username', 'Bob'
+            systemProperty 'car.mp', 'bob'
+        }
+        // Headless server that runs every @GameTest in the mod and exits.
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametest
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
         }
     }
-}
 
-fabricApi {
-    configureDataGeneration {
-        client = true
-    }
-
-    // Creates src/test, the `runGametest` task (headless server) and the
-    // `runClientGametest` task (a real client driving a real integrated server).
-    configureTests {
-        createSourceSet = true
-        modId = "car-test"
-        enableGameTests = true
-        enableClientGameTests = true
-        eula = true
-    }
-}
-
-// This mod sends its own packets from the client (the horn, and the crash
-// report a car files when it hits something). The client gametest framework
-// watches for exactly that and calls it "interfacing with packets at a lower
-// level", which trips its network synchronizer and crashes the run. Turning the
-// synchronizer off is the remedy its own error message asks for.
-tasks.withType(JavaExec).configureEach {
-    // Loom registers the task as runClientGameTest and runClientGametest is an
-    // alias for it, so match either spelling rather than guessing.
-    if (it.name.equalsIgnoreCase('runClientGameTest')) {
-        it.systemProperty 'fabric.client.gametest.disableNetworkSynchronizer', 'true'
-        // -PphotoAll shoots every scene of the photo test, not just the new ones.
-        if (project.hasProperty('photoAll')) {
-            it.systemProperty 'car.photo.all', 'true'
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.gametest
         }
     }
 }
 
 repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-    // for more information about repositories.
-
     // Jade, compiled against but never shipped: its tooltip plugin only loads
     // when the player has Jade installed.
     exclusiveContent {
@@ -77,61 +116,32 @@ repositories {
 }
 
 dependencies {
-    // To change the versions see the gradle.properties file
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
-    // The energy unit Tech Reborn, Modern Industrialization, AE2 and most other
-    // Fabric tech mods agree on. Shipped inside the jar, so nothing extra to
-    // install, and another mod's cables and generators plug straight in.
-    include(modApi("teamreborn:energy:4.2.0") {
-        transitive = false
-    })
-
     // Optional: the Jade plugin in me.trossty.car.client.compat is only
     // loaded by Jade itself, so the mod runs the same without it.
-    modCompileOnly("maven.modrinth:jade:21.1.6+fabric") {
+    compileOnly("maven.modrinth:jade:15.10.6+neoforge") {
         transitive = false
     }
 }
 
-processResources {
-    inputs.property "version", project.version
-    inputs.property "minecraft_version", project.minecraft_version
-    inputs.property "loader_version", project.loader_version
-    filteringCharset "UTF-8"
-
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version,
-                "minecraft_version": project.minecraft_version,
-                "loader_version": project.loader_version
-    }
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version_range      : neo_version_range,
+            mod_id                 : mod_id,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
 }
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
 
-def targetJavaVersion = 21
 tasks.withType(JavaCompile).configureEach {
-    // ensure that the encoding is set to UTF-8, no matter what the system default is
-    // this fixes some edge cases with special characters not displaying correctly
-    // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
-    // If Javadoc is generated, this must be specified in that task too.
-    it.options.encoding = "UTF-8"
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        it.options.release.set(targetJavaVersion)
-    }
-}
-
-java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
-    }
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
-    withSourcesJar()
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xmaxerrs', '10000']
 }
 
 jar {
@@ -140,20 +150,14 @@ jar {
     }
 }
 
-// configure the maven publication
-publishing {
-    publications {
-        create("mavenJava", MavenPublication) {
-            artifactId = project.archives_base_name
-            from components.java
+// The two-player test's server starts from a fresh flat world on its own
+// port, with the settings in tools/mp, every time.
+tasks.matching { it.name == 'runMpServer' }.configureEach {
+    doFirst {
+        delete 'build/run/mp/server/world'
+        copy {
+            from 'tools/mp'
+            into 'build/run/mp/server'
         }
-    }
-
-    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-    repositories {
-        // Add repositories to publish to here.
-        // Notice: This block does NOT have the same function as the block in the top level.
-        // The repositories here will be used for publishing your artifact, not for
-        // retrieving dependencies.
     }
 }

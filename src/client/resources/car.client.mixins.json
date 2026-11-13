@@ -5,12 +5,12 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "CameraMixin",
-    "TintSourceTypesAccessor",
-    "SpriteContentsAccessor",
     "BipedEntityModelMixin",
     "LivingEntityRendererMixin",
-    "LivingEntityRenderStateMixin",
-    "HeldItemRendererMixin"
+    "HeldItemRendererMixin",
+    "LevelRendererMixin",
+    "EntityRendererMixin",
+    "GameRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

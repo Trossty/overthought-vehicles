@@ -4,19 +4,17 @@ import me.trossty.car.block.BatteryBankBlock;
 import me.trossty.car.energy.OneWayEnergy;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModComponents;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.component.ComponentMap;
-import net.minecraft.component.ComponentsAccess;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-import team.reborn.energy.api.EnergyStorage;
-import team.reborn.energy.api.EnergyStorageUtil;
-import team.reborn.energy.api.base.SimpleEnergyStorage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import me.trossty.car.energy.EnergyBuffer;
 
 /**
  * The store between the generators and whatever needs power after they stop:
@@ -34,14 +32,14 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
     /** The most it takes in, and the most it gives out, a tick. */
     public static final long RATE = 500;
 
-    private final SimpleEnergyStorage energy = new SimpleEnergyStorage(CAPACITY, RATE, RATE) {
+    private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, RATE, RATE) {
         @Override
-        protected void onFinalCommit() {
-            BatteryBankBlockEntity.this.markDirty();
+        protected void onChanged() {
+            BatteryBankBlockEntity.this.setChanged();
         }
     };
-    private final EnergyStorage input = OneWayEnergy.in(this.energy);
-    private final EnergyStorage output = OneWayEnergy.out(this.energy);
+    private final IEnergyStorage input = OneWayEnergy.in(this.energy);
+    private final IEnergyStorage output = OneWayEnergy.out(this.energy);
 
     /** Where the amount stood at the end of the last tick, to tell what came in since. */
     private long lastAmount = -1;
@@ -53,9 +51,9 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
     }
 
     /** What a neighbour on this face sees: the front gives, the rest take. */
-    public EnergyStorage sideStorage(Direction side) {
-        BlockState state = this.getCachedState();
-        Direction front = state.contains(BatteryBankBlock.FACING) ? state.get(BatteryBankBlock.FACING) : Direction.NORTH;
+    public IEnergyStorage sideStorage(Direction side) {
+        BlockState state = this.getBlockState();
+        Direction front = state.hasProperty(BatteryBankBlock.FACING) ? state.getValue(BatteryBankBlock.FACING) : Direction.NORTH;
         return side == front ? this.output : this.input;
     }
 
@@ -65,7 +63,7 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
 
     public void setEnergy(long amount) {
         this.energy.amount = Math.max(0, Math.min(CAPACITY, amount));
-        this.markDirty();
+        this.setChanged();
     }
 
     public int getFlowIn() {
@@ -76,27 +74,27 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
         return this.flowOut;
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, BatteryBankBlockEntity bank) {
+    public static void tick(Level world, BlockPos pos, BlockState state, BatteryBankBlockEntity bank) {
         long before = bank.energy.amount;
         bank.flowIn = bank.lastAmount < 0 ? 0 : (int) Math.max(0, before - bank.lastAmount);
 
         long moved = 0;
-        Direction front = state.get(BatteryBankBlock.FACING);
+        Direction front = state.getValue(BatteryBankBlock.FACING);
         if (bank.energy.amount > 0) {
-            EnergyStorage target = EnergyStorage.SIDED.find(world, pos.offset(front), front.getOpposite());
-            if (target != null && target.supportsInsertion()) {
-                moved = EnergyStorageUtil.move(bank.output, target, RATE, null);
+            IEnergyStorage target = world.getCapability(net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.BLOCK, pos.relative(front), front.getOpposite());
+            if (target != null && target.canReceive()) {
+                moved = EnergyBuffer.move(bank.output, target, RATE);
             }
         }
         bank.flowOut = (int) moved;
         bank.lastAmount = bank.energy.amount;
 
         int level = levelOf(bank.energy.amount);
-        if (state.get(BatteryBankBlock.LEVEL) != level) {
-            world.setBlockState(pos, state.with(BatteryBankBlock.LEVEL, level), Block.NOTIFY_LISTENERS);
+        if (state.getValue(BatteryBankBlock.LEVEL) != level) {
+            world.setBlock(pos, state.setValue(BatteryBankBlock.LEVEL, level), Block.UPDATE_CLIENTS);
         }
         if (moved > 0 || bank.flowIn > 0) {
-            bank.markDirty();
+            bank.setChanged();
         }
     }
 
@@ -145,20 +143,22 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
     // ---- saving, and the charge riding along in the item ----
 
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getLong("Energy", 0L)));
+    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueInput view = ValueInput.of(tag, registries);
+        super.loadAdditional(tag, registries);
+        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getLongOr("Energy", 0L)));
     }
 
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
+    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        ValueOutput view = ValueOutput.of(tag, registries);
+        super.saveAdditional(tag, registries);
         view.putLong("Energy", this.energy.amount);
     }
 
     @Override
-    protected void readComponents(ComponentsAccess components) {
-        super.readComponents(components);
+    protected void applyImplicitComponents(BlockEntity.DataComponentInput components) {
+        super.applyImplicitComponents(components);
         Long stored = components.get(ModComponents.STORED_ENERGY);
         if (stored != null) {
             this.energy.amount = Math.max(0, Math.min(CAPACITY, stored));
@@ -166,16 +166,17 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
     }
 
     @Override
-    protected void addComponents(ComponentMap.Builder builder) {
-        super.addComponents(builder);
+    protected void collectImplicitComponents(DataComponentMap.Builder builder) {
+        super.collectImplicitComponents(builder);
         if (this.energy.amount > 0) {
-            builder.add(ModComponents.STORED_ENERGY, this.energy.amount);
+            builder.set(ModComponents.STORED_ENERGY, this.energy.amount);
         }
     }
 
     @Override
-    public void removeFromCopiedStackData(WriteView view) {
-        super.removeFromCopiedStackData(view);
-        view.remove("Energy");
+    public void removeComponentsFromTag(net.minecraft.nbt.CompoundTag tag) {
+        ValueOutput view = ValueOutput.of(tag, null);
+        super.removeComponentsFromTag(tag);
+        view.discard("Energy");
     }
 }

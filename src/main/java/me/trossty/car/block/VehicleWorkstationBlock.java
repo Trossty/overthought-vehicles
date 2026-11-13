@@ -2,67 +2,67 @@ package me.trossty.car.block;
 
 import com.mojang.serialization.MapCodec;
 import me.trossty.car.workbench.VehicleWorkstationScreenHandler;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.HorizontalFacingBlock;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.screen.ScreenHandlerContext;
-import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
-import net.minecraft.state.StateManager;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * The vehicle workstation: a drafting table with every vehicle in the game
  * pinned to it. See {@link VehicleWorkstationScreenHandler}.
  */
-public class VehicleWorkstationBlock extends HorizontalFacingBlock {
+public class VehicleWorkstationBlock extends HorizontalDirectionalBlock {
 
-    public static final MapCodec<VehicleWorkstationBlock> CODEC = createCodec(VehicleWorkstationBlock::new);
+    public static final MapCodec<VehicleWorkstationBlock> CODEC = simpleCodec(VehicleWorkstationBlock::new);
 
-    private static final Text TITLE = Text.translatable("container.car.vehicle_workstation");
+    private static final Component TITLE = Component.translatable("container.car.vehicle_workstation");
 
-    public VehicleWorkstationBlock(Settings settings) {
+    public VehicleWorkstationBlock(Properties settings) {
         super(settings);
-        this.setDefaultState(this.getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+        this.registerDefaultState(this.getStateDefinition().any().setValue(FACING, Direction.NORTH));
     }
 
     @Override
-    protected MapCodec<? extends HorizontalFacingBlock> getCodec() {
+    protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
         return CODEC;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING);
     }
 
     @Override
-    public BlockState getPlacementState(ItemPlacementContext context) {
-        return this.getDefaultState().with(FACING, context.getHorizontalPlayerFacing().getOpposite());
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
-                                 PlayerEntity player, BlockHitResult hit) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
+                                 Player player, BlockHitResult hit) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        player.openHandledScreen(this.createScreenHandlerFactory(state, world, pos));
-        return ActionResult.CONSUME;
+        player.openMenu(this.getMenuProvider(state, world, pos));
+        return InteractionResult.CONSUME;
     }
 
     @Override
-    protected NamedScreenHandlerFactory createScreenHandlerFactory(BlockState state, World world, BlockPos pos) {
-        return new SimpleNamedScreenHandlerFactory(
+    protected MenuProvider getMenuProvider(BlockState state, Level world, BlockPos pos) {
+        return new SimpleMenuProvider(
                 (syncId, inventory, player) -> new VehicleWorkstationScreenHandler(
-                        syncId, inventory, ScreenHandlerContext.create(world, pos)),
+                        syncId, inventory, ContainerLevelAccess.create(world, pos)),
                 TITLE);
     }
 }

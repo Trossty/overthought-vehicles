@@ -3,9 +3,9 @@ package me.trossty.car.client.compat;
 import me.trossty.car.CarMain;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import snownee.jade.api.EntityAccessor;
 import snownee.jade.api.IEntityComponentProvider;
 import snownee.jade.api.ITooltip;
@@ -31,10 +31,10 @@ public class JadeCarPlugin implements IWailaPlugin {
     enum CarInfo implements IEntityComponentProvider {
         INSTANCE;
 
-        private static final Identifier UID = CarMain.id("car_info");
+        private static final ResourceLocation UID = CarMain.id("car_info");
 
         @Override
-        public Identifier getUid() {
+        public ResourceLocation getUid() {
             return UID;
         }
 
@@ -45,15 +45,15 @@ public class JadeCarPlugin implements IWailaPlugin {
             }
             int tank = Math.round(100.0F * car.getFuel() / Math.max(1.0F, car.getMaxFuel()));
             if (car.isElectric()) {
-                tooltip.add(Text.translatable("jade.car.charge", tank).formatted(Formatting.AQUA));
+                tooltip.add(Component.translatable("jade.car.charge", tank).withStyle(ChatFormatting.AQUA));
             } else {
-                tooltip.add(Text.translatable("jade.car.fuel", tank,
-                        Text.translatable("fuel.car." + car.getTankFuel().key())).formatted(Formatting.GOLD));
+                tooltip.add(Component.translatable("jade.car.fuel", tank,
+                        Component.translatable("fuel.car." + car.getTankFuel().key())).withStyle(ChatFormatting.GOLD));
                 if (car.hasFuel() && car.getDirtyFuel() >= 0.25F) {
-                    tooltip.add(Text.translatable("obd.car.dirty_fuel").formatted(Formatting.RED));
+                    tooltip.add(Component.translatable("obd.car.dirty_fuel").withStyle(ChatFormatting.RED));
                 }
             }
-            tooltip.add(Text.translatable("jade.car.body", Math.round(100.0F * car.getHealthFraction())));
+            tooltip.add(Component.translatable("jade.car.body", Math.round(100.0F * car.getHealthFraction())));
             CarPart worst = null;
             for (CarPart part : CarPart.values()) {
                 if (!car.hasPart(part)) {
@@ -64,14 +64,14 @@ public class JadeCarPlugin implements IWailaPlugin {
                 }
             }
             if (worst != null && car.getConditionFraction(worst) < 0.5F) {
-                Text name = Text.translatable("part.car." + worst.key());
+                Component name = Component.translatable("part.car." + worst.key());
                 tooltip.add(car.isFitted(worst)
-                        ? Text.translatable("jade.car.worst", name, Math.round(100.0F * car.getConditionFraction(worst)))
-                                .formatted(Formatting.YELLOW)
-                        : Text.translatable("jade.car.missing", name).formatted(Formatting.RED));
+                        ? Component.translatable("jade.car.worst", name, Math.round(100.0F * car.getConditionFraction(worst)))
+                                .withStyle(ChatFormatting.YELLOW)
+                        : Component.translatable("jade.car.missing", name).withStyle(ChatFormatting.RED));
             }
-            tooltip.add(Text.translatable("jade.car.odometer", (int) (car.getOdometer() / 1000.0F))
-                    .formatted(Formatting.GRAY));
+            tooltip.add(Component.translatable("jade.car.odometer", CarEntity.formatOdometer(car.getOdometer()))
+                    .withStyle(ChatFormatting.GRAY));
         }
     }
 }
