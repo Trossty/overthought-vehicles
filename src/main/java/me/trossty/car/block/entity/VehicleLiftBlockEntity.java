@@ -108,21 +108,44 @@ public class VehicleLiftBlockEntity extends BlockEntity {
      * when the platform moves drifts away between steps under its own gravity.
      */
     private static void hold(Level world, BlockPos pos, int level, net.minecraft.core.Direction facing) {
-        double top = pos.getY() + 1.0 + RAISE_PER_LEVEL * level;
-        boolean alongX = facing.getAxis() == net.minecraft.core.Direction.Axis.X;
-        double reachX = alongX ? HOLD_LENGTH : HOLD_WIDTH;
-        double reachZ = alongX ? HOLD_WIDTH : HOLD_LENGTH;
-        AABB over = new AABB(
-                pos.getX() + 0.5 - reachX, pos.getY(), pos.getZ() + 0.5 - reachZ,
-                pos.getX() + 0.5 + reachX, pos.getY() + 3.0, pos.getZ() + 0.5 + reachZ);
-
-        // A car counts as on the platform when its middle is over it, so one
-        // parked alongside is left where it is.
+        double top = deckTop(pos, level);
+        AABB over = platform(pos, facing);
         List<CarEntity> parked = world.getEntitiesOfClass(CarEntity.class, over,
-                car -> !car.isRemoved() && over.contains(car.getX(), over.minY + 0.1, car.getZ()));
+                car -> !car.isRemoved() && over(over, car));
         for (CarEntity car : parked) {
             pin(car, top);
         }
+    }
+
+    /** Where the deck is at this level: what a car on it stands on. */
+    private static double deckTop(BlockPos pos, int level) {
+        return pos.getY() + 1.0 + RAISE_PER_LEVEL * level;
+    }
+
+    /** The space over the platform, three blocks long the way the lift faces and two wide. */
+    private static AABB platform(BlockPos pos, net.minecraft.core.Direction facing) {
+        boolean alongX = facing.getAxis() == net.minecraft.core.Direction.Axis.X;
+        double reachX = alongX ? HOLD_LENGTH : HOLD_WIDTH;
+        double reachZ = alongX ? HOLD_WIDTH : HOLD_LENGTH;
+        return new AABB(
+                pos.getX() + 0.5 - reachX, pos.getY(), pos.getZ() + 0.5 - reachZ,
+                pos.getX() + 0.5 + reachX, pos.getY() + 3.0, pos.getZ() + 0.5 + reachZ);
+    }
+
+    /** A car counts as on the platform when its middle is over it, so one parked alongside is left be. */
+    private static boolean over(AABB platform, net.minecraft.world.entity.Entity car) {
+        return platform.contains(car.getX(), platform.minY + 0.1, car.getZ());
+    }
+
+    /**
+     * Whether this lift has the car up in the air on its platform: raised,
+     * the car's middle over it and the car standing on the deck. A car
+     * parked alongside a raised lift is still on its wheels.
+     */
+    public static boolean holdsUp(BlockState state, BlockPos pos, net.minecraft.world.entity.Entity car) {
+        int level = state.getValue(VehicleLiftBlock.LEVEL);
+        return level > 0 && over(platform(pos, state.getValue(VehicleLiftBlock.FACING)), car)
+                && car.getY() > pos.getY() + 0.5 && car.getY() < deckTop(pos, level) + 0.3;
     }
 
     /**

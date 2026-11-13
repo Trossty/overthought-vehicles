@@ -217,6 +217,13 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
                     .sound(SoundType.METAL));
 
+    /** A folding crane that lifts an engine out of the top of a car with the bonnet up. */
+    public static final Block ENGINE_HOIST = register(
+            "engine_hoist",
+            me.trossty.car.block.EngineHoistBlock::new,
+            BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
     /** Padded bunks a boat is set down on out of the water to be worked on. */
     public static final Block BOAT_CRADLE = register(
             "boat_cradle",

@@ -401,6 +401,12 @@ public class CarEntity extends VehicleEntity {
     /** One bit a wheel, by its place in the list: set where the tyre has been taken off. */
     private static final EntityDataAccessor<Byte> TYRES_OFF =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
+    /** How full the sump is, 0 dry to 1 to the top mark. */
+    private static final EntityDataAccessor<Float> OIL_LEVEL =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** How full the coolant bottle is, 0 empty to 1 full. */
+    private static final EntityDataAccessor<Float> COOLANT_LEVEL =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
     /** Which lids stand open: {@link #BONNET_BIT}, {@link #BOOT_BIT}. */
     private static final EntityDataAccessor<Byte> LIDS =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
@@ -591,6 +597,8 @@ public class CarEntity extends VehicleEntity {
         builder.define(FLAT_TYRE, (byte) -1);
         builder.define(TYRES_OFF, (byte) 0);
         builder.define(LIDS, (byte) 0);
+        builder.define(OIL_LEVEL, 1.0F);
+        builder.define(COOLANT_LEVEL, 1.0F);
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
@@ -826,6 +834,7 @@ public class CarEntity extends VehicleEntity {
             this.wearParts();
             this.tickPuncture();
             this.tickTemperature();
+            this.tickFluids();
             this.tickWater();
         }
 
@@ -1935,6 +1944,17 @@ public class CarEntity extends VehicleEntity {
     private record LidAim(int lid, boolean inside) {
     }
 
+    /** Where the middle of the bonnet is, in the world; null for a vehicle without one. */
+    public @Nullable Vec3 bonnetCentre() {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        net.minecraft.world.phys.AABB bonnet = defined == null ? null : defined.lidBounds(lidName(BONNET_BIT));
+        if (bonnet == null) {
+            return null;
+        }
+        return this.position().add(bonnet.getCenter().scale(1.0 / 16.0)
+                .yRot((float) -(this.getYRot() * Mth.DEG_TO_RAD)));
+    }
+
     private @Nullable LidAim aimedLid(Player player) {
         me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
         if (defined == null || player.isPassenger()) {
@@ -2003,6 +2023,9 @@ public class CarEntity extends VehicleEntity {
      * An empty hand on a lid lifts it, or lets it down if it is up; into the
      * open boot it reaches for what is in there, into the bay for the parts.
      */
+    /** Slower than this, blocks a tick, a car counts as standing still. */
+    private static final float LID_STILL = 0.02F;
+
     private InteractionResult workLid(Player player, LidAim aim) {
         if (aim.inside()) {
             if (aim.lid() == BONNET_BIT) {
@@ -2013,6 +2036,15 @@ public class CarEntity extends VehicleEntity {
                         (syncId, inventory, ignored) ->
                                 new net.minecraft.world.inventory.ChestMenu(net.minecraft.world.inventory.MenuType.GENERIC_9x2, syncId, inventory, this.boot, 2),
                         Component.translatable("container.car.boot")));
+            }
+            return InteractionResult.sidedSuccess(this.level().isClientSide());
+        }
+        // Nobody pops the bonnet of a car that is being driven or is still
+        // rolling: on the road it would stop the engine under the driver.
+        if (!this.isLidOpen(aim.lid())
+                && (this.getControllingPassenger() != null || Math.abs(this.getEngineSpeed()) > LID_STILL)) {
+            if (!this.level().isClientSide()) {
+                player.displayClientMessage(Component.translatable("message.car.lid_moving"), true);
             }
             return InteractionResult.sidedSuccess(this.level().isClientSide());
         }
@@ -2894,6 +2926,10 @@ public class CarEntity extends VehicleEntity {
                     Component.translatable("fuel.car." + this.getEngineFuel().key())), true);
         } else if (this.isOverheating()) {
             driver.displayClientMessage(Component.translatable("message.car.overheating"), true);
+        } else if (this.hasOil() && this.getOilLevel() < FLUID_LOW) {
+            driver.displayClientMessage(Component.translatable("message.car.oil_low"), true);
+        } else if (this.hasPart(CarPart.RADIATOR) && this.getCoolantLevel() < FLUID_LOW) {
+            driver.displayClientMessage(Component.translatable("message.car.coolant_low"), true);
         } else if (this.isLeaking() && this.hasFuel()) {
             driver.displayClientMessage(Component.translatable("message.car.tank_leaking"), true);
         }
@@ -2919,7 +2955,8 @@ public class CarEntity extends VehicleEntity {
         if (this.isEngineRunning()) {
             float load = Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED);
             float cooling = this.partFactor(
-                    CarPart.RADIATOR, WORN_RADIATOR_COOLING, MISSING_RADIATOR_COOLING);
+                    CarPart.RADIATOR, WORN_RADIATOR_COOLING, MISSING_RADIATOR_COOLING)
+                    * this.coolantCooling();
             float heat = this.getLayout().heat() * (this.hasTurbo() ? CarSetup.TURBO_HEAT : 1.0F);
             // Old oil stops carrying the heat away: the gauge creeps up.
             float oil = 1.0F - Math.min(1.0F,
@@ -2929,6 +2966,126 @@ public class CarEntity extends VehicleEntity {
         }
         float rate = target > temp ? TEMP_RISE : TEMP_FALL;
         this.entityData.set(ENGINE_TEMP, Mth.lerp(rate, temp, target));
+    }
+
+    // ---- oil and coolant ----
+
+    /** A sump's worth of oil burns away in about two hours of driving flat out. */
+    private static final float OIL_BURN = 1.0F / 144000.0F;
+    /** Coolant boils off slower, and faster the hotter the engine runs. */
+    private static final float COOLANT_LOSS = 1.0F / 216000.0F;
+    /** Below this a level is low: the dash says so. */
+    public static final float FLUID_LOW = 0.2F;
+    /** Below this much oil the bearings start to run dry. */
+    private static final float OIL_STARVED = 0.35F;
+    /** How many times faster a dry engine wears than one with its oil. */
+    private static final float DRY_ENGINE_WEAR = 6.0F;
+    /** Below this much coolant the radiator has less and less to cool with. */
+    private static final float COOLANT_SHORT = 0.4F;
+    /** What a bottle of motor oil puts in the sump. */
+    public static final float OIL_PER_BOTTLE = 0.5F;
+    /** What a bottle of water puts in the coolant; a bucket fills it. */
+    public static final float WATER_PER_BOTTLE = 0.34F;
+
+    /** Whether the engine runs on oil at all: a motor has none. */
+    public boolean hasOil() {
+        return this.hasPart(CarPart.OIL_FILTER);
+    }
+
+    public float getOilLevel() {
+        return this.entityData.get(OIL_LEVEL);
+    }
+
+    public void setOilLevel(float level) {
+        this.entityData.set(OIL_LEVEL, Mth.clamp(level, 0.0F, 1.0F));
+    }
+
+    public float getCoolantLevel() {
+        return this.entityData.get(COOLANT_LEVEL);
+    }
+
+    public void setCoolantLevel(float level) {
+        this.entityData.set(COOLANT_LEVEL, Mth.clamp(level, 0.0F, 1.0F));
+    }
+
+    /** A running engine burns a little oil and boils off a little coolant. */
+    private void tickFluids() {
+        if (!this.isEngineRunning()) {
+            return;
+        }
+        float load = Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED);
+        float running = IDLE_WEAR_SHARE + (1.0F - IDLE_WEAR_SHARE) * load;
+        if (this.hasOil()) {
+            this.setOilLevel(this.getOilLevel() - OIL_BURN * running);
+        }
+        if (this.hasPart(CarPart.RADIATOR)) {
+            this.setCoolantLevel(this.getCoolantLevel()
+                    - COOLANT_LOSS * running * (1.0F + 2.0F * this.getEngineTemp()));
+        }
+    }
+
+    /** How many times faster the engine wears for want of oil: 1 with enough in it. */
+    private float lowOilWear() {
+        if (!this.hasOil() || this.getOilLevel() >= OIL_STARVED) {
+            return 1.0F;
+        }
+        return Mth.lerp(this.getOilLevel() / OIL_STARVED, DRY_ENGINE_WEAR, 1.0F);
+    }
+
+    /** How much of its cooling the radiator has with the coolant there is. */
+    private float coolantCooling() {
+        if (!this.hasPart(CarPart.RADIATOR)) {
+            return 1.0F;
+        }
+        return 0.35F + 0.65F * Math.min(1.0F, this.getCoolantLevel() / COOLANT_SHORT);
+    }
+
+    /**
+     * Oil or water poured in under the bonnet: a bottle of motor oil into
+     * the sump, a bottle or a bucket of water into the coolant. The bonnet
+     * has to be up; PASS for anything else, so the click goes on.
+     */
+    private InteractionResult topUp(Player player, ItemStack held) {
+        boolean oil = held.is(ModItems.MOTOR_OIL);
+        boolean bucket = held.is(Items.WATER_BUCKET);
+        boolean bottle = held.is(Items.POTION) && held.getOrDefault(
+                net.minecraft.core.component.DataComponents.POTION_CONTENTS,
+                net.minecraft.world.item.alchemy.PotionContents.EMPTY).is(net.minecraft.world.item.alchemy.Potions.WATER);
+        if (!oil && !bucket && !bottle || oil && !this.hasOil() || !oil && !this.hasPart(CarPart.RADIATOR)
+                || !this.hasLid(BONNET_BIT)) {
+            return InteractionResult.PASS;
+        }
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (!this.isLidOpen(BONNET_BIT)) {
+            player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
+            return InteractionResult.CONSUME;
+        }
+        float level = oil ? this.getOilLevel() : this.getCoolantLevel();
+        if (level >= 0.99F) {
+            player.displayClientMessage(Component.translatable(oil ? "message.car.oil_full" : "message.car.coolant_full"), true);
+            return InteractionResult.CONSUME;
+        }
+        float now = Math.min(1.0F, level + (oil ? OIL_PER_BOTTLE : bucket ? 1.0F : WATER_PER_BOTTLE));
+        if (oil) {
+            this.setOilLevel(now);
+        } else {
+            this.setCoolantLevel(now);
+        }
+        if (!player.getAbilities().instabuild) {
+            ItemStack empty = new ItemStack(bucket ? Items.BUCKET : Items.GLASS_BOTTLE);
+            held.shrink(1);
+            if (held.isEmpty()) {
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, empty);
+            } else if (!player.getInventory().add(empty)) {
+                player.drop(empty, false);
+            }
+        }
+        this.playSound(bucket ? SoundEvents.BUCKET_EMPTY : SoundEvents.BOTTLE_EMPTY, 1.0F, 1.0F);
+        player.displayClientMessage(Component.translatable(oil ? "message.car.oil_topped" : "message.car.coolant_topped",
+                Math.round(now * 100.0F)), true);
+        return InteractionResult.CONSUME;
     }
 
     // ---- what each part is worth on the road ----
@@ -3041,7 +3198,7 @@ public class CarEntity extends VehicleEntity {
             float hardLife = (this.hasTurbo() ? CarSetup.TURBO_ENGINE_WEAR : 1.0F)
                     * (this.hasOpenFilter() ? CarSetup.OPEN_FILTER_ENGINE_WEAR : 1.0F);
             float dirty = this.getDirtyFuel();
-            this.wear(CarPart.ENGINE, CarPart.ENGINE.wearPerTick() * running * oil * hardLife
+            this.wear(CarPart.ENGINE, CarPart.ENGINE.wearPerTick() * running * oil * hardLife * this.lowOilWear()
                     * (1.0F + DIRTY_ENGINE_WEAR * dirty));
             if (this.getEngineFuel().needsSpark()) {
                 this.wear(CarPart.SPARK_PLUGS, CarPart.SPARK_PLUGS.wearPerTick() * running
@@ -3153,6 +3310,56 @@ public class CarEntity extends VehicleEntity {
     }
 
     /**
+     * Whether a part is got at from above, under the bonnet: what is in the
+     * engine bay and the electrics, on a vehicle that has a bonnet. Those
+     * want the bonnet up and no lift; everything else is got at from
+     * underneath, and wants the car up in the air.
+     */
+    public boolean underBonnet(CarPart part) {
+        return (part.group() == CarPart.Group.ENGINE_BAY || part.group() == CarPart.Group.ELECTRICS)
+                && this.hasLid(BONNET_BIT);
+    }
+
+    /**
+     * Whether a part can be worked on where the car is now: an under-bonnet
+     * part with the bonnet up, the engine itself only with a hoist beside the
+     * car as well, anything else on a raised lift. A lift reaches the engine
+     * from below too.
+     */
+    public boolean isWorkable(CarPart part) {
+        boolean lifted = VehicleLiftBlock.isServicing(this.level(), this);
+        if (!this.underBonnet(part)) {
+            return lifted;
+        }
+        if (part == CarPart.ENGINE) {
+            return lifted || this.isLidOpen(BONNET_BIT) && me.trossty.car.block.EngineHoistBlock.isNear(this.level(), this);
+        }
+        return this.isLidOpen(BONNET_BIT);
+    }
+
+    /** Whether any part at all can be worked on where the car is now. */
+    public boolean isWorkable() {
+        return VehicleLiftBlock.isServicing(this.level(), this)
+                || this.hasLid(BONNET_BIT) && this.isLidOpen(BONNET_BIT);
+    }
+
+    /** Whether this part can be taken off or fitted, here and now. */
+    public boolean canWorkOn(CarPart part) {
+        return this.canReach(part) && this.isWorkable(part);
+    }
+
+    /** What to tell somebody who cannot get at this part where the car is. */
+    public Component cannotWork(CarPart part) {
+        if (!this.underBonnet(part)) {
+            return VehicleLiftBlock.needsLift(this);
+        }
+        if (!this.isLidOpen(BONNET_BIT)) {
+            return Component.translatable("message.car.open_bonnet");
+        }
+        return Component.translatable("message.car.needs_hoist");
+    }
+
+    /**
      * Whether this kind of vehicle has the part at all. A car has every one;
      * a trailer has no engine, gearbox or exhaust to service, only what it
      * rolls and stops on. A motor burns nothing, so an electric car has no
@@ -3205,8 +3412,8 @@ public class CarEntity extends VehicleEntity {
             return InteractionResult.CONSUME;
         }
         Component name = Component.translatable("part.car." + part.key());
-        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
-            player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
+        if (!this.isWorkable(part)) {
+            player.displayClientMessage(this.cannotWork(part), true);
             return InteractionResult.CONSUME;
         }
         if (!this.isFitted(part)) {
@@ -3311,8 +3518,10 @@ public class CarEntity extends VehicleEntity {
         Component name = Component.translatable("part.car." + part.key());
         int fittedNow = Math.round(this.getConditionFraction(part) * 100.0F);
 
-        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
-            player.displayClientMessage(Component.translatable("message.car.part_reading", name, fittedNow), true);
+        if (!this.isWorkable(part)) {
+            // A closed bonnet says what is wrong; off a lift, what it reads.
+            player.displayClientMessage(this.underBonnet(part) ? this.cannotWork(part)
+                    : Component.translatable("message.car.part_reading", name, fittedNow), true);
             return InteractionResult.CONSUME;
         }
         CarPart inTheWay = this.blockedBy(part);
@@ -3383,8 +3592,9 @@ public class CarEntity extends VehicleEntity {
         if (this.level().isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
-            player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
+        // The turbo bolts on in the engine bay, from above.
+        if (!this.isWorkable(CarPart.AIR_FILTER)) {
+            player.displayClientMessage(this.cannotWork(CarPart.AIR_FILTER), true);
             return InteractionResult.CONSUME;
         }
         if (!this.isFitted(CarPart.ENGINE)) {
@@ -3482,9 +3692,10 @@ public class CarEntity extends VehicleEntity {
      * worth of parts.
      */
     public InteractionResult openService(Player player) {
-        // Nothing to read off a car standing on its wheels: the sheet is
-        // filled in on the lift, where the parts can be seen.
-        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
+        // Nothing to read off a car standing shut on its wheels: the sheet
+        // is filled in on the lift, or with the bonnet up, where the parts
+        // can be seen.
+        if (!this.isWorkable()) {
             if (!this.level().isClientSide()) {
                 player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
             }
@@ -3689,6 +3900,10 @@ public class CarEntity extends VehicleEntity {
         }
         if (held.is(ModItems.TURBO)) {
             return this.fitTurbo(player, held);
+        }
+        InteractionResult topped = this.topUp(player, held);
+        if (topped != InteractionResult.PASS) {
+            return topped;
         }
         CarPart spare = CarPart.forItem(held.getItem());
         if (spare != null) {
@@ -4784,6 +4999,8 @@ public class CarEntity extends VehicleEntity {
         this.entityData.set(FLAT_TYRE, (byte) Mth.clamp(view.getIntOr("FlatTyre", -1), -1, 7));
         this.entityData.set(TYRES_OFF, (byte) view.getIntOr("TyresOff", 0));
         this.entityData.set(LIDS, (byte) (view.getIntOr("Lids", 0) & (BONNET_BIT | BOOT_BIT)));
+        this.setOilLevel(view.getFloatOr("Oil", 1.0F));
+        this.setCoolantLevel(view.getFloatOr("Coolant", 1.0F));
         if (view.tag().contains("Boot")) {
             net.minecraft.world.ContainerHelper.loadAllItems(
                     view.tag().getCompound("Boot"), this.boot.getItems(), view.registries());
@@ -4826,6 +5043,12 @@ public class CarEntity extends VehicleEntity {
         }
         if (this.entityData.get(LIDS) != 0) {
             view.putInt("Lids", this.entityData.get(LIDS));
+        }
+        if (this.getOilLevel() < 1.0F) {
+            view.putFloat("Oil", this.getOilLevel());
+        }
+        if (this.getCoolantLevel() < 1.0F) {
+            view.putFloat("Coolant", this.getCoolantLevel());
         }
         if (!this.boot.isEmpty()) {
             view.tag().put("Boot", net.minecraft.world.ContainerHelper.saveAllItems(

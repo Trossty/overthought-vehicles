@@ -155,8 +155,8 @@ public class VehicleLiftBlock extends ModelEntityBlock {
     }
 
     /**
-     * True when there is a lift close enough under a vehicle to work on it, and
-     * that lift has the car in the air. A car on its wheels is a car you cannot
+     * True when a lift under a vehicle has it up in the air on its platform;
+     * a car parked beside a raised lift is not on it. A car on its wheels is a car you cannot
      * get under, which is the point of owning the lift in the first place.
      * A boat or a plane, which no lift takes, is up on its cradle or jack.
      */
@@ -168,7 +168,7 @@ public class VehicleLiftBlock extends ModelEntityBlock {
         for (BlockPos pos : BlockPos.betweenClosed(
                 at.offset(-REACH, -3, -REACH), at.offset(REACH, 0, REACH))) {
             BlockState state = world.getBlockState(pos);
-            if (state.is(ModBlocks.VEHICLE_LIFT) && state.getValue(LEVEL) > 0) {
+            if (state.is(ModBlocks.VEHICLE_LIFT) && VehicleLiftBlockEntity.holdsUp(state, pos, vehicle)) {
                 return true;
             }
         }

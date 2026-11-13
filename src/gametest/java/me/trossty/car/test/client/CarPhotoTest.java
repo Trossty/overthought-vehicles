@@ -53,6 +53,7 @@ public class CarPhotoTest {
             scenes.put("caravan", this::caravan);
             scenes.put("tyreLooks", this::tyreLooks);
             scenes.put("lids", this::lids);
+            scenes.put("hoist", this::hoist);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -134,6 +135,9 @@ public class CarPhotoTest {
                 var car = minecraft.overworld().getEntitiesOfClass(
                         me.trossty.car.entity.CarEntity.class, box, e -> e.getTags().contains("lift")).get(0);
                 car.removePart(player, me.trossty.car.entity.CarPart.WHEELS);
+                if (car.hasLid(me.trossty.car.entity.CarEntity.BONNET_BIT)) {
+                    car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
+                }
                 car.removePart(player, me.trossty.car.entity.CarPart.AIR_FILTER);
                 car.setCondition(me.trossty.car.entity.CarPart.BATTERY,
                         me.trossty.car.entity.CarPart.MAX_CONDITION * 0.5F);
@@ -148,6 +152,7 @@ public class CarPhotoTest {
             // From the front corner, and then side on from the near side.
             shot(context, server, "lift_" + name + "_corner", -3.0, Y + 0.4, 5.5, -145, 22);
             shot(context, server, "lift_" + name + "_side", -4.5, Y + 0.2, 0.5, -90, 15);
+            shot(context, server, "lift_" + name + "_under", -2.6, Y - 0.2, 0.5, -90, -22);
             // Aimed at the bare hub: its box lights and the box by the crosshair speaks.
             net.minecraft.world.phys.Vec3 wheel = context.computeOnClient(client -> {
                 var car = client.level.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
@@ -2038,6 +2043,19 @@ public class CarPhotoTest {
         shot(context, server, "lids_closed", 10.5, Y + 2.2, 4.5, 130, 20);
         shot(context, server, "lids_top", 0.5, Y + 3.4, 3.3, 180, 70);
         shot(context, server, "lids_boot_top", 0.5, Y + 3.2, -1.7, 0, 72);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A Corolla on the ground, bonnet up, an engine hoist pushed up to its nose. */
+    private void hoist(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Lids:1}".formatted(Y));
+        server.runCommand("setblock 0 %d 3 car:engine_hoist[facing=north]".formatted(Y));
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(20);
+        shot(context, server, "hoist_corner", -3.5, Y + 2.0, 5.5, -145, 18);
+        shot(context, server, "hoist_side", -4.5, Y + 1.2, 2.5, -90, 8);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

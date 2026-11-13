@@ -709,6 +709,7 @@ public class CarMachineTests {
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         CarPart part = CarPart.AIR_FILTER;
         context.assertTrue(car.isFitted(part), "a new car has no air filter");
+        car.setLidOpen(CarEntity.BONNET_BIT, true);
 
         car.serviceByHand(player, part);
         context.assertFalse(car.isFitted(part), "the air filter did not come off");
@@ -732,6 +733,70 @@ public class CarMachineTests {
         car.serviceByHand(player, part);
         context.assertTrue(car.isFitted(part), "holding the spare and clicking did not fit it");
         context.assertTrue(player.getMainHandItem().isEmpty(), "fitting it did not use the spare up");
+        car.discard();
+        context.succeed();
+    }
+
+    /** A car parked beside a raised lift is not on it; one over its platform is. */
+    @GameTest(template = "empty")
+    public static void besideALiftIsNotOnIt(GameTestHelper context) {
+        BlockPos lift = new BlockPos(1, 1, 1);
+        context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
+        CarEntity beside = context.spawn(ModEntities.CAR, new BlockPos(5, 1, 1));
+        CarEntity on = context.spawn(ModEntities.CAR, lift.above());
+        context.assertFalse(me.trossty.car.block.VehicleLiftBlock.isServicing(context.getLevel(), beside),
+                "a car beside the lift counted as up on it");
+        context.assertTrue(me.trossty.car.block.VehicleLiftBlock.isServicing(context.getLevel(), on),
+                "a car over the raised lift did not count as up on it");
+        beside.discard();
+        on.discard();
+        context.succeed();
+    }
+
+    /**
+     * What sits under the bonnet is worked on with the bonnet up, lift or no
+     * lift; the engine itself wants a lift or a hoist beside it.
+     */
+    @GameTest(template = "empty")
+    public static void bonnetPartsWantTheBonnetUp(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 3));
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        car.removePart(player, CarPart.AIR_FILTER);
+        context.assertTrue(car.isFitted(CarPart.AIR_FILTER), "the air filter came out through a shut bonnet");
+        car.setLidOpen(CarEntity.BONNET_BIT, true);
+        car.removePart(player, CarPart.AIR_FILTER);
+        context.assertFalse(car.isFitted(CarPart.AIR_FILTER), "the air filter did not come out with the bonnet up");
+        context.assertFalse(car.isWorkable(CarPart.ENGINE), "the engine came free without a lift or a hoist");
+        context.assertFalse(car.isWorkable(CarPart.WHEELS), "the wheels came off a car on the ground");
+        BlockPos hoist = BlockPos.containing(car.bonnetCentre()).atY(car.blockPosition().getY());
+        context.getLevel().setBlockAndUpdate(hoist, ModBlocks.ENGINE_HOIST.defaultBlockState());
+        context.assertTrue(car.isWorkable(CarPart.ENGINE), "a hoist beside the open bonnet did not reach the engine");
+        car.setLidOpen(CarEntity.BONNET_BIT, false);
+        context.assertFalse(car.isWorkable(CarPart.ENGINE), "the hoist reached the engine through a shut bonnet");
+        car.discard();
+        context.succeed();
+    }
+
+    /** Motor oil goes in with the bonnet up and hands the bottle back. */
+    @GameTest(template = "empty")
+    public static void oilAndCoolantTopUp(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 3));
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        car.setOilLevel(0.1F);
+        car.setCoolantLevel(0.1F);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.MOTOR_OIL));
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(car.getOilLevel() < 0.2F, "oil went in through a shut bonnet");
+        car.setLidOpen(CarEntity.BONNET_BIT, true);
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(Math.abs(car.getOilLevel() - 0.6F) < 0.01F, "a bottle of oil did not top the sump up");
+        context.assertTrue(player.getMainHandItem().is(Items.GLASS_BOTTLE), "the empty oil bottle was not handed back");
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.WATER_BUCKET));
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(car.getCoolantLevel() > 0.99F, "a bucket of water did not fill the coolant");
+        context.assertTrue(player.getMainHandItem().is(Items.BUCKET), "the empty bucket was not handed back");
         car.discard();
         context.succeed();
     }

@@ -132,7 +132,7 @@ public final class CarServiceOverlay {
         // a car to read: how beaten up it is and what is in the tank. Those
         // two come up whenever you look at one, so that walking up to your car
         // tells you what a menu used to have to.
-        boolean servicing = VehicleLiftBlock.isServicing(player.level(), car);
+        boolean servicing = car.isWorkable();
 
         float tickProgress = client.getTimer().getGameTimeDeltaPartialTick(true);
 
@@ -161,7 +161,7 @@ public final class CarServiceOverlay {
             Vec3 end = eye.add(player.getViewVector(tickProgress).scale(reach));
             double nearest = Double.MAX_VALUE;
             for (CarPart part : CarPart.values()) {
-                if (!car.canReach(part)) {
+                if (!car.canWorkOn(part)) {
                     continue;
                 }
                 for (AABB box : boxesOf(car, part, tickProgress)) {
@@ -187,7 +187,7 @@ public final class CarServiceOverlay {
             Vec3 camera = context.camera();
             PoseStack matrices = context.matrices();
             for (CarPart part : CarPart.values()) {
-                if (!servicing || !car.canReach(part)) {
+                if (!servicing || !car.canWorkOn(part)) {
                     continue;
                 }
                 boolean fitted = car.isFitted(part);
@@ -264,7 +264,7 @@ public final class CarServiceOverlay {
                 || player.isSpectator() || player.getVehicle() == car || nearestCar(player) != car) {
             return List.of();
         }
-        boolean servicing = VehicleLiftBlock.isServicing(player.level(), car);
+        boolean servicing = car.isWorkable();
         boolean inReach = client.hitResult instanceof EntityHitResult hit && CarEntity.of(hit.getEntity()) == car;
         if (!servicing && !inReach) {
             return List.of();
@@ -276,7 +276,7 @@ public final class CarServiceOverlay {
         if (servicing) {
             CarPart aimed = aimedCar() == car ? aimedPart : null;
             for (CarPart part : CarPart.values()) {
-                if (part == aimed || !car.canReach(part)) {
+                if (part == aimed || !car.canWorkOn(part)) {
                     continue;
                 }
                 int colour = colourOf(car, part);

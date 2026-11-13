@@ -145,6 +145,10 @@ public final class ModItems {
     public static final Item TURBO =
             register("turbo", me.trossty.car.item.TurboItem::new, new Item.Properties().stacksTo(16));
 
+    /** A bottle of motor oil, poured in under the bonnet to top up the sump. */
+    public static final Item MOTOR_OIL =
+            register("motor_oil", Item::new, new Item.Properties().stacksTo(16));
+
     /** Car paint in a can, any colour the dyes mixed into it make. */
     public static final Item SPRAY_CAN = register("spray_can", me.trossty.car.item.SprayCanItem::new,
             new Item.Properties().durability(me.trossty.car.item.SprayCanItem.CHARGES));
@@ -275,13 +279,13 @@ public final class ModItems {
                 entries.add(stack);
             }
         }
-        entries.add(TURBO, TANKER_BARREL, PICKUP_BED);
+        entries.add(TURBO, MOTOR_OIL, TANKER_BARREL, PICKUP_BED);
     }
 
     /** The garage, then oil from the ground to the pump, then power, then road building. */
     private static void machines(Entries entries) {
         entries.add(ModBlocks.VEHICLE_WORKSTATION, ModBlocks.VEHICLE_WORKBENCH, ModBlocks.VEHICLE_LIFT,
-                ModBlocks.ENGINE_STAND, ModBlocks.BOAT_CRADLE, ModBlocks.AIRCRAFT_JACK);
+                ModBlocks.ENGINE_STAND, ModBlocks.ENGINE_HOIST, ModBlocks.BOAT_CRADLE, ModBlocks.AIRCRAFT_JACK);
         entries.add(ModBlocks.OIL_DEPOSIT, ModBlocks.OIL_SEEP, ModBlocks.PUMPJACK, ModBlocks.FUEL_REFINERY,
                 ModBlocks.HYDROTREATER, ModBlocks.FUEL_TANK, ModBlocks.FUEL_DRUM, ModBlocks.FUEL_PIPE,
                 ModBlocks.FUEL_VALVE, ModBlocks.FUEL_PUMP, FUEL_NOZZLE);

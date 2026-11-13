@@ -162,8 +162,8 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
     public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         CarEntity car = this.menu.car();
         CarPart selected = this.menu.selectedPart();
-        this.removeButton.active = car != null && car.isFitted(selected) && car.canReach(selected);
-        this.fitButton.active = car != null && car.canReach(selected)
+        this.removeButton.active = car != null && car.isFitted(selected) && car.canWorkOn(selected);
+        this.fitButton.active = car != null && car.canWorkOn(selected)
                 && !this.menu.spareFor(selected).isEmpty()
                 && car.getCondition(selected) < CarPart.MAX_CONDITION;
         super.render(context, mouseX, mouseY, deltaTicks);
