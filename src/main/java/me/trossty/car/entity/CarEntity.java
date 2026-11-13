@@ -128,8 +128,8 @@ public class CarEntity extends VehicleEntity {
     private static final float COAST_MARGIN = 0.004F;
     /** Extra load per block per tick of climb, smoothed. A 1-in-4 at full speed is half again. */
     private static final float CLIMB_LOAD = 4.0F;
-    /** Extra thirst towing a trailer. */
-    private static final float TOWING_THIRST = 1.3F;
+    /** How much of the extra weight towed shows up as extra fuel burnt. */
+    private static final float TOWING_THIRST = 0.6F;
     /** A holed tank loses this much a tick: a family car's tank in under three minutes. */
     private static final float LEAK_PER_TICK = 0.03F;
     /** A crash has to be at least this bad to hole the tank... */
@@ -1024,6 +1024,12 @@ public class CarEntity extends VehicleEntity {
         return this.frontReach;
     }
 
+    /** From the middle to the very back of the body, in blocks. */
+    protected double rearReach() {
+        this.measureReach();
+        return this.rearReach;
+    }
+
     /** Where a trailer's coupler sits: on the tow ball just behind the rear bumper. */
     public Vec3 hitchPoint() {
         this.measureReach();
@@ -1439,7 +1445,27 @@ public class CarEntity extends VehicleEntity {
      * in the back of the machines that carry one.
      */
     public float loadThirst() {
-        return this.towed != null ? TOWING_THIRST : 1.0F;
+        return this.isTowing(null) ? 1.0F + (1.0F / this.towRatio() - 1.0F) * TOWING_THIRST : 1.0F;
+    }
+
+    /** What this weighs, in kilograms, as its definition gives it. */
+    public float massKg() {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        return defined == null ? 1300.0F : defined.massKg();
+    }
+
+    /**
+     * The share of the engine's pull left for this vehicle itself: 1 with
+     * nothing behind, its own weight over its own and the trailer's (and
+     * whatever that carries) when towing. A family car pulling another car
+     * on a flat bed gets away about half as hard.
+     */
+    public float towRatio() {
+        if (!this.isTowing(null)) {
+            return 1.0F;
+        }
+        float own = this.massKg();
+        return own / (own + this.towed.towedMass());
     }
 
     /**
@@ -2356,7 +2382,7 @@ public class CarEntity extends VehicleEntity {
 
     /** How much speed one tick of throttle adds, through the whole driveline. */
     public float throttleStep() {
-        return ACCELERATION * this.tuning().acceleration()
+        return ACCELERATION * this.tuning().acceleration() * this.towRatio()
                 * this.partFactor(CarPart.TRANSMISSION, WORN_GEARBOX_DRIVE)
                 * this.partFactor(CarPart.CLUTCH, WORN_CLUTCH_DRIVE)
                 * this.partFactor(CarPart.DRIVESHAFT, WORN_SHAFT_DRIVE)
@@ -2938,6 +2964,13 @@ public class CarEntity extends VehicleEntity {
      */
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
+        if (!(this instanceof TrailerEntity)) {
+            // Walking a trailer up by its drawbar: a click drops it on the tow ball.
+            TrailerEntity dragged = TrailerEntity.heldBy(player);
+            if (dragged != null) {
+                return dragged.hitchOnto(this, player);
+            }
+        }
         ItemStack held = player.getItemInHand(hand);
         if (held.is(ModItems.CAR_KEY)) {
             InteractionResult keyed = this.useKey(player, held);
@@ -3589,7 +3622,8 @@ public class CarEntity extends VehicleEntity {
      * though it falls apart before it gets there.
      */
     public float getMaxSpeed() {
-        return (this.towingTicks > 0 && this.towed != null ? this.towed.towFactor() : 1.0F)
+        // Weight behind takes less off the top speed than off the pull away.
+        return (0.5F + 0.5F * this.towRatio())
                 * this.tuning().speed() * Mth.lerp(this.getHealthFraction(), MAX_SPEED * WRECKED_SPEED_FACTOR, MAX_SPEED)
                 * this.partFactor(CarPart.ENGINE, WORN_ENGINE_SPEED)
                 * this.partFactor(CarPart.AIR_FILTER, WORN_FILTER_SPEED, MISSING_FILTER_SPEED)

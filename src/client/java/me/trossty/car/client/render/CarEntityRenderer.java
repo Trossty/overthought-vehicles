@@ -107,6 +107,80 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
     protected void submitExtras(CarRenderState state, PoseStack matrices, MultiBufferSource buffers) {
     }
 
+    /**
+     * What rides on a flat bed, drawn in the bed's own frame (turned, and
+     * tipped with it when it rests on its jockey wheel): a vehicle by its
+     * own renderer, an engine as the part.
+     */
+    private static void drawCargo(me.trossty.car.entity.TrailerEntity trailer, float yaw, float tickProgress,
+                                  PoseStack matrices, MultiBufferSource buffers, int light) {
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+        float deck = trailer.deckHeight();
+        net.minecraft.world.entity.Entity cargo = trailer.cargoView();
+        matrices.pushPose();
+        matrices.translate(0.0F, deck, 0.0F);
+        if (cargo != null) {
+            // Stand the copy where the bed is, so anything it looks up about
+            // its place (its light, its shadow) is the bed's.
+            cargo.setPos(trailer.getX(), trailer.getY() + deck, trailer.getZ());
+            cargo.xo = cargo.xOld = cargo.getX();
+            cargo.yo = cargo.yOld = cargo.getY();
+            cargo.zo = cargo.zOld = cargo.getZ();
+            cargo.setYRot(yaw);
+            cargo.yRotO = yaw;
+            if (trailer.isDolly() && cargo instanceof CarEntity towed) {
+                // Front wheels in the dolly's trays, back ones on the road
+                // behind: the car leans nose up about its front tyres.
+                float[] axles = axles(towed);
+                float wheelbase = axles[0] - axles[1];
+                float lean = (float) Math.toDegrees(Math.asin(Mth.clamp(deck / wheelbase, 0.0F, 1.0F)));
+                // Forward is -z in this frame; a turn about +x lifts it.
+                matrices.mulPose(Axis.XP.rotationDegrees(lean));
+                matrices.translate(0.0F, 0.0F, axles[0]);
+            }
+            // Its renderer turns it to the yaw itself; the bed is already turned.
+            matrices.mulPose(Axis.YP.rotationDegrees(-(180.0F - yaw)));
+            client.getEntityRenderDispatcher().render(cargo, 0.0, 0.0, 0.0, yaw, tickProgress,
+                    matrices, buffers, light);
+        } else {
+            matrices.translate(0.0F, 0.42F, 0.0F);
+            matrices.scale(1.3F, 1.3F, 1.3F);
+            client.getItemRenderer().renderStatic(trailer.getCargoItem(),
+                    net.minecraft.world.item.ItemDisplayContext.FIXED, light,
+                    net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, matrices, buffers,
+                    trailer.level(), 0);
+        }
+        matrices.popPose();
+    }
+
+    /**
+     * How far ahead of its middle a car's front axle is, and its back axle,
+     * in blocks (the back one negative): from its steering wheels and the
+     * rest, or a family car's when it gives none.
+     */
+    private static float[] axles(CarEntity car) {
+        me.trossty.car.vehicle.VehicleDefinition defined = car.getDefinition();
+        float front = 0.0F;
+        float back = 0.0F;
+        int fronts = 0;
+        int backs = 0;
+        if (defined != null) {
+            for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : defined.wheels()) {
+                if (wheel.steers()) {
+                    front += wheel.at().z();
+                    fronts++;
+                } else {
+                    back += wheel.at().z();
+                    backs++;
+                }
+            }
+        }
+        if (fronts == 0 || backs == 0) {
+            return new float[] {1.6F, -1.6F};
+        }
+        return new float[] {front / fronts / 16.0F, back / backs / 16.0F};
+    }
+
     @Override
     public ResourceLocation getTextureLocation(CarEntity car) {
         return TEXTURES[car.getColor().getId()];
@@ -169,6 +243,10 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             matrices.translate(0.0F, axleY, axleZ);
             matrices.mulPose(Axis.XP.rotationDegrees(-NOSE_DROP * ease(state.restPose)));
             matrices.translate(0.0F, -axleY, -axleZ);
+        }
+
+        if (car instanceof me.trossty.car.entity.TrailerEntity trailer && trailer.hasCargo()) {
+            drawCargo(trailer, state.yaw, tickProgress, matrices, buffers, state.lightCoords);
         }
 
         if (state.damageWobbleTicks > 0.0F) {

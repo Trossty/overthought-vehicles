@@ -6,6 +6,7 @@
   "performance": { "speed": 1.05, "acceleration": 1.0, "fuel_use": 0.85, "braking": 1.05, "steering": 1.05, "offroad": 0.0 },
   "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "road" },
   "tank": 50,
+  "mass": 1300,
   "seats": [
     [6.4, 6.38, 3.2],
     [-6.4, 6.38, 3.2],

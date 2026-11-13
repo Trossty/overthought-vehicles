@@ -6,6 +6,7 @@
   "performance": { "speed": 1.5, "acceleration": 0.7, "fuel_use": 1.4, "braking": 0.8, "steering": 0.6, "offroad": 0.3 },
   "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "road" },
   "tank": 160,
+  "mass": 770,
   "lights": { "length": 16, "spread": 3 },
   "materials": [ { "item": "minecraft:iron_ingot", "count": 8 }, { "item": "minecraft:phantom_membrane", "count": 4 }, { "item": "minecraft:glass_pane", "count": 3 } ],
   "seats": [

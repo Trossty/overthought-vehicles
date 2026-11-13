@@ -1,0 +1,51 @@
+{
+  "chassis": "trailer",
+  "width": 2.4,
+  "height": 0.8,
+  "color": "gray",
+  "performance": {  },
+  "factory": {  },
+  "tank": 0,
+  "mass": 280,
+  "deck": 8,
+  "dolly": true,
+  "materials": [ { "item": "minecraft:iron_ingot", "count": 8 }, { "item": "minecraft:chain", "count": 2 } ],
+  "seats": [
+
+  ],
+  "wheels": [
+    { "at": [22, 5, 0], "radius": 5, "width": 3, "steers": false },
+    { "at": [-22, 5, 0], "radius": 5, "width": 3, "steers": false }
+  ],
+  "shape": [
+    { "from": [8.5, 6.6, -9], "to": [18.5, 8, 9], "color": "#3E4044" },
+    { "from": [8.5, 8, 7.5], "to": [18.5, 10.5, 9], "color": "paint" },
+    { "from": [8.5, 6.6, -13], "to": [18.5, 7.4, -9], "color": "#8A8D91", "tilt": -20 },
+    { "from": [18.5, 8, -9], "to": [19.3, 10, 9], "color": "paint" },
+    { "from": [7.7, 8, -9], "to": [8.5, 10, 9], "color": "paint" },
+    { "from": [9, 8, -1.2], "to": [18, 8.4, 1.2], "color": "#E8C21B" },
+    { "from": [19.5, 11.5, -6.5], "to": [24.5, 12.3, 6.5], "color": "paint_dark" },
+    { "from": [19.5, 9, 6], "to": [24.5, 11.5, 6.8], "color": "paint_dark" },
+    { "from": [19.5, 9, -6.8], "to": [24.5, 11.5, -6], "color": "paint_dark" },
+    { "from": [20, 9.4, -7.2], "to": [23, 10.8, -6.8], "color": "#C0201C" },
+    { "from": [-18.5, 6.6, -9], "to": [-8.5, 8, 9], "color": "#3E4044" },
+    { "from": [-18.5, 8, 7.5], "to": [-8.5, 10.5, 9], "color": "paint" },
+    { "from": [-18.5, 6.6, -13], "to": [-8.5, 7.4, -9], "color": "#8A8D91", "tilt": -20 },
+    { "from": [-19.3, 8, -9], "to": [-18.5, 10, 9], "color": "paint" },
+    { "from": [-8.5, 8, -9], "to": [-7.7, 10, 9], "color": "paint" },
+    { "from": [-18, 8, -1.2], "to": [-9, 8.4, 1.2], "color": "#E8C21B" },
+    { "from": [-24.5, 11.5, -6.5], "to": [-19.5, 12.3, 6.5], "color": "paint_dark" },
+    { "from": [-24.5, 9, 6], "to": [-19.5, 11.5, 6.8], "color": "paint_dark" },
+    { "from": [-24.5, 9, -6.8], "to": [-19.5, 11.5, -6], "color": "paint_dark" },
+    { "from": [-23, 9.4, -7.2], "to": [-20, 10.8, -6.8], "color": "#C0201C" },
+    { "from": [-22, 4.2, -0.8], "to": [22, 5.6, 0.8], "color": "#2A2A2C" },
+    { "from": [-19.5, 5.6, -2], "to": [19.5, 6.6, 2], "color": "paint" },
+    { "from": [-8.5, 5.6, 6], "to": [8.5, 7, 8], "color": "paint" },
+    { "from": [-1.2, 6, 8], "to": [1.2, 8, 38], "color": "paint" },
+    { "from": [4.05, 6, 9], "to": [5.45, 7.6, 24], "color": "paint", "yaw": 20 },
+    { "from": [-5.45, 6, 9], "to": [-4.05, 7.6, 24], "color": "paint", "yaw": -20 },
+    { "from": [-1.8, 6, 38], "to": [1.8, 8.6, 41.4], "color": "#B4B8BD" },
+    { "from": [-1.4, 8.6, 38.5], "to": [1.4, 9.4, 40.9], "color": "#1B1B1D" },
+    { "from": [-0.8, 8, 14], "to": [0.8, 13, 15.6], "color": "paint_dark" }
+  ]
+}

@@ -6,6 +6,18 @@
         "car:vehicle": 9
       },
       "model": "car:item/vehicle_box_trailer"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 12
+      },
+      "model": "car:item/vehicle_flatbed_trailer"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 13
+      },
+      "model": "car:item/vehicle_tow_dolly"
     }
   ]
 }

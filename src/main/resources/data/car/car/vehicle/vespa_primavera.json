@@ -6,6 +6,7 @@
   "performance": { "speed": 0.72, "acceleration": 1.1, "fuel_use": 0.4, "braking": 1.1, "steering": 1.4, "offroad": 0 },
   "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "road" },
   "tank": 8,
+  "mass": 115,
   "lights": { "length": 7, "spread": 1.5 },
   "materials": [ { "item": "minecraft:iron_ingot", "count": 2 }, { "item": "minecraft:leather", "count": 1 } ],
   "seats": [

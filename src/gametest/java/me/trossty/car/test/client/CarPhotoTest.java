@@ -45,6 +45,7 @@ public class CarPhotoTest {
             scenes.put("twoWheelsAndTrailer", this::twoWheelsAndTrailer);
             scenes.put("workstation", this::workstation);
             scenes.put("towing", this::towing);
+            scenes.put("flatbed", this::flatbed);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -1792,6 +1793,99 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.setScreen(null));
         server.runCommand("gamemode creative @a");
         server.runCommand("clear @a");
+    }
+
+    /**
+     * Flat bed trailers: one on a pickup's hitch with a Mustang winched on,
+     * one with a boat, one with an engine; then one walked by its drawbar and
+     * dropped on a car's tow ball. Logs how much each load takes off the pull.
+     */
+    private void flatbed(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("clear @a");
+        server.runCommand("fill -25 %d -20 30 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 18.5 %d 14.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:11,Tags:[\"tractor2\"]}".formatted(Y));
+        server.runCommand("summon car:trailer 18.5 %d 9.1 {Rotation:[0f,0f],Model:\"car:tow_dolly\",Tags:[\"bed_dolly\"]}".formatted(Y));
+        server.runCommand("summon car:car 18.5 %d 3.0 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon car:pickup 0.5 %d 7.5 {Rotation:[0f,0f],Color:14,Tags:[\"tractor\"]}".formatted(Y));
+        String bed = "summon car:trailer %.1f %d %.1f {Rotation:[0f,0f],Model:\"car:flatbed_trailer\",Tags:[\"%s\"]}";
+        server.runCommand(bed.formatted(0.5, Y, -1.5, "bed_car"));
+        server.runCommand(bed.formatted(8.5, Y, -1.5, "bed_boat"));
+        server.runCommand(bed.formatted(-7.5, Y, -1.5, "bed_engine"));
+        server.runCommand(bed.formatted(-7.5, Y, 14.5, "bed_walked"));
+        server.runCommand(bed.formatted(-15.5, Y, -1.5, "bed_bike"));
+        server.runCommand("summon car:motorcycle -15.5 %d -7.5 {Rotation:[0f,0f],Model:\"car:honda_cbr600rr\",Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d -9.5 {Rotation:[0f,0f],Model:\"car:ford_mustang\",Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon car:motorboat 8.5 %d -11.5 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon car:car -1.5 %d 19.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Tags:[\"walk_to\"]}".formatted(Y));
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 50);
+            java.util.function.Function<String, me.trossty.car.entity.TrailerEntity> bedOf = tag -> world
+                    .getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box, e -> e.getTags().contains(tag)).get(0);
+            var tractor = world.getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box, e -> true).get(0);
+            var carBed = bedOf.apply("bed_car");
+            carBed.hitch(tractor);
+            bedOf.apply("bed_dolly").hitch(world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                    e -> e.getTags().contains("tractor2")).get(0));
+            System.out.println("car photo flatbed: alone pull=" + tractor.throttleStep() + " top=" + tractor.getMaxSpeed());
+            player.setShiftKeyDown(true);
+            for (String tag : new String[] {"bed_car", "bed_boat", "bed_bike", "bed_dolly"}) {
+                var trailer = bedOf.apply(tag);
+                player.moveTo(trailer.getX() + 2.0, trailer.getY(), trailer.getZ());
+                System.out.println("car photo flatbed: winch " + tag + " -> "
+                        + trailer.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                        + " cargo=" + trailer.hasCargo() + " towed=" + trailer.towedMass());
+            }
+            player.setShiftKeyDown(false);
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                    new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE));
+            System.out.println("car photo flatbed: engine -> " + bedOf.apply("bed_engine")
+                    .interact(player, net.minecraft.world.InteractionHand.MAIN_HAND));
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+            var walked = bedOf.apply("bed_walked");
+            player.moveTo(-7.5, Y, 19.0, 180.0F, 0.0F);
+            System.out.println("car photo flatbed: grab -> "
+                    + walked.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                    + " held=" + (me.trossty.car.entity.TrailerEntity.heldBy(player) == walked));
+        });
+        // Walk the drawbar across behind the Corolla, then click the car.
+        server.runCommand("tp @p -1.5 %d 15.6 0 0".formatted(Y));
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 50);
+            var corolla = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                    e -> e.getTags().contains("walk_to")).get(0);
+            System.out.println("car photo flatbed: hitch by hand -> "
+                    + corolla.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                    + " held=" + me.trossty.car.entity.TrailerEntity.heldBy(player));
+        });
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 50);
+            for (var car : world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                    e -> e.getTags().contains("tractor") || e.getTags().contains("walk_to")
+                            || e.getTags().contains("tractor2"))) {
+                System.out.println("car photo flatbed: " + car.getTags() + " towing=" + car.isTowing(null)
+                        + " ratio=" + car.towRatio() + " pull=" + car.throttleStep() + " top=" + car.getMaxSpeed());
+            }
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "flatbed_rear", 13.0, Y + 4.0, -19.0, 34, 14);
+        shot(context, server, "flatbed_front", -9.0, Y + 3.0, 9.0, 218, 14);
+        shot(context, server, "flatbed_walked", -10.5, Y + 2.5, 22.5, 210, 14);
+        shot(context, server, "flatbed_car_side", 7.0, Y + 2.2, -1.5, 90, 12);
+        shot(context, server, "flatbed_boat_side", 15.5, Y + 2.4, -1.5, 90, 12);
+        shot(context, server, "flatbed_bike_side", -19.0, Y + 1.8, -1.5, 270, 12);
+        shot(context, server, "dolly_side", 25.5, Y + 1.8, 8.0, 90, 8);
+        shot(context, server, "dolly_rear34", 24.0, Y + 3.0, -2.0, 30, 15);
+        context.runOnClient(client -> client.options.hideGui = false);
     }
 
     /** A car pulling the trailer round a right-hand bend, seen from in front. */

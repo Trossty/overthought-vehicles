@@ -6,6 +6,7 @@
   "performance": {  },
   "factory": {  },
   "tank": 0,
+  "mass": 350,
   "materials": [ { "item": "minecraft:chest", "count": 1 }, { "item": "minecraft:iron_ingot", "count": 3 }, { "item": "minecraft:oak_slab", "count": 3 } ],
   "seats": [
   ],

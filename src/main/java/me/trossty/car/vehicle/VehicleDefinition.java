@@ -50,7 +50,38 @@ public record VehicleDefinition(
         List<Box> shape,
         List<Cost> materials,
         float tank,
-        Lights lights) {
+        Lights lights,
+        float mass,
+        float deck,
+        boolean dolly) {
+
+    /**
+     * What it weighs, in kilograms, when the definition does not say:
+     * {@code mass} is what a towing vehicle feels of it. {@code deck} is how
+     * high a flat bed stands, in the model's pixels, on a trailer that carries
+     * a vehicle; 0 for anything else. {@code dolly} makes that bed a tow
+     * dolly: it takes only a car's front wheels, and the back ones roll on
+     * the road behind.
+     */
+    public float massKg() {
+        if (this.mass > 0.0F) {
+            return this.mass;
+        }
+        return switch (this.chassis) {
+            case PICKUP -> 2000.0F;
+            case TANKER -> 7500.0F;
+            case TRAILER -> 400.0F;
+            case MOTORCYCLE -> 180.0F;
+            case BOAT -> 1300.0F;
+            case PLANE -> 750.0F;
+            default -> 1300.0F;
+        };
+    }
+
+    /** Whether this is a flat bed another vehicle rides on. */
+    public boolean carriesVehicles() {
+        return this.deck > 0.0F;
+    }
 
     /** A tank nobody wrote down: a family car's, fifty litres. */
     public static final float DEFAULT_TANK_LITRES = 50.0F;
@@ -227,7 +258,10 @@ public record VehicleDefinition(
             Cost.CODEC.listOf(0, 16).optionalFieldOf("materials", List.of()).forGetter(VehicleDefinition::materials),
             Codec.floatRange(0.0F, 1000.0F).optionalFieldOf("tank", DEFAULT_TANK_LITRES)
                     .forGetter(VehicleDefinition::tank),
-            Lights.CODEC.optionalFieldOf("lights", Lights.PLAIN).forGetter(VehicleDefinition::lights)
+            Lights.CODEC.optionalFieldOf("lights", Lights.PLAIN).forGetter(VehicleDefinition::lights),
+            Codec.floatRange(0.0F, 100000.0F).optionalFieldOf("mass", 0.0F).forGetter(VehicleDefinition::mass),
+            Codec.floatRange(0.0F, 64.0F).optionalFieldOf("deck", 0.0F).forGetter(VehicleDefinition::deck),
+            Codec.BOOL.optionalFieldOf("dolly", false).forGetter(VehicleDefinition::dolly)
     ).apply(instance, VehicleDefinition::new));
 
     /**

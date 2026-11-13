@@ -1008,7 +1008,10 @@ public class CarMachineTests {
         trailer.moveTo(ball.x, trailer.getY(), ball.z - 2.0, 0.0F, 0.0F);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        // Take the drawbar, then click the car to drop it on the tow ball.
+        player.moveTo(ball.x + 1.0, trailer.getY(), ball.z);
         trailer.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        tractor.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
         context.assertTrue(trailer.isHitched(), "the trailer did not hitch");
         double startZ = trailer.getZ();
         // A wall a block ahead of the trailer's front, across its whole width.

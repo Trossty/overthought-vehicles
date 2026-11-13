@@ -35,7 +35,8 @@ public final class ItemLooks {
             CarMain.id("toyota_corolla"), CarMain.id("tofas_sahin"), CarMain.id("jeep_wrangler"),
             CarMain.id("ford_mustang"), CarMain.id("mercedes_atego"),
             CarMain.id("vespa_primavera"), CarMain.id("honda_cbr600rr"), CarMain.id("toyota_hilux"),
-            CarMain.id("box_trailer"), CarMain.id("bayliner_bowrider"), CarMain.id("cessna_172"));
+            CarMain.id("box_trailer"), CarMain.id("bayliner_bowrider"), CarMain.id("cessna_172"),
+            CarMain.id("flatbed_trailer"), CarMain.id("tow_dolly"));
 
     /** Bare steel: an empty drum's paint. */
     public static final int EMPTY_DRUM = 0x9AA1A8;
