@@ -310,8 +310,8 @@ public class DashboardHud implements LayeredDraw.Layer {
             drawIcon(context, WRENCH_ICON, cx, cy, ICON_DAMAGE);
         }
         // The odometer under the hub, where the fuel gauge has its range:
-        // blocks, then kiloblocks once past a thousand.
-        drawCaption(context, client, CarEntity.formatDistance(odometer),
+        // kiloblocks, 1 kb = 1000 blocks.
+        drawCaption(context, client, CarEntity.formatOdometer(odometer),
                 cx, cy + ICON_OFFSET_Y + 10, 0xFF8A949A);
         drawNeedle(context, cx, cy, this.speedNeedle);
     }

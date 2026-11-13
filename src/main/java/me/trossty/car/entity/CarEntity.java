@@ -1132,6 +1132,13 @@ public class CarEntity extends VehicleEntity {
     }
 
     /** A distance in blocks, as a person would say it: metres, then kilometres. */
+    /** The odometer, always in kiloblocks: two decimals, so it moves every ten blocks. */
+    public static Component formatOdometer(float blocks) {
+        float kb = blocks / 1000.0F;
+        return Component.translatable("unit.car.kiloblocks",
+                String.format(java.util.Locale.ROOT, kb < 100.0F ? "%.2f" : "%.1f", kb));
+    }
+
     public static Component formatDistance(float blocks) {
         // Blocks up to a thousand, then kiloblocks: 1 kb = 1000 blocks.
         if (blocks < 1000.0F) {

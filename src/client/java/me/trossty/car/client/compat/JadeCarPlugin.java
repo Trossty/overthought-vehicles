@@ -70,7 +70,7 @@ public class JadeCarPlugin implements IWailaPlugin {
                                 .withStyle(ChatFormatting.YELLOW)
                         : Component.translatable("jade.car.missing", name).withStyle(ChatFormatting.RED));
             }
-            tooltip.add(Component.translatable("jade.car.odometer", CarEntity.formatDistance(car.getOdometer()))
+            tooltip.add(Component.translatable("jade.car.odometer", CarEntity.formatOdometer(car.getOdometer()))
                     .withStyle(ChatFormatting.GRAY));
         }
     }

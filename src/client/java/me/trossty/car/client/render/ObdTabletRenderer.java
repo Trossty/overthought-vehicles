@@ -100,7 +100,7 @@ public final class ObdTabletRenderer {
         Component sub = car.isElectric()
                 ? Component.translatable("obd.car.tablet.electric")
                 : Component.translatable("fuel.car." + car.getTankFuel().key());
-        screen.text(Component.empty().append(CarEntity.formatDistance(car.getOdometer())).append("  ·  ").append(sub),
+        screen.text(Component.empty().append(CarEntity.formatOdometer(car.getOdometer())).append("  ·  ").append(sub),
                 5, 27, 0.6F, DIM, 118);
 
         // The three gauges a mechanic looks at first.

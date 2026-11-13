@@ -2021,8 +2021,8 @@ geçer. Devir sınırı 4500.
 
 ### Kilometre, aşınma ve OBD tableti
 
-- Araç sürüldükçe **sayaç** blok blok artar (1000 bloğa kadar `57 blok`,
-  sonra **kiloblok**: 1 kb = 1000 blok, örn. `12.4 kb`), kayıtta saklanır. Yalnızca tekerlekler yerdeyken sayar. 50 000 bloğa kadar her parça %50'ye varan oranda daha hızlı aşınır;
+- Araç sürüldükçe **sayaç** blok blok artar **kiloblok** cinsinden (1 kb = 1000 blok,
+  iki ondalıklı: 57 blok `0.06 kb`), kayıtta saklanır. Yalnızca tekerlekler yerdeyken sayar. 50 000 bloğa kadar her parça %50'ye varan oranda daha hızlı aşınır;
   yarı ömrünü bitirmiş bir parça kendi başına %25 daha hızlı gider. Servisi
   ertelemek servisin kendisinden pahalıya gelir.
 - **OBD tableti** gerçek bir atölye tableti gibi **3B**: kalın gövde, turuncu
