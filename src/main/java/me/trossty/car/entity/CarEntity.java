@@ -3932,14 +3932,14 @@ public class CarEntity extends VehicleEntity {
         }
     }
 
-    /**
-     * The car falls apart. It leaves scrap rather than the car item, so wrecking
-     * one actually costs you something.
-     */
     /** Anything more a wreck makes of itself than smoke and a crunch: nothing, for a car. */
     protected void wreckEffects(ServerLevel world) {
     }
 
+    /**
+     * The car falls apart. It leaves scrap rather than the car item, so wrecking
+     * one actually costs you something.
+     */
     private void wreck(ServerLevel world) {
         world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
                 SoundEvents.ANVIL_DESTROY, SoundSource.NEUTRAL, 0.9F, 0.8F);

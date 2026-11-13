@@ -1,7 +1,9 @@
 package me.trossty.car.client.render;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import me.trossty.car.entity.CarEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -37,6 +39,8 @@ public final class HeadlightGlow {
     private static final double SETTLE = 0.6;
 
     private static volatile List<Vec3> points = List.of();
+    /** The same points by the car they shine from: the client thread's own. */
+    private static Map<Integer, List<Vec3>> byCar = Map.of();
 
     private HeadlightGlow() {
     }
@@ -75,28 +79,50 @@ public final class HeadlightGlow {
                 net.minecraft.client.renderer.LightTexture.sky(packed));
     }
 
-    /** Once a client tick: where the lamps shine now, and which chunks that changes. */
+    /**
+     * Once a client tick: where the lamps shine now, and which chunks that
+     * changes. Each car's points are kept under its own id, so only the
+     * chunks round a car whose beam actually moved are built again, however
+     * the world happens to list its entities this tick.
+     */
     public static void tick(Minecraft client) {
-        List<Vec3> before = points;
+        Map<Integer, List<Vec3>> before = byCar;
         if (client.level == null || client.player == null) {
+            byCar = Map.of();
             points = List.of();
             return;
         }
-        List<Vec3> after = new ArrayList<>();
+        Map<Integer, List<Vec3>> after = new HashMap<>();
+        List<Vec3> stale = new ArrayList<>();
         for (Entity entity : client.level.entitiesForRendering()) {
             if (entity instanceof CarEntity car && car.distanceToSqr(client.player) < 96.0 * 96.0
                     && CarEntityRenderer.lampsOn(car)) {
-                after.addAll(pointsFor(car));
+                List<Vec3> was = before.get(car.getId());
+                List<Vec3> now = pointsFor(car);
+                if (was != null && !moved(was, now)) {
+                    // Settled: keep the points the chunks were built with.
+                    after.put(car.getId(), was);
+                    continue;
+                }
+                after.put(car.getId(), now);
+                if (was != null) {
+                    stale.addAll(was);
+                }
+                stale.addAll(now);
             }
         }
-        if (moved(before, after)) {
-            points = List.copyOf(after);
-            for (Vec3 point : before) {
-                rebuild(client, point);
+        for (Map.Entry<Integer, List<Vec3>> gone : before.entrySet()) {
+            if (!after.containsKey(gone.getKey())) {
+                stale.addAll(gone.getValue());
             }
-            for (Vec3 point : after) {
-                rebuild(client, point);
-            }
+        }
+        byCar = after;
+        if (!stale.isEmpty()) {
+            // The new points first, so a chunk built from here on sees them.
+            List<Vec3> all = new ArrayList<>();
+            after.values().forEach(all::addAll);
+            points = List.copyOf(all);
+            stale.forEach(point -> rebuild(client, point));
         }
     }
 
