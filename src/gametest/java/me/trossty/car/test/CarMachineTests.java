@@ -1090,6 +1090,42 @@ public class CarMachineTests {
     }
 
     /**
+     * Walking a trailer by hand slows the walker, more with a car on the bed,
+     * and letting go gives them their pace back.
+     */
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void drawbarSlowsByWeight(GameTestHelper context) {
+        var bed = context.spawn(ModEntities.TRAILER, new BlockPos(3, 1, 7));
+        bed.setModel(me.trossty.car.CarMain.id("flatbed_trailer"));
+        bed.moveTo(bed.getX(), bed.getY(), bed.getZ(), 0.0F, 0.0F);
+        var car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 1));
+        car.moveTo(car.getX(), car.getY(), car.getZ(), 0.0F, 0.0F);
+        var player = context.makeMockServerPlayerInLevel();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.moveTo(bed.getX() + 1.5, bed.getY(), bed.getZ());
+        var speed = player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+        double free = speed.getValue();
+        bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.runAfterDelay(3, () -> {
+            double empty = speed.getValue();
+            context.assertTrue(empty < free, "an empty trailer did not slow the walk");
+            player.setShiftKeyDown(true);
+            bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            player.setShiftKeyDown(false);
+            context.assertTrue(bed.hasCargo(), "the car did not go on the bed");
+            context.runAfterDelay(3, () -> {
+                double laden = speed.getValue();
+                context.assertTrue(laden < empty * 0.75, "a car on the bed did not slow the walk further: "
+                        + empty + " -> " + laden);
+                bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+                context.assertTrue(Math.abs(speed.getValue() - free) < 1.0E-6, "letting go did not give the pace back");
+                bed.discard();
+                context.succeed();
+            });
+        });
+    }
+
+    /**
      * A jack pumped up by hand stays up when something is built next to it;
      * only redstone coming on or going off moves it.
      */

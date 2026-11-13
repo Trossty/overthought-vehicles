@@ -362,7 +362,63 @@ public class TrailerEntity extends CarEntity {
     }
 
     private void letGo() {
+        int id = this.entityData.get(HOLDER);
+        if (id >= 0 && this.level().getServer() != null) {
+            // Looked for everywhere: one who went through a portal is in
+            // another world now, and still owed their pace back.
+            for (Player player : this.level().getServer().getPlayerList().getPlayers()) {
+                if (player.getId() == id) {
+                    drag(player, 0.0);
+                }
+            }
+        }
         this.entityData.set(HOLDER, -1);
+    }
+
+    /** The slowdown a hand on the drawbar puts on whoever holds it. */
+    private static final net.minecraft.resources.ResourceLocation DRAWBAR_DRAG =
+            me.trossty.car.CarMain.id("drawbar_drag");
+
+    /**
+     * What weight it takes to halve a walker's pace, in kilograms: an empty
+     * box trailer slows them a little, a car on a flat bed to a crawl.
+     */
+    private static final float HALF_PACE_KG = 1500.0F;
+
+    /** The share of their own pace left to a player walking this by hand. */
+    public float handPace() {
+        return HALF_PACE_KG / (HALF_PACE_KG + this.towedMass());
+    }
+
+    /** Sets how much a player is held back, as a fraction of their pace; 0 for not at all. */
+    private static void drag(Player player, double slowdown) {
+        net.minecraft.world.entity.ai.attributes.AttributeInstance speed =
+                player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+        if (speed == null) {
+            return;
+        }
+        net.minecraft.world.entity.ai.attributes.AttributeModifier now = speed.getModifier(DRAWBAR_DRAG);
+        if (slowdown <= 0.0) {
+            if (now != null) {
+                speed.removeModifier(DRAWBAR_DRAG);
+            }
+            return;
+        }
+        // Only a change is sent on to the player, not the same number every tick.
+        if (now == null || Math.abs(now.amount() + slowdown) > 1.0E-4) {
+            speed.addOrUpdateTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
+                    DRAWBAR_DRAG, -slowdown,
+                    net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+    }
+
+    /** Gone from the world with someone on the drawbar: they walk free again. */
+    @Override
+    public void remove(Entity.RemovalReason reason) {
+        if (!this.level().isClientSide()) {
+            this.letGo();
+        }
+        super.remove(reason);
     }
 
     /** Where a holding hand keeps the coupler: a step in front of the player, at their feet. */
@@ -533,6 +589,10 @@ public class TrailerEntity extends CarEntity {
             }
             return;
         }
+        if (!this.level().isClientSide()) {
+            // The heavier the trailer and what is on it, the slower the walk.
+            drag(holder, 1.0 - this.handPace());
+        }
         this.pullTowards(hand(holder), holder.getY());
     }
 
@@ -651,6 +711,8 @@ public class TrailerEntity extends CarEntity {
         if (other != null) {
             other.letGo();
         }
+        // Taken out of somebody else's hand: they are let go of it properly.
+        this.letGo();
         this.entityData.set(HOLDER, player.getId());
         this.playSound(SoundEvents.CHAIN_HIT, 1.0F, 1.2F);
         player.displayClientMessage(Component.translatable("message.car.trailer_grabbed"), true);
