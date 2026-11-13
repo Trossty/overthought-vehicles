@@ -18,6 +18,12 @@
         "car:vehicle": 13
       },
       "model": "car:item/vehicle_tow_dolly"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 14
+      },
+      "model": "car:item/vehicle_plane_tow_dolly"
     }
   ]
 }

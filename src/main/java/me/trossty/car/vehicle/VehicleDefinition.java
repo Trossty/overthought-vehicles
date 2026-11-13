@@ -53,7 +53,8 @@ public record VehicleDefinition(
         Lights lights,
         float mass,
         float deck,
-        boolean dolly) {
+        boolean dolly,
+        List<Chassis> takes) {
 
     /**
      * What it weighs, in kilograms, when the definition does not say:
@@ -61,7 +62,8 @@ public record VehicleDefinition(
      * high a flat bed stands, in the model's pixels, on a trailer that carries
      * a vehicle; 0 for anything else. {@code dolly} makes that bed a tow
      * dolly: it takes only a car's front wheels, and the back ones roll on
-     * the road behind.
+     * the road behind. {@code takes} is what kinds of vehicle the bed or
+     * dolly will carry; left out, any.
      */
     public float massKg() {
         if (this.mass > 0.0F) {
@@ -261,7 +263,8 @@ public record VehicleDefinition(
             Lights.CODEC.optionalFieldOf("lights", Lights.PLAIN).forGetter(VehicleDefinition::lights),
             Codec.floatRange(0.0F, 100000.0F).optionalFieldOf("mass", 0.0F).forGetter(VehicleDefinition::mass),
             Codec.floatRange(0.0F, 64.0F).optionalFieldOf("deck", 0.0F).forGetter(VehicleDefinition::deck),
-            Codec.BOOL.optionalFieldOf("dolly", false).forGetter(VehicleDefinition::dolly)
+            Codec.BOOL.optionalFieldOf("dolly", false).forGetter(VehicleDefinition::dolly),
+            Chassis.CODEC.listOf().optionalFieldOf("takes", List.of()).forGetter(VehicleDefinition::takes)
     ).apply(instance, VehicleDefinition::new));
 
     /**

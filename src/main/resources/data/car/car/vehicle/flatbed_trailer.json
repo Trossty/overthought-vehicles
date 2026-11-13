@@ -8,6 +8,7 @@
   "tank": 0,
   "mass": 650,
   "deck": 13,
+  "takes": ["car", "pickup", "motorcycle", "boat"],
   "materials": [ { "item": "minecraft:iron_ingot", "count": 12 }, { "item": "minecraft:chain", "count": 2 } ],
   "seats": [
 

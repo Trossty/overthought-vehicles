@@ -264,6 +264,8 @@
   "message.car.flatbed_occupied": "İçinde hâlâ biri var",
   "vehicle.car.tow_dolly": "Çekme Arabası",
   "message.car.dolly_nothing": "Çekilecek araç yok: bir otomobilin burnunu çekme arabasına yanaştır",
+  "vehicle.car.plane_tow_dolly": "Uçak Çeki Arabası",
+  "message.car.plane_dolly_nothing": "Çekilecek uçak yok: bir uçağın burun tekerini yuvaya yanaştır",
   "message.car.trailer_no_vehicle": "Önce bir aracı çeki demirine yanaştır",
   "item.car.motorcycle": "Motosiklet",
   "entity.car.motorcycle": "Motosiklet",

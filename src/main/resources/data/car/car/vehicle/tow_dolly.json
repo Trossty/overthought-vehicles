@@ -8,6 +8,7 @@
   "tank": 0,
   "mass": 280,
   "deck": 8,
+  "takes": ["car", "pickup"],
   "dolly": true,
   "materials": [ { "item": "minecraft:iron_ingot", "count": 8 }, { "item": "minecraft:chain", "count": 2 } ],
   "seats": [

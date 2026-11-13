@@ -264,6 +264,8 @@
   "message.car.flatbed_occupied": "Somebody is still in it",
   "vehicle.car.tow_dolly": "Tow Dolly",
   "message.car.dolly_nothing": "Nothing to tow: back a car's nose up to the dolly",
+  "vehicle.car.plane_tow_dolly": "Aircraft Tow Dolly",
+  "message.car.plane_dolly_nothing": "Nothing to tow: roll a plane's nose wheel up to the cradle",
   "message.car.trailer_no_vehicle": "Back a vehicle up to the drawbar first",
   "item.car.motorcycle": "Motorcycle",
   "entity.car.motorcycle": "Motorcycle",

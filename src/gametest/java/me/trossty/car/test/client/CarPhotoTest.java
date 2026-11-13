@@ -46,6 +46,7 @@ public class CarPhotoTest {
             scenes.put("workstation", this::workstation);
             scenes.put("towing", this::towing);
             scenes.put("flatbed", this::flatbed);
+            scenes.put("planeTow", this::planeTow);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -1885,6 +1886,46 @@ public class CarPhotoTest {
         shot(context, server, "flatbed_bike_side", -19.0, Y + 1.8, -1.5, 270, 12);
         shot(context, server, "dolly_side", 25.5, Y + 1.8, 8.0, 90, 8);
         shot(context, server, "dolly_rear34", 24.0, Y + 3.0, -2.0, 30, 15);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A pickup pulling a Cessna by its nose wheel on the aircraft tow dolly. */
+    private void planeTow(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("clear @a");
+        server.runCommand("fill -20 %d -30 20 %d 30 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:pickup 0.5 %d 10.5 {Rotation:[0f,0f],Color:0,Tags:[\"tractor\"]}".formatted(Y));
+        server.runCommand("summon car:trailer 0.5 %d 5.0 {Rotation:[0f,0f],Model:\"car:plane_tow_dolly\",Color:4,Tags:[\"tug\"]}".formatted(Y));
+        server.runCommand("summon car:airplane 0.5 %d -2.0 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -40, 30, Y + 10, 40);
+            var tractor = world.getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box, e -> true).get(0);
+            var tug = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box,
+                    e -> e.getTags().contains("tug")).get(0);
+            tug.hitch(tractor);
+            player.setShiftKeyDown(true);
+            player.moveTo(tug.getX() + 2.0, tug.getY(), tug.getZ());
+            System.out.println("car photo plane tow: winch -> "
+                    + tug.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                    + " cargo=" + tug.hasCargo() + " towed=" + tug.towedMass());
+            player.setShiftKeyDown(false);
+        });
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -40, 30, Y + 10, 40);
+            var tractor = minecraft.overworld().getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box,
+                    e -> true).get(0);
+            System.out.println("car photo plane tow: ratio=" + tractor.towRatio() + " pull=" + tractor.throttleStep()
+                    + " top=" + tractor.getMaxSpeed());
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "plane_tow_side", 15.0, Y + 3.0, 2.0, 90, 12);
+        shot(context, server, "plane_tow_rear34", 12.0, Y + 5.0, -14.0, 40, 18);
+        shot(context, server, "plane_tow_cradle", 3.5, Y + 1.6, 7.5, 125, 25);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

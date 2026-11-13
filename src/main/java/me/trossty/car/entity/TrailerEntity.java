@@ -172,13 +172,16 @@ public class TrailerEntity extends CarEntity {
         return defined != null && defined.carriesVehicles() && defined.dolly();
     }
 
-    /** What may go on this: anything but a trailer on a flat bed, only a car or a pickup on a dolly. */
+    /** Whether this kind of vehicle may go on: what the definition lists, or anything but a trailer. */
     private boolean takes(CarEntity car) {
-        if (!this.isDolly()) {
-            return true;
-        }
-        VehicleDefinition.Chassis chassis = car.chassis();
-        return chassis == VehicleDefinition.Chassis.CAR || chassis == VehicleDefinition.Chassis.PICKUP;
+        VehicleDefinition defined = this.getDefinition();
+        return defined == null || defined.takes().isEmpty() || defined.takes().contains(car.chassis());
+    }
+
+    /** Only aircraft go on this: it is the tow dolly for a plane's nose wheel. */
+    private boolean forPlanes() {
+        VehicleDefinition defined = this.getDefinition();
+        return defined != null && defined.takes().equals(List.of(VehicleDefinition.Chassis.PLANE));
     }
 
     /** How high the bed is, in blocks. */
@@ -253,7 +256,8 @@ public class TrailerEntity extends CarEntity {
         CarEntity car = this.nearestCargo();
         if (car == null) {
             player.displayClientMessage(Component.translatable(
-                    this.isDolly() ? "message.car.dolly_nothing" : "message.car.flatbed_nothing"), true);
+                    this.forPlanes() ? "message.car.plane_dolly_nothing"
+                            : this.isDolly() ? "message.car.dolly_nothing" : "message.car.flatbed_nothing"), true);
             return InteractionResult.CONSUME;
         }
         if (car.isVehicle()) {
