@@ -71,31 +71,26 @@ public class DefinedVehicleModel extends VehicleModel {
     /** Turns of the wheel per turn of the road wheels. */
     private static final float WHEEL_RATIO = 2.5F;
 
-    /** How many slabs are crossed to make the tread: eight make a sixteen-sided wheel. */
-    private static final int TREAD_SLABS = 8;
+    /** How many slabs are crossed to make the tread: sixteen make a 32-sided wheel, round to the eye. */
+    private static final int TREAD_SLABS = 16;
+    /** Degrees between one slab and the next. */
+    private static final float SLAB_STEP = 180.0F / TREAD_SLABS;
+    /** Half the angle one flat of the rim spans. */
+    private static final double HALF_FLAT = Math.PI / (2.0 * TREAD_SLABS);
 
-    /** How long each flat of the tread is, along the rim. */
-    private static final float TREAD_FLAT = 3.0F;
-
-    /** From the axle to the middle of a flat, for sixteen flats of that length. */
-    private static final float TREAD_REACH = (float) (TREAD_FLAT / 2.0 / Math.tan(Math.PI / 16.0));
+    /** From the axle to the middle of a flat of the tread, and how long each flat is. */
+    private static final float TREAD_REACH = 7.54F;
+    private static final float TREAD_FLAT = (float) (2.0 * TREAD_REACH * Math.tan(HALF_FLAT));
 
     /** The sidewall's bulge: this far out from the middle, either side, and this far round. */
     private static final float WALL_HALF = 2.25F;
     private static final float WALL_REACH = 6.9F;
-    private static final float WALL_FLAT = (float) (2.0 * WALL_REACH * Math.tan(Math.PI / 16.0));
+    private static final float WALL_FLAT = (float) (2.0 * WALL_REACH * Math.tan(HALF_FLAT));
 
-    /**
-     * The hub: a big sixteen-sided disc a little proud of the sidewall, and a
-     * fine saw edge of small teeth round it.
-     */
-    private static final int HUB_SLABS = 8;
+    /** The hub: a smooth, many-sided disc a little proud of the sidewall. */
     private static final float HUB_HALF = 2.6F;
     private static final float HUB_REACH = 4.4F;
-    private static final float HUB_FLAT = (float) (2.0 * HUB_REACH * Math.tan(Math.PI / 16.0));
-    private static final int HUB_TEETH = 24;
-    private static final float TOOTH_HEIGHT = 0.45F;
-    private static final float TOOTH_WIDTH = 0.55F;
+    private static final float HUB_FLAT = (float) (2.0 * HUB_REACH * Math.tan(HALF_FLAT));
 
     /** One built vehicle, kept for as long as its definition is the loaded one. */
     private record Built(VehicleDefinition definition, DefinedVehicleModel model,
@@ -148,16 +143,12 @@ public class DefinedVehicleModel extends VehicleModel {
             VehicleDefinition.Wheel drawn = definition.wheels().get(index);
             this.wheelScales.add(new float[] {drawn.width() / 4.0F, drawn.radius() / 7.6F});
             this.wheels.add(wheel);
-            this.rubber.add(wheel.getChild("face"));
             for (int slab = 0; slab < TREAD_SLABS; slab++) {
                 this.rubber.add(wheel.getChild("wall" + slab));
                 this.rubber.add(wheel.getChild("tread" + slab));
             }
-            for (int slab = 0; slab < HUB_SLABS; slab++) {
+            for (int slab = 0; slab < TREAD_SLABS; slab++) {
                 this.hubs.add(wheel.getChild("hub" + slab));
-            }
-            for (int tooth = 0; tooth < HUB_TEETH; tooth++) {
-                this.hubs.add(wheel.getChild("tooth" + tooth));
             }
             if (definition.wheels().get(index).steers()) {
                 this.steered.add(wheel);
@@ -584,9 +575,8 @@ public class DefinedVehicleModel extends VehicleModel {
 
     /**
      * The wheels, on their own so that they can wear a real texture. Each is
-     * the same wheel, built in layers so it has depth: a round painted face
-     * either side, eight slabs crossed into sixteen flats for the tread, a
-     * ring of slabs for the bulge of the sidewall, and a thick toothed hub
+     * the same wheel, built in layers so it has depth: sixteen slabs crossed into 32 flats for the tread, a
+     * ring of slabs for the bulge of the sidewall, and a thick smooth hub
      * standing out of the middle — scaled to the size the definition asks for.
      */
     private static ModelPart buildWheels(VehicleDefinition definition) {
@@ -596,12 +586,6 @@ public class DefinedVehicleModel extends VehicleModel {
             VehicleDefinition.Wheel wheel = definition.wheels().get(index);
             PartDefinition hub = root.addOrReplaceChild("wheel" + index, CubeListBuilder.create(),
                     PartPose.offset(wheel.at().x(), -wheel.at().y(), -wheel.at().z()));
-            hub.addOrReplaceChild("face",
-                    CubeListBuilder.create().texOffs(0, 0)
-                            .addBox(-2.0F, -8.0F, -8.0F, 4.0F, 16.0F, 16.0F,
-                                    java.util.Set.of(net.minecraft.core.Direction.EAST,
-                                            net.minecraft.core.Direction.WEST)),
-                    PartPose.ZERO);
             // The sidewall: a ring of slabs just proud of the face, a little
             // short of the tread, so the tyre has a shoulder and a bulge.
             for (int slab = 0; slab < TREAD_SLABS; slab++) {
@@ -609,31 +593,23 @@ public class DefinedVehicleModel extends VehicleModel {
                         CubeListBuilder.create().texOffs(40, 22)
                                 .addBox(-WALL_HALF, -WALL_REACH, -WALL_FLAT / 2.0F,
                                         WALL_HALF * 2.0F, WALL_REACH * 2.0F, WALL_FLAT),
-                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, (slab * 22.5F + 11.25F) * DEGREES, 0.0F, 0.0F));
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, (slab + 0.5F) * SLAB_STEP * DEGREES, 0.0F, 0.0F));
             }
-            // The hub: a thick grey disc standing out of the tyre, with a gear's
-            // teeth round its edge. Real depth, so its sides catch the shade.
-            for (int slab = 0; slab < HUB_SLABS; slab++) {
+            // The hub: a thick grey disc standing out of the tyre. Real depth,
+            // so its sides catch the shade.
+            for (int slab = 0; slab < TREAD_SLABS; slab++) {
                 hub.addOrReplaceChild("hub" + slab,
                         CubeListBuilder.create().texOffs(0, 34)
                                 .addBox(-HUB_HALF, -HUB_REACH, -HUB_FLAT / 2.0F,
                                         HUB_HALF * 2.0F, HUB_REACH * 2.0F, HUB_FLAT),
-                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, slab * (180.0F / HUB_SLABS) * DEGREES, 0.0F, 0.0F));
-            }
-            for (int tooth = 0; tooth < HUB_TEETH; tooth++) {
-                hub.addOrReplaceChild("tooth" + tooth,
-                        CubeListBuilder.create().texOffs(20, 34)
-                                .addBox(-HUB_HALF, -HUB_REACH - TOOTH_HEIGHT, -TOOTH_WIDTH / 2.0F,
-                                        HUB_HALF * 2.0F, TOOTH_HEIGHT + 0.3F, TOOTH_WIDTH),
-                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F,
-                                (tooth + 0.5F) * (360.0F / HUB_TEETH) * DEGREES, 0.0F, 0.0F));
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, slab * SLAB_STEP * DEGREES, 0.0F, 0.0F));
             }
             for (int slab = 0; slab < TREAD_SLABS; slab++) {
                 hub.addOrReplaceChild("tread" + slab,
                         CubeListBuilder.create().texOffs(40, 0)
                                 .addBox(-1.95F, -TREAD_REACH, -TREAD_FLAT / 2.0F,
                                         3.9F, TREAD_REACH * 2.0F, TREAD_FLAT),
-                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, slab * 22.5F * DEGREES, 0.0F, 0.0F));
+                        PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, slab * SLAB_STEP * DEGREES, 0.0F, 0.0F));
             }
         }
         return LayerDefinition.create(data, 64, 64).bakeRoot();

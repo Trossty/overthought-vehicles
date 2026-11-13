@@ -1717,6 +1717,16 @@ public class CarEntity extends VehicleEntity {
      */
     private float stepOffset;
     private float prevStepOffset;
+    /** Which way it was going when it took the step: 1 forwards, -1 in reverse. */
+    private float stepHeading = 1.0F;
+
+    /** How much of the step is still to rise each tick: lower is quicker. */
+    private static final float STEP_EASE = 0.72F;
+    /**
+     * Degrees of nose-up per block of step still to climb: the leading
+     * wheels go up the kerb first, so the car tips up and settles level.
+     */
+    private static final float STEP_TILT = 14.0F;
 
     private void easeSteps(double yBefore) {
         this.prevStepOffset = this.stepOffset;
@@ -1726,9 +1736,10 @@ public class CarEntity extends VehicleEntity {
         // fall is already gradual, and a teleport is left alone.
         if (rise > 0.02 && rise <= 1.1 || this.followedDown > 0.0F) {
             offset -= (float) rise;
+            this.stepHeading = this.flyDist < 0.0F ? -1.0F : 1.0F;
         }
         this.followedDown = 0.0F;
-        this.stepOffset = Math.abs(offset) < 0.002F ? 0.0F : offset * 0.55F;
+        this.stepOffset = Math.abs(offset) < 0.002F ? 0.0F : offset * STEP_EASE;
     }
 
     /** How far the car was set down a step this tick; read by {@link #easeSteps}. */
@@ -1795,9 +1806,12 @@ public class CarEntity extends VehicleEntity {
                 && this.level().hasChunkAt(aheadX, aheadZ);
     }
 
-    /** Nose up, degrees, as drawn: level for anything on wheels. */
+    /**
+     * Nose up, degrees, as drawn: level for anything on wheels, but for the
+     * moment it takes a step, tipped up the kerb and settling as it rises.
+     */
     public float getBodyPitch(float tickProgress) {
-        return 0.0F;
+        return Mth.clamp(-this.getStepOffset(tickProgress) * STEP_TILT * this.stepHeading, -15.0F, 15.0F);
     }
 
     /** Banked to the right, degrees, as drawn: level for anything on wheels. */

@@ -437,6 +437,7 @@
   "message.car.tank_mixed": "That would join two tanks of different liquids",
   "message.car.tank_holds_other": "The tank holds something else",
   "message.car.tank_level": "Tank: %s",
+  "block.car.engine_stand": "Engine Stand",
   "block.car.fuel_drum": "Fuel Drum",
   "message.car.drum_empty": "Empty drum · %s B",
   "message.car.drum_contents": "%s · %s / %s B",

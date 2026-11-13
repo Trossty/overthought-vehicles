@@ -50,6 +50,11 @@ public final class ModBlockEntities {
             CarMain.id("fuel_valve"),
             BlockEntityType.Builder.of(FuelValveBlockEntity::new, ModBlocks.FUEL_VALVE).build(null));
 
+    public static final BlockEntityType<me.trossty.car.block.entity.EngineStandBlockEntity> ENGINE_STAND =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, CarMain.id("engine_stand"),
+                    BlockEntityType.Builder.of(me.trossty.car.block.entity.EngineStandBlockEntity::new,
+                            ModBlocks.ENGINE_STAND).build(null));
+
     public static final BlockEntityType<VehicleLiftBlockEntity> VEHICLE_LIFT = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             CarMain.id("vehicle_lift"),

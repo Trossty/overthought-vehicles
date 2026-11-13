@@ -280,7 +280,8 @@ public final class ModItems {
 
     /** The garage, then oil from the ground to the pump, then power, then road building. */
     private static void machines(Entries entries) {
-        entries.add(ModBlocks.VEHICLE_WORKSTATION, ModBlocks.VEHICLE_WORKBENCH, ModBlocks.VEHICLE_LIFT);
+        entries.add(ModBlocks.VEHICLE_WORKSTATION, ModBlocks.VEHICLE_WORKBENCH, ModBlocks.VEHICLE_LIFT,
+                ModBlocks.ENGINE_STAND);
         entries.add(ModBlocks.OIL_DEPOSIT, ModBlocks.OIL_SEEP, ModBlocks.PUMPJACK, ModBlocks.FUEL_REFINERY,
                 ModBlocks.HYDROTREATER, ModBlocks.FUEL_TANK, ModBlocks.FUEL_DRUM, ModBlocks.FUEL_PIPE,
                 ModBlocks.FUEL_VALVE, ModBlocks.FUEL_PUMP, FUEL_NOZZLE);

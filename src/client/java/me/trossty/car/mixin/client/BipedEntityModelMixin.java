@@ -5,6 +5,7 @@ import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,6 +34,24 @@ public abstract class BipedEntityModelMixin {
     @Shadow
     @Final
     public ModelPart leftLeg;
+
+    /** A tyre or brake disc is carried in front in both arms, a little in. */
+    @Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+    private void car$armsRoundAPart(LivingEntity body, float limbSwing, float limbSwingAmount,
+                                    float ageInTicks, float headYaw, float headPitch, CallbackInfo ci) {
+        if (body.getVehicle() != null || body.isUsingItem()
+                || ((EntityModel<?>) (Object) this).attackTime > 0.0F
+                || !me.trossty.car.client.render.item.HeldParts.armsFull(body)) {
+            return;
+        }
+        float bob = Mth.cos(ageInTicks * 0.09F) * 0.03F;
+        this.rightArm.xRot = -0.85F + bob;
+        this.leftArm.xRot = -0.85F + bob;
+        this.rightArm.yRot = -0.42F;
+        this.leftArm.yRot = 0.42F;
+        this.rightArm.zRot = 0.0F;
+        this.leftArm.zRot = 0.0F;
+    }
 
     @Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
     private void car$handsOnControls(LivingEntity rider, float limbSwing, float limbSwingAmount,

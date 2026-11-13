@@ -437,6 +437,7 @@
   "message.car.tank_mixed": "Bu, farklı sıvılı iki tankı birleştirirdi",
   "message.car.tank_holds_other": "Tankta başka bir sıvı var",
   "message.car.tank_level": "Depo: %s",
+  "block.car.engine_stand": "Motor Sehpası",
   "block.car.fuel_drum": "Yakıt Varili",
   "message.car.drum_empty": "Boş varil · %s kova",
   "message.car.drum_contents": "%s · %s / %s kova",

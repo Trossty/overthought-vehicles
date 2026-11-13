@@ -42,24 +42,73 @@ public class CarItem extends Item {
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
+        // A boat aimed at open water goes on the water, not on the bed under it.
+        if (context.getPlayer() != null && this.waterAhead(context.getLevel(), context.getPlayer()) != null) {
+            return InteractionResult.PASS;
+        }
         Level world = context.getLevel();
         if (!(world instanceof ServerLevel serverWorld)) {
             return InteractionResult.SUCCESS;
         }
-
         BlockPos pos = context.getClickedPos().relative(context.getClickedFace());
+        return this.placeAt(serverWorld, context.getItemInHand(), context.getPlayer(),
+                pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, context.getHorizontalDirection().toYRot());
+    }
+
+    /** A boat is set down on the water it is aimed at, the way a vanilla boat is. */
+    @Override
+    public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level world, net.minecraft.world.entity.player.Player player,
+                                                                    net.minecraft.world.InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        net.minecraft.world.phys.BlockHitResult water = this.waterAhead(world, player);
+        if (water == null) {
+            return net.minecraft.world.InteractionResultHolder.pass(stack);
+        }
+        if (world instanceof ServerLevel serverWorld) {
+            BlockPos surface = water.getBlockPos();
+            InteractionResult placed = this.placeAt(serverWorld, stack, player,
+                    water.getLocation().x, surface.getY() + 1.0 - 0.6, water.getLocation().z,
+                    player.getDirection().toYRot());
+            return placed.consumesAction() ? net.minecraft.world.InteractionResultHolder.success(stack)
+                    : net.minecraft.world.InteractionResultHolder.fail(stack);
+        }
+        return net.minecraft.world.InteractionResultHolder.success(stack);
+    }
+
+    /** The water surface a boat item is aimed at within reach, or null: only boats float. */
+    private net.minecraft.world.phys.BlockHitResult waterAhead(Level world, net.minecraft.world.entity.player.Player player) {
+        if (!(this.modelChassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.BOAT)) {
+            return null;
+        }
+        net.minecraft.world.phys.BlockHitResult hit = getPlayerPOVHitResult(world, player,
+                net.minecraft.world.level.ClipContext.Fluid.SOURCE_ONLY);
+        if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK
+                || !world.getFluidState(hit.getBlockPos()).is(net.minecraft.tags.FluidTags.WATER)) {
+            return null;
+        }
+        return hit;
+    }
+
+    /** Which kind of vehicle this item carries. */
+    private me.trossty.car.vehicle.VehicleDefinition.Chassis modelChassis() {
+        for (me.trossty.car.vehicle.VehicleDefinition.Chassis chassis
+                : me.trossty.car.vehicle.VehicleDefinition.Chassis.values()) {
+            if (itemFor(chassis) == this) {
+                return chassis;
+            }
+        }
+        return me.trossty.car.vehicle.VehicleDefinition.Chassis.CAR;
+    }
+
+    /** Puts the vehicle this stack carries down here, if it fits; uses the stack up unless in creative. */
+    private InteractionResult placeAt(ServerLevel serverWorld, ItemStack stack,
+                                      net.minecraft.world.entity.player.Player player,
+                                      double x, double y, double z, float yaw) {
         CarEntity car = this.type.create(serverWorld);
         if (car == null) {
             return InteractionResult.PASS;
         }
-
-        Direction facing = context.getHorizontalDirection();
-        car.moveTo(
-                pos.getX() + 0.5,
-                pos.getY(),
-                pos.getZ() + 0.5,
-                facing.toYRot(),
-                0.0F);
+        car.moveTo(x, y, z, yaw, 0.0F);
 
         if (!serverWorld.noCollision(car, car.getBoundingBox())) {
             return InteractionResult.PASS;
@@ -69,7 +118,7 @@ public class CarItem extends Item {
         // colour you painted it rather than reverting to the default.
         // Which vehicle it is comes first: its size decides whether it fits,
         // and its factory fittings are what the rest then overrides.
-        net.minecraft.resources.ResourceLocation model = context.getItemInHand().get(ModComponents.CAR_VEHICLE);
+        net.minecraft.resources.ResourceLocation model = stack.get(ModComponents.CAR_VEHICLE);
         if (model != null) {
             car.setModel(model);
             me.trossty.car.vehicle.VehicleDefinition defined = car.getDefinition();
@@ -77,8 +126,7 @@ public class CarItem extends Item {
                 car.setSetup(defined.factory().setup());
                 defined.color().ifPresent(car::setColor);
                 car.refreshDimensions();
-                car.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
-                        facing.toYRot(), 0.0F);
+                car.moveTo(x, y, z, yaw, 0.0F);
                 if (!serverWorld.noCollision(car, car.getBoundingBox())) {
                     return InteractionResult.PASS;
                 }
@@ -89,53 +137,52 @@ public class CarItem extends Item {
         if (model == null && car.getDefinition() != null) {
             car.getDefinition().color().ifPresent(car::setColor);
         }
-        Integer colorIndex = context.getItemInHand().get(ModComponents.CAR_COLOR);
+        Integer colorIndex = stack.get(ModComponents.CAR_COLOR);
         if (colorIndex != null) {
             car.setColor(DyeColor.byId(colorIndex));
         }
-        Integer sprayed = context.getItemInHand().get(ModComponents.CAR_PAINT);
+        Integer sprayed = stack.get(ModComponents.CAR_PAINT);
         if (sprayed != null) {
             car.setPaint(sprayed);
         }
-        Long lock = context.getItemInHand().get(ModComponents.VEHICLE_KEY);
+        Long lock = stack.get(ModComponents.VEHICLE_KEY);
         if (lock != null) {
             car.setLockCode(lock);
         }
 
         // Dents travel on the item too, so a wreck you pocketed does not come
         // back repaired just because you put it down again.
-        Float health = context.getItemInHand().get(ModComponents.CAR_HEALTH);
+        Float health = stack.get(ModComponents.CAR_HEALTH);
         if (health != null) {
             car.setHealth(health);
         }
 
         // Tired parts come back tired, for the same reason dents do.
-        java.util.List<Integer> parts = context.getItemInHand().get(ModComponents.CAR_PARTS);
+        java.util.List<Integer> parts = stack.get(ModComponents.CAR_PARTS);
         if (parts != null) {
             car.setPartConditions(parts);
         }
 
         // So do the grades, so the good gearbox you paid for is still the one
         // in the car when you put it back down.
-        Integer qualities = context.getItemInHand().get(ModComponents.CAR_PART_QUALITY);
+        Integer qualities = stack.get(ModComponents.CAR_PART_QUALITY);
         if (qualities != null) {
             car.setQualityBits(qualities);
         }
 
-        Integer setup = context.getItemInHand().get(ModComponents.CAR_SETUP);
+        Integer setup = stack.get(ModComponents.CAR_SETUP);
         if (setup != null) {
             car.setSetup(setup);
         }
 
         // And a tanker comes back with whatever was still sloshing about in it.
         if (car instanceof TankerEntity tanker) {
-            tanker.loadFrom(context.getItemInHand());
+            tanker.loadFrom(stack);
         }
 
         serverWorld.addFreshEntity(car);
 
-        ItemStack stack = context.getItemInHand();
-        if (context.getPlayer() == null || !context.getPlayer().hasInfiniteMaterials()) {
+        if (player == null || !player.hasInfiniteMaterials()) {
             stack.shrink(1);
         }
         return InteractionResult.SUCCESS;

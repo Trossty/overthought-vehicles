@@ -47,6 +47,10 @@ public class CarPhotoTest {
             scenes.put("towing", this::towing);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
+            scenes.put("heldParts", this::heldParts);
+            scenes.put("kerbClimb", this::kerbClimb);
+            scenes.put("engineStand", this::engineStand);
+            scenes.put("carGaps", this::carGaps);
             scenes.put("parked", this::parked);
             scenes.put("riderLean", this::riderLean);
             scenes.put("steeringWheel", this::steeringWheel);
@@ -1573,6 +1577,9 @@ public class CarPhotoTest {
         shot(context, server, "plane_front", 0.5, Y + 1.2, -1.0, 0, 5);
         shot(context, server, "plane_back34", 6.5, Y + 2.6, 18.5, 140, 14);
         shot(context, server, "plane_top", 0.5, Y + 12.0, 10.5, 0, 90);
+        shot(context, server, "plane_tail", -4.5, Y + 2.4, 14.6, -90, 4);
+        shot(context, server, "plane_cabin", -3.6, Y + 1.6, 8.6, -90, 6);
+        shot(context, server, "plane_step", -2.6, Y + 0.6, 7.2, -60, 12);
         // People in the seats, seen from outside: two husks up front, then
         // the pilot's own view over the panel.
         server.runCommand("difficulty easy");
@@ -1901,6 +1908,109 @@ public class CarPhotoTest {
         shot(context, server, "items3d_third_person", 0.5, Y, 0.5, 0, 10);
         context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
         context.runOnClient(client -> client.options.hideGui = false);
+        server.runCommand("clear @a");
+    }
+
+    /** Each car close up from the rear three-quarter and the side, to find where light shows through. */
+    private void carGaps(ClientGameTestContext context, TestServerContext server) {
+        String only = System.getProperty("car.photo.cars", "ford_mustang,toyota_corolla,tofas_sahin,jeep_wrangler,toyota_hilux,mercedes_atego");
+        for (String name : only.split(",")) {
+            clear(server);
+            String type = name.equals("toyota_hilux") ? "car:pickup" : name.equals("mercedes_atego") ? "car:fuel_tanker" : "car:car";
+            server.runCommand("summon %s 0.5 %d 10.5 {Rotation:[0f,0f],Color:11}".formatted(type, Y) .replace("{Rotation", "{Model:\"car:" + name + "\",Rotation"));
+            context.runOnClient(client -> client.options.hideGui = true);
+            context.waitTicks(10);
+            shot(context, server, "gap_" + name + "_rear34", 4.5, Y + 1.4, 5.5, 36, 12);
+            shot(context, server, "gap_" + name + "_side", 5.5, Y + 1.0, 10.5, 90, 6);
+            shot(context, server, "gap_" + name + "_front34", -4.0, Y + 1.4, 15.5, -141, 12);
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A car driven up a one-block step, watched from the side a frame at a time. */
+    /** Engine stands: two with an engine on, turned two ways, and an empty one. */
+    private void engineStand(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var stand = me.trossty.car.registry.ModBlocks.ENGINE_STAND.defaultBlockState();
+            var facing = me.trossty.car.block.EngineStandBlock.FACING;
+            Direction[] ways = {Direction.SOUTH, Direction.EAST, Direction.SOUTH};
+            for (int i = 0; i < 3; i++) {
+                BlockPos pos = new BlockPos(-2 + i * 2, Y, 6);
+                world.setBlockAndUpdate(pos, stand.setValue(facing, ways[i]));
+                if (i < 2 && world.getBlockEntity(pos) instanceof me.trossty.car.block.entity.EngineStandBlockEntity on) {
+                    on.setEngine(new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE));
+                }
+            }
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "engine_stand_front", -0.5, Y + 1.0, 9.8, 180, 15);
+        shot(context, server, "engine_stand_side", 3.6, Y + 1.2, 7.8, 125, 20);
+    }
+
+    private void kerbClimb(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -6 %d 8 6 %d 30 minecraft:stone".formatted(Y, Y));
+        server.runCommand("summon car:car 0.5 %d -2.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("tp @a 0.5 %d -2.5".formatted(Y));
+        context.waitTicks(20);
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            client.player.setYRot(0);
+            client.options.hideGui = true;
+        });
+        lampCamera(context, server, 9.5, Y + 1.6, 9.0, 90, 8);
+        context.getInput().holdKey(options -> options.keyUp);
+        StringBuilder trace = new StringBuilder("car photo kerb:");
+        int shots = 0;
+        for (int t = 0; t < 80 && shots < 6; t++) {
+            context.waitTicks(1);
+            String line = context.computeOnClient(client -> client.player.getVehicle()
+                    instanceof me.trossty.car.entity.CarEntity car
+                    ? " %.1f/%.2f/%.1f".formatted(car.getZ(), car.getY() - Y + car.getStepOffset(1.0F),
+                    car.getBodyPitch(1.0F)) : " out");
+            trace.append(line);
+            boolean climbing = context.computeOnClient(client -> client.player.getVehicle()
+                    instanceof me.trossty.car.entity.CarEntity car && car.getZ() > 5.0);
+            if (climbing && t % 2 == 0) {
+                context.takeScreenshot("kerb_" + shots++);
+            }
+        }
+        context.getInput().releaseKey(options -> options.keyUp);
+        System.out.println(trace);
+        server.runCommand("ride @p dismount");
+        context.runOnClient(client -> {
+            client.setCameraEntity(client.player);
+            client.options.hideGui = false;
+        });
+        server.runCommand("kill @e[tag=camera]");
+    }
+
+    /** The parts people carry, each in the hand: in first person and from in front. */
+    private void heldParts(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        String[] items = {"car_key", "jerry_can", "spark_plugs", "wheel", "brake_discs"};
+        for (String item : items) {
+            server.runCommand("clear @a");
+            server.runCommand("item replace entity @p weapon.mainhand with car:" + item);
+            context.runOnClient(client -> {
+                client.options.hideGui = false;
+                client.options.setCameraType(CameraType.FIRST_PERSON);
+            });
+            shot(context, server, "held_" + item, 0.5, Y, 0.5, 0, 10);
+            context.runOnClient(client -> {
+                client.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+                client.options.hideGui = true;
+            });
+            shot(context, server, "held_" + item + "_front", 0.5, Y, 0.5, 0, 10);
+        }
+        context.runOnClient(client -> {
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+            client.options.hideGui = false;
+        });
         server.runCommand("clear @a");
     }
 

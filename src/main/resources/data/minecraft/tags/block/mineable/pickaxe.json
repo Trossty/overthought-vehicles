@@ -18,6 +18,7 @@
     "car:oil_deposit",
     "car:battery_bank",
     "car:charging_post",
-    "car:asphalt"
+    "car:asphalt",
+    "car:engine_stand"
   ]
 }

@@ -210,6 +210,13 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
                     .sound(SoundType.METAL));
 
+    /** A wheeled stand an engine out of a car is hung on to be looked over. */
+    public static final Block ENGINE_STAND = register(
+            "engine_stand",
+            me.trossty.car.block.EngineStandBlock::new,
+            BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
     /**
      * Road made from the refinery's leftovers: tar bound with gravel and sand,
      * laid a layer at a time like snow and painted with road paint. Plain
