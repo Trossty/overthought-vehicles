@@ -660,7 +660,13 @@ public class CarMachineTests {
                 maxZ = Math.max(maxZ, Math.max(box.from().z(), box.to().z()));
                 top = Math.max(top, Math.max(box.from().y(), box.to().y()));
             }
+            boolean trailer = definition.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.TRAILER;
             for (CarPart part : CarPart.values()) {
+                if (trailer && part != CarPart.WHEELS && part != CarPart.SUSPENSION
+                        && part != CarPart.BRAKE_PADS && part != CarPart.BRAKE_DISCS) {
+                    // A trailer has only its running gear (TrailerEntity#hasPart).
+                    continue;
+                }
                 CarPart.Anchor a = map.get(part);
                 // Back into definition pixels to compare with the body.
                 float x = -a.x() * 16.0F, y = a.y() * 16.0F, z = -a.z() * 16.0F;
