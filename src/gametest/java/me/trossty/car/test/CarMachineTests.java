@@ -484,22 +484,6 @@ public class CarMachineTests {
     }
 
     @GameTest(template = "empty")
-    public static void abandonedCarsNeedWork(GameTestHelper context) {
-        CarEntity car = me.trossty.car.world.AbandonedVehicles.abandoned(context.getLevel(),
-                net.minecraft.util.RandomSource.create(42));
-        context.assertTrue(car != null, "no abandoned car was made");
-        context.assertTrue(car.getHealth() < CarEntity.MAX_HEALTH * 0.75F, "the body is like new");
-        context.assertTrue(car.getOdometer() >= CarEntity.HIGH_MILEAGE, "it has barely been driven");
-        for (CarPart part : CarPart.values()) {
-            context.assertTrue(car.getConditionFraction(part) < 0.65F, part.name() + " is like new");
-        }
-        context.assertTrue(car.isElectric() || car.getDirtyFuel() >= 0.6F, "the fuel in it is fresh");
-        context.assertTrue(!me.trossty.car.entity.FaultCodes.read(car).isEmpty(), "the reader finds nothing");
-        car.discard();
-        context.succeed();
-    }
-
-    @GameTest(template = "empty")
     public static void asphaltSparesTheTyres(GameTestHelper context) {
         context.setBlock(new BlockPos(3, 0, 3), ModBlocks.ASPHALT);
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);

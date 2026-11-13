@@ -150,6 +150,7 @@ public final class CarServiceOverlay {
         // car is outside it — the nose, the front wheels, the boot — so the
         // marks are aimed at by themselves, as far as the first solid block.
         CarPart aiming = null;
+        AABB aimingBox = null;
         if (servicing) {
             Vec3 eye = player.getEyePosition();
             double reach = REACH;
@@ -163,12 +164,15 @@ public final class CarServiceOverlay {
                 if (!car.canReach(part)) {
                     continue;
                 }
-                Optional<Vec3> hit = boxOf(car, part, tickProgress).clip(eye, end);
-                if (hit.isPresent()) {
-                    double distance = hit.get().distanceToSqr(eye);
-                    if (distance < nearest) {
-                        nearest = distance;
-                        aiming = part;
+                for (AABB box : boxesOf(car, part, tickProgress)) {
+                    Optional<Vec3> hit = box.clip(eye, end);
+                    if (hit.isPresent()) {
+                        double distance = hit.get().distanceToSqr(eye);
+                        if (distance < nearest) {
+                            nearest = distance;
+                            aiming = part;
+                            aimingBox = box;
+                        }
                     }
                 }
             }
@@ -187,12 +191,12 @@ public final class CarServiceOverlay {
                     continue;
                 }
                 boolean fitted = car.isFitted(part);
-                boolean lit = part == aiming;
-                AABB box = boxOf(car, part, tickProgress);
-                AABB frame = lit ? box.inflate(chase(part)) : box;
-
-                context.outline(consumers.getBuffer(RenderType.lines()), frame,
-                        lit ? LINE_AIMED : (fitted ? LINE_FITTED : LINE_ABSENT));
+                for (AABB box : boxesOf(car, part, tickProgress)) {
+                    boolean lit = part == aiming && box.equals(aimingBox);
+                    AABB frame = lit ? box.inflate(chase(part)) : box;
+                    context.outline(consumers.getBuffer(RenderType.lines()), frame,
+                            lit ? LINE_AIMED : (fitted ? LINE_FITTED : LINE_ABSENT));
+                }
             }
             // Each plate hangs on a short leader from its own mark; the car's
             // renderer writes the plate itself (see labelsFor).
@@ -207,6 +211,17 @@ public final class CarServiceOverlay {
 
         aimedCar = car;
         aimedPart = aiming;
+    }
+
+    /** Every box you can aim at for one part, in world space: one per wheel for a tyre. */
+    public static List<AABB> boxesOf(CarEntity car, CarPart part, float tickProgress) {
+        Vec3 pos = car.getPosition(tickProgress);
+        float yaw = car.getViewYRot(tickProgress);
+        List<AABB> boxes = new ArrayList<>();
+        for (CarPart.Anchor anchor : car.anchorsOf(part)) {
+            boxes.add(anchor.box(pos, yaw));
+        }
+        return boxes;
     }
 
     /** The box you aim at for one part, in world space. */

@@ -276,6 +276,13 @@ public class DefinedVehicleModel extends VehicleModel {
     private static float wheelReach(VehicleDefinition definition, net.minecraft.world.phys.Vec3 seat) {
         float wheelY = (float) seat.y + WHEEL_RISE;
         float reach = WHEEL_REACH;
+        // The whole rim, not only its hub: raked back, its top leans forward
+        // towards the dash by this much and its bottom away from it.
+        float rake = WHEEL_RAKE * DEGREES;
+        float top = wheelY + (WHEEL_RIM + RIM_THICK) * Mth.cos(rake);
+        float bottom = wheelY - (WHEEL_RIM + RIM_THICK) * Mth.cos(rake);
+        float lean = (WHEEL_RIM + RIM_THICK) * Mth.sin(rake);
+        float span = WHEEL_RIM + 1.0F;
         for (VehicleDefinition.Box box : definition.shape()) {
             if (isGlass(box.color())) {
                 continue;
@@ -285,9 +292,11 @@ public class DefinedVehicleModel extends VehicleModel {
             float minY = Math.min(box.from().y(), box.to().y());
             float maxY = Math.max(box.from().y(), box.to().y());
             float minZ = Math.min(box.from().z(), box.to().z());
-            if (maxX > seat.x - 2.5 && minX < seat.x + 2.5 && maxY > wheelY - 2.0F && minY < wheelY + 2.0F
+            if (maxX > seat.x - span && minX < seat.x + span && maxY > bottom && minY < top
                     && minZ > seat.z + 2.0) {
-                reach = Math.min(reach, minZ - (float) seat.z - 1.2F);
+                // How far the rim reaches forward at the height this box starts.
+                float ahead = maxY > wheelY ? lean * (Math.min(maxY, top) - wheelY) / (top - wheelY) : 0.0F;
+                reach = Math.min(reach, minZ - (float) seat.z - 0.8F - Math.max(ahead, 0.4F));
             }
         }
         return Math.max(4.0F, reach);

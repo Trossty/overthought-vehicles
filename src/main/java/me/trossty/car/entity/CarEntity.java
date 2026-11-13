@@ -13,6 +13,7 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -512,12 +513,19 @@ public class CarEntity extends VehicleEntity {
     /** The part map for the definition it was worked out from. */
     private me.trossty.car.vehicle.VehicleDefinition layoutFor;
     private java.util.Map<CarPart, CarPart.Anchor> layout;
+    private java.util.Map<CarPart, java.util.List<CarPart.Anchor>> everywhere;
     private float roof;
 
     /** Where this part sits on this vehicle: its own wheel, its own engine bay. */
     public CarPart.Anchor anchorOf(CarPart part) {
         this.refreshLayout();
         return this.layout.get(part);
+    }
+
+    /** Every spot this part can be got at: each wheel for a tyre, one spot for most parts. */
+    public java.util.List<CarPart.Anchor> anchorsOf(CarPart part) {
+        this.refreshLayout();
+        return this.everywhere.getOrDefault(part, java.util.List.of());
     }
 
     /** How tall this vehicle stands, in blocks. */
@@ -531,6 +539,7 @@ public class CarEntity extends VehicleEntity {
         if (this.layout == null || definition != this.layoutFor) {
             this.layoutFor = definition;
             this.layout = PartLayout.of(definition);
+            this.everywhere = PartLayout.everywhere(definition, this.layout);
             this.roof = PartLayout.roof(definition);
         }
     }
@@ -650,6 +659,7 @@ public class CarEntity extends VehicleEntity {
             this.towed = null;
         }
 
+        double yBefore = this.getY();
         super.tick();
         this.stepLerp();
 
@@ -675,6 +685,10 @@ public class CarEntity extends VehicleEntity {
             this.travelYaw = Float.NaN;
         }
         this.wasLogicalSide = logicalSide;
+        this.tickGearbox();
+        if (this.level().isClientSide()) {
+            this.easeSteps(yBefore);
+        }
 
         if (!this.level().isClientSide()) {
             float travelled = this.measureTravelledSpeed();
@@ -840,7 +854,7 @@ public class CarEntity extends VehicleEntity {
                 // Past top speed (downhill, say), the engine cannot hold it there.
                 this.flyDist = this.flyDist > max
                         ? Math.max(max, this.flyDist * 0.985F)
-                        : Math.min(this.flyDist + this.throttleStep(), max);
+                        : Math.min(this.flyDist + this.throttleStep() * this.gearPull(), max);
             } else if (this.pressingBack) {
                 this.flyDist = Math.max(this.flyDist - this.throttleStep(), -this.maxReverseSpeed());
             } else {
@@ -1319,6 +1333,39 @@ public class CarEntity extends VehicleEntity {
 
     public float getRestPose(float tickProgress) {
         return Mth.lerp(tickProgress, this.prevRestPose, this.restPose);
+    }
+
+    /**
+     * A slab or a path's edge lifts the whole box in one tick; drawn like
+     * that, the car hops. The body, and whoever rides in it, are drawn this
+     * far below the box instead and rise to it over a few frames. Client only.
+     */
+    private float stepOffset;
+    private float prevStepOffset;
+
+    private void easeSteps(double yBefore) {
+        this.prevStepOffset = this.stepOffset;
+        double rise = this.getY() - yBefore;
+        float offset = this.stepOffset;
+        // Up only: falling is already gradual. A teleport is left alone.
+        if (rise > 0.02 && rise <= 1.1) {
+            offset -= (float) rise;
+        }
+        this.stepOffset = Math.abs(offset) < 0.002F ? 0.0F : offset * 0.55F;
+    }
+
+    public float getStepOffset(float tickProgress) {
+        return Mth.lerp(tickProgress, this.prevStepOffset, this.stepOffset);
+    }
+
+    @Override
+    protected void positionRider(Entity passenger, Entity.MoveFunction callback) {
+        float lift = this.level().isClientSide() ? this.stepOffset : 0.0F;
+        if (lift == 0.0F) {
+            super.positionRider(passenger, callback);
+        } else {
+            super.positionRider(passenger, (rider, x, y, z) -> callback.accept(rider, x, y + lift, z));
+        }
     }
 
     @Override
@@ -2456,6 +2503,57 @@ public class CarEntity extends VehicleEntity {
                 .yRot(-this.getYRot() * ((float) Math.PI / 180.0F));
     }
 
+    /**
+     * Out through the door beside the seat, onto the ground, the way a boat
+     * puts you on the bank. Vanilla would stand you on the roof. If that side
+     * is walled in, the other door, then out the back or the front.
+     */
+    @Override
+    public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
+        Vec3 seat = this.seatPosition(Math.max(0, this.getPassengers().indexOf(passenger)));
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double door = seat.x < 0.0 ? -1.0 : 1.0;
+        Vec3[] ways = {new Vec3(door, 0.0, 0.0), new Vec3(-door, 0.0, 0.0),
+                new Vec3(0.0, 0.0, -1.0), new Vec3(0.0, 0.0, 1.0)};
+        for (Vec3 way : ways) {
+            Vec3 out = way.yRot(-yawRad);
+            // Just clear of the car's (square, unturned) box, whichever way it faces.
+            double reach = (this.getBbWidth() + passenger.getBbWidth() + 0.1) / 2.0
+                    / Math.max(Math.abs(out.x), Math.abs(out.z));
+            // Level with the seat when getting out of a door.
+            Vec3 along = way.x != 0.0 ? new Vec3(0.0, 0.0, seat.z).yRot(-yawRad) : Vec3.ZERO;
+            for (Vec3 offset : new Vec3[]{out.scale(reach).add(along), out.scale(reach)}) {
+                Vec3 found = this.dismountSpot(passenger, this.getX() + offset.x, this.getZ() + offset.z);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return super.getDismountLocationForPassenger(passenger);
+    }
+
+    /** Somewhere to stand at (x, z), near the car's own height and clear of it, or null. */
+    private Vec3 dismountSpot(LivingEntity passenger, double x, double z) {
+        BlockPos base = BlockPos.containing(x, this.getY() + 0.5, z);
+        for (BlockPos pos : new BlockPos[]{base, base.below(), base.above()}) {
+            double floor = this.level().getBlockFloorHeight(pos);
+            if (!net.minecraft.world.entity.vehicle.DismountHelper.isBlockFloorValid(floor)) {
+                continue;
+            }
+            Vec3 at = new Vec3(x, pos.getY() + floor, z);
+            for (net.minecraft.world.entity.Pose pose : passenger.getDismountPoses()) {
+                net.minecraft.world.phys.AABB box = passenger.getLocalBoundsForPose(pose).move(at);
+                if (!box.intersects(this.getBoundingBox())
+                        && net.minecraft.world.entity.vehicle.DismountHelper.canDismountTo(
+                                this.level(), passenger, box)) {
+                    passenger.setPose(pose);
+                    return at;
+                }
+            }
+        }
+        return null;
+    }
+
     @Override
     protected double getDefaultGravity() {
         // Entity.getGravity() is 0 by default; vehicles have to opt in, as boats do.
@@ -2875,13 +2973,30 @@ public class CarEntity extends VehicleEntity {
                 * (this.isOverheating() ? OVERHEATING_POWER : 1.0F);
     }
 
-    // ---- gearbox, as the dashboard and the engine note see it ----
+    // ---- automatic gearbox ----
 
-    /** Forward gears. The driveline itself is continuous; the gears are what the driver hears and reads. */
+    /** Forward gears. */
     public static final int GEARS = 5;
-    /** Revs the box changes up at, as a share of the redline. */
-    private static final float UPSHIFT = 0.92F;
+    /**
+     * How much of the top speed each gear reaches at the redline. Short low
+     * gears, long high ones, as in a real box: first is over in a moment,
+     * fifth takes its time.
+     */
+    private static final float[] GEAR_TOP = {0.24F, 0.42F, 0.61F, 0.81F, 1.0F};
+    /** How hard each gear pulls, against the plain throttle step: first shoves, fifth leans. */
+    private static final float[] GEAR_PULL = {1.45F, 1.1F, 0.85F, 0.68F, 0.55F};
+    /** Revs, as a share of the redline, the box changes up at, and down at. */
+    private static final float UPSHIFT = 0.9F;
+    private static final float DOWNSHIFT = 0.36F;
+    /** How long a change takes, in ticks; the drive is mostly cut while it happens. */
+    private static final int SHIFT_TICKS = 6;
+    private static final float SHIFT_DRIVE = 0.2F;
     private static final float IDLE_RPM = 850.0F;
+
+    /** The forward gear the box is in, 1 to {@link #GEARS}. Each side keeps its own. */
+    private int driveGear = 1;
+    private int shiftFromGear = 1;
+    private int shiftTicks;
 
     /**
      * What this car is built to do flat out: its body, engine, fuel, turbo and
@@ -2910,33 +3025,78 @@ public class CarEntity extends VehicleEntity {
         if (!this.isEngineRunning()) {
             return 0;
         }
-        float speed = this.getEngineSpeed();
-        if (speed < -0.005F) {
-            return -1;
-        }
-        float fraction = Math.abs(speed) / Math.max(0.01F, this.getRatedTopSpeed());
-        for (int gear = 1; gear < GEARS; gear++) {
-            if (fraction <= UPSHIFT * gear / GEARS) {
-                return gear;
-            }
-        }
-        return GEARS;
+        return this.getEngineSpeed() < -0.005F ? -1 : this.driveGear;
+    }
+
+    /** How far through a gear change the box is: 1 as it starts, 0 when it is done or not changing. */
+    public float getShift() {
+        return (float) this.shiftTicks / SHIFT_TICKS;
+    }
+
+    /** How hard the engine can push right now, against the plain throttle step. */
+    private float gearPull() {
+        float pull = GEAR_PULL[this.driveGear - 1];
+        return this.shiftTicks > 0 ? pull * SHIFT_DRIVE : pull;
+    }
+
+    /** Engine revs in {@code gear} at the speed the car is doing. */
+    private float rpmIn(int gear) {
+        float fraction = Math.abs(this.getEngineSpeed()) / Math.max(0.01F, this.getRatedTopSpeed());
+        float redline = this.getRedlineRpm();
+        return Mth.clamp(IDLE_RPM + (redline - IDLE_RPM) * fraction / GEAR_TOP[gear - 1],
+                IDLE_RPM, redline * 1.04F);
     }
 
     /**
-     * Engine revs. Each gear spans an even slice of the top speed, so the needle
-     * climbs to the change-up point, drops as the next gear goes in, and climbs
-     * again; reverse is geared like first.
+     * Changes up near the redline and down when the revs sag, like an
+     * automatic, and takes a moment over each change. Run on every side from
+     * the speed that side sees, so the driver's needle, their engine note and
+     * a bystander's all change gear together.
+     */
+    private void tickGearbox() {
+        if (this.shiftTicks > 0) {
+            this.shiftTicks--;
+            return;
+        }
+        if (!this.isEngineRunning() || this.getEngineSpeed() < -0.005F) {
+            this.driveGear = 1;
+            return;
+        }
+        float revs = this.rpmIn(this.driveGear) / this.getRedlineRpm();
+        if (revs >= UPSHIFT && this.driveGear < GEARS) {
+            this.changeGear(this.driveGear + 1);
+        } else if (this.driveGear > 1 && this.rpmIn(this.driveGear - 1) / this.getRedlineRpm() < UPSHIFT - 0.1F
+                && revs < DOWNSHIFT) {
+            this.changeGear(this.driveGear - 1);
+        }
+    }
+
+    private void changeGear(int gear) {
+        this.shiftFromGear = this.driveGear;
+        this.driveGear = gear;
+        this.shiftTicks = SHIFT_TICKS;
+    }
+
+    /**
+     * Engine revs. They climb through each gear to the change, fall as the
+     * next goes in — quickly, but not in one frame — and climb again; reverse
+     * is geared like first.
      */
     public float getEngineRpm() {
         int gear = this.getGear();
         if (gear == 0) {
             return 0.0F;
         }
-        float fraction = Math.abs(this.getEngineSpeed()) / Math.max(0.01F, this.getRatedTopSpeed());
-        float span = (float) Math.max(1, Math.abs(gear)) / GEARS;
-        float redline = this.getRedlineRpm();
-        return Mth.clamp(IDLE_RPM + (redline - IDLE_RPM) * fraction / span, IDLE_RPM, redline * 1.04F);
+        if (gear < 0) {
+            return this.rpmIn(1);
+        }
+        float rpm = this.rpmIn(gear);
+        if (this.shiftTicks > 0) {
+            // Over the first half of the change the revs swing to the new gear's.
+            float left = Math.min(1.0F, (this.shiftTicks - SHIFT_TICKS / 2.0F) / (SHIFT_TICKS / 2.0F));
+            rpm = Mth.lerp(Math.max(0.0F, left), rpm, this.rpmIn(this.shiftFromGear));
+        }
+        return rpm;
     }
 
     /**

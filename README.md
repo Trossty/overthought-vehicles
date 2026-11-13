@@ -51,7 +51,6 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **Motor sesleri** — dört silindir, altı silindir, V8, dizel ve elektrik ayrı; makinelerin de kendi uğultusu
 - **Kilometre ve teşhis** — kilometre arttıkça ve parça yıprandıkça aşınma hızlanıyor; OBD tableti arızaları kodlarıyla, en kötüsü önde gösteriyor
 - **Yakıt kalitesi** — rafineriden çıkan ham yakıt bidona da dolar, ama motoru ve bujileri hızlı yer; arıtıcı ham bidonu kabul eder
-- **Terk edilmiş araçlar** — yeni oluşan nadir chunk'larda yıpranmış, eksik parçalı, bayat yakıtlı bir araba
 - **Asfalt ve yol boyası** — kar gibi katman katman serilen asfalt; yol boyası kutusunun menüsünden seçilen şerit, ok, yaya geçidi, dur çizgisi, viraj, park işareti çizilir
 - **OBD tableti** — kalın gövdeli, kauçuk köşeli 3B bir tablet; elde harita gibi tutulur, ekranında aracın arızaları, yakıtı, kaportası ve motor ısısı canlı görünür
 - **Başarımlar, ayar dosyası, Jade** — petrolden asfalta başarım zinciri, `config/car.json`, Jade kuruluysa araca bakınca durum özeti
@@ -1813,11 +1812,11 @@ Arabaya binince eşya çubuğunun iki yanında, ekranın altında tek sıra hâl
 analog kadranlar beliriyor: solda hızölçer ve onun dışında **devir saati**,
 sağda yakıt ve onun dışında küçük sıcaklık kadranı.
 
-**Devir saati:** 5 ileri vites benzetiliyor (`CarEntity.getGear/getEngineRpm`);
-her vites azami hızın eşit bir dilimini kaplıyor, ibre değiştirme noktasına
-kadar tırmanıyor, vites atınca düşüyor. Ortadaki pencerede vites (`R`, `1`–`5`).
-Kırmızı bölge motora göre: benzinde 7000, dizelde 4500 (V8'de 500 eksik);
-kadran benzinde 8000, dizelde 5000'e kadar. Motor sesi de aynı devri izliyor.
+**Devir saati:** 5 ileri vitesli otomatik şanzıman (`CarEntity.tickGearbox/getEngineRpm`);
+kısa alt vitesler, uzun üst vitesler; devir kırmızı çizginin %90'ına gelince vites
+büyür, %36'nın altına düşünce küçülür. Her geçiş 6 tik sürer: çekiş kısa bir an
+kesilir, devir yeni vitese iner, motor sesi alçalıp kısılır, sonra yeniden çeker.
+Ortadaki pencerede vites (`R`, `1`–`5`).
 
 | | Hızölçer | Yakıt | Sıcaklık |
 |---|---|---|---|
@@ -2055,14 +2054,6 @@ yakıtla çalışır ama depo karışımı hacimce izler: tamamen ham bir depoda
 arıtıcıya tutulan ham bidon onun giriş deposuna boşalır. Depo boşalınca
 kirlilik de sıfırlanır.
 
-### Terk edilmiş araçlar
-
-Yeni oluşan her ~350 chunk'tan birine (ayar: `abandonedVehicleRarity`, 0
-kapatır) soluk renkli eski bir araba konur: kaporta %30–70, her parça
-%12–62, birkaç parça sökülmüş, akü bitik, 60 000+ km, depoda birkaç litre
-bayat (kirli sayılan) yakıt. Araç chunk yüklenirken değil bir sonraki tick
-konur.
-
 ### Asfalt ve yol boyası
 
 Rafineri ham petrolü her kırışında **katran** bırakır (ekranında bidonun
@@ -2097,7 +2088,6 @@ kenarlarda kum → 16 asfalt.
 | `fuelUse` | 1.0 | Yakıt tüketimi çarpanı |
 | `generatorOutput` | 1.0 | Jeneratör çıkışı çarpanı |
 | `cableRate` | 250 | Kablonun tick başına taşıdığı E |
-| `abandonedVehicleRarity` | 350 | Kaç yeni chunk'ta bir terk edilmiş araç (0 = hiç) |
 
 ### Uyumluluk
 
@@ -2139,7 +2129,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-26.jdk/Contents/Home ./gradlew 
   bırakır, arıtıcı her birimi temizler, kablo enerji taşır ve parlar, akü
   yalnız önünden verir, şarj direği elektrikli aracı doldurur, OBD en kötüyü
   öne koyar, asfalt kar gibi katmanlanır, boya çizer/döndürür/siler, tablet
-  eşleşir ve menzil dışında sinyali keser, ham yakıt hacimce karışır, terk edilmiş araç gerçekten yıpranmış…
+  eşleşir ve menzil dışında sinyali keser, ham yakıt hacimce karışır…
   Hepsi modun boş şablonu `car:empty` üzerinde koşuyor.
 
   ```bash

@@ -26,6 +26,8 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
     private static final float MAX_VOLUME = 0.95F;
     /** Per-tick smoothing so the engine spools up instead of snapping. */
     private static final float SMOOTHING = 0.25F;
+    /** How much quieter the engine goes at the start of a gear change. */
+    private static final float SHIFT_DIP = 0.35F;
 
     /** How much higher a two-wheeler's engine sings than a car's. */
     private static final float MOTORCYCLE_PITCH = 1.45F;
@@ -112,6 +114,9 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         this.volume = running
                 ? Mth.lerp(this.throttle, IDLE_VOLUME * this.voice.idleVolume, MAX_VOLUME * this.voice.maxVolume)
                 : 0.0F;
+        // The box lifts off the drive for a gear change: the note drops and
+        // eases for a moment before it pulls again.
+        this.volume *= 1.0F - SHIFT_DIP * this.car.getShift();
     }
 
     /** Which loop a car's engine plays, and how far it is pitched and how loud. */

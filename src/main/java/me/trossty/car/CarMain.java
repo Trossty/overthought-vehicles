@@ -11,7 +11,6 @@ import me.trossty.car.registry.ModScreenHandlers;
 import me.trossty.car.registry.ModWorldGen;
 import me.trossty.car.sound.ModSounds;
 import me.trossty.car.vehicle.VehicleDefinition;
-import me.trossty.car.world.AbandonedVehicles;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
@@ -54,6 +53,5 @@ public class CarMain {
                 event.dataPackRegistry(VehicleDefinition.KEY, VehicleDefinition.CODEC, VehicleDefinition.CODEC));
         modBus.addListener(ModFluids::registerCapabilities);
         modBus.addListener(CarNetworking::register);
-        AbandonedVehicles.register();
     }
 }

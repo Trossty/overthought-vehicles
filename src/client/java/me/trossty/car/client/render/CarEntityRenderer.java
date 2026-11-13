@@ -116,6 +116,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         this.extractRenderState(car, state, tickProgress);
         state.lightCoords = light;
         matrices.pushPose();
+        matrices.translate(0.0F, car.getStepOffset(tickProgress), 0.0F);
         matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
 
         // Two wheels lean into the turn, more the faster they go, about the

@@ -41,6 +41,7 @@ public class CarPhotoTest {
             scenes.put("tyres", this::tyres);
             scenes.put("station", this::station);
             scenes.put("driving", this::driving);
+            scenes.put("rideAndLeave", this::rideAndLeave);
             scenes.put("twoWheelsAndTrailer", this::twoWheelsAndTrailer);
             scenes.put("workstation", this::workstation);
             scenes.put("towing", this::towing);
@@ -137,6 +138,21 @@ public class CarPhotoTest {
             server.runCommand("tp @a %.2f %.2f %.2f -90 %.1f".formatted(wheel.x - 2.2, Y + 0.2, wheel.z, pitch));
             context.waitTicks(12);
             context.takeScreenshot("lift_" + name + "_aimed");
+            // And the back wheel on the far side: every tyre can be got at, not only the first.
+            net.minecraft.world.phys.Vec3 far = context.computeOnClient(client -> {
+                var car = client.level.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                        new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
+                return me.trossty.car.client.render.CarServiceOverlay.boxesOf(
+                                car, me.trossty.car.entity.CarPart.WHEELS, 1.0F).stream()
+                        .map(net.minecraft.world.phys.AABB::getCenter)
+                        .max(java.util.Comparator.comparingDouble(c -> c.x - c.z)).orElseThrow();
+            });
+            float farPitch = (float) Math.toDegrees(Math.atan2(eyeY - far.y, 2.2));
+            server.runCommand("tp @a %.2f %.2f %.2f 90 %.1f".formatted(far.x + 2.2, Y + 0.2, far.z, farPitch));
+            context.waitTicks(12);
+            context.runOnClient(client -> System.out.println("car photo lift " + name + " far wheel aimed: "
+                    + me.trossty.car.client.render.CarServiceOverlay.aimedPart()));
+            context.takeScreenshot("lift_" + name + "_far_wheel");
         }
         clear(server);
         server.runCommand("fill -6 %d -6 6 %d 6 minecraft:stone".formatted(Y - 1, Y - 1));
@@ -295,8 +311,7 @@ public class CarPhotoTest {
 
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
-            var wreck = me.trossty.car.world.AbandonedVehicles.abandoned(world,
-                    net.minecraft.util.RandomSource.create(5));
+            var wreck = wreck(world);
             wreck.moveTo(-10.0, Y, 20.5, 100.0F, 0.0F);
             wreck.addTag("wreck");
             world.addFreshEntity(wreck);
@@ -397,8 +412,7 @@ public class CarPhotoTest {
             ev.setSetup(me.trossty.car.entity.CarSetup.withVariant(me.trossty.car.entity.CarSetup.DEFAULT,
                     me.trossty.car.entity.CarPart.ENGINE, me.trossty.car.entity.CarSetup.ELECTRIC_MOTOR));
             ev.setFuel(0.0F);
-            var wreck = me.trossty.car.world.AbandonedVehicles.abandoned(world,
-                    net.minecraft.util.RandomSource.create(5));
+            var wreck = wreck(world);
             wreck.moveTo(1.2, Y, 31.5, 200.0F, 0.0F);
             wreck.addTag("wreck");
             world.addFreshEntity(wreck);
@@ -1193,6 +1207,28 @@ public class CarPhotoTest {
                 me.trossty.car.entity.CarEntity.class, box, e -> e.getTags().contains("photo")).get(0).getFuel();
     }
 
+    /** An old Jeep for the OBD to read: dented, worn through, a part or two gone, stale fuel. */
+    private static me.trossty.car.entity.CarEntity wreck(net.minecraft.server.level.ServerLevel world) {
+        var car = me.trossty.car.registry.ModEntities.CAR.create(world);
+        car.setModel(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("car", "jeep_wrangler"));
+        var defined = car.getDefinition();
+        car.setSetup(defined.factory().setup());
+        car.refreshDimensions();
+        car.setColor(net.minecraft.world.item.DyeColor.LIGHT_GRAY);
+        car.setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH * 0.34F);
+        car.setOdometer(me.trossty.car.entity.CarEntity.HIGH_MILEAGE * 2.5F);
+        var random = net.minecraft.util.RandomSource.create(5);
+        for (var part : me.trossty.car.entity.CarPart.values()) {
+            car.setCondition(part, me.trossty.car.entity.CarPart.MAX_CONDITION * (0.12F + 0.5F * random.nextFloat()));
+        }
+        car.setCondition(me.trossty.car.entity.CarPart.BATTERY, me.trossty.car.entity.CarPart.MAX_CONDITION * 0.05F);
+        car.setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F);
+        car.setFuel(0.0F);
+        car.addFuel(1.0F, car.getEngineFuel(), false);
+        car.setDirtyFuel(0.8F);
+        return car;
+    }
+
     private void clear(TestServerContext server) {
         server.runCommand("kill @e[type=!player]");
     }
@@ -1534,6 +1570,63 @@ public class CarPhotoTest {
         context.takeScreenshot("dash_faster");
         context.getInput().releaseKey(options -> options.keyUp);
     }
+    /**
+     * Driving across a flat field and getting out: the car has to stay on the
+     * ground, with no hop, and the driver has to end up beside it, on their feet.
+     */
+    private void rideAndLeave(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:air".formatted(Y, Y + 8));
+        // A dirt path, a row of slabs and a field of bumps on the way.
+        server.runCommand("fill -3 %d 2 3 %d 5 minecraft:dirt_path".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -3 %d 10 3 %d 10 minecraft:oak_slab".formatted(Y, Y));
+        for (int z = 16; z < 30; z += 3) {
+            server.runCommand("setblock %d %d %d minecraft:grass_block".formatted(z % 2 == 0 ? -1 : 1, Y, z));
+        }
+        server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
+        context.waitTicks(5);
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(5);
+        context.runOnClient(client -> {
+            client.player.setYRot(0);
+            client.player.setXRot(15);
+            client.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+        });
+        context.getInput().holdKey(options -> options.keyUp);
+        StringBuilder heights = new StringBuilder("car photo ride heights:");
+        for (int tick = 0; tick < 50; tick++) {
+            context.waitTicks(1);
+            heights.append(context.<String>computeOnClient(client -> {
+                var car = client.player.getVehicle();
+                return !(car instanceof me.trossty.car.entity.CarEntity driven) ? " -" : " %.2f>%.2f%s g%d/%.0f".formatted(car.getY() - Y,
+                        car.getY() - Y + driven.getStepOffset(1.0F), car.onGround() ? "" : "*",
+                        driven.getGear(), driven.getEngineRpm());
+            }));
+            if (tick == 35) {
+                context.takeScreenshot("ride_driving");
+            }
+        }
+        context.getInput().releaseKey(options -> options.keyUp);
+        System.out.println(heights);
+        context.waitTicks(40);
+        context.getInput().pressKey(options -> options.keyShift);
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            var player = client.player;
+            System.out.println("car photo ride left: riding=" + player.isPassenger()
+                    + " at " + player.position() + " onGround=" + player.onGround()
+                    + " pose=" + player.getPose());
+        });
+        server.runOnServer(minecraft -> {
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            System.out.println("car photo ride left (server): riding=" + player.isPassenger()
+                    + " at " + player.position());
+        });
+        context.takeScreenshot("ride_left");
+        context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+    }
+
     /** The scooter, the sports bike and the trailer, alone on grass. */
     private void twoWheelsAndTrailer(ClientGameTestContext context, TestServerContext server) {
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
