@@ -77,7 +77,10 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
             long wanted = (long) Math.ceil(room * CarEntity.ENERGY_PER_CHARGE_UNIT);
             long moved = Math.min(OUTPUT, Math.min(post.energy.amount, wanted));
             if (moved > 0) {
-                car.charge(moved / (float) CarEntity.ENERGY_PER_CHARGE_UNIT);
+                // Only what the battery took leaves the post; a cell already
+                // near full takes less than was offered.
+                float taken = car.charge(moved / (float) CarEntity.ENERGY_PER_CHARGE_UNIT);
+                moved = Math.min(moved, (long) Math.ceil(taken * CarEntity.ENERGY_PER_CHARGE_UNIT));
                 post.energy.amount -= moved;
                 post.setChanged();
                 rate = (int) moved;

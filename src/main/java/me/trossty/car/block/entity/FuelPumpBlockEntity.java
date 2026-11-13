@@ -14,8 +14,9 @@ import me.trossty.car.util.ValueOutput;
  * The forecourt tank.
  *
  * <p>A pump holds petrol and nothing else — no slots, no window. It fills itself
- * from any refinery it is touching, so a refinery with a pump beside it becomes
- * a filling station on its own, and it empties straight into a car parked at it.
+ * from any hydrotreater it is touching — the stage that turns the refinery's
+ * crude into petrol — so a hydrotreater with a pump beside it is a filling
+ * station on its own, and it empties straight into a car parked at it.
  * The jerry can stays useful for carrying fuel away from the station; it is no
  * longer the only way to move it.
  *

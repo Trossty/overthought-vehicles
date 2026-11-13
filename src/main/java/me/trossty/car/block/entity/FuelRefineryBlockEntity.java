@@ -322,6 +322,26 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
         return (int) Math.min(Integer.MAX_VALUE, found / ModFluids.UNIT);
     }
 
+    /**
+     * What a container of crude oil is left as once it is poured out: an
+     * empty bucket, another mod's empty cell or tank. Asked of the container
+     * itself, so a reusable one comes back instead of vanishing.
+     */
+    private static ItemStack pouredOut(ItemStack stack) {
+        net.neoforged.neoforge.fluids.capability.IFluidHandlerItem held = stack.copyWithCount(1).getCapability(
+                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.ITEM);
+        if (held == null) {
+            return ItemStack.EMPTY;
+        }
+        for (int tank = 0; tank < held.getTanks(); tank++) {
+            FluidStack view = held.getFluidInTank(tank);
+            if (!view.isEmpty() && isCrudeOil(view.getFluid())) {
+                held.drain(view.copy(), IFluidHandler.FluidAction.EXECUTE);
+            }
+        }
+        return held.getContainer();
+    }
+
     /** Draws power for one tick of work, or says there is not enough. */
     private boolean draw(int amount) {
         if (this.energy.amount < amount) {
@@ -401,7 +421,7 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
         int carried = oilIn(oil);
         if (carried > 0 && refinery.biomass + carried <= BIOMASS_CAPACITY
                 && (refinery.biomass == 0 || refinery.feed == FEED_CRUDE)) {
-            ItemStack emptied = oil.getCraftingRemainingItem();
+            ItemStack emptied = pouredOut(oil);
             if (oil.getCount() == 1 || emptied.isEmpty()) {
                 refinery.biomass += carried;
                 refinery.feed = FEED_CRUDE;
