@@ -504,9 +504,11 @@ public class DefinedVehicleModel extends VehicleModel {
         }
 
         int count = 0;
-        float[] lift = lifts(definition.shape());
-        for (int index = 0; index < definition.shape().size(); index++) {
-            VehicleDefinition.Box box = definition.shape().get(index);
+        // Hollowed out under the lids, for the engine and the luggage.
+        List<VehicleDefinition.Box> shape = me.trossty.car.vehicle.LidCavity.carve(definition);
+        float[] lift = lifts(shape);
+        for (int index = 0; index < shape.size(); index++) {
+            VehicleDefinition.Box box = shape.get(index);
             if (isGlass(box.color()) != glass || isCargo(box.color())
                     || only != null && !only.contains(box.color())) {
                 continue;

@@ -2027,6 +2027,7 @@ public class CarPhotoTest {
         server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Lids:3,Boot:{Items:[{Slot:0b,id:\"minecraft:chest\",count:1},{Slot:1b,id:\"minecraft:bread\",count:4},{Slot:2b,id:\"minecraft:oak_log\",count:8},{Slot:3b,id:\"car:jerry_can\",count:1},{Slot:4b,id:\"minecraft:apple\",count:3}]}}".formatted(Y));
         server.runCommand("summon car:car 0.5 %d 8.5 {Rotation:[0f,0f],Model:\"car:ford_mustang\",Color:14,Lids:3}".formatted(Y));
         server.runCommand("summon car:pickup 0.5 %d -8.5 {Rotation:[0f,0f],Model:\"car:toyota_hilux\",Color:11,Lids:1}".formatted(Y));
+        server.runCommand("summon car:car 6.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:1,Boot:{Items:[{Slot:0b,id:\"minecraft:chest\",count:1},{Slot:1b,id:\"minecraft:oak_log\",count:8}]}}".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
         context.waitTicks(20);
         shot(context, server, "lids_side", -6.5, Y + 1.6, 0.5, -90, 8);
@@ -2034,6 +2035,9 @@ public class CarPhotoTest {
         shot(context, server, "lids_rear", -3.5, Y + 2.2, -3.5, -40, 14);
         shot(context, server, "lids_bay", 0.5, Y + 3.0, 6.0, 180, 26);
         shot(context, server, "lids_boot", 0.5, Y + 3.0, -5.0, 0, 26);
+        shot(context, server, "lids_closed", 10.5, Y + 2.2, 4.5, 130, 20);
+        shot(context, server, "lids_top", 0.5, Y + 3.4, 3.3, 180, 70);
+        shot(context, server, "lids_boot_top", 0.5, Y + 3.2, -1.7, 0, 72);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

@@ -159,8 +159,35 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
 
     /** Things in a boot are drawn smaller than in a bed, so they sit under the lid. */
     private static final float BOOT_SIZE = 0.6F;
-    /** How far up a lid has to be before what is under it is drawn. */
-    private static final float LID_SHOWS = 0.05F;
+    /**
+     * The engine in its bay and the luggage in the boot, in the hollows cut
+     * under the lids: there whether the lids are up or not, the way they are
+     * in a real car, and moving with the body as it sways.
+     */
+    private static void drawUnderLids(CarEntity car, CarRenderState state, PoseStack matrices,
+                                      MultiBufferSource buffers) {
+        net.minecraft.world.phys.AABB bay = me.trossty.car.vehicle.LidCavity.of(
+                state.vehicle, me.trossty.car.vehicle.VehicleDefinition.Box.BONNET);
+        net.minecraft.world.phys.AABB boot = me.trossty.car.vehicle.LidCavity.of(
+                state.vehicle, me.trossty.car.vehicle.VehicleDefinition.Box.BOOT);
+        if (bay == null && boot == null) {
+            return;
+        }
+        matrices.pushPose();
+        DefinedVehicleModel.applyBody(matrices, state);
+        // Back out of the model's upside-down frame into the one the loads
+        // are laid out in.
+        matrices.scale(-1.0F, -1.0F, 1.0F);
+        if (boot != null) {
+            // One layer, small enough to go under the lid.
+            drawLoad(car, car.shownBoot(), boot.deflate(0.6, 0.0, 0.6), BOOT_SIZE,
+                    matrices, buffers, state.lightCoords);
+        }
+        if (bay != null) {
+            drawBay(car, bay, matrices, buffers, state.lightCoords);
+        }
+        matrices.popPose();
+    }
 
     /**
      * Where each part sits in an engine bay: across it from -1 (the model's
@@ -170,33 +197,42 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
      * grille, the battery and the air box either side behind it.
      */
     private record BaySpot(me.trossty.car.entity.CarPart part, float across, float along,
-                           float size, float bottom, float turn) {
+                           float size, float bottom, float top, float turn) {
     }
 
+    /**
+     * Laid out as under a real bonnet: the engine across the middle, the
+     * radiator upright behind the grille, the battery and the air box
+     * either side behind it, the alternator and the oil filter low on the
+     * engine's flanks, the plugs along its back.
+     */
     private static final java.util.List<BaySpot> BAY = java.util.List.of(
-            new BaySpot(me.trossty.car.entity.CarPart.ENGINE, 0.0F, 0.45F, 0.42F, 2.5F, 0.0F),
-            new BaySpot(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F, 0.45F, 0.30F, -3.4F, 90.0F),
-            new BaySpot(me.trossty.car.entity.CarPart.RADIATOR, 0.0F, 0.9F, 0.36F, 2.1F, 0.0F),
-            new BaySpot(me.trossty.car.entity.CarPart.BATTERY, -0.68F, 0.22F, 0.26F, 3.5F, 90.0F),
-            new BaySpot(me.trossty.car.entity.CarPart.AIR_FILTER, 0.68F, 0.25F, 0.26F, 4.9F, 0.0F),
-            new BaySpot(me.trossty.car.entity.CarPart.ALTERNATOR, 0.55F, 0.62F, 0.20F, 1.8F, 0.0F),
-            new BaySpot(me.trossty.car.entity.CarPart.OIL_FILTER, -0.55F, 0.62F, 0.16F, 3.6F, 0.0F));
+            new BaySpot(me.trossty.car.entity.CarPart.ENGINE, 0.0F, 0.48F, 0.40F, 2.5F, 13.5F, 0.0F),
+            new BaySpot(me.trossty.car.entity.CarPart.RADIATOR, 0.0F, 0.92F, 0.62F, 2.1F, 13.9F, 0.0F),
+            new BaySpot(me.trossty.car.entity.CarPart.BATTERY, -0.7F, 0.2F, 0.24F, 3.5F, 12.5F, 90.0F),
+            new BaySpot(me.trossty.car.entity.CarPart.AIR_FILTER, 0.7F, 0.22F, 0.24F, 4.9F, 11.1F, 0.0F),
+            new BaySpot(me.trossty.car.entity.CarPart.ALTERNATOR, 0.5F, 0.66F, 0.18F, 1.8F, 14.2F, 0.0F),
+            new BaySpot(me.trossty.car.entity.CarPart.OIL_FILTER, -0.5F, 0.66F, 0.14F, 3.6F, 12.4F, 0.0F),
+            new BaySpot(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.4F, 12.6F, 0.0F));
 
     /**
-     * What is fitted under an open bonnet, each part's own model where it
-     * goes in the bay; a turbo, if there is one, beside the engine.
+     * What is fitted in the engine bay, each part's own model where it goes;
+     * a turbo, if there is one, beside the engine. Nothing stands taller than
+     * the bay is deep, so the bonnet shuts over all of it.
      */
-    private static void drawBay(CarEntity car, net.minecraft.world.phys.AABB lid, float floor,
+    private static void drawBay(CarEntity car, net.minecraft.world.phys.AABB bay,
                                 PoseStack matrices, MultiBufferSource buffers, int light) {
         net.minecraft.client.renderer.entity.ItemRenderer items =
                 net.minecraft.client.Minecraft.getInstance().getItemRenderer();
-        float width = (float) (lid.maxX - lid.minX) / 16.0F;
-        float midX = (float) (lid.minX + lid.maxX) / 32.0F;
-        float length = (float) (lid.maxZ - lid.minZ) / 16.0F;
-        float back = (float) lid.minZ / 16.0F;
+        float width = (float) (bay.maxX - bay.minX) / 16.0F;
+        float midX = (float) (bay.minX + bay.maxX) / 32.0F;
+        float length = (float) (bay.maxZ - bay.minZ) / 16.0F;
+        float back = (float) bay.minZ / 16.0F;
+        float floor = (float) bay.minY / 16.0F;
+        float deep = (float) (bay.maxY - bay.minY) / 16.0F * 0.92F;
         java.util.List<BaySpot> spots = new java.util.ArrayList<>(BAY);
         if (car.hasTurbo()) {
-            spots.add(new BaySpot(null, -0.35F, 0.3F, 0.2F, 2.7F, 0.0F));
+            spots.add(new BaySpot(null, -0.3F, 0.3F, 0.18F, 2.7F, 13.4F, 0.0F));
         }
         int seed = 0;
         for (BaySpot spot : spots) {
@@ -208,18 +244,14 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             } else {
                 continue;
             }
-            float scale = width * spot.size();
+            float tall = (spot.top() - spot.bottom()) / 16.0F;
+            float scale = Math.min(width * spot.size(), deep / tall);
             float x = midX + spot.across() * width / 2.0F;
             float z = back + spot.along() * length;
-            // A model is drawn about its middle; this lifts its lowest pixel
-            // onto the floor. A negative bottom is that pixel sat on top of
-            // the engine instead, which stands 11 of its pixels tall.
-            float engineTop = width * BAY.get(0).size() * (13.5F - 2.5F) / 16.0F;
-            float lift = spot.bottom() < 0.0F
-                    ? engineTop + scale * (0.5F + spot.bottom() / 16.0F)
-                    : scale * (0.5F - spot.bottom() / 16.0F);
             matrices.pushPose();
-            matrices.translate(-x, floor / 16.0F + lift, -z);
+            // A model is drawn about its middle: this stands its lowest
+            // pixel on the floor of the bay.
+            matrices.translate(-x, floor + scale * (0.5F - spot.bottom() / 16.0F), -z);
             matrices.mulPose(Axis.YP.rotationDegrees(spot.turn()));
             matrices.scale(scale, scale, scale);
             items.renderStatic(stack, net.minecraft.world.item.ItemDisplayContext.NONE, light,
@@ -250,9 +282,11 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         float maxY = (float) area.maxY / 16.0F;
         float minZ = (float) area.minZ / 16.0F;
         float maxZ = (float) area.maxZ / 16.0F;
-        int cols = Math.max(1, (int) ((maxX - minX) / LOAD_CELL));
-        int rows = Math.max(1, (int) ((maxZ - minZ) / LOAD_CELL));
-        int layers = Math.max(1, (int) ((maxY - minY) / LOAD_CELL));
+        // Smaller things are packed closer.
+        float cellSize = LOAD_CELL * size;
+        int cols = Math.max(1, (int) ((maxX - minX) / cellSize));
+        int rows = Math.max(1, (int) ((maxZ - minZ) / cellSize));
+        int layers = Math.max(1, (int) ((maxY - minY) / cellSize));
         float stepX = (maxX - minX) / cols;
         float stepZ = (maxZ - minZ) / rows;
         net.minecraft.client.renderer.entity.ItemRenderer items =
@@ -264,7 +298,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             int cell = i % (cols * rows);
             float x = minX + (cell % cols + 0.5F) * stepX;
             float z = maxZ - (cell / cols + 0.5F) * stepZ;
-            float y = minY + layer * LOAD_CELL;
+            float y = minY + layer * cellSize;
             matrices.pushPose();
             // The model's x and z run the other way to this frame's: its
             // front is +z, this frame's is -z.
@@ -389,22 +423,6 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
                     area.from().x(), area.from().y(), area.from().z(), area.to().x(), area.to().y(), area.to().z()),
                     1.0F, matrices, buffers, state.lightCoords);
         }
-        if (state.vehicle != null && state.bootOpen > LID_SHOWS) {
-            net.minecraft.world.phys.AABB lid = state.vehicle.lidBounds(me.trossty.car.vehicle.VehicleDefinition.Box.BOOT);
-            if (lid != null) {
-                float floor = state.vehicle.lidFloor(lid);
-                // One layer, in from the sides: it all has to go under the lid.
-                drawLoad(car, car.shownBoot(), new net.minecraft.world.phys.AABB(
-                        lid.minX + 1.5, floor, lid.minZ + 1.0, lid.maxX - 1.5, floor + LOAD_CELL * 16.0F, lid.maxZ - 1.0),
-                        BOOT_SIZE, matrices, buffers, state.lightCoords);
-            }
-        }
-        if (state.vehicle != null && state.bonnetOpen > LID_SHOWS) {
-            net.minecraft.world.phys.AABB lid = state.vehicle.lidBounds(me.trossty.car.vehicle.VehicleDefinition.Box.BONNET);
-            if (lid != null) {
-                drawBay(car, lid, state.vehicle.lidFloor(lid), matrices, buffers, state.lightCoords);
-            }
-        }
 
         if (state.damageWobbleTicks > 0.0F) {
             matrices.mulPose(Axis.XP.rotationDegrees(
@@ -453,6 +471,9 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             }
         }
         this.submitExtras(state, matrices, buffers);
+        if (state.vehicle != null) {
+            drawUnderLids(car, state, matrices, buffers);
+        }
         if (state.vehicle != null && state.vehicleId != null) {
             VehicleModel wheels = DefinedVehicleModel.wheelsOf(state.vehicleId, state.vehicle);
             draw(wheels, state, matrices, buffers, wheels.renderType(DefinedVehicleModel.wheelTexture(state.tyre)));

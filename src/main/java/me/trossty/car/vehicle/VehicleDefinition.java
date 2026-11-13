@@ -119,27 +119,6 @@ public record VehicleDefinition(
         return bounds;
     }
 
-    /**
-     * How high the bodywork under a lid comes, in pixels: the floor of the
-     * engine bay or the boot, where what is in there sits.
-     */
-    public float lidFloor(AABB lid) {
-        float floor = (float) lid.minY - 1.0F;
-        for (Box box : this.shape) {
-            if (!box.opens().isEmpty()) {
-                continue;
-            }
-            float top = Math.max(box.from().y(), box.to().y());
-            float x = (box.from().x() + box.to().x()) / 2.0F;
-            float z = (box.from().z() + box.to().z()) / 2.0F;
-            if (top <= lid.minY + 1.0 && top > floor
-                    && x >= lid.minX && x <= lid.maxX && z >= lid.minZ && z <= lid.maxZ) {
-                floor = top;
-            }
-        }
-        return floor;
-    }
-
     /** Whether there are beds inside: a caravan, slept in at night. */
     public boolean camper() {
         return this.carrying.camper();
