@@ -427,6 +427,51 @@ final class Playtest {
         server.runCommand("gamemode creative @a");
     }
 
+    /**
+     * Stalls the plane on purpose and flies out of it: power off and the yoke
+     * held back until the wing quits, then nose down and full power.
+     */
+    static void stall(ClientGameTestContext context, TestServerContext server) {
+        server.runCommand("kill @e[type=!player]");
+        server.runCommand("time set noon");
+        server.runCommand("gamemode survival @a");
+        for (int z = -20; z < 180; z += 100) {
+            server.runCommand("fill 150 %d %d 170 %d %d minecraft:grass_block".formatted(Y - 1, z, Y - 1, z + 99));
+            server.runCommand("fill 150 %d %d 170 %d %d minecraft:air".formatted(Y, z, Y + 40, z + 99));
+        }
+        Class<me.trossty.car.entity.AirplaneEntity> plane = me.trossty.car.entity.AirplaneEntity.class;
+        board(context, server, me.trossty.car.registry.ModEntities.AIRPLANE, plane, 160.5, Y, 0.5);
+        // Put up high at cruising speed by the side flying it.
+        context.runOnClient(client -> {
+            CarEntity v = (CarEntity) client.player.getVehicle();
+            v.setPos(v.getX(), v.getY() + 30.0, v.getZ());
+            v.setSpeed(0.62F);
+        });
+        hold(context, server, plane, "cruise", 10, o -> o.keyUp);
+        log("cruise: " + where(server, plane) + ", " + stallState(context));
+        hold(context, server, plane, "power off, yoke back", 30, o -> o.keyJump);
+        log("pulled: " + where(server, plane) + ", " + stallState(context));
+        context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+        context.getInput().holdKey(o -> o.keyJump);
+        context.waitTicks(8);
+        context.takeScreenshot("play_stall");
+        context.getInput().releaseKey(o -> o.keyJump);
+        context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+        log("in the stall: " + where(server, plane) + ", " + stallState(context));
+        hold(context, server, plane, "nose down, full power", 40, o -> o.keyDown, o -> o.keyUp);
+        log("recovered: " + where(server, plane) + ", " + stallState(context));
+        hold(context, server, plane, "level off", 20, o -> o.keyUp);
+        log("level: " + where(server, plane) + ", " + stallState(context));
+        server.runCommand("gamemode creative @a");
+    }
+
+    /** Whether the plane is stalled, and whether the horn is going, as its pilot sees it. */
+    private static String stallState(ClientGameTestContext context) {
+        return context.computeOnClient(client -> client.player.getVehicle()
+                instanceof me.trossty.car.entity.AirplaneEntity a
+                ? "stalled " + a.isStalled() + " horn " + a.stallWarning() : "not aboard");
+    }
+
     /** What the rider's dashboard shows for the gear. */
     private static String gear(ClientGameTestContext context) {
         return context.computeOnClient(client -> client.player.getVehicle() instanceof CarEntity car

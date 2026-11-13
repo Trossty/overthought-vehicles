@@ -75,6 +75,7 @@ public class CarPhotoTest {
             scenes.put("boat", Playtest::boat);
             scenes.put("plane", this::plane);
             scenes.put("flight", Playtest::flight);
+            scenes.put("stall", Playtest::stall);
             String only = System.getProperty("car.photo.scenes", "");
             List<String> wanted = Boolean.getBoolean("car.photo.all") ? List.copyOf(scenes.keySet())
                     : only.isBlank() ? List.of() : List.of(only.split(","));

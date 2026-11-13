@@ -276,6 +276,7 @@
   "tooltip.car.vehicle_tank": "Depo %s L · menzil yaklaşık %s",
   "gui.car.plate_leaking": "Depo sızdırıyor: %%%s",
   "hud.car.leak": "SIZINTI",
+  "hud.car.stall": "STALL",
   "item.car.fuel_nozzle": "Yakıt Tabancası",
   "message.car.tank_full": "Depo doldu: %s",
   "message.car.nozzle_in_use": "Bu pompanın tabancası başkasında",

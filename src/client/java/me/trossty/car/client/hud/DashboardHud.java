@@ -281,7 +281,16 @@ public class DashboardHud implements LayeredDraw.Layer {
         int gear = car.getGear();
         String gearText = gear < 0 ? "R" : gear == 0 ? "-" : car.hasGearbox() ? String.valueOf(gear) : "D";
         context.drawCenteredString(client.font, gearText, cx, cy + ICON_OFFSET_Y, GEAR_COLOR);
-        context.drawCenteredString(client.font, "rpm", cx, cy + ICON_OFFSET_Y + 10, 0xFF8A949A);
+        // A plane's stall warning lights where the label is: steady near the
+        // stall, flashing in it.
+        if (car instanceof me.trossty.car.entity.AirplaneEntity plane && plane.stallWarning()) {
+            if (!plane.isStalled() || client.player.tickCount / 4 % 2 == 0) {
+                context.drawCenteredString(client.font, net.minecraft.network.chat.Component.translatable("hud.car.stall"),
+                        cx, cy + ICON_OFFSET_Y + 10, 0xFFFF4A3C);
+            }
+        } else {
+            context.drawCenteredString(client.font, "rpm", cx, cy + ICON_OFFSET_Y + 10, 0xFF8A949A);
+        }
         drawNeedle(context, cx, cy, this.rpmNeedle);
     }
 

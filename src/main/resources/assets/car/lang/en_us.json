@@ -276,6 +276,7 @@
   "tooltip.car.vehicle_tank": "Tank %s L · range about %s",
   "gui.car.plate_leaking": "Tank leaking: %s%%",
   "hud.car.leak": "LEAK",
+  "hud.car.stall": "STALL",
   "item.car.fuel_nozzle": "Fuel Nozzle",
   "message.car.tank_full": "Tank full: %s",
   "message.car.nozzle_in_use": "Someone else has this pump's nozzle",

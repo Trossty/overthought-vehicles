@@ -444,8 +444,8 @@ public class CarEntity extends VehicleEntity {
 
     protected boolean pressingForward;
     protected boolean pressingBack;
-    private boolean pressingLeft;
-    private boolean pressingRight;
+    protected boolean pressingLeft;
+    protected boolean pressingRight;
     protected boolean pressingBrake;
 
     /** Signed speed, only meaningful on the logical side. */

@@ -512,7 +512,7 @@ public class DefinedVehicleModel extends VehicleModel {
                     PartPose.offsetAndRotation(x + sizeX / 2.0F - offX,
                             -(y + sizeY / 2.0F) - offY,
                             -(z + sizeZ / 2.0F) - offZ,
-                            -box.tilt() * DEGREES, 0.0F, box.roll() * DEGREES));
+                            -box.tilt() * DEGREES, 0.0F, -box.roll() * DEGREES));
         }
 
         return LayerDefinition.create(data, PALETTE * CELL, PALETTE * CELL).bakeRoot();
