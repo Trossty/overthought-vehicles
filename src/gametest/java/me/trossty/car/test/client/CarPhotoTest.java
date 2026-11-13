@@ -58,7 +58,7 @@ public class CarPhotoTest {
             scenes.put("portableGenerators", this::portableGenerators);
             scenes.put("productionLine", this::productionLine);
             scenes.put("energyCables", this::energyCables);
-            scenes.put("everythingTab", this::everythingTab);
+            scenes.put("modTabs", this::modTabs);
             scenes.put("roadsAndCharging", this::roadsAndCharging);
             scenes.put("paintedRoads", this::paintedRoads);
             scenes.put("markingMenuAndTablet", this::markingMenuAndTablet);
@@ -1087,30 +1087,73 @@ public class CarPhotoTest {
         shot(context, server, "cable_hotbar", 3.0, Y, 33.0, 180, 30);
     }
 
-    /** The testing tab: it fills without a clash, and it looks right open. */
-    private void everythingTab(ClientGameTestContext context, TestServerContext server) {
+    /** Every tab of ours, open, page by page: what a player browsing them sees. */
+    private void modTabs(ClientGameTestContext context, TestServerContext server) {
+        java.util.List<net.minecraft.world.item.CreativeModeTab> tabs = new java.util.ArrayList<>();
         context.runOnClient(client -> {
-            var group = net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.get(me.trossty.car.registry.ModItems.TEST_GROUP);
             net.minecraft.world.item.CreativeModeTabs.tryRebuildTabContents(client.player.connection.enabledFeatures(),
                     true, client.level.registryAccess());
-            System.out.println("car drive test everything tab: " + group.getDisplayItems().size() + " stacks");
-            var screen = new net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen(client.player,
-                    client.player.connection.enabledFeatures(), true);
-            client.setScreen(screen);
+            for (var entry : net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.entrySet()) {
+                if (entry.getKey().location().getNamespace().equals(me.trossty.car.CarMain.MOD_ID)) {
+                    tabs.add(entry.getValue());
+                    System.out.println("car photo tab " + entry.getKey().location() + ": "
+                            + entry.getValue().getDisplayItems().size() + " stacks: "
+                            + entry.getValue().getDisplayItems().stream()
+                                    .map(stack -> net.minecraft.core.registries.BuiltInRegistries.ITEM
+                                            .getKey(stack.getItem()).getPath())
+                                    .collect(java.util.stream.Collectors.joining(" ")));
+                }
+            }
+            // Nothing of ours left out of every tab.
+            java.util.Set<net.minecraft.world.item.Item> shown = new java.util.HashSet<>();
+            tabs.forEach(tab -> tab.getDisplayItems().forEach(stack -> shown.add(stack.getItem())));
+            String missing = net.minecraft.core.registries.BuiltInRegistries.ITEM.stream()
+                    .filter(item -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item)
+                            .getNamespace().equals(me.trossty.car.CarMain.MOD_ID) && !shown.contains(item))
+                    .map(item -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath())
+                    .collect(java.util.stream.Collectors.joining(" "));
+            System.out.println("car photo tabs missing: [" + missing + "]");
+            client.setScreen(new net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen(client.player,
+                    client.player.connection.enabledFeatures(), true));
         });
         context.waitTicks(3);
-        context.runOnClient(client -> {
-            var group = net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.get(me.trossty.car.registry.ModItems.TEST_GROUP);
-            try {
-                net.neoforged.fml.util.ObfuscationReflectionHelper.findMethod(
-                        net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class, "selectTab",
-                        net.minecraft.world.item.CreativeModeTab.class).invoke(client.screen, group);
-            } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException(e);
+        for (var tab : tabs) {
+            String name = net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab).getPath();
+            int[] pages = new int[1];
+            context.runOnClient(client -> {
+                try {
+                    net.neoforged.fml.util.ObfuscationReflectionHelper.findMethod(
+                            net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class, "selectTab",
+                            net.minecraft.world.item.CreativeModeTab.class).invoke(client.screen, tab);
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+                int rows = (tab.getDisplayItems().size() + 8) / 9;
+                pages[0] = Math.max(1, (rows + 4) / 5);
+            });
+            for (int page = 0; page < pages[0]; page++) {
+                float at = pages[0] == 1 ? 0.0F : page / (float) (pages[0] - 1);
+                context.runOnClient(client -> {
+                    var screen = (net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) client.screen;
+                    screen.getMenu().scrollTo(at);
+                    try {
+                        // The pointer off in the corner, so no tooltip covers the slots.
+                        for (String axis : new String[]{"xpos", "ypos"}) {
+                            var pointer = net.neoforged.fml.util.ObfuscationReflectionHelper.findField(
+                                    net.minecraft.client.MouseHandler.class, axis);
+                            pointer.setDouble(client.mouseHandler, 0.0);
+                        }
+                        var field = net.neoforged.fml.util.ObfuscationReflectionHelper.findField(
+                                net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class, "scrollOffs");
+                        field.setFloat(screen, at);
+                    } catch (ReflectiveOperationException e) {
+                        throw new IllegalStateException(e);
+                    }
+                });
+                context.waitTicks(4);
+                context.takeScreenshot("tab_" + name + "_" + page);
             }
-        });
-        context.waitTicks(10);
-        context.takeScreenshot("everything_tab");
+        }
         context.runOnClient(client -> client.setScreen(null));
     }
 
