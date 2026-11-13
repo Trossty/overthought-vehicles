@@ -54,6 +54,7 @@ public class CarPhotoTest {
             scenes.put("tyreLooks", this::tyreLooks);
             scenes.put("lids", this::lids);
             scenes.put("hoist", this::hoist);
+            scenes.put("garageTools", this::garageTools);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -2056,6 +2057,31 @@ public class CarPhotoTest {
         context.waitTicks(20);
         shot(context, server, "hoist_corner", -3.5, Y + 2.0, 5.5, -145, 18);
         shot(context, server, "hoist_side", -4.5, Y + 1.2, 2.5, -90, 8);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A car on the dyno, a drain pan, a toolbox and an engine opened up on its stand. */
+    private void garageTools(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("setblock 0 %d 0 car:dyno".formatted(Y - 1));
+        server.runCommand("setblock 0 %d 1 car:dyno".formatted(Y - 1));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        server.runCommand("setblock 3 %d 0 car:drain_pan".formatted(Y));
+        server.runCommand("setblock 3 %d 2 car:toolbox[facing=east]".formatted(Y));
+        server.runCommand("setblock 3 %d -2 car:engine_stand[facing=east]".formatted(Y));
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var pos = new net.minecraft.core.BlockPos(3, Y, -2);
+            if (world.getBlockEntity(pos) instanceof me.trossty.car.block.entity.EngineStandBlockEntity stand) {
+                stand.setEngine(new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE));
+                stand.strip(world.getRandom());
+            }
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(20);
+        shot(context, server, "garage_tools", 7.5, Y + 2.2, 0.5, 90, 18);
+        shot(context, server, "garage_tools_close", 5.5, Y + 1.4, -1.5, 70, 25);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

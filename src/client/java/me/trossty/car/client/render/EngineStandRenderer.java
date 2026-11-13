@@ -37,8 +37,23 @@ public class EngineStandRenderer implements BlockEntityRenderer<EngineStandBlock
         pose.translate(0.5F, 0.0F, 0.5F);
         pose.mulPose(Axis.YP.rotationDegrees(-facing.toYRot() + 180.0F));
         pose.translate(0.0F, ENGINE_Y, ENGINE_Z - 0.5F);
-        pose.scale(ENGINE_SCALE, ENGINE_SCALE, ENGINE_SCALE);
         Minecraft client = Minecraft.getInstance();
+        if (stand.isStripped()) {
+            // Opened up: the insides laid out in a row on top of the block.
+            for (int slot = 0; slot < 3; slot++) {
+                ItemStack inside = stand.getInternals().get(slot);
+                if (inside.isEmpty()) {
+                    continue;
+                }
+                pose.pushPose();
+                pose.translate((slot - 1) * 0.3F, 0.42F, 0.0F);
+                pose.scale(0.32F, 0.32F, 0.32F);
+                client.getItemRenderer().renderStatic(inside, ItemDisplayContext.FIXED, light,
+                        OverlayTexture.NO_OVERLAY, pose, buffers, stand.getLevel(), slot + 1);
+                pose.popPose();
+            }
+        }
+        pose.scale(ENGINE_SCALE, ENGINE_SCALE, ENGINE_SCALE);
         client.getItemRenderer().renderStatic(engine, ItemDisplayContext.FIXED, light, OverlayTexture.NO_OVERLAY,
                 pose, buffers, stand.getLevel(), 0);
         pose.popPose();

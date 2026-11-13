@@ -6,6 +6,9 @@ import me.trossty.car.registry.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.Containers;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
@@ -86,17 +89,43 @@ public class EngineStandBlock extends ModelEntityBlock {
     @Override
     protected ItemInteractionResult useItemOn(ItemStack held, BlockState state, Level world, BlockPos pos,
                                               Player player, InteractionHand hand, BlockHitResult hit) {
-        if (!held.is(ModItems.ENGINE)) {
+        if (!(world.getBlockEntity(pos) instanceof EngineStandBlockEntity stand)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
-        if (!(world.getBlockEntity(pos) instanceof EngineStandBlockEntity stand) || !stand.getEngine().isEmpty()) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        if (held.is(ModItems.ENGINE) && stand.getEngine().isEmpty()) {
+            if (!world.isClientSide()) {
+                stand.setEngine(held.copyWithCount(1));
+                held.consume(1, player);
+            }
+            return ItemInteractionResult.sidedSuccess(world.isClientSide());
         }
-        if (!world.isClientSide()) {
-            stand.setEngine(held.copyWithCount(1));
-            held.consume(1, player);
+        if (held.is(ModItems.WRENCH) && !stand.getEngine().isEmpty()) {
+            if (!world.isClientSide()) {
+                if (!stand.isStripped()) {
+                    stand.strip(world.getRandom());
+                    world.playSound(null, pos, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.0F, 0.8F);
+                    player.displayClientMessage(Component.translatable("message.car.engine_stripped"), true);
+                } else if (stand.isComplete()) {
+                    stand.rebuild();
+                    world.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 1.0F, 0.8F);
+                    player.displayClientMessage(Component.translatable("message.car.engine_rebuilt",
+                            Math.round(me.trossty.car.entity.CarEntity.conditionOf(stand.getEngine()))), true);
+                } else {
+                    player.displayClientMessage(Component.translatable("message.car.engine_incomplete"), true);
+                }
+            }
+            return ItemInteractionResult.sidedSuccess(world.isClientSide());
         }
-        return ItemInteractionResult.sidedSuccess(world.isClientSide());
+        int slot = java.util.Arrays.asList(ModItems.engineInternals()).indexOf(held.getItem());
+        if (slot >= 0 && stand.isStripped() && stand.getInternals().get(slot).isEmpty()) {
+            if (!world.isClientSide()) {
+                stand.setInternal(slot, held.copyWithCount(1));
+                held.consume(1, player);
+                world.playSound(null, pos, SoundEvents.ARMOR_EQUIP_IRON.value(), SoundSource.BLOCKS, 1.0F, 1.0F);
+            }
+            return ItemInteractionResult.sidedSuccess(world.isClientSide());
+        }
+        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
     @Override
@@ -106,6 +135,24 @@ public class EngineStandBlock extends ModelEntityBlock {
             return InteractionResult.PASS;
         }
         if (!world.isClientSide()) {
+            if (stand.isStripped()) {
+                // Opened up: an empty hand takes the insides out one at a
+                // time, and says how worn each one is.
+                for (int slot = 0; slot < 3; slot++) {
+                    ItemStack inside = stand.getInternals().get(slot);
+                    if (!inside.isEmpty()) {
+                        stand.setInternal(slot, ItemStack.EMPTY);
+                        player.displayClientMessage(Component.translatable("message.car.internal_out",
+                                inside.getHoverName(), Math.round(me.trossty.car.entity.CarEntity.conditionOf(inside))), true);
+                        if (!player.addItem(inside)) {
+                            player.drop(inside, false);
+                        }
+                        return InteractionResult.CONSUME;
+                    }
+                }
+                player.displayClientMessage(Component.translatable("message.car.engine_incomplete"), true);
+                return InteractionResult.CONSUME;
+            }
             ItemStack engine = stand.getEngine();
             stand.setEngine(ItemStack.EMPTY);
             if (!player.addItem(engine)) {
@@ -118,7 +165,14 @@ public class EngineStandBlock extends ModelEntityBlock {
     @Override
     protected void onRemove(BlockState state, Level world, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock()) && world.getBlockEntity(pos) instanceof EngineStandBlockEntity stand) {
+            if (stand.isStripped()) {
+                // An engine block with its insides out is a shell, not an engine.
+                stand.getEngine().set(me.trossty.car.registry.ModComponents.PART_CONDITION, 1);
+            }
             Containers.dropItemStack(world, pos.getX(), pos.getY() + 0.5, pos.getZ(), stand.getEngine());
+            for (ItemStack inside : stand.getInternals()) {
+                Containers.dropItemStack(world, pos.getX(), pos.getY() + 0.5, pos.getZ(), inside);
+            }
         }
         super.onRemove(state, world, pos, newState, moved);
     }

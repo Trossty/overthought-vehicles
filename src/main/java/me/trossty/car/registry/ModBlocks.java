@@ -224,6 +224,27 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
                     .sound(SoundType.METAL));
 
+    /** A shallow pan slid under a car on the lift to catch its old oil. */
+    public static final Block DRAIN_PAN = register(
+            "drain_pan",
+            me.trossty.car.block.DrainPanBlock::new,
+            BlockBehaviour.Properties.of().strength(1.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** Rollers in the floor that measure what a car driven on to them does. */
+    public static final Block DYNO = register(
+            "dyno",
+            me.trossty.car.block.DynoBlock::new,
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** A rolling tool chest. */
+    public static final Block TOOLBOX = register(
+            "toolbox",
+            me.trossty.car.block.ToolboxBlock::new,
+            BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
     /** Padded bunks a boat is set down on out of the water to be worked on. */
     public static final Block BOAT_CRADLE = register(
             "boat_cradle",

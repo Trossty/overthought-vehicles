@@ -115,6 +115,7 @@ public final class ModFluids {
 
         event.registerBlockEntity(fluids, ModBlockEntities.FUEL_TANK, (tank, side) -> tank.getFluidStorage());
         event.registerBlockEntity(fluids, ModBlockEntities.FUEL_DRUM, (drum, side) -> drum.getFluidStorage());
+        event.registerBlockEntity(fluids, ModBlockEntities.DRAIN_PAN, (pan, side) -> pan.getOutlet());
 
         // The production line, every cell of every machine: crude into a
         // refinery and its product out, raw fuel into a hydrotreater and clean

@@ -22,6 +22,9 @@
     "car:engine_stand",
     "car:boat_cradle",
     "car:aircraft_jack",
-    "car:engine_hoist"
+    "car:engine_hoist",
+    "car:drain_pan",
+    "car:dyno",
+    "car:toolbox"
   ]
 }

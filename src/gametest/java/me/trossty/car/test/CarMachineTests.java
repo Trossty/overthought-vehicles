@@ -801,6 +801,129 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** The exhaust colour reads the fault: blue for oil, white for a gasket, black for a choked filter. */
+    @GameTest(template = "empty")
+    public static void exhaustColourReadsTheFault(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 3));
+        context.assertFalse(car.isBurningOil() || car.isGasketBlown() || car.isRunningRich(), "a new car smokes");
+        car.setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.3F);
+        context.assertTrue(car.isBurningOil() && !car.isGasketBlown(), "a worn engine did not burn oil");
+        car.setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.1F);
+        context.assertTrue(car.isGasketBlown() && car.isKnocking(), "a worn-out engine kept its gasket");
+        car.setCondition(CarPart.AIR_FILTER, CarPart.MAX_CONDITION * 0.2F);
+        context.assertTrue(car.isRunningRich(), "a choked filter did not run rich");
+        car.discard();
+        context.succeed();
+    }
+
+    /** A drain pan under a car on the lift takes its oil, black and all, and pipes it off as crude. */
+    @GameTest(template = "empty")
+    public static void oilChangeIntoADrainPan(GameTestHelper context) {
+        BlockPos lift = new BlockPos(2, 1, 2);
+        context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
+        context.setBlock(lift.east(), ModBlocks.DRAIN_PAN.defaultBlockState());
+        CarEntity car = context.spawn(ModEntities.CAR, lift.above());
+        car.setOilAge(0.8F);
+        BlockPos pan = context.absolutePos(lift.east());
+        context.assertTrue(me.trossty.car.block.DrainPanBlock.carAbove(context.getLevel(), pan) == car,
+                "the pan did not find the car on the lift");
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        context.getLevel().getBlockState(pan).useWithoutItem(context.getLevel(), player,
+                new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pan),
+                        Direction.UP, pan, false));
+        context.assertTrue(car.getOilLevel() == 0.0F && car.getOilAge() == 0.0F, "the sump did not drain");
+        var drained = ((me.trossty.car.block.entity.DrainPanBlockEntity) context.getLevel().getBlockEntity(pan))
+                .getOutlet().drain(5000, IFluidHandler.FluidAction.EXECUTE);
+        context.assertTrue(drained.getAmount() == 1000 && drained.getFluid() == me.trossty.car.registry.ModFluids.CRUDE_OIL,
+                "the pan did not give the oil up as crude");
+        car.discard();
+        context.succeed();
+    }
+
+    /** A full pan pours its old oil, as crude, into a drum set beside it. */
+    @GameTest(template = "empty")
+    public static void drainPanEmptiesIntoADrum(GameTestHelper context) {
+        BlockPos pan = new BlockPos(2, 1, 2);
+        context.setBlock(pan, ModBlocks.DRAIN_PAN.defaultBlockState());
+        context.setBlock(pan.east(), ModBlocks.FUEL_DRUM);
+        context.<me.trossty.car.block.entity.DrainPanBlockEntity>getBlockEntity(pan).catchOil(1.0F);
+        var drum = context.<me.trossty.car.block.entity.FuelDrumBlockEntity>getBlockEntity(pan.east());
+        context.succeedWhen(() -> {
+            var held = drum.getFluidStorage().getFluidInTank(0);
+            context.assertTrue(held.getFluid() == me.trossty.car.registry.ModFluids.CRUDE_OIL && held.getAmount() == 1000,
+                    "the drum did not take the pan's oil");
+        });
+    }
+
+    /** No brake fluid is soft brakes; a knock pulls the car; the wrench on the lift sets it straight. */
+    @GameTest(template = "empty")
+    public static void brakeFluidAndAlignment(GameTestHelper context) {
+        BlockPos lift = new BlockPos(2, 1, 2);
+        context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
+        CarEntity car = context.spawn(ModEntities.CAR, lift.above());
+        float firm = car.brakeStrength();
+        car.setBrakeFluid(0.0F);
+        context.assertTrue(car.brakeStrength() < firm * 0.5F, "dry brakes still bit");
+        float straight = car.pull();
+        car.setAlignment(0.5F);
+        context.assertTrue(car.pull() > straight, "bent tracking did not pull");
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.WRENCH));
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(car.getAlignment() == 0.0F, "the wrench did not set the tracking straight");
+        context.assertFalse(me.trossty.car.block.DynoBlock.readout(car).isEmpty(), "the dyno read nothing");
+        car.discard();
+        context.succeed();
+    }
+
+    /** Leads from a good battery to a flat one, both bonnets up, charge the flat one. */
+    @GameTest(template = "empty")
+    public static void jumpStart(GameTestHelper context) {
+        CarEntity donor = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));
+        CarEntity flat = context.spawn(ModEntities.CAR, new BlockPos(5, 1, 2));
+        flat.setCondition(CarPart.BATTERY, 1.5F);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        ItemStack leads = new ItemStack(me.trossty.car.registry.ModItems.JUMPER_CABLES);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, leads);
+        donor.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(leads.get(me.trossty.car.registry.ModComponents.OBD_LINK) == null,
+                "the leads clipped on under a shut bonnet");
+        donor.setLidOpen(CarEntity.BONNET_BIT, true);
+        flat.setLidOpen(CarEntity.BONNET_BIT, true);
+        donor.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        flat.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(flat.getCondition(CarPart.BATTERY) > 20.0F, "the flat battery took no charge");
+        context.assertTrue(donor.getCondition(CarPart.BATTERY) < CarPart.MAX_CONDITION, "the donor gave nothing");
+        donor.discard();
+        flat.discard();
+        context.succeed();
+    }
+
+    /** An engine opened on its stand comes apart into three insides and goes back as their average. */
+    @GameTest(template = "empty")
+    public static void engineTeardown(GameTestHelper context) {
+        BlockPos at = new BlockPos(2, 1, 2);
+        context.setBlock(at, ModBlocks.ENGINE_STAND.defaultBlockState());
+        var stand = (me.trossty.car.block.entity.EngineStandBlockEntity) context.getBlockEntity(at);
+        ItemStack engine = new ItemStack(me.trossty.car.registry.ModItems.ENGINE);
+        engine.set(me.trossty.car.registry.ModComponents.PART_CONDITION, 40);
+        stand.setEngine(engine);
+        stand.strip(context.getLevel().getRandom());
+        float sum = 0.0F;
+        for (ItemStack inside : stand.getInternals()) {
+            sum += CarEntity.conditionOf(inside);
+        }
+        context.assertTrue(Math.abs(sum / 3.0F - 40.0F) < 1.0F, "the insides did not average to the engine");
+        ItemStack fresh = new ItemStack(me.trossty.car.registry.ModItems.PISTONS);
+        stand.setInternal(0, fresh);
+        stand.rebuild();
+        context.assertTrue(CarEntity.conditionOf(stand.getEngine()) > 40.0F, "new pistons did not freshen the engine");
+        context.succeed();
+    }
+
     // ---- tanks ----
 
     /**

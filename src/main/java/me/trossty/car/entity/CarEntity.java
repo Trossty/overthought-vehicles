@@ -407,6 +407,15 @@ public class CarEntity extends VehicleEntity {
     /** How full the coolant bottle is, 0 empty to 1 full. */
     private static final EntityDataAccessor<Float> COOLANT_LEVEL =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** How far the oil has gone black, 0 fresh to 1 sludge. */
+    private static final EntityDataAccessor<Float> OIL_AGE =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** How full the brake fluid reservoir is, 0 dry to 1 full. */
+    private static final EntityDataAccessor<Float> BRAKE_FLUID =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** How far a knock has put the wheels out of true, -1 to 1, signed by the side it pulls to. */
+    private static final EntityDataAccessor<Float> ALIGNMENT =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
     /** Which lids stand open: {@link #BONNET_BIT}, {@link #BOOT_BIT}. */
     private static final EntityDataAccessor<Byte> LIDS =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
@@ -498,6 +507,7 @@ public class CarEntity extends VehicleEntity {
     /** Last tick's tracked speed, so the server can see braking happen. */
     private float lastTrackedSpeed;
     private int brakeNoiseCooldown;
+    private int faultNoiseCooldown;
     /** The raw travel of the last two ticks, newest first, on the server. */
     private final float[] travelledBefore = new float[2];
     /** Condition lost going under, before the part's own quality and age: see {@link #drown}. */
@@ -599,6 +609,9 @@ public class CarEntity extends VehicleEntity {
         builder.define(LIDS, (byte) 0);
         builder.define(OIL_LEVEL, 1.0F);
         builder.define(COOLANT_LEVEL, 1.0F);
+        builder.define(OIL_AGE, 0.0F);
+        builder.define(BRAKE_FLUID, 1.0F);
+        builder.define(ALIGNMENT, 0.0F);
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
@@ -835,6 +848,7 @@ public class CarEntity extends VehicleEntity {
             this.tickPuncture();
             this.tickTemperature();
             this.tickFluids();
+            this.complainAboutTheEngine();
             this.tickWater();
         }
 
@@ -917,6 +931,9 @@ public class CarEntity extends VehicleEntity {
             this.emitSkid();
             if (this.isLeaking() && this.hasFuel()) {
                 this.emitLeak();
+            }
+            if (this.isOilLeaking() && this.random.nextInt(3) == 0) {
+                this.emitOilDrip();
             }
         }
         this.lastTickX = this.getX();
@@ -2930,6 +2947,8 @@ public class CarEntity extends VehicleEntity {
             driver.displayClientMessage(Component.translatable("message.car.oil_low"), true);
         } else if (this.hasPart(CarPart.RADIATOR) && this.getCoolantLevel() < FLUID_LOW) {
             driver.displayClientMessage(Component.translatable("message.car.coolant_low"), true);
+        } else if (this.hasPart(CarPart.BRAKE_PADS) && this.getBrakeFluid() < FLUID_LOW) {
+            driver.displayClientMessage(Component.translatable("message.car.brake_fluid_low"), true);
         } else if (this.isLeaking() && this.hasFuel()) {
             driver.displayClientMessage(Component.translatable("message.car.tank_leaking"), true);
         }
@@ -3008,28 +3027,247 @@ public class CarEntity extends VehicleEntity {
         this.entityData.set(COOLANT_LEVEL, Mth.clamp(level, 0.0F, 1.0F));
     }
 
-    /** A running engine burns a little oil and boils off a little coolant. */
+    /** A sump of fresh oil is black sludge after about five hours of driving. */
+    private static final float OIL_AGEING = 1.0F / 360000.0F;
+    /** How many times faster than normal a burning or leaking engine loses its oil. */
+    private static final float OIL_LOSS_FAULT = 6.0F;
+    /** How many times faster than normal a blown head gasket loses its coolant. */
+    private static final float GASKET_COOLANT_LOSS = 8.0F;
+    /** How much worse black oil is for the engine than fresh, at its blackest. */
+    private static final float SLUDGE_WEAR = 2.0F;
+    /** What a hard stop costs the brake fluid: a reservoir lasts many pad sets. */
+    private static final float BRAKE_FLUID_USE = 0.00035F;
+    /** Below this much brake fluid the pedal goes soft. */
+    private static final float BRAKE_FLUID_SHORT = 0.4F;
+    /** What a bottle of brake fluid puts in the reservoir. */
+    public static final float BRAKE_FLUID_PER_BOTTLE = 0.5F;
+    /** How much a knock of one point of damage puts the wheels out of true. */
+    private static final float ALIGNMENT_PER_DAMAGE = 0.06F;
+
+    /**
+     * A running engine burns a little oil and boils off a little coolant, and
+     * the oil it keeps goes blacker. A worn engine burns oil faster, a leak
+     * drips it out, a blown head gasket boils the coolant away.
+     */
     private void tickFluids() {
+        if (this.hasOil() && this.isOilLeaking()) {
+            // A leak drips whether or not the engine runs.
+            this.setOilLevel(this.getOilLevel() - OIL_BURN * OIL_LOSS_FAULT);
+        }
         if (!this.isEngineRunning()) {
             return;
         }
         float load = Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED);
         float running = IDLE_WEAR_SHARE + (1.0F - IDLE_WEAR_SHARE) * load;
         if (this.hasOil()) {
-            this.setOilLevel(this.getOilLevel() - OIL_BURN * running);
+            this.setOilLevel(this.getOilLevel() - OIL_BURN * running * (this.isBurningOil() ? OIL_LOSS_FAULT : 1.0F));
+            if (this.getOilLevel() > 0.0F) {
+                this.setOilAge(this.getOilAge() + OIL_AGEING * running
+                        * this.partFactor(CarPart.OIL_FILTER, 2.0F, 4.0F));
+            }
         }
         if (this.hasPart(CarPart.RADIATOR)) {
             this.setCoolantLevel(this.getCoolantLevel()
-                    - COOLANT_LOSS * running * (1.0F + 2.0F * this.getEngineTemp()));
+                    - COOLANT_LOSS * running * (1.0F + 2.0F * this.getEngineTemp())
+                    * (this.isGasketBlown() ? GASKET_COOLANT_LOSS : 1.0F));
         }
     }
 
+    /** A worn engine gets oil past its rings and burns it: blue smoke. */
+    public boolean isBurningOil() {
+        return this.hasPart(CarPart.ENGINE) && this.isFitted(CarPart.ENGINE)
+                && this.getConditionFraction(CarPart.ENGINE) <= FaultCodes.WARNING;
+    }
+
+    /** A worn-out engine has blown its head gasket: coolant in the cylinders, white smoke. */
+    public boolean isGasketBlown() {
+        return this.hasPart(CarPart.ENGINE) && this.isFitted(CarPart.ENGINE)
+                && this.getConditionFraction(CarPart.ENGINE) <= FaultCodes.CRITICAL;
+    }
+
+    /** Oil dripping out: no filter screwed on, or one rusted through. */
+    public boolean isOilLeaking() {
+        return this.hasOil() && this.getOilLevel() > 0.0F && (!this.isFitted(CarPart.OIL_FILTER)
+                || this.getConditionFraction(CarPart.OIL_FILTER) <= FaultCodes.CRITICAL);
+    }
+
+    /** Too much fuel for the air: a choked filter or tired plugs, black smoke. */
+    public boolean isRunningRich() {
+        return this.hasPart(CarPart.AIR_FILTER) && (!this.isFitted(CarPart.AIR_FILTER)
+                || this.getConditionFraction(CarPart.AIR_FILTER) <= FaultCodes.WARNING)
+                || this.hasPart(CarPart.SPARK_PLUGS) && this.isFitted(CarPart.SPARK_PLUGS)
+                && this.getConditionFraction(CarPart.SPARK_PLUGS) <= FaultCodes.WARNING;
+    }
+
+    /** An engine short of oil, or worn to nothing, knocks. */
+    public boolean isKnocking() {
+        return this.hasOil() && this.getOilLevel() < OIL_STARVED || this.isGasketBlown();
+    }
+
+    public float getOilAge() {
+        return this.entityData.get(OIL_AGE);
+    }
+
+    public void setOilAge(float age) {
+        this.entityData.set(OIL_AGE, Mth.clamp(age, 0.0F, 1.0F));
+    }
+
+    public float getBrakeFluid() {
+        return this.entityData.get(BRAKE_FLUID);
+    }
+
+    public void setBrakeFluid(float level) {
+        this.entityData.set(BRAKE_FLUID, Mth.clamp(level, 0.0F, 1.0F));
+    }
+
+    public float getAlignment() {
+        return this.entityData.get(ALIGNMENT);
+    }
+
+    public void setAlignment(float alignment) {
+        this.entityData.set(ALIGNMENT, Mth.clamp(alignment, -1.0F, 1.0F));
+    }
+
+    /**
+     * Lets the whole sump out into a pan underneath: the level goes to
+     * nothing and so does the black, ready for fresh oil from the top.
+     * Returns how much came out, in sumps.
+     */
+    public float drainOil() {
+        float out = this.hasOil() ? this.getOilLevel() : 0.0F;
+        this.setOilLevel(0.0F);
+        this.setOilAge(0.0F);
+        return out;
+    }
+
+    /** How much of its bite the brakes have with the fluid there is. */
+    private float brakeFluidFactor() {
+        return 0.3F + 0.7F * Math.min(1.0F, this.getBrakeFluid() / BRAKE_FLUID_SHORT);
+    }
+
+    /** A bottle of brake fluid into the reservoir under the bonnet. */
+    private InteractionResult topUpBrakes(Player player, ItemStack held) {
+        if (!this.hasPart(CarPart.BRAKE_PADS)) {
+            return InteractionResult.PASS;
+        }
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (this.hasLid(BONNET_BIT) && !this.isLidOpen(BONNET_BIT)) {
+            player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
+            return InteractionResult.CONSUME;
+        }
+        if (this.getBrakeFluid() >= 0.99F) {
+            player.displayClientMessage(Component.translatable("message.car.brake_fluid_full"), true);
+            return InteractionResult.CONSUME;
+        }
+        this.setBrakeFluid(this.getBrakeFluid() + BRAKE_FLUID_PER_BOTTLE);
+        if (!player.getAbilities().instabuild) {
+            held.shrink(1);
+            ItemStack empty = new ItemStack(Items.GLASS_BOTTLE);
+            if (held.isEmpty()) {
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, empty);
+            } else if (!player.getInventory().add(empty)) {
+                player.drop(empty, false);
+            }
+        }
+        this.playSound(SoundEvents.BOTTLE_EMPTY, 1.0F, 1.2F);
+        player.displayClientMessage(Component.translatable("message.car.brake_fluid_topped",
+                Math.round(this.getBrakeFluid() * 100.0F)), true);
+        return InteractionResult.CONSUME;
+    }
+
+    /** A wrench on the wheels of a car up on the lift: the tracking set straight. */
+    private InteractionResult alignWheels(Player player) {
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
+            player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
+            return InteractionResult.CONSUME;
+        }
+        if (Math.abs(this.getAlignment()) < 0.01F) {
+            player.displayClientMessage(Component.translatable("message.car.aligned_already"), true);
+            return InteractionResult.CONSUME;
+        }
+        this.setAlignment(0.0F);
+        this.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 0.8F);
+        player.displayClientMessage(Component.translatable("message.car.aligned"), true);
+        return InteractionResult.CONSUME;
+    }
+
+    /**
+     * Jump leads: the first car clicked gives, the second takes. The giver has
+     * to have a charged battery, both bonnets have to be up, and the two have to
+     * be close enough for the leads to reach.
+     */
+    private InteractionResult jumpWith(Player player, ItemStack leads) {
+        if (this.isElectric() || !this.hasPart(CarPart.BATTERY)) {
+            return InteractionResult.PASS;
+        }
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (this.hasLid(BONNET_BIT) && !this.isLidOpen(BONNET_BIT)) {
+            player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
+            return InteractionResult.CONSUME;
+        }
+        java.util.UUID donorId = leads.get(me.trossty.car.registry.ModComponents.OBD_LINK);
+        Entity donor = donorId == null || !(this.level() instanceof ServerLevel server) ? null : server.getEntity(donorId);
+        if (!(donor instanceof CarEntity giver) || giver == this || giver.distanceTo(this) > JUMP_REACH
+                || giver.hasLid(BONNET_BIT) && !giver.isLidOpen(BONNET_BIT)) {
+            if (!this.isFitted(CarPart.BATTERY) || this.getConditionFraction(CarPart.BATTERY) < JUMP_DONOR_MIN) {
+                leads.remove(me.trossty.car.registry.ModComponents.OBD_LINK);
+                player.displayClientMessage(Component.translatable("message.car.jump_donor_flat"), true);
+                return InteractionResult.CONSUME;
+            }
+            leads.set(me.trossty.car.registry.ModComponents.OBD_LINK, this.getUUID());
+            this.playSound(SoundEvents.CHAIN_HIT, 1.0F, 1.4F);
+            player.displayClientMessage(Component.translatable("message.car.jump_clipped"), true);
+            return InteractionResult.CONSUME;
+        }
+        leads.remove(me.trossty.car.registry.ModComponents.OBD_LINK);
+        if (!this.isFitted(CarPart.BATTERY)) {
+            player.displayClientMessage(Component.translatable("message.car.jump_no_battery"), true);
+            return InteractionResult.CONSUME;
+        }
+        float give = Math.min(JUMP_CHARGE, giver.getCondition(CarPart.BATTERY) - JUMP_DONOR_MIN * CarPart.MAX_CONDITION);
+        if (give <= 0.0F || giver.getConditionFraction(CarPart.BATTERY) < JUMP_DONOR_MIN) {
+            player.displayClientMessage(Component.translatable("message.car.jump_donor_flat"), true);
+            return InteractionResult.CONSUME;
+        }
+        float before = this.getCondition(CarPart.BATTERY);
+        float after = Math.max(before, Math.min(CarPart.MAX_CONDITION, before + give));
+        this.setCondition(CarPart.BATTERY, after);
+        giver.setCondition(CarPart.BATTERY, giver.getCondition(CarPart.BATTERY) - (after - before) * 0.5F);
+        this.level().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
+                SoundEvents.COPPER_BULB_TURN_ON, SoundSource.NEUTRAL, 1.0F, 1.0F);
+        if (this.level() instanceof ServerLevel server) {
+            server.sendParticles(ParticleTypes.ELECTRIC_SPARK, this.getX(), this.getY() + 1.0, this.getZ(),
+                    8, 0.3, 0.2, 0.3, 0.05);
+        }
+        player.displayClientMessage(Component.translatable("message.car.jumped",
+                Math.round(this.getConditionFraction(CarPart.BATTERY) * 100.0F)), true);
+        return InteractionResult.CONSUME;
+    }
+
+    /** How far apart two cars can stand for the leads to reach. */
+    private static final float JUMP_REACH = 5.0F;
+    /** A battery below this share of its charge has nothing to give. */
+    private static final float JUMP_DONOR_MIN = 0.35F;
+    /** How much charge one jump puts into a flat battery, out of 100. */
+    private static final float JUMP_CHARGE = 30.0F;
+
     /** How many times faster the engine wears for want of oil: 1 with enough in it. */
     private float lowOilWear() {
-        if (!this.hasOil() || this.getOilLevel() >= OIL_STARVED) {
+        if (!this.hasOil()) {
             return 1.0F;
         }
-        return Mth.lerp(this.getOilLevel() / OIL_STARVED, DRY_ENGINE_WEAR, 1.0F);
+        if (this.getOilLevel() >= OIL_STARVED) {
+            return 1.0F + SLUDGE_WEAR * this.getOilAge();
+        }
+        return Mth.lerp(this.getOilLevel() / OIL_STARVED, DRY_ENGINE_WEAR, 1.0F)
+                * (1.0F + SLUDGE_WEAR * this.getOilAge());
     }
 
     /** How much of its cooling the radiator has with the coolant there is. */
@@ -3046,19 +3284,22 @@ public class CarEntity extends VehicleEntity {
      * has to be up; PASS for anything else, so the click goes on.
      */
     private InteractionResult topUp(Player player, ItemStack held) {
+        if (held.is(ModItems.BRAKE_FLUID)) {
+            return this.topUpBrakes(player, held);
+        }
         boolean oil = held.is(ModItems.MOTOR_OIL);
         boolean bucket = held.is(Items.WATER_BUCKET);
         boolean bottle = held.is(Items.POTION) && held.getOrDefault(
                 net.minecraft.core.component.DataComponents.POTION_CONTENTS,
                 net.minecraft.world.item.alchemy.PotionContents.EMPTY).is(net.minecraft.world.item.alchemy.Potions.WATER);
-        if (!oil && !bucket && !bottle || oil && !this.hasOil() || !oil && !this.hasPart(CarPart.RADIATOR)
-                || !this.hasLid(BONNET_BIT)) {
+        if (!oil && !bucket && !bottle || oil && !this.hasOil() || !oil && !this.hasPart(CarPart.RADIATOR)) {
             return InteractionResult.PASS;
         }
         if (this.level().isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        if (!this.isLidOpen(BONNET_BIT)) {
+        // Under the bonnet where there is one; a bike's filler is out in the open.
+        if (this.hasLid(BONNET_BIT) && !this.isLidOpen(BONNET_BIT)) {
             player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
             return InteractionResult.CONSUME;
         }
@@ -3069,6 +3310,8 @@ public class CarEntity extends VehicleEntity {
         }
         float now = Math.min(1.0F, level + (oil ? OIL_PER_BOTTLE : bucket ? 1.0F : WATER_PER_BOTTLE));
         if (oil) {
+            // Fresh oil on old thins the black by as much as it adds.
+            this.setOilAge(now <= 0.0F ? 0.0F : this.getOilAge() * level / now);
             this.setOilLevel(now);
         } else {
             this.setCoolantLevel(now);
@@ -3127,6 +3370,7 @@ public class CarEntity extends VehicleEntity {
                 * this.partFactor(CarPart.WHEELS, WORN_TYRE_GRIP)
                 * this.grade(CarPart.BRAKE_PADS)
                 * this.grade(CarPart.BRAKE_DISCS)
+                * this.brakeFluidFactor()
                 * this.minorGrade(CarPart.WHEELS)
                 * this.getGrip();
     }
@@ -3140,7 +3384,7 @@ public class CarEntity extends VehicleEntity {
         // A flat drags the car hard over to its own side, whatever else is true.
         int limping = this.limpingWheel();
         float flat = limping >= 0 ? this.sideOf(limping) * FLAT_PULL : 0.0F;
-        return flat + this.wornPull();
+        return flat + this.wornPull() + this.getAlignment() * MAX_PULL;
     }
 
     private float wornPull() {
@@ -3253,6 +3497,7 @@ public class CarEntity extends VehicleEntity {
         }
         this.complainAboutBrakes(scrubbed);
         float work = scrubbed * BRAKE_WEAR_PER_DECEL;
+        this.setBrakeFluid(this.getBrakeFluid() - work * BRAKE_FLUID_USE);
         this.wear(CarPart.BRAKE_PADS, CarPart.BRAKE_PADS.wearPerTick() * work);
         float padsLeft = this.getConditionFraction(CarPart.BRAKE_PADS);
         this.wear(CarPart.BRAKE_DISCS, CarPart.BRAKE_DISCS.wearPerTick() * work
@@ -3900,6 +4145,15 @@ public class CarEntity extends VehicleEntity {
         }
         if (held.is(ModItems.TURBO)) {
             return this.fitTurbo(player, held);
+        }
+        if (held.is(ModItems.WRENCH)) {
+            return this.alignWheels(player);
+        }
+        if (held.is(ModItems.JUMPER_CABLES)) {
+            InteractionResult jumped = this.jumpWith(player, held);
+            if (jumped != InteractionResult.PASS) {
+                return jumped;
+            }
         }
         InteractionResult topped = this.topUp(player, held);
         if (topped != InteractionResult.PASS) {
@@ -4767,6 +5021,9 @@ public class CarEntity extends VehicleEntity {
         // in the state they were in when it arrived, not the state it left them.
         amount *= this.partFactor(CarPart.SUSPENSION, WORN_SPRING_HARSHNESS);
         this.wear(CarPart.SUSPENSION, amount * SUSPENSION_WEAR_PER_DAMAGE);
+        float knock = amount * ALIGNMENT_PER_DAMAGE;
+        float drift = this.getAlignment();
+        this.setAlignment(drift + (drift != 0.0F ? Math.signum(drift) : this.random.nextBoolean() ? 1.0F : -1.0F) * knock);
         this.setHurtDir(-this.getHurtDir());
         this.setHurtTime(10);
         this.setDamage(Math.min(this.getDamage() + amount * 10.0F, 40.0F));
@@ -4847,14 +5104,27 @@ public class CarEntity extends VehicleEntity {
         if (this.random.nextInt(speed < 0.05F ? 7 : 2) != 0) {
             return;
         }
-        // A worn engine burns its oil: thick smoke, worse the harder it works.
-        boolean burningOil = this.hasPart(CarPart.ENGINE)
-                && this.getConditionFraction(CarPart.ENGINE) <= FaultCodes.WARNING;
+        // The colour says what is wrong, the way a mechanic reads it from the
+        // kerb: white and thick is coolant through a blown head gasket, blue
+        // is oil burning past worn rings, black is fuel with too little air.
         // Cold, the water in the exhaust comes out as white steam until it warms through.
         boolean cold = this.getEngineTemp() < COLD_EXHAUST;
+        if (this.isGasketBlown()) {
+            this.level().addParticle(ParticleTypes.WHITE_SMOKE, at.x, at.y, at.z, driftX, 0.02, driftZ);
+            this.level().addParticle(ParticleTypes.CLOUD, at.x, at.y, at.z, driftX, 0.01, driftZ);
+            return;
+        }
+        if (this.isBurningOil()) {
+            this.level().addParticle(OIL_SMOKE, at.x, at.y + 0.05, at.z, 0.0, 0.0, 0.0);
+            this.level().addParticle(ParticleTypes.SMOKE, at.x, at.y, at.z, driftX, 0.015, driftZ);
+            return;
+        }
+        if (this.isRunningRich()) {
+            this.level().addParticle(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z, driftX, 0.02, driftZ);
+            return;
+        }
         this.level().addParticle(
-                burningOil ? ParticleTypes.LARGE_SMOKE
-                        : cold ? ParticleTypes.WHITE_SMOKE
+                cold ? ParticleTypes.WHITE_SMOKE
                         : speed > 0.25F ? ParticleTypes.SMOKE : ParticleTypes.CAMPFIRE_COSY_SMOKE,
                 at.x, at.y, at.z, driftX, 0.015, driftZ);
     }
@@ -4879,6 +5149,59 @@ public class CarEntity extends VehicleEntity {
             }
         }
         return this.exhaustAt;
+    }
+
+    /** The blue-grey haze of burning oil. */
+    private static final net.minecraft.core.particles.DustParticleOptions OIL_SMOKE =
+            new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.45F, 0.55F, 0.78F), 2.2F);
+
+    /**
+     * Oil dripping under the engine, in the middle up front: amber like the
+     * fuel leak but under the bonnet rather than at the sill, so the two are
+     * told apart by where the puddle is.
+     */
+    private void emitOilDrip() {
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double front = 0.9;
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        if (defined != null && !defined.wheels().isEmpty()) {
+            front = -Double.MAX_VALUE;
+            for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : defined.wheels()) {
+                front = Math.max(front, wheel.at().z() / 16.0);
+            }
+            front -= 0.3;
+        }
+        Vec3 at = this.position().add(new Vec3((this.random.nextDouble() - 0.5) * 0.3, 0.3, front).yRot(-yawRad));
+        this.level().addParticle(ParticleTypes.DRIPPING_DRIPSTONE_LAVA, at.x, at.y, at.z, 0.0, 0.0, 0.0);
+        this.level().addParticle(ParticleTypes.LANDING_HONEY,
+                at.x + (this.random.nextDouble() - 0.5) * 0.3, this.getY() + 0.02,
+                at.z + (this.random.nextDouble() - 0.5) * 0.3, 0.0, 0.0, 0.0);
+    }
+
+    /**
+     * What a sick car sounds like from outside: a knock from a dry or worn-out
+     * engine in time with the revs, and a clunk from tired springs over the
+     * road. Played by the server so everybody near hears it.
+     */
+    private void complainAboutTheEngine() {
+        if (this.faultNoiseCooldown > 0) {
+            this.faultNoiseCooldown--;
+            return;
+        }
+        float speed = Math.abs(this.getEngineSpeed());
+        if (this.isEngineRunning() && !this.isElectric() && this.isKnocking()) {
+            this.level().playSound(null, this.getX(), this.getY() + 0.6, this.getZ(),
+                    SoundEvents.NOTE_BLOCK_BASEDRUM.value(), SoundSource.NEUTRAL, 0.7F, 0.5F + speed);
+            this.faultNoiseCooldown = Math.max(3, 9 - Math.round(speed * 12.0F));
+            return;
+        }
+        if (speed > 0.15F && this.hasPart(CarPart.SUSPENSION) && this.isFitted(CarPart.SUSPENSION)
+                && this.getConditionFraction(CarPart.SUSPENSION) <= FaultCodes.WARNING
+                && this.random.nextInt(30) == 0) {
+            this.level().playSound(null, this.getX(), this.getY() + 0.3, this.getZ(),
+                    SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.NEUTRAL, 0.5F, 0.6F);
+            this.faultNoiseCooldown = 10;
+        }
     }
 
     /** A black puff out of the tailpipe: the engine coughing on air. */
@@ -5001,6 +5324,9 @@ public class CarEntity extends VehicleEntity {
         this.entityData.set(LIDS, (byte) (view.getIntOr("Lids", 0) & (BONNET_BIT | BOOT_BIT)));
         this.setOilLevel(view.getFloatOr("Oil", 1.0F));
         this.setCoolantLevel(view.getFloatOr("Coolant", 1.0F));
+        this.setOilAge(view.getFloatOr("OilAge", 0.0F));
+        this.setBrakeFluid(view.getFloatOr("BrakeFluid", 1.0F));
+        this.setAlignment(view.getFloatOr("Alignment", 0.0F));
         if (view.tag().contains("Boot")) {
             net.minecraft.world.ContainerHelper.loadAllItems(
                     view.tag().getCompound("Boot"), this.boot.getItems(), view.registries());
@@ -5049,6 +5375,15 @@ public class CarEntity extends VehicleEntity {
         }
         if (this.getCoolantLevel() < 1.0F) {
             view.putFloat("Coolant", this.getCoolantLevel());
+        }
+        if (this.getOilAge() > 0.0F) {
+            view.putFloat("OilAge", this.getOilAge());
+        }
+        if (this.getBrakeFluid() < 1.0F) {
+            view.putFloat("BrakeFluid", this.getBrakeFluid());
+        }
+        if (this.getAlignment() != 0.0F) {
+            view.putFloat("Alignment", this.getAlignment());
         }
         if (!this.boot.isEmpty()) {
             view.tag().put("Boot", net.minecraft.world.ContainerHelper.saveAllItems(

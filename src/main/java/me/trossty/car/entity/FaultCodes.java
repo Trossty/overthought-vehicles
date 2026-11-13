@@ -113,6 +113,23 @@ public final class FaultCodes {
         if (car.isLeaking()) {
             faults.add(new Fault("P0455", null, "obd.car.leak", Severity.WARNING, -1));
         }
+        if (car.hasOil() && car.getOilLevel() < CarEntity.FLUID_LOW) {
+            faults.add(new Fault("P0524", null, "obd.car.oil_low", Severity.CRITICAL, -1));
+        } else if (car.hasOil() && car.getOilAge() >= 0.7F) {
+            faults.add(new Fault("P0196", null, "obd.car.oil_old", Severity.WARNING, -1));
+        }
+        if (car.isOilLeaking()) {
+            faults.add(new Fault("P0520", null, "obd.car.oil_leak", Severity.WARNING, -1));
+        }
+        if (car.hasPart(CarPart.RADIATOR) && car.getCoolantLevel() < CarEntity.FLUID_LOW) {
+            faults.add(new Fault("P2560", null, "obd.car.coolant_low", Severity.WARNING, -1));
+        }
+        if (car.hasPart(CarPart.BRAKE_PADS) && car.getBrakeFluid() < CarEntity.FLUID_LOW) {
+            faults.add(new Fault("C1513", null, "obd.car.brake_fluid_low", Severity.CRITICAL, -1));
+        }
+        if (Math.abs(car.getAlignment()) >= 0.15F) {
+            faults.add(new Fault("C0455", null, "obd.car.alignment", Severity.ADVISORY, -1));
+        }
         if (!electric && !car.getEngineFuel().burns(car.getTankFuel()) && car.hasFuel()) {
             faults.add(new Fault("P0170", null, "obd.car.wrong_fuel", Severity.CRITICAL, -1));
         }

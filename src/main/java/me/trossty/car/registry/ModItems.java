@@ -149,6 +149,27 @@ public final class ModItems {
     public static final Item MOTOR_OIL =
             register("motor_oil", Item::new, new Item.Properties().stacksTo(16));
 
+    /** A bottle of brake fluid, poured into the reservoir under the bonnet. */
+    public static final Item BRAKE_FLUID =
+            register("brake_fluid", Item::new, new Item.Properties().stacksTo(16));
+
+    /** A spanner: sets the tracking of a car on the lift straight, and opens an engine on its stand. */
+    public static final Item WRENCH = register("wrench", Item::new, new Item.Properties().stacksTo(1));
+
+    /** Jump leads: from a car with a good battery to one with a flat. */
+    public static final Item JUMPER_CABLES =
+            register("jumper_cables", Item::new, new Item.Properties().stacksTo(1));
+
+    /** The insides of an engine, as they come out of one opened up on its stand. */
+    public static final Item PISTONS = part("pistons");
+    public static final Item HEAD_GASKET = part("head_gasket");
+    public static final Item CRANKSHAFT = part("crankshaft");
+
+    /** The insides of an engine in the order the stand keeps them. */
+    public static Item[] engineInternals() {
+        return new Item[] {PISTONS, HEAD_GASKET, CRANKSHAFT};
+    }
+
     /** Car paint in a can, any colour the dyes mixed into it make. */
     public static final Item SPRAY_CAN = register("spray_can", me.trossty.car.item.SprayCanItem::new,
             new Item.Properties().durability(me.trossty.car.item.SprayCanItem.CHARGES));
@@ -279,13 +300,15 @@ public final class ModItems {
                 entries.add(stack);
             }
         }
-        entries.add(TURBO, MOTOR_OIL, TANKER_BARREL, PICKUP_BED);
+        entries.add(TURBO, MOTOR_OIL, BRAKE_FLUID, WRENCH, JUMPER_CABLES, PISTONS, HEAD_GASKET, CRANKSHAFT,
+                TANKER_BARREL, PICKUP_BED);
     }
 
     /** The garage, then oil from the ground to the pump, then power, then road building. */
     private static void machines(Entries entries) {
         entries.add(ModBlocks.VEHICLE_WORKSTATION, ModBlocks.VEHICLE_WORKBENCH, ModBlocks.VEHICLE_LIFT,
-                ModBlocks.ENGINE_STAND, ModBlocks.ENGINE_HOIST, ModBlocks.BOAT_CRADLE, ModBlocks.AIRCRAFT_JACK);
+                ModBlocks.ENGINE_STAND, ModBlocks.ENGINE_HOIST, ModBlocks.DRAIN_PAN, ModBlocks.DYNO,
+                ModBlocks.TOOLBOX, ModBlocks.BOAT_CRADLE, ModBlocks.AIRCRAFT_JACK);
         entries.add(ModBlocks.OIL_DEPOSIT, ModBlocks.OIL_SEEP, ModBlocks.PUMPJACK, ModBlocks.FUEL_REFINERY,
                 ModBlocks.HYDROTREATER, ModBlocks.FUEL_TANK, ModBlocks.FUEL_DRUM, ModBlocks.FUEL_PIPE,
                 ModBlocks.FUEL_VALVE, ModBlocks.FUEL_PUMP, FUEL_NOZZLE);
