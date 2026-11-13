@@ -13,8 +13,9 @@ import net.minecraft.world.phys.Vec3;
  * wheels, steers with the nose wheel and stops on its brakes. Fast enough
  * down the runway and the brake key pulls back on the yoke instead: it lifts
  * off. In the air the throttle holds its speed, the brake key climbs, back
- * puts the nose down; let the speed bleed away and the wings stop holding
- * it up, and it sinks. Come down too steeply, or stall a long way up, and the
+ * puts the nose down. Close the throttle and it glides down at a safe speed,
+ * the way a trimmed aircraft does; pull it up without power and the speed
+ * bleeds away until the wings stop holding it up. Come down too steeply, or stall a long way up, and the
  * landing is a crash like any other fall.
  *
  * <p>Slow down too far and the wing stalls: it stops carrying the aircraft
@@ -65,8 +66,20 @@ public class AirplaneEntity extends CarEntity {
     private static final double HARD_SINK = 0.3;
     /** How quickly the vertical speed follows the controls each tick. */
     private static final double RESPONSE = 0.12;
-    /** Speed bled off each tick with the throttle closed. */
+    /** Speed bled off each tick with the throttle closed, down to the glide speed. */
     private static final float GLIDE_DRAG = 0.996F;
+    /**
+     * Share of the flying speed it settles at with the throttle closed and
+     * hands off: trimmed, it lowers its nose and glides down rather than
+     * slowing until it stalls. Well clear of the stall horn.
+     */
+    private static final float GLIDE_LIFT = 1.25F;
+    /** Speed a trimmed glide gains back each tick below that, nose lowering. */
+    private static final float GLIDE_RECOVER = 0.003F;
+    /** How fast a trimmed glide comes down, blocks a tick: a landing, not a crash. */
+    private static final double GLIDE_SINK = 0.07;
+    /** Under full power a climb costs no speed below this share of the flying speed: it climbs slower instead. */
+    private static final float POWERED_CLIMB_LIFT = 1.3F;
     /** Steepest pitch drawn, degrees. */
     private static final float MAX_PITCH = 25.0F;
     /** Steepest bank the ailerons hold, degrees. */
@@ -82,13 +95,13 @@ public class AirplaneEntity extends CarEntity {
     /** Fastest it turns however slow and steep, degrees a tick. */
     private static final float MAX_AIR_TURN = 4.0F;
     /** Sink at touchdown a landing gear takes without harm, blocks a tick. */
-    private static final double SAFE_SINK = 0.12;
+    private static final double SAFE_SINK = 0.2;
     /** Damage for each block a tick of sink past that. */
     private static final float SINK_DAMAGE = 120.0F;
     /** Share of the flying speed past which touching down is flying into the ground. */
     private static final float SAFE_TOUCHDOWN_LIFT = 1.35F;
     /** Damage for each block a tick of speed past that. */
-    private static final float FAST_TOUCHDOWN_DAMAGE = 55.0F;
+    private static final float FAST_TOUCHDOWN_DAMAGE = 90.0F;
     /** A light airframe against a car's steel: how much more a crash costs it. */
     private static final float FRAGILITY = 3.0F;
 
@@ -283,10 +296,14 @@ public class AirplaneEntity extends CarEntity {
 
     @Override
     protected float airspeed(float speed, boolean throttle) {
+        float glide = GLIDE_LIFT * this.takeoffSpeed();
         if (throttle) {
             speed = Math.min(speed + this.throttleStep() * 0.5F, this.getMaxSpeed());
-        } else {
-            speed *= GLIDE_DRAG;
+        } else if (speed > glide) {
+            speed = Math.max(glide, speed * GLIDE_DRAG);
+        } else if (!this.stalled && !this.pressingBrake) {
+            // Hands off, power off: the nose drops to keep the wing flying.
+            speed = Math.min(glide, speed + GLIDE_RECOVER);
         }
         if (this.stalled) {
             // Falling gives back the speed the wing needs, faster nose down;
@@ -298,8 +315,13 @@ public class AirplaneEntity extends CarEntity {
                 speed -= CLIMB_COST;
             }
         } else if (this.pressingBrake) {
-            // Climbing trades speed for height, and without power, fast...
-            speed -= throttle ? CLIMB_COST : GLIDE_CLIMB_COST;
+            // Climbing trades speed for height, and without power, fast; under
+            // full power it only climbs as steeply as the engine can hold...
+            if (!throttle) {
+                speed -= GLIDE_CLIMB_COST;
+            } else if (speed > POWERED_CLIMB_LIFT * this.takeoffSpeed()) {
+                speed -= CLIMB_COST;
+            }
         } else if (this.pressingBack) {
             // ...and diving the other way round.
             speed += 0.003F;
@@ -324,8 +346,12 @@ public class AirplaneEntity extends CarEntity {
         }
         float lift = this.lift();
         double target;
+        boolean power = this.pressingForward && this.hasFuel() && this.canRun();
         if (lift >= 1.0F) {
-            target = this.pressingBrake ? CLIMB_RATE : this.pressingBack ? -DIVE_RATE : 0.0;
+            target = this.pressingBrake ? CLIMB_RATE * Mth.clamp((lift - 1.0F) / (POWERED_CLIMB_LIFT - 1.0F), 0.35F, 1.0F)
+                    : this.pressingBack ? -DIVE_RATE
+                    : power ? 0.0
+                    : -GLIDE_SINK;
         } else {
             // Just under flying speed the wings sink it a little at a time,
             // until the stall takes them altogether.

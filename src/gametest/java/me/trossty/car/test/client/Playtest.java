@@ -384,6 +384,16 @@ final class Playtest {
         context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
         hold(context, server, me.trossty.car.entity.MotorboatEntity.class, "boat coast", 60);
         log("boat coasted: " + where(server, me.trossty.car.entity.MotorboatEntity.class));
+        // Full ahead into a quay wall: a boat dents on stone like anything else.
+        context.getInput().pressKey(o -> o.keyShift);
+        context.waitTicks(5);
+        server.runCommand("kill @e[type=car:motorboat]");
+        board(context, server, me.trossty.car.registry.ModEntities.MOTORBOAT, me.trossty.car.entity.MotorboatEntity.class, 110.5, Y + 1, -30.5);
+        double[] at = {110.5, -30.5};
+        int wallZ = (int) Math.floor(at[1]) + 14;
+        server.runCommand("fill 92 %d %d 128 %d %d minecraft:stone_bricks".formatted(Y - 4, wallZ, Y + 3, wallZ + 1));
+        hold(context, server, me.trossty.car.entity.MotorboatEntity.class, "boat ram", 50, o -> o.keyUp);
+        log("boat rammed the quay: " + where(server, me.trossty.car.entity.MotorboatEntity.class));
         server.runCommand("gamemode creative @a");
     }
 
@@ -418,11 +428,10 @@ final class Playtest {
         context.getInput().releaseKey(o -> o.keyJump);
         context.getInput().releaseKey(o -> o.keyUp);
         context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
-        hold(context, server, plane, "level", 20);
         log("level: " + where(server, plane) + ", gear " + gear(context));
-        hold(context, server, plane, "glide down", 50, o -> o.keyDown);
-        hold(context, server, plane, "flare", 20);
-        hold(context, server, plane, "brake", 40, o -> o.keyDown);
+        // Power off and hands off: it settles to its glide and comes down to the strip.
+        hold(context, server, plane, "glide down", 100);
+        hold(context, server, plane, "brake", 60, o -> o.keyDown);
         log("landed: " + where(server, plane) + ", gear " + gear(context));
         server.runCommand("gamemode creative @a");
     }
@@ -449,7 +458,7 @@ final class Playtest {
         });
         hold(context, server, plane, "cruise", 10, o -> o.keyUp);
         log("cruise: " + where(server, plane) + ", " + stallState(context));
-        hold(context, server, plane, "power off, yoke back", 30, o -> o.keyJump);
+        hold(context, server, plane, "power off, yoke back", 45, o -> o.keyJump);
         log("pulled: " + where(server, plane) + ", " + stallState(context));
         context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
         context.getInput().holdKey(o -> o.keyJump);

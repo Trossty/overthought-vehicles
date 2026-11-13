@@ -3893,7 +3893,9 @@ public class CarEntity extends VehicleEntity {
 
         // A hard enough knock holes the tank. It is not the end of the car,
         // but it is the end of the journey unless somebody patches it.
+        // One that wrecks it outright needs no word about the tank.
         if (!this.isLeaking() && this.getMaxFuel() > 0.0F && amount >= PUNCTURE_MIN_DAMAGE
+                && this.getHealth() - amount > 0.0F
                 && this.random.nextFloat() < Math.min(PUNCTURE_MAX_CHANCE,
                         (amount - PUNCTURE_MIN_DAMAGE + 1.0F) / PUNCTURE_SPREAD)) {
             this.setLeaking(true);

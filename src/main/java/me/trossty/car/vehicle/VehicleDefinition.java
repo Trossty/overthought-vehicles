@@ -195,9 +195,12 @@ public record VehicleDefinition(
      * line from back to front, in degrees: positive lifts its left-hand end
      * (+x) — a wing strut, a landing-gear leg. {@code spins} turns it with
      * the engine about the middle of the first box that spins: a propeller.
+     * {@code yaw} turns it about its own upright, in degrees: positive swings
+     * its front towards the left (+x) — a panel along a tapering tail. A box
+     * is tilted first, then turned, then rolled.
      */
     public record Box(org.joml.Vector3f from, org.joml.Vector3f to, String color, float tilt, boolean steers,
-                      float roll, boolean spins) {
+                      float roll, boolean spins, float yaw) {
         public static final Codec<Box> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 ExtraCodecs.VECTOR3F.fieldOf("from").forGetter(Box::from),
                 ExtraCodecs.VECTOR3F.fieldOf("to").forGetter(Box::to),
@@ -205,7 +208,8 @@ public record VehicleDefinition(
                 Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("tilt", 0.0F).forGetter(Box::tilt),
                 Codec.BOOL.optionalFieldOf("steers", false).forGetter(Box::steers),
                 Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("roll", 0.0F).forGetter(Box::roll),
-                Codec.BOOL.optionalFieldOf("spins", false).forGetter(Box::spins)
+                Codec.BOOL.optionalFieldOf("spins", false).forGetter(Box::spins),
+                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("yaw", 0.0F).forGetter(Box::yaw)
         ).apply(instance, Box::new));
     }
 

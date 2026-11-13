@@ -213,6 +213,19 @@ public class CarMainClient {
         // box — a front wheel, the radiator — so the click is caught before it
         // is worked out what it landed on.
         NeoForge.EVENT_BUS.addListener(CarMainClient::servicePart);
+        // Looked at from behind, an aircraft or a boat needs the camera further
+        // back than a car does, or it sits on the tail with the view full of fin.
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.CalculateDetachedCameraDistanceEvent event) -> {
+            net.minecraft.world.entity.Entity viewer = event.getCamera().getEntity();
+            if (viewer != null && viewer.getVehicle() instanceof me.trossty.car.entity.CarEntity vehicle) {
+                float back = switch (vehicle.chassis()) {
+                    case PLANE -> 11.0F;
+                    case BOAT -> 7.0F;
+                    default -> 0.0F;
+                };
+                event.setDistance(Math.max(event.getDistance(), back * event.getEntityScalingFactor()));
+            }
+        });
         // Behind the wheel the hands are on it, not hanging over the dials.
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.RenderHandEvent event) -> {
             net.minecraft.client.player.LocalPlayer player = net.minecraft.client.Minecraft.getInstance().player;
