@@ -22,8 +22,15 @@ public final class LidCavity {
     /** The tub's own skin, and the hair it stands clear of what was cut. */
     private static final float SKIN = 0.4F;
     private static final double CLEAR = 0.05;
-    /** What the inside of the tub is painted. */
+    /** What the floor of a hollow is, and the inside of a boot: black, as carpet and the underside. */
     private static final String INSIDE = "#2A2A2C";
+    /**
+     * The inner wings and the bulkhead of an engine bay: the body colour, a
+     * shade down, as they are pressed from the same steel and painted with it.
+     */
+    private static final String BAY_WALL = "paint_dark";
+    /** Black plastic: the scuttle panel, the fuse box, the caps. */
+    private static final String TRIM = "#1C1C1E";
 
     private LidCavity() {
     }
@@ -97,11 +104,15 @@ public final class LidCavity {
             float y1 = (float) hollow.maxY;
             float z0 = (float) hollow.minZ;
             float z1 = (float) hollow.maxZ;
-            carved.add(tub(x0, y0 - SKIN, z0, x1, y0, z1));
-            carved.add(tub(x0, y0, z0, x0 + SKIN, y1, z1));
-            carved.add(tub(x1 - SKIN, y0, z0, x1, y1, z1));
-            carved.add(tub(x0 + SKIN, y0, z0, x1 - SKIN, y1, z0 + SKIN));
-            carved.add(tub(x0 + SKIN, y0, z1 - SKIN, x1 - SKIN, y1, z1));
+            String wall = VehicleDefinition.Box.BONNET.equals(lid) ? BAY_WALL : INSIDE;
+            carved.add(tub(x0, y0 - SKIN, z0, x1, y0, z1, INSIDE));
+            carved.add(tub(x0, y0, z0, x0 + SKIN, y1, z1, wall));
+            carved.add(tub(x1 - SKIN, y0, z0, x1, y1, z1, wall));
+            carved.add(tub(x0 + SKIN, y0, z0, x1 - SKIN, y1, z0 + SKIN, wall));
+            carved.add(tub(x0 + SKIN, y0, z1 - SKIN, x1 - SKIN, y1, z1, wall));
+            if (VehicleDefinition.Box.BONNET.equals(lid)) {
+                fixtures(hollow, carved);
+            }
             shape = carved;
         }
         return shape;
@@ -124,9 +135,82 @@ public final class LidCavity {
         }
     }
 
-    private static VehicleDefinition.Box tub(float x0, float y0, float z0, float x1, float y1, float z1) {
+    private static VehicleDefinition.Box tub(float x0, float y0, float z0, float x1, float y1, float z1,
+                                             String colour) {
         return new VehicleDefinition.Box(new Vector3f(x0, y0, z0), new Vector3f(x1, y1, z1),
-                INSIDE, 0.0F, false, 0.0F, false, 0.0F, "");
+                colour, 0.0F, false, 0.0F, false, 0.0F, "");
+    }
+
+    /**
+     * What every engine bay has whatever engine is in it, laid out round the
+     * parts the renderer stands in the middle: a strut tower on each inner
+     * wing, the scuttle along the bulkhead, the slam panel over the radiator,
+     * the coolant and the washer bottles in the front corners, the brake
+     * master cylinder and the fuse box against the bulkhead. All in shares of
+     * the bay, so a small car's are small.
+     */
+    private static void fixtures(AABB bay, List<VehicleDefinition.Box> into) {
+        float x0 = (float) bay.minX + SKIN;
+        float x1 = (float) bay.maxX - SKIN;
+        float y0 = (float) bay.minY;
+        float y1 = (float) bay.maxY;
+        float z0 = (float) bay.minZ + SKIN;
+        float z1 = (float) bay.maxZ - SKIN;
+        float width = x1 - x0;
+        float length = z1 - z0;
+        float deep = y1 - y0;
+        // Strut towers: a column on each inner wing, about halfway along,
+        // capped with the top mount a little proud of it.
+        float towerWide = width * 0.08F;
+        float towerLong = length * 0.15F;
+        float towerZ = z0 + length * 0.5F;
+        float towerTop = y0 + deep * 0.72F;
+        for (int side = -1; side <= 1; side += 2) {
+            float inner = side < 0 ? x0 + towerWide : x1 - towerWide;
+            float outer = side < 0 ? x0 : x1;
+            into.add(tub(Math.min(inner, outer), y0, towerZ - towerLong / 2.0F,
+                    Math.max(inner, outer), towerTop, towerZ + towerLong / 2.0F, BAY_WALL));
+            float cap = towerWide * 0.6F;
+            float capX = (inner + outer) / 2.0F;
+            into.add(tub(capX - cap / 2.0F, towerTop, towerZ - cap / 2.0F,
+                    capX + cap / 2.0F, towerTop + Math.min(0.6F, deep * 0.08F), towerZ + cap / 2.0F, TRIM));
+        }
+        // The scuttle: black plastic across the top of the bulkhead, where
+        // the wipers sit.
+        float scuttle = Math.min(1.6F, length * 0.08F);
+        into.add(tub(x0, y1 - Math.min(1.2F, deep * 0.15F), z0, x1, y1 - 0.1F, z0 + scuttle, TRIM));
+        // The slam panel: the cross member over the radiator the bonnet
+        // latches to.
+        into.add(tub(x0, y1 - Math.min(0.8F, deep * 0.1F), z1 - Math.min(1.0F, length * 0.05F),
+                x1, y1 - 0.1F, z1, BAY_WALL));
+        // Coolant bottle, front left; washer bottle, front right: each a
+        // squat tank with a cap on top.
+        float tankWide = width * 0.11F;
+        float tankLong = length * 0.17F;
+        float tankZ = z0 + length * 0.78F;
+        bottle(x0 + towerWide * 0.2F, tankWide, tankZ, tankLong, y0, deep * 0.62F, "#E6E2CF", "#2E8B57", into);
+        bottle(x1 - towerWide * 0.2F - tankWide, tankWide, tankZ, tankLong, y0, deep * 0.58F,
+                "#3C78C8", "#1E4E8C", into);
+        // Against the bulkhead: the brake master cylinder on the driver's
+        // side, the fuse box on the other.
+        float servo = width * 0.13F;
+        into.add(tub(x0 + towerWide * 1.2F, y0 + deep * 0.35F, z0, x0 + towerWide * 1.2F + servo,
+                y0 + deep * 0.7F, z0 + length * 0.12F, "#3A3A3E"));
+        into.add(tub(x0 + towerWide * 1.2F + servo * 0.3F, y0 + deep * 0.7F, z0 + length * 0.03F,
+                x0 + towerWide * 1.2F + servo * 0.7F, y0 + deep * 0.78F, z0 + length * 0.09F, "#D8B23A"));
+        float fuse = width * 0.14F;
+        into.add(tub(x1 - towerWide * 1.2F - fuse, y0 + deep * 0.3F, z0,
+                x1 - towerWide * 1.2F, y0 + deep * 0.65F, z0 + length * 0.1F, TRIM));
+    }
+
+    /** A plastic tank standing on the floor, with a cap on top in another colour. */
+    private static void bottle(float x, float wide, float midZ, float along, float floor, float tall,
+                               String body, String cap, List<VehicleDefinition.Box> into) {
+        into.add(tub(x, floor, midZ - along / 2.0F, x + wide, floor + tall, midZ + along / 2.0F, body));
+        float capWide = Math.min(wide, along) * 0.45F;
+        float mid = x + wide / 2.0F;
+        into.add(tub(mid - capWide / 2.0F, floor + tall, midZ - capWide / 2.0F,
+                mid + capWide / 2.0F, floor + tall + Math.max(0.3F, tall * 0.1F), midZ + capWide / 2.0F, cap));
     }
 
     /** What is left of a box with the cut taken out of it: up to six boxes. */

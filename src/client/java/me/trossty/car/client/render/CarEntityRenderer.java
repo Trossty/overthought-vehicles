@@ -259,6 +259,60 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
                     car.level(), car.getId() * 17 + seed++);
             matrices.popPose();
         }
+        // What joins them: the top and bottom hoses from the radiator back
+        // to the engine, and the lead from the battery to it. Each runs from
+        // the middle of one to the middle of the other, so only the stretch
+        // between them shows.
+        if (car.isFitted(me.trossty.car.entity.CarPart.ENGINE)) {
+            float engineZ = back + 0.48F * length;
+            if (car.isFitted(me.trossty.car.entity.CarPart.RADIATOR)) {
+                float radiatorZ = back + 0.92F * length;
+                pipe(matrices, buffers, light, HOSE, midX - 0.22F * width / 2.0F, floor + deep * 0.62F,
+                        engineZ, radiatorZ);
+                pipe(matrices, buffers, light, HOSE, midX + 0.22F * width / 2.0F, floor + deep * 0.22F,
+                        engineZ, radiatorZ);
+            }
+            if (car.isFitted(me.trossty.car.entity.CarPart.BATTERY)) {
+                float batteryX = midX - 0.7F * width / 2.0F;
+                float z = back + 0.2F * length;
+                matrices.pushPose();
+                matrices.translate(-batteryX, floor + deep * 0.5F, -z);
+                // Across, then forward to the engine.
+                drawBar(matrices, buffers, light, LEAD, 0.0F, 0.0F, 0.0F, batteryX - midX, 0.04F, 0.04F);
+                matrices.popPose();
+                pipe(matrices, buffers, light, LEAD, midX, floor + deep * 0.5F, z, engineZ);
+            }
+        }
+    }
+
+    private static final net.minecraft.world.level.block.state.BlockState HOSE =
+            net.minecraft.world.level.block.Blocks.BLACK_CONCRETE.defaultBlockState();
+    private static final net.minecraft.world.level.block.state.BlockState LEAD =
+            net.minecraft.world.level.block.Blocks.RED_CONCRETE.defaultBlockState();
+
+    /** A hose running front to back at x, its middle at height y, from z to z, in the load frame. */
+    private static void pipe(PoseStack matrices, MultiBufferSource buffers, int light,
+                             net.minecraft.world.level.block.state.BlockState stuff,
+                             float x, float y, float fromZ, float toZ) {
+        matrices.pushPose();
+        matrices.translate(-x, y, -Math.min(fromZ, toZ));
+        drawBar(matrices, buffers, light, stuff, 0.0F, 0.0F, 0.0F, 0.07F, 0.07F, -Math.abs(toZ - fromZ));
+        matrices.popPose();
+    }
+
+    /** A block squashed into a bar from the corner (x, y, z), d long each way, centred on the corner in the thin ones. */
+    private static void drawBar(PoseStack matrices, MultiBufferSource buffers, int light,
+                                net.minecraft.world.level.block.state.BlockState stuff,
+                                float x, float y, float z, float dx, float dy, float dz) {
+        matrices.pushPose();
+        float sx = Math.abs(dx), sy = Math.abs(dy), sz = Math.abs(dz);
+        matrices.translate(x + Math.min(dx, 0.0F) - (sx < 0.1F ? sx / 2.0F : 0.0F),
+                y - sy / 2.0F,
+                z + Math.min(dz, 0.0F) - (sz < 0.1F ? sz / 2.0F : 0.0F));
+        matrices.scale(sx, sy, sz);
+        net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(stuff, matrices,
+                buffers, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+        matrices.popPose();
     }
 
     /** How much floor each thing in an open bed gets, in blocks. */
