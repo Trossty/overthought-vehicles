@@ -92,8 +92,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.speed = car.getEngineSpeed();
         state.acceleration = car.getAcceleration(tickProgress);
         state.engineRunning = car.isEngineRunning();
-        state.headlights = car.getControllingPassenger() != null && car.hasFuel()
-                && lightAt(car) < LIGHTS_ON_BELOW;
+        state.headlights = lampsOn(car);
         state.braking = car.areBrakeLampsOn();
         state.restPose = car.getRestPose(tickProgress);
         state.damageWobbleTicks = car.getHurtTime() - tickProgress;
@@ -282,6 +281,11 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
                 net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, 0.0F, 1.0F, 0.0F);
     }
 
+    /** Whether this car's head lamps are on: somebody at the wheel, fuel, and dark enough to want them. */
+    public static boolean lampsOn(CarEntity car) {
+        return car.getControllingPassenger() != null && car.hasFuel() && lightAt(car) < LIGHTS_ON_BELOW;
+    }
+
     /** Below this much light at the car (0 to 15), the lights come on by themselves. */
     private static final int LIGHTS_ON_BELOW = 8;
     private static final net.minecraft.client.renderer.RenderType BEAM = net.minecraft.client.renderer.RenderType
@@ -298,40 +302,88 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         if (car.getY() - ground > SHADOW_FADE) {
             return;
         }
-        float half = (at[1] - at[0]) / 2.0F * 0.8F;
-        float near = at[3] - 0.3F;
         me.trossty.car.vehicle.VehicleDefinition.Lights lights = state.vehicle == null
                 ? me.trossty.car.vehicle.VehicleDefinition.Lights.PLAIN : state.vehicle.lights();
+        float half = (at[1] - at[0]) / 2.0F * 0.8F;
+        float near = at[3] - 0.3F;
         float far = at[3] + lights.length();
-        // Light stops at the first wall: it does not spill on the far side.
+        // Laid over the ground in strips, each at the height of the road under
+        // it, so the pool runs up a hill or down a dip instead of cutting into
+        // it. A step taller than the car can climb is a wall: the light stops.
         float yawRad = state.yaw * ((float) Math.PI / 180.0F);
-        net.minecraft.world.phys.Vec3 from = car.position().add(0.0, 0.6, 0.0);
-        net.minecraft.world.phys.Vec3 to = from.add(-Mth.sin(yawRad) * far, 0.0, Mth.cos(yawRad) * far);
-        net.minecraft.world.phys.BlockHitResult hit = car.level().clip(new net.minecraft.world.level.ClipContext(
-                from, to, net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                net.minecraft.world.level.ClipContext.Fluid.NONE, car));
-        float reach = hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS
-                ? far : (float) hit.getLocation().subtract(from).horizontalDistance();
-        if (reach <= near) {
+        double dirX = -Mth.sin(yawRad);
+        double dirZ = Mth.cos(yawRad);
+        float[] heights = new float[BEAM_STRIPS + 1];
+        int strips = 0;
+        double last = ground;
+        for (int i = 0; i <= BEAM_STRIPS; i++) {
+            float d = Mth.lerp((float) i / BEAM_STRIPS, near, far);
+            Double here = groundAt(car.level(), car.getX() + dirX * d, car.getZ() + dirZ * d, last);
+            if (here == null) {
+                break;
+            }
+            heights[i] = (float) (here - car.getY());
+            last = here;
+            strips = i;
+        }
+        if (strips == 0) {
             return;
         }
-        // Cut short, it keeps the shape and the fade it had up to the cut.
-        float cut = (reach - near) / (far - near);
-        float spread = lights.spread() * cut;
-        far = reach;
         matrices.pushPose();
-        matrices.translate(0.0, ground - car.getY() + 0.02, 0.0);
         matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
         PoseStack.Pose pose = matrices.last();
         com.mojang.blaze3d.vertex.VertexConsumer out = buffers.getBuffer(BEAM);
         int colour = 0xFFFFFFFF;
-        // Mirrored like the model: the car's front is -z here.
-        // Wound to face up, as the shadow is, or it is culled from above.
-        shadowVertex(pose, out, colour, -(half + spread), -far, 0.0F, cut);
-        shadowVertex(pose, out, colour, -half, -near, 0.0F, 0.0F);
-        shadowVertex(pose, out, colour, half, -near, 1.0F, 0.0F);
-        shadowVertex(pose, out, colour, half + spread, -far, 1.0F, cut);
+        float spread = lights.spread();
+        for (int i = 0; i < strips; i++) {
+            float t0 = (float) i / BEAM_STRIPS;
+            float t1 = (float) (i + 1) / BEAM_STRIPS;
+            float z0 = Mth.lerp(t0, near, far);
+            float z1 = Mth.lerp(t1, near, far);
+            float w0 = half + spread * t0;
+            float w1 = half + spread * t1;
+            float y0 = heights[i] + 0.02F;
+            float y1 = heights[i + 1] + 0.02F;
+            // Mirrored like the model: the car's front is -z here.
+            // Wound to face up, as the shadow is, or it is culled from above.
+            beamVertex(pose, out, colour, -w1, y1, -z1, 0.0F, t1);
+            beamVertex(pose, out, colour, -w0, y0, -z0, 0.0F, t0);
+            beamVertex(pose, out, colour, w0, y0, -z0, 1.0F, t0);
+            beamVertex(pose, out, colour, w1, y1, -z1, 1.0F, t1);
+        }
         matrices.popPose();
+    }
+
+    /** How many strips the beam is laid in, to follow the ground. */
+    private static final int BEAM_STRIPS = 12;
+    /** The tallest rise in the road the light carries on up, in blocks. */
+    private static final double BEAM_CLIMB = 1.1;
+
+    /**
+     * The top of the ground at this spot, looked for from a little above the
+     * last height down to a few blocks below it; null when a wall stands there
+     * or the ground falls away out of reach.
+     */
+    private static Double groundAt(net.minecraft.world.level.Level level, double x, double z, double from) {
+        net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos(
+                Mth.floor(x), Mth.floor(from + BEAM_CLIMB), Mth.floor(z));
+        for (int i = 0; i < 6; i++) {
+            net.minecraft.world.phys.shapes.VoxelShape shape = level.getBlockState(pos).getCollisionShape(level, pos);
+            if (!shape.isEmpty()) {
+                double top = pos.getY() + shape.max(net.minecraft.core.Direction.Axis.Y);
+                // Solid where the light would have to come through: a wall.
+                return top > from + BEAM_CLIMB ? null : top;
+            }
+            pos.move(net.minecraft.core.Direction.DOWN);
+        }
+        return null;
+    }
+
+    private static void beamVertex(PoseStack.Pose pose, com.mojang.blaze3d.vertex.VertexConsumer out, int colour,
+                                   float x, float y, float z, float u, float v) {
+        org.joml.Vector3f at = pose.pose().transformPosition(x, y, z, new org.joml.Vector3f());
+        out.addVertex(at.x(), at.y(), at.z(), colour, u, v, OverlayTexture.NO_OVERLAY,
+                net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, 0.0F, 1.0F, 0.0F);
     }
 
     /** How far behind the bumper the brake lamps redden the road, in blocks. */

@@ -139,6 +139,8 @@ public class CarEntity extends VehicleEntity {
     private static final float PUNCTURE_MAX_CHANCE = 0.6F;
     /** Entity status: the engine coughed on an empty pickup. */
     public static final byte STATUS_SPUTTER = 103;
+    /** Entity status: a worn plug missed, and the exhaust popped. */
+    public static final byte STATUS_MISFIRE = 104;
 
     public static final float MAX_HEALTH = 20.0F;
     /** What a player's own blow counts for, against the damage it says: eighty punches to a wreck. */
@@ -178,6 +180,10 @@ public class CarEntity extends VehicleEntity {
     private static final float WORN_PLUGS_THROTTLE = 0.75F;
     /** Chance per tick of a stumble, with plugs at nothing. */
     private static final float MISFIRE_CHANCE = 0.05F;
+    /** Speed kept through a misfire. */
+    private static final float MISFIRE_STUMBLE = 0.82F;
+    /** Heat added, at full load, by oil that has stopped doing its job. */
+    private static final float DIRTY_OIL_HEAT = 0.25F;
 
     private static final float WORN_FILTER_SPEED = 0.92F;
     private static final float MISSING_FILTER_SPEED = 0.84F;
@@ -838,6 +844,11 @@ public class CarEntity extends VehicleEntity {
                     && this.getControllingPassenger() instanceof Player driver
                     && !driver.isCreative() && !carriesKey(driver, this.lockCode));
             this.warnTheDriver();
+            // A tired set of plugs stumbles: decided here, so everybody near
+            // hears the pop and sees the puff, and the driver feels the jolt.
+            if (this.isEngineRunning() && this.misfiring()) {
+                this.level().broadcastEntityEvent(this, STATUS_MISFIRE);
+            }
             // Burned on the server, which owns the tank, from the distance actually
             // covered: while somebody drives, the throttle only exists on their client.
             this.burnFuel(travelled);
@@ -1084,12 +1095,6 @@ public class CarEntity extends VehicleEntity {
                 this.flyDist = approachZero(this.flyDist, brake);
             }
 
-            // A tired set of plugs stumbles. It is brief and it is random, and
-            // it is the only symptom on the car you can feel before you can
-            // measure it.
-            if (this.isEngineRunning() && this.misfiring()) {
-                this.flyDist *= 0.82F;
-            }
         } else {
             this.flyDist *= onGround ? ROLLING_FRICTION : AIR_DRAG;
         }
@@ -1709,6 +1714,16 @@ public class CarEntity extends VehicleEntity {
             this.lockFlashTwice = status == STATUS_UNLOCKED;
             return;
         }
+        if (status == STATUS_MISFIRE) {
+            if (this.isControlledByLocalInstance()) {
+                this.flyDist *= MISFIRE_STUMBLE;
+            }
+            this.coughExhaust();
+            this.level().playLocalSound(this.getX(), this.getY() + 0.5, this.getZ(),
+                    SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL, 0.5F,
+                    0.6F + this.random.nextFloat() * 0.2F, false);
+            return;
+        }
         if (status == STATUS_SPUTTER) {
             // The driver's client is the one moving the car: it feels the cough.
             if (this.isControlledByLocalInstance()) {
@@ -2184,8 +2199,11 @@ public class CarEntity extends VehicleEntity {
             float cooling = this.partFactor(
                     CarPart.RADIATOR, WORN_RADIATOR_COOLING, MISSING_RADIATOR_COOLING);
             float heat = this.getLayout().heat() * (this.hasTurbo() ? CarSetup.TURBO_HEAT : 1.0F);
+            // Old oil stops carrying the heat away: the gauge creeps up.
+            float oil = 1.0F - Math.min(1.0F,
+                    this.getConditionFraction(CarPart.OIL_FILTER) / FaultCodes.WARNING);
             target = Math.min(1.0F,
-                    (0.25F + 0.40F * load * heat) / (cooling * this.grade(CarPart.RADIATOR)));
+                    (0.25F + (0.40F * heat + DIRTY_OIL_HEAT * oil) * load) / (cooling * this.grade(CarPart.RADIATOR)));
         }
         float rate = target > temp ? TEMP_RISE : TEMP_FALL;
         this.entityData.set(ENGINE_TEMP, Mth.lerp(rate, temp, target));
@@ -3768,8 +3786,12 @@ public class CarEntity extends VehicleEntity {
                 .add(new Vec3(EXHAUST_SIDEWAYS, EXHAUST_HEIGHT, EXHAUST_BACK).yRot(-yawRad));
         // Trails out behind the car rather than hanging where it was made.
         double drift = -0.04 - speed * 0.5;
+        // A worn engine burns its oil: thick smoke, worse the harder it works.
+        boolean burningOil = this.hasPart(CarPart.ENGINE)
+                && this.getConditionFraction(CarPart.ENGINE) <= FaultCodes.WARNING;
         this.level().addParticle(
-                speed > 0.25F ? ParticleTypes.SMOKE : ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                burningOil ? ParticleTypes.LARGE_SMOKE
+                        : speed > 0.25F ? ParticleTypes.SMOKE : ParticleTypes.CAMPFIRE_COSY_SMOKE,
                 at.x, at.y, at.z,
                 -Mth.sin(yawRad) * drift, 0.015, Mth.cos(yawRad) * drift);
     }

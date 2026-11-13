@@ -256,6 +256,46 @@ final class Playtest {
         });
     }
 
+    /**
+     * A tired engine against a fresh one, over the same stretch: the misfires
+     * heard (each one pops), the smoke, and how hot dirty oil runs it.
+     */
+    static void tired(ClientGameTestContext context, TestServerContext server) {
+        server.runCommand("kill @e[type=!player]");
+        server.runCommand("time set noon");
+        server.runCommand("fill -40 %d -20 40 %d 120 minecraft:air".formatted(Y, Y + 20));
+        server.runCommand("fill -40 %d -20 40 %d 120 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        int[] pops = new int[1];
+        context.runOnClient(client -> client.getSoundManager().addListener((sound, range, distance) -> {
+            if (sound.getLocation().equals(net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_BLAST.getLocation())) {
+                pops[0]++;
+            }
+        }));
+        for (boolean worn : new boolean[] {false, true}) {
+            startAt(context, server, 0.5, Y, 0.5);
+            server.runOnServer(minecraft -> {
+                CarEntity car = serverCar(minecraft);
+                float level = worn ? 5.0F : 100.0F;
+                car.setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, level);
+                car.setCondition(me.trossty.car.entity.CarPart.OIL_FILTER, level);
+                car.setCondition(me.trossty.car.entity.CarPart.ENGINE, worn ? 25.0F : 100.0F);
+            });
+            pops[0] = 0;
+            drive(context, server, worn ? "tired" : "fresh", 200);
+            if (worn) {
+                context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+                context.getInput().holdKey(options -> options.keyUp);
+                context.waitTicks(10);
+                context.takeScreenshot("play_tired_smoke");
+                context.getInput().releaseKey(options -> options.keyUp);
+                context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
+            }
+            String[] temp = new String[1];
+            server.runOnServer(minecraft -> temp[0] = "%.2f".formatted(serverCar(minecraft).getEngineTemp()));
+            log("%s engine: %d misfire pops, temp %s".formatted(worn ? "tired" : "fresh", pops[0], temp[0]));
+        }
+    }
+
     private static void cow(ClientGameTestContext context, TestServerContext server) {
         startAt(context, server, -32.5, Y, 0.5);
         server.runCommand("summon minecraft:cow -32.5 %d 18.5 {NoAI:1b,Tags:[\"cow\"]}".formatted(Y));

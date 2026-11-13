@@ -179,6 +179,9 @@ public class CarMainClient {
                         .withStyle(ChatFormatting.AQUA));
             }
         });
+        // The head lamps' light on the blocks and mobs in front.
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) ->
+                me.trossty.car.client.render.HeadlightGlow.tick(Minecraft.getInstance()));
         // A looping engine sound for each car that is running or rolling.
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
             if (Minecraft.getInstance().level != null && !Minecraft.getInstance().isPaused()) {

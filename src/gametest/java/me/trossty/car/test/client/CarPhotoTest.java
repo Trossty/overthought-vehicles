@@ -69,7 +69,9 @@ public class CarPhotoTest {
             scenes.put("drums", this::drums);
             scenes.put("cabins", this::cabins);
             scenes.put("lamps", this::lamps);
+            scenes.put("nightRoad", this::nightRoad);
             scenes.put("playtest", Playtest::run);
+            scenes.put("tired", Playtest::tired);
             String only = System.getProperty("car.photo.scenes", "");
             List<String> wanted = Boolean.getBoolean("car.photo.all") ? List.copyOf(scenes.keySet())
                     : only.isBlank() ? List.of() : List.of(only.split(","));
@@ -1936,6 +1938,51 @@ public class CarPhotoTest {
         context.getInput().releaseKey(options -> options.keyRight);
         context.getInput().releaseKey(options -> options.keyUp);
         context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /**
+     * The Jeep at night facing a rise in the road, a villager and a wall: the
+     * pool of light should climb the steps, and the villager and the wall
+     * should come out of the dark lit by the lamps.
+     */
+    private void nightRoad(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -6 12 %d 24 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -6 12 %d 24 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("fill -12 %d 7 12 %d 24 minecraft:dirt".formatted(Y, Y));
+        server.runCommand("fill -12 %d 10 12 %d 24 minecraft:dirt".formatted(Y + 1, Y + 1));
+        server.runCommand("fill -4 %d 18 4 %d 18 minecraft:stone_bricks".formatted(Y + 2, Y + 5));
+        server.runCommand("summon villager 2.5 %d 12.5 {NoAI:1b,Rotation:[180f,0f],Tags:[\"photo\"]}".formatted(Y + 2));
+        server.runCommand("time set 18000");
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:14,Tags:[\"photo\"]}"
+                .formatted(Y));
+        server.runCommand("tp @a 3.5 %d 0.5".formatted(Y));
+        context.waitTicks(10);
+        server.runCommand("ride @p mount @e[type=car:car,tag=photo,limit=1]");
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            client.player.setYRot(0);
+            client.player.setXRot(10);
+            client.options.hideGui = true;
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+        });
+        context.waitTicks(20);
+        context.takeScreenshot("night_road_driver");
+        lampCamera(context, server, 9.5, Y + 4.0, 7.0, 90, 22);
+        context.takeScreenshot("night_road_side");
+        context.runOnClient(client -> client.setCameraEntity(client.player));
+        server.runCommand("ride @p dismount");
+        context.waitTicks(20);
+        // Nobody at the wheel: the lamps are off, and so is their light.
+        lampCamera(context, server, 9.5, Y + 4.0, 7.0, 90, 22);
+        context.waitTicks(10);
+        context.takeScreenshot("night_road_off");
+        context.runOnClient(client -> {
+            client.setCameraEntity(client.player);
+            client.options.hideGui = false;
+        });
+        server.runCommand("kill @e[tag=camera]");
+        server.runCommand("time set noon");
     }
 
     /** Every vehicle at night with somebody at the wheel: the head lamps and their beam, then the brake lamps. */
