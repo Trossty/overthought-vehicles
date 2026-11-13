@@ -266,6 +266,11 @@ public class TrailerEntity extends CarEntity {
             player.displayClientMessage(Component.translatable("message.car.flatbed_occupied"), true);
             return InteractionResult.CONSUME;
         }
+        if (car.isLocked() && !carriesKey(player, car.getLockCode())) {
+            // Winched on and towed off, a locked car would be as good as stolen.
+            player.displayClientMessage(Component.translatable("message.car.locked"), true);
+            return InteractionResult.CONSUME;
+        }
         CompoundTag saved = new CompoundTag();
         if (!car.saveAsPassenger(saved)) {
             return InteractionResult.CONSUME;
@@ -498,7 +503,7 @@ public class TrailerEntity extends CarEntity {
             if (this.tractorUuid != null && !this.isHitched()
                     && this.level() instanceof ServerLevel server
                     && server.getEntity(this.tractorUuid) instanceof CarEntity found
-                    && found.canTow()) {
+                    && found.canTow() && !found.isTowing(this)) {
                 // Loaded back in: the tractor has a new entity id now.
                 this.hitchTo(found);
             }
@@ -520,7 +525,9 @@ public class TrailerEntity extends CarEntity {
             return;
         }
         Player holder = this.getHolder();
-        if (holder == null || holder.distanceToSqr(this.coupler()) > HOLD_REACH * HOLD_REACH) {
+        // Nobody pulls a drawbar from a saddle or a seat: getting on something lets go.
+        if (holder == null || holder.isPassenger()
+                || holder.distanceToSqr(this.coupler()) > HOLD_REACH * HOLD_REACH) {
             if (!this.level().isClientSide()) {
                 this.letGo();
             }

@@ -1060,6 +1060,35 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** A locked car stays where it is: the winch only takes it for someone with its key. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void winchLeavesLockedCars(GameTestHelper context) {
+        var bed = context.spawn(ModEntities.TRAILER, new BlockPos(3, 1, 7));
+        bed.setModel(me.trossty.car.CarMain.id("flatbed_trailer"));
+        bed.moveTo(bed.getX(), bed.getY(), bed.getZ(), 0.0F, 0.0F);
+        var car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 1));
+        car.moveTo(car.getX(), car.getY(), car.getZ(), 0.0F, 0.0F);
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        car.saveWithoutId(tag);
+        tag.putLong("LockCode", 7L);
+        tag.putBoolean("Locked", true);
+        car.load(tag);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.setShiftKeyDown(true);
+        player.moveTo(bed.getX() + 1.5, bed.getY(), bed.getZ());
+        bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertFalse(bed.hasCargo(), "the winch took a locked car");
+        context.assertFalse(car.isRemoved(), "the locked car left the ground");
+        ItemStack key = new ItemStack(me.trossty.car.registry.ModItems.CAR_KEY);
+        key.set(me.trossty.car.registry.ModComponents.VEHICLE_KEY, 7L);
+        player.getInventory().setItem(9, key);
+        bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(bed.hasCargo(), "the owner could not winch their own car");
+        bed.discard();
+        context.succeed();
+    }
+
     /**
      * A jack pumped up by hand stays up when something is built next to it;
      * only redstone coming on or going off moves it.
