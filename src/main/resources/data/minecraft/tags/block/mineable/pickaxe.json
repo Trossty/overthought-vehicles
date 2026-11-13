@@ -19,6 +19,8 @@
     "car:battery_bank",
     "car:charging_post",
     "car:asphalt",
-    "car:engine_stand"
+    "car:engine_stand",
+    "car:boat_cradle",
+    "car:aircraft_jack"
   ]
 }

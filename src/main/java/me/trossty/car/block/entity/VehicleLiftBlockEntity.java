@@ -121,18 +121,24 @@ public class VehicleLiftBlockEntity extends BlockEntity {
         List<CarEntity> parked = world.getEntitiesOfClass(CarEntity.class, over,
                 car -> !car.isRemoved() && over.contains(car.getX(), over.minY + 0.1, car.getZ()));
         for (CarEntity car : parked) {
-            // Nobody drives a car that is up on a lift. While somebody sits
-            // at the wheel their game moves the car, not the server, so the
-            // lift could not hold it: they are asked to get out.
-            if (car.getControllingPassenger() != null) {
-                car.ejectPassengers();
-            }
-            car.setPos(car.getX(), top, car.getZ());
-            car.setDeltaMovement(Vec3.ZERO);
-            car.fallDistance = 0.0F;
-            // Wheels off the ground: the engine can run, but nothing happens.
-            car.setSpeed(0.0F);
+            pin(car, top);
         }
+    }
+
+    /**
+     * Holds a vehicle up at this height with its wheels off the ground. Nobody
+     * drives a car that is up on a lift: while somebody sits at the wheel their
+     * game moves the car, not the server, so it could not be held, and they
+     * are asked to get out. The engine can run, but nothing happens.
+     */
+    public static void pin(CarEntity car, double top) {
+        if (car.getControllingPassenger() != null) {
+            car.ejectPassengers();
+        }
+        car.setPos(car.getX(), top, car.getZ());
+        car.setDeltaMovement(Vec3.ZERO);
+        car.fallDistance = 0.0F;
+        car.setSpeed(0.0F);
     }
 
     @Override

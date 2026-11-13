@@ -47,6 +47,7 @@ public class CarPhotoTest {
             scenes.put("towing", this::towing);
             scenes.put("flatbed", this::flatbed);
             scenes.put("planeTow", this::planeTow);
+            scenes.put("stands", this::stands);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -1926,6 +1927,55 @@ public class CarPhotoTest {
         shot(context, server, "plane_tow_side", 15.0, Y + 3.0, 2.0, 90, 12);
         shot(context, server, "plane_tow_rear34", 12.0, Y + 5.0, -14.0, 40, 18);
         shot(context, server, "plane_tow_cradle", 3.5, Y + 1.6, 7.5, 125, 25);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /**
+     * A boat let down off a flatbed on to its cradle and a plane jacked up off
+     * its wheels: the two vehicles no lift takes, up where they can be worked on.
+     */
+    private void stands(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("clear @a");
+        server.runCommand("fill -24 %d -30 24 %d 30 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:trailer -6.5 %d 8.0 {Rotation:[0f,0f],Model:\"car:flatbed_trailer\",Tags:[\"bed\"]}".formatted(Y));
+        server.runCommand("summon car:motorboat -3.5 %d 1.0 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("setblock -7 %d 0 car:boat_cradle[facing=south]".formatted(Y));
+        server.runCommand("setblock -13 %d 6 car:boat_cradle[facing=south]".formatted(Y));
+        server.runCommand("setblock 8 %d -1 car:aircraft_jack[raised=true]".formatted(Y));
+        server.runCommand("setblock 14 %d 8 car:aircraft_jack".formatted(Y));
+        server.runCommand("summon car:airplane 8.5 %d -2.1 {Rotation:[0f,0f],Tags:[\"jacked\"]}".formatted(Y));
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -40, 30, Y + 10, 40);
+            var bed = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box,
+                    e -> e.getTags().contains("bed")).get(0);
+            player.setShiftKeyDown(true);
+            player.moveTo(bed.getX() + 2.0, bed.getY(), bed.getZ());
+            bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            System.out.println("car photo stands: boat winched on=" + bed.hasCargo());
+            bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            System.out.println("car photo stands: boat let down, on bed=" + bed.hasCargo());
+            player.setShiftKeyDown(false);
+        });
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -40, 30, Y + 10, 40);
+            var boat = world.getEntitiesOfClass(me.trossty.car.entity.MotorboatEntity.class, box, e -> true).get(0);
+            var plane = world.getEntitiesOfClass(me.trossty.car.entity.AirplaneEntity.class, box, e -> true).get(0);
+            System.out.println("car photo stands: boat at " + boat.position() + " servicing="
+                    + me.trossty.car.block.VehicleLiftBlock.isServicing(world, boat));
+            System.out.println("car photo stands: plane y=" + (plane.getY() - Y) + " servicing="
+                    + me.trossty.car.block.VehicleLiftBlock.isServicing(world, plane));
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "stands_boat", -1.5, Y + 2.2, -3.5, 48, 15);
+        shot(context, server, "stands_plane_side", 17.0, Y + 1.5, 0.0, 90, 5);
+        shot(context, server, "stands_overview", 2.0, Y + 7.0, 16.0, 180, 30);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

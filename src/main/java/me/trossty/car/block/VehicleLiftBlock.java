@@ -158,8 +158,12 @@ public class VehicleLiftBlock extends ModelEntityBlock {
      * True when there is a lift close enough under a vehicle to work on it, and
      * that lift has the car in the air. A car on its wheels is a car you cannot
      * get under, which is the point of owning the lift in the first place.
+     * A boat or a plane, which no lift takes, is up on its cradle or jack.
      */
     public static boolean isServicing(Level world, Entity vehicle) {
+        if (vehicle instanceof me.trossty.car.entity.CarEntity car && ServiceStandBlock.isServicing(world, car)) {
+            return true;
+        }
         BlockPos at = vehicle.blockPosition();
         for (BlockPos pos : BlockPos.betweenClosed(
                 at.offset(-REACH, -3, -REACH), at.offset(REACH, 0, REACH))) {
@@ -169,5 +173,14 @@ public class VehicleLiftBlock extends ModelEntityBlock {
             }
         }
         return false;
+    }
+
+    /** What to tell somebody working on a vehicle that is not up where it can be. */
+    public static Component needsLift(me.trossty.car.entity.CarEntity vehicle) {
+        return Component.translatable(switch (vehicle.chassis()) {
+            case BOAT -> "message.car.needs_cradle";
+            case PLANE -> "message.car.needs_jack";
+            default -> "message.car.needs_lift";
+        });
     }
 }

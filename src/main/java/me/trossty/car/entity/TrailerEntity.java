@@ -304,7 +304,10 @@ public class TrailerEntity extends CarEntity {
         return best;
     }
 
-    /** Puts the carried vehicle back in the world on the ground behind the bed. */
+    /**
+     * Puts the carried vehicle back in the world on the ground behind the bed,
+     * or on the cradle or jack it was backed up to.
+     */
     private @Nullable Entity unload() {
         CompoundTag saved = this.entityData.get(CARGO).copy();
         this.entityData.set(CARGO, new CompoundTag());
@@ -315,8 +318,14 @@ public class TrailerEntity extends CarEntity {
         }
         float yaw = this.getYRot() * Mth.DEG_TO_RAD;
         double back = this.rearReach() + (off instanceof CarEntity car ? car.frontReach() : 2.0) + 0.5;
-        off.moveTo(this.getX() + Mth.sin(yaw) * back, this.getY(), this.getZ() - Mth.cos(yaw) * back,
-                this.getYRot(), 0.0F);
+        Vec3 spot = new Vec3(this.getX() + Mth.sin(yaw) * back, this.getY(), this.getZ() - Mth.cos(yaw) * back);
+        // Backed up to a boat's cradle or a plane's jack, it is let down on to that.
+        Vec3 stand = off instanceof CarEntity car
+                ? me.trossty.car.block.ServiceStandBlock.near(this.level(), spot, this.getYRot(), car) : null;
+        if (stand != null) {
+            spot = stand;
+        }
+        off.moveTo(spot.x, spot.y, spot.z, this.getYRot(), 0.0F);
         off.setDeltaMovement(Vec3.ZERO);
         this.level().addFreshEntity(off);
         return off;

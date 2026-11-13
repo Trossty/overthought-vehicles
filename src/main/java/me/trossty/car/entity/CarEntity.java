@@ -2641,7 +2641,7 @@ public class CarEntity extends VehicleEntity {
         }
         Component name = Component.translatable("part.car." + part.key());
         if (!VehicleLiftBlock.isServicing(this.level(), this)) {
-            player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
+            player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
             return InteractionResult.CONSUME;
         }
         if (!this.isFitted(part)) {
@@ -2805,7 +2805,7 @@ public class CarEntity extends VehicleEntity {
             return InteractionResult.SUCCESS;
         }
         if (!VehicleLiftBlock.isServicing(this.level(), this)) {
-            player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
+            player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
             return InteractionResult.CONSUME;
         }
         if (!this.isFitted(CarPart.ENGINE)) {
@@ -2897,7 +2897,7 @@ public class CarEntity extends VehicleEntity {
         // filled in on the lift, where the parts can be seen.
         if (!VehicleLiftBlock.isServicing(this.level(), this)) {
             if (!this.level().isClientSide()) {
-                player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
+                player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
             }
             return InteractionResult.sidedSuccess(this.level().isClientSide());
         }
@@ -4142,7 +4142,7 @@ public class CarEntity extends VehicleEntity {
             // PASS, not FAIL: the click should still fall through to mounting, so
             // an ingot in hand never stops you getting in and driving to a garage.
             if (player.level().isClientSide()) {
-                player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
+                player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
             }
             return InteractionResult.PASS;
         }

@@ -217,6 +217,20 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
                     .sound(SoundType.METAL));
 
+    /** Padded bunks a boat is set down on out of the water to be worked on. */
+    public static final Block BOAT_CRADLE = register(
+            "boat_cradle",
+            me.trossty.car.block.ServiceStandBlock::new,
+            BlockBehaviour.Properties.of().strength(2.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** A hydraulic jack pumped up under a plane's belly to take it off its wheels. */
+    public static final Block AIRCRAFT_JACK = register(
+            "aircraft_jack",
+            me.trossty.car.block.AircraftJackBlock::new,
+            BlockBehaviour.Properties.of().strength(2.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
     /**
      * Road made from the refinery's leftovers: tar bound with gravel and sand,
      * laid a layer at a time like snow and painted with road paint. Plain
