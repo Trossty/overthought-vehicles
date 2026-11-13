@@ -19,6 +19,10 @@ public class CarRenderState {
     /** Whether the tyres are on; off, the wheels are drawn as bare hubs, or not at all with the discs off too. */
     public boolean tyresOn = true;
     public boolean discsOn = true;
+    /** One bit a wheel: set where that wheel's tyre has been taken off. */
+    public int tyresOff;
+    /** The wheel whose tyre is flat, or -1. */
+    public int flatTyre = -1;
     /** The service plates hanging over the car, if you are looking at it. */
     public java.util.List<CarServiceOverlay.PartLabel> labels = java.util.List.of();
     public float wheelAngle;

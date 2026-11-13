@@ -51,6 +51,7 @@ public class CarPhotoTest {
             scenes.put("bedLoad", this::bedLoad);
             scenes.put("towTruck", this::towTruck);
             scenes.put("caravan", this::caravan);
+            scenes.put("tyreLooks", this::tyreLooks);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -2014,6 +2015,19 @@ public class CarPhotoTest {
         shot(context, server, "bed_load_above", 2.5, Y + 5.0, -6.0, 0, 40);
         shot(context, server, "bed_load_side", 9.0, Y + 2.6, -3.0, 60, 22);
         shot(context, server, "bed_load_trailer", 4.5, Y + 6.0, -2.0, 0, 55);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A Corolla on a flat front tyre, and one with two tyres taken off. */
+    private void tyreLooks(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,FlatTyre:0}".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d 8.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:14,TyresOff:5}".formatted(Y));
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "tyre_flat", -3.5, Y + 0.6, 3.6, -120, 6);
+        shot(context, server, "tyre_off", -3.5, Y + 0.6, 11.6, -120, 6);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

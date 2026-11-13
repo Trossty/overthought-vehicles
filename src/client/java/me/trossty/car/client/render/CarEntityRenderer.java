@@ -86,6 +86,8 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.tyre = me.trossty.car.entity.CarSetup.tyre(car.getSetup()).key();
         state.tyresOn = car.isFitted(me.trossty.car.entity.CarPart.WHEELS);
         state.discsOn = car.isFitted(me.trossty.car.entity.CarPart.BRAKE_DISCS);
+        state.tyresOff = car.tyresOff();
+        state.flatTyre = car.getFlatTyre();
         state.labels = CarServiceOverlay.labelsFor(car, tickProgress);
         state.wheelAngle = car.getWheelAngle(tickProgress);
         state.steerAngle = car.getSteerAngle(tickProgress);

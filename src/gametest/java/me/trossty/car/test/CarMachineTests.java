@@ -1068,7 +1068,8 @@ public class CarMachineTests {
         context.assertTrue(car.pull() == 0.0F, "a new car pulled to one side");
         car.setFlatTyre(0);
         context.assertTrue(car.getMaxSpeed() < sound * 0.6F, "a flat did not slow the car");
-        context.assertTrue(car.pull() < 0.0F, "a flat front left did not pull the car left");
+        // The first wheel is the front right one: the model's minus x.
+        context.assertTrue(car.pull() > 0.0F, "a flat front right did not pull the car right");
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         ItemStack spare = new ItemStack(me.trossty.car.registry.ModItems.WHEEL, 2);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, spare);
@@ -1076,6 +1077,67 @@ public class CarMachineTests {
         context.assertFalse(car.hasFlatTyre(), "the spare did not go on");
         context.assertTrue(spare.getCount() == 1, "changing one wheel did not take one spare");
         context.assertTrue(Math.abs(car.getMaxSpeed() - sound) < 1.0E-4F, "the car still limped on its spare");
+        context.succeed();
+    }
+
+    /**
+     * Tyres come off one at a time, the one pointed at; the brakes behind them
+     * are reached once all are off; they go back one at a time, all of a kind.
+     */
+    @GameTest(template = "empty")
+    public static void tyresOneAtATime(GameTestHelper context) {
+        BlockPos lift = new BlockPos(3, 1, 3);
+        context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
+        CarEntity car = context.spawn(ModEntities.CAR, lift.above());
+        car.moveTo(car.getX(), car.getY(), car.getZ(), 0.0F, 0.0F);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        java.util.function.IntConsumer pointAt = wheel -> {
+            net.minecraft.world.phys.Vec3 spot = car.wheelSpot(wheel);
+            net.minecraft.world.phys.Vec3 away = spot.subtract(car.position()).multiply(1.0, 0.0, 1.0).normalize();
+            player.moveTo(spot.x + away.x * 1.5, spot.y - 1.0, spot.z + away.z * 1.5);
+            player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, spot);
+        };
+        float sound = car.getMaxSpeed();
+        pointAt.accept(2);
+        car.serviceByHand(player, CarPart.WHEELS);
+        context.assertFalse(car.isTyreOn(2), "the tyre pointed at did not come off");
+        context.assertTrue(car.tyresOn() == car.tyreCount() - 1, "more than one tyre came off");
+        context.assertTrue(player.getInventory().countItem(CarPart.WHEELS.item()) == 1, "not one tyre was handed over");
+        context.assertTrue(car.getMaxSpeed() < sound * 0.3F, "the car would drive on a bare hub");
+        car.serviceByHand(player, CarPart.WHEELS);
+        context.assertFalse(car.isTyreOn(2), "an empty hand put the tyre back");
+        car.serviceByHand(player, CarPart.BRAKE_PADS);
+        context.assertTrue(car.isFitted(CarPart.BRAKE_PADS), "the brakes came off through the other tyres");
+        for (int wheel = 0; wheel < car.tyreCount(); wheel++) {
+            if (wheel != 2) {
+                pointAt.accept(wheel);
+                car.serviceByHand(player, CarPart.WHEELS);
+            }
+        }
+        context.assertFalse(car.isFitted(CarPart.WHEELS), "with every tyre off the wheels still counted as on");
+        context.assertTrue(player.getInventory().countItem(CarPart.WHEELS.item()) == car.tyreCount(),
+                "the tyres were not all handed over");
+        ItemStack road = new ItemStack(CarPart.WHEELS.item(), 4);
+        player.getInventory().clearContent();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, road);
+        pointAt.accept(1);
+        car.serviceByHand(player, CarPart.WHEELS);
+        context.assertTrue(car.isTyreOn(1) && car.tyresOn() == 1, "one tyre did not go on by itself");
+        context.assertTrue(road.getCount() == 3, "fitting one tyre did not take one");
+        ItemStack snow = new ItemStack(CarPart.WHEELS.item(), 1);
+        snow.set(me.trossty.car.registry.ModComponents.PART_VARIANT, CarSetup.Tyre.SNOW.ordinal());
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, snow);
+        pointAt.accept(0);
+        car.serviceByHand(player, CarPart.WHEELS);
+        context.assertFalse(car.isTyreOn(0), "a snow tyre went on beside a road tyre");
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, road);
+        for (int wheel : new int[] {0, 2, 3}) {
+            pointAt.accept(wheel);
+            car.serviceByHand(player, CarPart.WHEELS);
+        }
+        context.assertTrue(car.tyresOn() == 4 && road.isEmpty(), "the set did not go back on");
+        context.assertTrue(Math.abs(car.getMaxSpeed() - sound) < 1.0E-4F, "the car still limped with four tyres");
         context.succeed();
     }
 

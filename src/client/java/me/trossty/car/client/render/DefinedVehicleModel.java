@@ -114,6 +114,11 @@ public class DefinedVehicleModel extends VehicleModel {
     private final List<ModelPart> steered = new ArrayList<>();
     /** Each wheel's size as {width, radius} scales, put back every frame. */
     private final List<float[]> wheelScales = new ArrayList<>();
+    /** The radius, in pixels, the wheel is built to before it is scaled to size. */
+    private static final float WHEEL_MODEL_RADIUS = 7.6F;
+    /** How far a flat tyre's rim sinks, as a share of the radius, and how much fatter the tyre gets. */
+    private static final float FLAT_SINK = 0.24F;
+    private static final float FLAT_BULGE = 1.22F;
     /** The rubber of every wheel, and the hubs, so a removed tyre or disc can leave the picture. */
     private final List<ModelPart> rubber = new ArrayList<>();
     private final List<ModelPart> hubs = new ArrayList<>();
@@ -623,11 +628,14 @@ public class DefinedVehicleModel extends VehicleModel {
 
         // Taken off on the lift, a tyre is gone from the car; what is left on
         // the hub is the brake disc, and with that off too, nothing.
-        for (ModelPart part : this.rubber) {
-            part.visible = state.tyresOn;
+        // Tyres come off one at a time, so each wheel is asked about its own.
+        for (int index = 0; index < this.rubber.size(); index++) {
+            this.rubber.get(index).visible = state.tyresOn
+                    && (state.tyresOff >> (index / (2 * TREAD_SLABS)) & 1) == 0;
         }
-        for (ModelPart part : this.hubs) {
-            part.visible = state.tyresOn || state.discsOn;
+        for (int index = 0; index < this.hubs.size(); index++) {
+            this.hubs.get(index).visible = state.discsOn
+                    || state.tyresOn && (state.tyresOff >> (index / TREAD_SLABS) & 1) == 0;
         }
 
         float roll = state.wheelAngle * DEGREES;
@@ -638,6 +646,17 @@ public class DefinedVehicleModel extends VehicleModel {
             wheel.yScale = scale[1];
             wheel.zScale = scale[1];
             wheel.xRot = roll;
+            if (index == state.flatTyre) {
+                // Let down: the rim sinks towards the road and the tyre
+                // squats under it, its bottom flat on the ground and its
+                // sidewalls bulging out. The wheel is dropped so the road
+                // hides what would have been the round of the tread, and it
+                // is not rolled round, so the flat stays at the bottom.
+                wheel.xScale = scale[0] * FLAT_BULGE;
+                wheel.xRot = 0.0F;
+                // The model's y runs downward.
+                wheel.y += scale[1] * WHEEL_MODEL_RADIUS * FLAT_SINK;
+            }
         }
         float steer = state.steerAngle * DEGREES;
         for (ModelPart wheel : this.steered) {

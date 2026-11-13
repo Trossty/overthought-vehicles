@@ -392,8 +392,11 @@ public class CarEntity extends VehicleEntity {
     private static final EntityDataAccessor<net.minecraft.nbt.CompoundTag> SHOWN_LOAD =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.COMPOUND_TAG);
 
-    /** Which wheel is flat, counted front left, front right, back left, back right; -1 for none. */
+    /** Which wheel is flat, by its place in the vehicle's list of wheels; -1 for none. */
     private static final EntityDataAccessor<Byte> FLAT_TYRE =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
+    /** One bit a wheel, by its place in the list: set where the tyre has been taken off. */
+    private static final EntityDataAccessor<Byte> TYRES_OFF =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
 
     private String definitionKey = "";
@@ -580,6 +583,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(PAINT, -1);
         builder.define(LOCKED, false);
         builder.define(FLAT_TYRE, (byte) -1);
+        builder.define(TYRES_OFF, (byte) 0);
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
@@ -2265,14 +2269,193 @@ public class CarEntity extends VehicleEntity {
         return this.entityData.get(FLAT_TYRE) >= 0;
     }
 
-    /** Which wheel is flat (front left, front right, back left, back right), or -1. */
+    /** Which wheel is flat, by its place in the list of wheels, or -1. */
     public int getFlatTyre() {
         return this.entityData.get(FLAT_TYRE);
     }
 
     /** Lets a tyre down: which one, or -1 to have one changed by magic (commands, tests). */
     public void setFlatTyre(int wheel) {
-        this.entityData.set(FLAT_TYRE, (byte) Mth.clamp(wheel, -1, 3));
+        this.entityData.set(FLAT_TYRE, (byte) Mth.clamp(wheel, -1, this.tyreCount() - 1));
+    }
+
+    // ---- one tyre at a time ----
+
+    /** How many wheels there are to put a tyre on: the vehicle's own, or a plain car's four. */
+    public int tyreCount() {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        if (defined != null && !defined.wheels().isEmpty()) {
+            return Math.min(8, defined.wheels().size());
+        }
+        return this.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.MOTORCYCLE ? 2 : 4;
+    }
+
+    /** Which wheels have had their tyres taken off, a bit each. */
+    public int tyresOff() {
+        return this.isFitted(CarPart.WHEELS) ? this.entityData.get(TYRES_OFF) & 0xFF : (1 << this.tyreCount()) - 1;
+    }
+
+    /** Whether this wheel has its tyre on. */
+    public boolean isTyreOn(int wheel) {
+        return (this.tyresOff() >> wheel & 1) == 0;
+    }
+
+    /** How many wheels have their tyres on. */
+    public int tyresOn() {
+        return this.tyreCount() - Integer.bitCount(this.tyresOff() & ((1 << this.tyreCount()) - 1));
+    }
+
+    /** The first wheel without a tyre while others still have theirs, or -1: the car would sit on that hub. */
+    private int missingTyre() {
+        if (!this.isFitted(CarPart.WHEELS)) {
+            return -1;
+        }
+        for (int wheel = 0; wheel < this.tyreCount(); wheel++) {
+            if (!this.isTyreOn(wheel)) {
+                return wheel;
+            }
+        }
+        return -1;
+    }
+
+    /** The wheel the car limps on: a flat one, or a bare hub; -1 if it rolls on four good tyres. */
+    private int limpingWheel() {
+        return this.hasFlatTyre() ? this.getFlatTyre() : this.missingTyre();
+    }
+
+    /** Which way a wheel's side drags the car: the right side right, the left side left. */
+    private float sideOf(int wheel) {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        if (defined != null && wheel < defined.wheels().size()) {
+            // The model's minus x is the vehicle's right.
+            return defined.wheels().get(wheel).at().x() < 0.0F ? 1.0F : -1.0F;
+        }
+        return wheel % 2 == 0 ? -1.0F : 1.0F;
+    }
+
+    /** Where a wheel's middle is in the world. */
+    public Vec3 wheelSpot(int wheel) {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        Vec3 local;
+        if (defined != null && wheel < defined.wheels().size()) {
+            org.joml.Vector3f at = defined.wheels().get(wheel).at();
+            local = new Vec3(at.x() / 16.0, at.y() / 16.0, at.z() / 16.0);
+        } else {
+            java.util.List<CarPart.Anchor> anchors = this.anchorsOf(CarPart.WHEELS);
+            CarPart.Anchor anchor = anchors.get(Math.min(wheel, anchors.size() - 1));
+            local = new Vec3(-anchor.x(), anchor.y(), -anchor.z());
+        }
+        return this.position().add(local.yRot(-this.getYRot() * Mth.DEG_TO_RAD));
+    }
+
+    /**
+     * The wheel the player is pointing at, or nearest it: among those with
+     * a tyre on, those without, or any (null).
+     */
+    public int aimedWheel(Player player, @Nullable Boolean tyreOn) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getViewVector(1.0F);
+        int best = -1;
+        double bestMiss = Double.MAX_VALUE;
+        for (int wheel = 0; wheel < this.tyreCount(); wheel++) {
+            if (tyreOn != null && this.isTyreOn(wheel) != tyreOn) {
+                continue;
+            }
+            Vec3 to = this.wheelSpot(wheel).subtract(eye);
+            double along = Math.max(0.0, to.dot(look));
+            double miss = to.subtract(look.scale(along)).lengthSqr();
+            if (miss < bestMiss) {
+                best = wheel;
+                bestMiss = miss;
+            }
+        }
+        return best;
+    }
+
+    /** Takes the tyre off the wheel the player points at, and hands it over. */
+    private InteractionResult removeTyre(Player player) {
+        Component name = Component.translatable("part.car.wheel");
+        int wheel = this.aimedWheel(player, true);
+        if (wheel < 0) {
+            player.displayClientMessage(Component.translatable("message.car.part_absent",
+                    Component.translatable("part.car." + CarPart.WHEELS.key())), true);
+            return InteractionResult.CONSUME;
+        }
+        float condition = this.getCondition(CarPart.WHEELS);
+        CarPart.Quality quality = this.getQuality(CarPart.WHEELS);
+        int variant = this.getVariant(CarPart.WHEELS);
+        if (this.getFlatTyre() == wheel) {
+            // The flat one off: there is nothing flat on the car now.
+            this.entityData.set(FLAT_TYRE, (byte) -1);
+        }
+        this.entityData.set(TYRES_OFF, (byte) (this.tyresOff() | 1 << wheel));
+        if (this.tyresOn() == 0) {
+            // The last one off: the slot is empty, as for any part taken off.
+            this.setCondition(CarPart.WHEELS, 0.0F);
+            this.setQuality(CarPart.WHEELS, CarPart.Quality.DEFAULT);
+            this.setVariant(CarPart.WHEELS, 0);
+        }
+        this.handAside(player, asStack(CarPart.WHEELS, condition, quality, variant, 1));
+        this.playWrench();
+        player.displayClientMessage(Component.translatable("message.car.part_removed", name,
+                Math.round(condition / CarPart.MAX_CONDITION * 100.0F)), true);
+        return InteractionResult.CONSUME;
+    }
+
+    /**
+     * Puts one tyre on the wheel the player points at: on a bare hub it goes
+     * on, over a tyre it is a swap. All the tyres on a car are one kind, so
+     * a different kind goes on only once the others are off. The set wears
+     * as one, so a tyre put on among worn ones evens out with them.
+     */
+    private InteractionResult fitTyre(Player player, ItemStack spare) {
+        Component name = Component.translatable("part.car.wheel");
+        int wheel = this.aimedWheel(player, null);
+        float fitting = conditionOf(spare);
+        CarPart.Quality fittingQuality = qualityOf(spare);
+        int fittingVariant = variantOf(spare);
+        float now = this.getCondition(CarPart.WHEELS);
+        int on = this.tyresOn();
+        boolean swap = this.isTyreOn(wheel);
+        int others = swap ? on - 1 : on;
+        if (others > 0 && fittingVariant != this.getVariant(CarPart.WHEELS)) {
+            player.displayClientMessage(Component.translatable("message.car.tyre_mixed"), true);
+            return InteractionResult.CONSUME;
+        }
+        if (swap && now >= CarPart.MAX_CONDITION && fittingQuality == this.getQuality(CarPart.WHEELS)
+                && fittingVariant == this.getVariant(CarPart.WHEELS)) {
+            player.displayClientMessage(Component.translatable("message.car.part_already_new", name), true);
+            return InteractionResult.CONSUME;
+        }
+        if (swap) {
+            this.handAside(player, asStack(CarPart.WHEELS, now, this.getQuality(CarPart.WHEELS),
+                    this.getVariant(CarPart.WHEELS), 1));
+            if (this.getFlatTyre() == wheel) {
+                this.entityData.set(FLAT_TYRE, (byte) -1);
+            }
+        }
+        if (others == 0) {
+            this.setCondition(CarPart.WHEELS, fitting);
+            this.setQuality(CarPart.WHEELS, fittingQuality);
+            this.setVariant(CarPart.WHEELS, fittingVariant);
+            if (!swap) {
+                // The first one on a bare car: the rest are still off.
+                this.entityData.set(TYRES_OFF, (byte) (((1 << this.tyreCount()) - 1) & ~(1 << wheel)));
+            }
+        } else {
+            this.setCondition(CarPart.WHEELS, Math.max(1.0F, (now * others + fitting) / (others + 1)));
+            this.entityData.set(TYRES_OFF, (byte) (this.tyresOff() & ~(1 << wheel)));
+        }
+        if (!player.isCreative()) {
+            spare.shrink(1);
+        }
+        this.playWrench();
+        int fittedPercent = Math.round(fitting / CarPart.MAX_CONDITION * 100.0F);
+        player.displayClientMessage(swap
+                ? Component.translatable("message.car.part_fitted", name,
+                        Math.round(now / CarPart.MAX_CONDITION * 100.0F), fittedPercent)
+                : Component.translatable("message.car.part_fitted_new", name, fittedPercent), true);
+        return InteractionResult.CONSUME;
     }
 
     /** Whether a block will cut a tyre that rolls over it. */
@@ -2308,8 +2491,11 @@ public class CarEntity extends VehicleEntity {
         if (chance <= 0.0F || this.random.nextFloat() >= chance) {
             return;
         }
-        int wheels = this.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.MOTORCYCLE ? 2 : 4;
-        this.setFlatTyre(this.random.nextInt(wheels));
+        int wheel = this.random.nextInt(this.tyreCount());
+        if (!this.isTyreOn(wheel)) {
+            return;
+        }
+        this.setFlatTyre(wheel);
         this.playSound(SoundEvents.FIREWORK_ROCKET_BLAST, 1.2F, 0.5F);
         if (this.getControllingPassenger() instanceof Player driver) {
             driver.displayClientMessage(Component.translatable("message.car.tyre_flat"), true);
@@ -2587,7 +2773,8 @@ public class CarEntity extends VehicleEntity {
      */
     public float pull() {
         // A flat drags the car hard over to its own side, whatever else is true.
-        float flat = this.hasFlatTyre() ? (this.entityData.get(FLAT_TYRE) % 2 == 0 ? -FLAT_PULL : FLAT_PULL) : 0.0F;
+        int limping = this.limpingWheel();
+        float flat = limping >= 0 ? this.sideOf(limping) * FLAT_PULL : 0.0F;
         return flat + this.wornPull();
     }
 
@@ -2773,7 +2960,12 @@ public class CarEntity extends VehicleEntity {
     /** The stack a part in the given condition comes off as. */
     private static ItemStack asStack(CarPart part, float condition, CarPart.Quality quality,
                                      int variant) {
-        ItemStack stack = new ItemStack(part.item(), part.count());
+        return asStack(part, condition, quality, variant, part.count());
+    }
+
+    private static ItemStack asStack(CarPart part, float condition, CarPart.Quality quality,
+                                     int variant, int count) {
+        ItemStack stack = new ItemStack(part.item(), count);
         if (variant != 0) {
             stack.set(ModComponents.PART_VARIANT, variant);
         }
@@ -2818,6 +3010,9 @@ public class CarEntity extends VehicleEntity {
             player.displayClientMessage(Component.translatable("message.car.part_blocked",
                     Component.translatable("part.car." + inTheWay.key()), name), true);
             return InteractionResult.CONSUME;
+        }
+        if (part == CarPart.WHEELS) {
+            return this.removeTyre(player);
         }
 
         float condition = this.getCondition(part);
@@ -2917,6 +3112,9 @@ public class CarEntity extends VehicleEntity {
             player.displayClientMessage(Component.translatable("message.car.part_blocked",
                     Component.translatable("part.car." + inTheWay.key()), name), true);
             return InteractionResult.CONSUME;
+        }
+        if (part == CarPart.WHEELS) {
+            return this.fitTyre(player, spares);
         }
         if (spares.getCount() < part.count()) {
             player.displayClientMessage(
@@ -3046,6 +3244,16 @@ public class CarEntity extends VehicleEntity {
         // emptied cannot quietly fill itself again on the next click.
         ItemStack held = player.getMainHandItem();
         boolean offering = held.is(part.item());
+        if (part == CarPart.WHEELS && this.isFitted(part)) {
+            int wheel = this.aimedWheel(player, null);
+            if (wheel >= 0 && !this.isTyreOn(wheel) && !offering) {
+                if (!this.level().isClientSide()) {
+                    player.displayClientMessage(Component.translatable("message.car.part_hold_spare",
+                            Component.translatable("part.car." + part.key())), true);
+                }
+                return InteractionResult.CONSUME;
+            }
+        }
         if (this.isFitted(part)) {
             // A spare in hand on a fitted part is a swap; an empty hand takes it off.
             return offering ? this.fitPart(player, held, part) : this.removePart(player, part);
@@ -3812,7 +4020,9 @@ public class CarEntity extends VehicleEntity {
                 * (0.7F + 0.3F * this.traction())
                 * (this.isOverheating() ? OVERHEATING_POWER : 1.0F)
                 // On a flat it limps: driven faster, the rim would cut the tyre up.
-                * (this.hasFlatTyre() ? FLAT_SPEED : 1.0F);
+                * (this.hasFlatTyre() ? FLAT_SPEED : 1.0F)
+                // On a bare hub it scrapes along at a crawl.
+                * (this.missingTyre() >= 0 ? FLAT_SPEED * 0.4F : 1.0F);
     }
 
     // ---- automatic gearbox ----
@@ -4355,7 +4565,8 @@ public class CarEntity extends VehicleEntity {
         this.setPaint(view.getIntOr("Paint", -1));
         this.lockCode = view.getLongOr("LockCode", 0L);
         this.entityData.set(LOCKED, this.lockCode != 0 && view.getBooleanOr("Locked", false));
-        this.entityData.set(FLAT_TYRE, (byte) Mth.clamp(view.getIntOr("FlatTyre", -1), -1, 3));
+        this.entityData.set(FLAT_TYRE, (byte) Mth.clamp(view.getIntOr("FlatTyre", -1), -1, 7));
+        this.entityData.set(TYRES_OFF, (byte) view.getIntOr("TyresOff", 0));
         this.setHealth(view.getFloatOr("Health", MAX_HEALTH));
         for (CarPart part : CarPart.values()) {
             this.setCondition(part, view.getFloatOr("Part" + part.key(), CarPart.MAX_CONDITION));
@@ -4387,6 +4598,9 @@ public class CarEntity extends VehicleEntity {
         view.putBoolean("Locked", this.isLocked());
         if (this.hasFlatTyre()) {
             view.putInt("FlatTyre", this.entityData.get(FLAT_TYRE));
+        }
+        if (this.isFitted(CarPart.WHEELS) && this.tyresOff() != 0) {
+            view.putInt("TyresOff", this.tyresOff());
         }
         view.putFloat("Health", this.getHealth());
         for (CarPart part : CarPart.values()) {
