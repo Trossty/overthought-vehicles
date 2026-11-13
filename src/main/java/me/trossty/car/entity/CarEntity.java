@@ -678,7 +678,11 @@ public class CarEntity extends VehicleEntity {
             this.updateDriving();
             Vec3 requested = this.getDeltaMovement();
             Vec3 from = this.position();
+            boolean grounded = this.onGround();
             this.move(MoverType.SELF, requested);
+            if (grounded && !this.onGround() && requested.y <= 0.0) {
+                this.followGroundDown();
+            }
             this.checkForCrash(requested, from);
         } else {
             this.setDeltaMovement(Vec3.ZERO);
@@ -1129,13 +1133,14 @@ public class CarEntity extends VehicleEntity {
 
     /** A distance in blocks, as a person would say it: metres, then kilometres. */
     public static Component formatDistance(float blocks) {
+        // Blocks up to a thousand, then kiloblocks: 1 kb = 1000 blocks.
         if (blocks < 1000.0F) {
-            return Component.translatable("unit.car.metres", Math.round(blocks / 10.0F) * 10);
+            return Component.translatable("unit.car.blocks", (int) blocks);
         }
-        float km = blocks / 1000.0F;
-        return Component.translatable("unit.car.km", km < 10.0F
-                ? String.format(java.util.Locale.ROOT, "%.1f", km)
-                : String.valueOf(Math.round(km)));
+        float kb = blocks / 1000.0F;
+        return Component.translatable("unit.car.kiloblocks", kb < 100.0F
+                ? String.format(java.util.Locale.ROOT, "%.1f", kb)
+                : String.valueOf(Math.round(kb)));
     }
 
     /** The tank, in fuel units: from the definition's litres, or a family car's. */
@@ -1347,11 +1352,34 @@ public class CarEntity extends VehicleEntity {
         this.prevStepOffset = this.stepOffset;
         double rise = this.getY() - yBefore;
         float offset = this.stepOffset;
-        // Up only: falling is already gradual. A teleport is left alone.
-        if (rise > 0.02 && rise <= 1.1) {
+        // A step up, or a step down the car was kept on the ground over. A
+        // fall is already gradual, and a teleport is left alone.
+        if (rise > 0.02 && rise <= 1.1 || this.followedDown > 0.0F) {
             offset -= (float) rise;
         }
+        this.followedDown = 0.0F;
         this.stepOffset = Math.abs(offset) < 0.002F ? 0.0F : offset * 0.55F;
+    }
+
+    /** How far the car was set down a step this tick; read by {@link #easeSteps}. */
+    private float followedDown;
+
+    /** Off the edge of a step, a block or less: a car's wheels stay on the road. */
+    private static final double STEP_DOWN = 1.05;
+
+    /**
+     * Rolled off the edge of a step: set the car down on the ground below,
+     * the way its wheels would drop onto it, instead of launching it off
+     * every block of a hillside. A real drop is left to fall.
+     */
+    private void followGroundDown() {
+        net.minecraft.world.phys.AABB below = this.getBoundingBox().expandTowards(0.0, -STEP_DOWN, 0.0);
+        if (this.level().noBlockCollision(this, below)) {
+            return;
+        }
+        double from = this.getY();
+        this.move(MoverType.SELF, new Vec3(0.0, -STEP_DOWN, 0.0));
+        this.followedDown = (float) (from - this.getY());
     }
 
     public float getStepOffset(float tickProgress) {
@@ -2576,7 +2604,8 @@ public class CarEntity extends VehicleEntity {
 
     @Override
     public float maxUpStep() {
-        return 0.6F;
+        // A block, as a wheel this size rides up a kerb: the land is made of them.
+        return 1.0F;
     }
 
     @Override

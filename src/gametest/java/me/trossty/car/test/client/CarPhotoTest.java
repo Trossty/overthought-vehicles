@@ -25,7 +25,7 @@ public class CarPhotoTest {
             // Two layers: the top one is swapped for grass or gravel per scene,
             // and gravel needs stone under it or it falls.
             server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 2, Y - 1));
-            server.runCommand("fill -20 %d -10 20 %d 40 minecraft:air".formatted(Y, Y + 8));
+            server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
             server.runCommand("gamemode creative @a");
             server.runCommand("time set noon");
             server.runCommand("gamerule doDaylightCycle false");
@@ -376,7 +376,7 @@ public class CarPhotoTest {
      */
     private void roadsAndCharging(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         server.runCommand("fill -2 %d 0 2 %d 40 car:asphalt".formatted(Y - 1, Y - 1));
         server.runCommand("fill 0 %d 0 0 %d 40 car:asphalt[marking=dashed,facing=north]".formatted(Y - 1, Y - 1));
         server.runCommand("fill 3 %d 0 3 %d 40 car:asphalt[layers=4]".formatted(Y, Y));
@@ -715,7 +715,7 @@ public class CarPhotoTest {
     /** The Corolla at its full length, from the side and from the front three-quarter, someone beside it for scale. */
     private void longCorolla(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         server.runCommand("summon car:car 0.5 %d 10.5 {Rotation:[0f,0f],Color:14}".formatted(Y));
         server.runCommand("summon car:car 0.5 %d 2.5 {Rotation:[0f,0f],Model:\"car:tofas_sahin\",Color:0}".formatted(Y));
         server.runCommand("summon minecraft:villager 2.8 %d 10.5 {NoAI:1b,Rotation:[90f,0f]}".formatted(Y));
@@ -729,13 +729,12 @@ public class CarPhotoTest {
     /** Every car and the lorry drawn out like the Corolla: noses in a line, then each from the side. */
     private void longFleet(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         String[][] vehicles = {
                 {"car:car", "car:tofas_sahin", "0"},
                 {"car:car", "car:toyota_corolla", "14"},
                 {"car:car", "car:ford_mustang", "11"},
                 {"car:car", "car:jeep_wrangler", "5"},
-                {"car:car", "car:ford_transit", "4"},
                 {"car:pickup", "car:toyota_hilux", "9"},
                 {"car:fuel_tanker", "car:mercedes_atego", "0"},
         };
@@ -743,7 +742,7 @@ public class CarPhotoTest {
         for (String[] vehicle : vehicles) {
             server.runCommand("summon %s %.1f %d 14.5 {Rotation:[0f,0f],Model:\"%s\",Color:%s}"
                     .formatted(vehicle[0], x, Y, vehicle[1], vehicle[2]));
-            x += vehicle[1].contains("atego") || vehicle[1].contains("transit") ? 4.0 : 3.5;
+            x += vehicle[1].contains("atego") ? 4.0 : 3.5;
         }
         server.runCommand("summon minecraft:villager -15.0 %d 14.5 {NoAI:1b,Rotation:[90f,0f]}".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
@@ -835,7 +834,7 @@ public class CarPhotoTest {
         });
 
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         Object[][] loads = {
                 {net.minecraft.world.level.material.Fluids.WATER, 0.5F},
                 {net.minecraft.world.level.material.Fluids.LAVA, 1.0F},
@@ -891,9 +890,9 @@ public class CarPhotoTest {
      */
     private void productionLine(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d 0 20 %d 40 minecraft:stone".formatted(Y - 12, Y - 2));
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         server.runCommand("fill -10 %d 17 -6 %d 22 car:oil_deposit".formatted(Y - 9, Y - 7));
         server.runCommand("setblock -11 %d 22 car:oil_seep".formatted(Y));
         server.runCommand("setblock -12 %d 23 car:oil_seep".formatted(Y));
@@ -1239,7 +1238,7 @@ public class CarPhotoTest {
     /** The pump close up: three of them part full, one with its nozzle out, at noon and at night. */
     private void gasPump(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
         int[] fills = {1800, 900, 150};
         for (int i = 0; i < 3; i++) {
@@ -1274,7 +1273,7 @@ public class CarPhotoTest {
     /** A row of drums, each painted the colour of what is in it, by a pump for scale. */
     private void drums(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
         server.runCommand("setblock -4 %d 4 car:fuel_pump[half=lower,facing=south,nozzle=true]".formatted(Y));
         server.runCommand("setblock -4 %d 4 car:fuel_pump[half=upper,facing=south,nozzle=true]".formatted(Y + 1));
@@ -1317,7 +1316,7 @@ public class CarPhotoTest {
 
     private void pumpAndLift(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
         server.runCommand("setblock -3 %d 4 car:fuel_pump[half=lower,facing=south,nozzle=true]".formatted(Y));
         server.runCommand("setblock -3 %d 4 car:fuel_pump[half=upper,facing=south,nozzle=true]".formatted(Y + 1));
@@ -1345,7 +1344,7 @@ public class CarPhotoTest {
      */
     private void blockGallery(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
         String[] row = {"car:vehicle_workbench", "car:vehicle_workstation", "car:vehicle_lift", "car:fuel_pump",
                 "car:fuel_valve", "car:fuel_pipe", "car:generator", "car:diesel_generator",
@@ -1449,13 +1448,12 @@ public class CarPhotoTest {
 
     /** Each vehicle alone on grass, from the front three-quarter: how it is meant to be seen. */
     private void portraits(ClientGameTestContext context, TestServerContext server) {
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         String[][] vehicles = {
                 {"car:car", "car:toyota_corolla", "9"},
                 {"car:car", "car:tofas_sahin", "0"},
                 {"car:car", "car:jeep_wrangler", "5"},
                 {"car:car", "car:ford_mustang", "11"},
-                {"car:car", "car:ford_transit", "4"},
                 {"car:pickup", "car:toyota_hilux", "14"},
                 {"car:fuel_tanker", "car:mercedes_atego", "0"},
         };
@@ -1489,7 +1487,6 @@ public class CarPhotoTest {
                 {"car:car", "car:toyota_corolla"},
                 {"car:car", "car:jeep_wrangler"},
                 {"car:car", "car:ford_mustang"},
-                {"car:car", "car:ford_transit"},
                 {"car:pickup", "car:toyota_hilux"},
                 {"car:fuel_tanker", "car:mercedes_atego"},
         };
@@ -1576,14 +1573,16 @@ public class CarPhotoTest {
      */
     private void rideAndLeave(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:air".formatted(Y, Y + 8));
-        // A dirt path, a row of slabs and a field of bumps on the way.
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
+        // A dirt path and a row of slabs on the way.
         server.runCommand("fill -3 %d 2 3 %d 5 minecraft:dirt_path".formatted(Y - 1, Y - 1));
         server.runCommand("fill -3 %d 10 3 %d 10 minecraft:oak_slab".formatted(Y, Y));
-        for (int z = 16; z < 30; z += 3) {
-            server.runCommand("setblock %d %d %d minecraft:grass_block".formatted(z % 2 == 0 ? -1 : 1, Y, z));
-        }
+        // Then a hill the way the land is: a block up, a block up again, and
+        // down the far side a block at a time.
+        server.runCommand("fill -4 %d 16 4 %d 34 minecraft:grass_block".formatted(Y, Y));
+        server.runCommand("fill -4 %d 21 4 %d 28 minecraft:grass_block".formatted(Y + 1, Y + 1));
+        server.runCommand("fill -4 %d 34 4 %d 40 minecraft:air".formatted(Y, Y));
         server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
         context.waitTicks(5);
         server.runCommand("ride @p mount @e[tag=photo,limit=1]");
@@ -1595,13 +1594,12 @@ public class CarPhotoTest {
         });
         context.getInput().holdKey(options -> options.keyUp);
         StringBuilder heights = new StringBuilder("car photo ride heights:");
-        for (int tick = 0; tick < 50; tick++) {
+        for (int tick = 0; tick < 90; tick++) {
             context.waitTicks(1);
             heights.append(context.<String>computeOnClient(client -> {
                 var car = client.player.getVehicle();
-                return !(car instanceof me.trossty.car.entity.CarEntity driven) ? " -" : " %.2f>%.2f%s g%d/%.0f".formatted(car.getY() - Y,
-                        car.getY() - Y + driven.getStepOffset(1.0F), car.onGround() ? "" : "*",
-                        driven.getGear(), driven.getEngineRpm());
+                return !(car instanceof me.trossty.car.entity.CarEntity driven) ? " -" : " %.1f:%.2f>%.2f%s".formatted(car.getZ(), car.getY() - Y,
+                        car.getY() - Y + driven.getStepOffset(1.0F), car.onGround() ? "" : "*");
             }));
             if (tick == 35) {
                 context.takeScreenshot("ride_driving");
@@ -1610,6 +1608,11 @@ public class CarPhotoTest {
         context.getInput().releaseKey(options -> options.keyUp);
         System.out.println(heights);
         context.waitTicks(40);
+        // The odometer counts the blocks driven, and the client sees it too.
+        context.runOnClient(client -> {
+            var car = (me.trossty.car.entity.CarEntity) client.player.getVehicle();
+            System.out.println("car photo ride odometer: %.1f blocks, z %.1f".formatted(car.getOdometer(), car.getZ() + 6.5));
+        });
         context.getInput().pressKey(options -> options.keyShift);
         // Where the car is drawn after getting out: it has to stay put, not
         // jump back to where it was boarded.
@@ -1618,7 +1621,7 @@ public class CarPhotoTest {
             context.waitTicks(1);
             after.append(context.<String>computeOnClient(client -> client.level.getEntitiesOfClass(
                             me.trossty.car.entity.CarEntity.class,
-                            new net.minecraft.world.phys.AABB(-20, Y - 5, -20, 20, Y + 5, 60), e -> true)
+                            new net.minecraft.world.phys.AABB(-40, Y - 10, -40, 40, Y + 10, 200), e -> true)
                     .stream().map(car -> " %.2f".formatted(car.getZ())).findFirst().orElse(" -")));
         }
         System.out.println(after);
@@ -1639,7 +1642,7 @@ public class CarPhotoTest {
 
     /** The scooter, the sports bike and the trailer, alone on grass. */
     private void twoWheelsAndTrailer(ClientGameTestContext context, TestServerContext server) {
-        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         String[][] vehicles = {
                 {"car:motorcycle", "car:vespa_primavera"},
                 {"car:motorcycle", "car:honda_cbr600rr"},
@@ -1911,7 +1914,6 @@ public class CarPhotoTest {
         String[][] vehicles = {
                 {"car:car", "car:toyota_corolla", "0"},
                 {"car:car", "car:ford_mustang", "11"},
-                {"car:car", "car:ford_transit", "4"},
                 {"car:fuel_tanker", "car:mercedes_atego", "0"},
         };
         for (String[] vehicle : vehicles) {

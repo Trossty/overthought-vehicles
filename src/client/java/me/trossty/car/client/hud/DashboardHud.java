@@ -76,13 +76,13 @@ public class DashboardHud implements LayeredDraw.Layer {
 
     // ---- scale ----
     /**
-     * A block is a metre and a tick is a twentieth of a second, so blocks per
-     * tick times 72 is km/h. Top speed works out at about 45 km/h, which leaves
-     * the needle short of the stop like a real speedometer.
+     * The dial reads blocks per second, the world's own unit: twenty ticks to
+     * the second. A family car tops out at about 12 blocks a second, which
+     * leaves the needle short of the stop like a real speedometer.
      */
-    private static final float BLOCKS_PER_TICK_TO_KMH = 20.0F * 3.6F;
+    private static final float TICKS_PER_SECOND = 20.0F;
     /** The speedometer is printed in steps of this, so its labels come out round. */
-    private static final float DIAL_STEP_KMH = 30.0F;
+    private static final float DIAL_STEP = 3.0F;
     /** Headroom above the car's rated top speed, so the needle stops short of the end. */
     private static final float DIAL_HEADROOM = 1.12F;
     private static final int RPM_MINOR = 500;
@@ -184,9 +184,9 @@ public class DashboardHud implements LayeredDraw.Layer {
             return;
         }
 
-        float kmh = Math.abs(car.getEngineSpeed()) * BLOCKS_PER_TICK_TO_KMH;
-        float dialKmh = dialMaxKmh(car);
-        float targetSpeed = Mth.clamp(kmh / dialKmh, 0.0F, 1.0F);
+        float blocksPerSecond = Math.abs(car.getEngineSpeed()) * TICKS_PER_SECOND;
+        float dialMax = dialMax(car);
+        float targetSpeed = Mth.clamp(blocksPerSecond / dialMax, 0.0F, 1.0F);
         int dialRpm = car.getEngineFuel().needsSpark() ? 8000 : 5000;
         float targetRpm = Mth.clamp(car.getEngineRpm() / dialRpm, 0.0F, 1.0F);
         float targetFuel = Mth.clamp(car.getFuelFraction(), 0.0F, 1.0F);
@@ -213,7 +213,7 @@ public class DashboardHud implements LayeredDraw.Layer {
         int cy = bottom - BOTTOM_MARGIN - RADIUS;
 
         // speedometer next to the hotbar, rev counter outside it
-        drawSpeedometer(context, client, centerX - reach, cy, car.getHealthFraction(), dialKmh, car.getOdometer());
+        drawSpeedometer(context, client, centerX - reach, cy, car.getHealthFraction(), dialMax, car.getOdometer());
         drawTachometer(context, client, centerX - reach - RADIUS * 2 - DIAL_GAP, cy, car, dialRpm);
         // fuel next to the hotbar, temperature outside it, sitting on the same line
         float range = car.rangeBlocks(car.getEngineSpeed());
@@ -250,9 +250,9 @@ public class DashboardHud implements LayeredDraw.Layer {
      * little headroom, rounded up to a step that labels evenly. A tuned V8 gets
      * a dial that reads past 100; a lorry keeps a short one.
      */
-    static float dialMaxKmh(CarEntity car) {
-        float rated = car.getRatedTopSpeed() * BLOCKS_PER_TICK_TO_KMH * DIAL_HEADROOM;
-        return Math.max(DIAL_STEP_KMH * 2, (float) Math.ceil(rated / DIAL_STEP_KMH) * DIAL_STEP_KMH);
+    static float dialMax(CarEntity car) {
+        float rated = car.getRatedTopSpeed() * TICKS_PER_SECOND * DIAL_HEADROOM;
+        return Math.max(DIAL_STEP * 2, (float) Math.ceil(rated / DIAL_STEP) * DIAL_STEP);
     }
 
     /**
@@ -298,11 +298,11 @@ public class DashboardHud implements LayeredDraw.Layer {
     }
 
     private void drawSpeedometer(GuiGraphics context, Minecraft client, int cx, int cy,
-                                 float healthFraction, float dialKmh, float odometer) {
+                                 float healthFraction, float dialMax, float odometer) {
         drawFace(context, SPEED_FACE, cx, cy);
         for (int i = 0; i <= SPEED_STEPS; i += SPEED_LABEL_EVERY) {
             float t = (float) i / SPEED_STEPS;
-            drawLabel(context, client, cx, cy, t, String.valueOf(Math.round(dialKmh * t)));
+            drawLabel(context, client, cx, cy, t, String.valueOf(Math.round(dialMax * t)));
         }
         // The service lamp, the counterpart of the fuel gauge's pump: a badly
         // knocked-about car smokes and loses top speed, so say so.
@@ -310,12 +310,23 @@ public class DashboardHud implements LayeredDraw.Layer {
             drawIcon(context, WRENCH_ICON, cx, cy, ICON_DAMAGE);
         }
         // The odometer under the hub, where the fuel gauge has its range:
-        // whole kilometres, zero-padded like the drum on a real dash.
-        context.drawCenteredString(client.font,
-                net.minecraft.network.chat.Component.translatable("hud.car.odometer",
-                        String.format(java.util.Locale.ROOT, "%06d", (int) (odometer / 1000.0F))),
+        // blocks, then kiloblocks once past a thousand.
+        drawCaption(context, client, CarEntity.formatDistance(odometer),
                 cx, cy + ICON_OFFSET_Y + 10, 0xFF8A949A);
         drawNeedle(context, cx, cy, this.speedNeedle);
+    }
+
+    /** A line under a hub, shrunk when it would run past the dial's rim. */
+    private static void drawCaption(GuiGraphics context, Minecraft client,
+                                    net.minecraft.network.chat.Component text, int cx, int y, int color) {
+        int width = client.font.width(text);
+        float scale = Math.min(1.0F, (RADIUS * 2 - 12) / (float) width);
+        var matrices = context.pose();
+        matrices.pushPose();
+        matrices.translate(cx, y + (1.0F - scale) * 4.0F, 0.0F);
+        matrices.scale(scale, scale, 1.0F);
+        context.drawCenteredString(client.font, text, 0, 0, color);
+        matrices.popPose();
     }
 
     private void drawFuelGauge(GuiGraphics context, Minecraft client, int cx, int cy,
@@ -338,7 +349,7 @@ public class DashboardHud implements LayeredDraw.Layer {
                         net.minecraft.network.chat.Component.translatable("hud.car.leak"), cx, cy + ICON_OFFSET_Y + 10, ICON_DAMAGE);
             }
         } else {
-            context.drawCenteredString(client.font, CarEntity.formatDistance(range),
+            drawCaption(context, client, CarEntity.formatDistance(range),
                     cx, cy + ICON_OFFSET_Y + 10, fuelFraction < WARNING_FRACTION ? ICON_LIT : 0xFF8A949A);
         }
         drawNeedle(context, cx, cy, this.fuelNeedle);

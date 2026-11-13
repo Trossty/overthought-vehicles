@@ -363,7 +363,7 @@ public final class CarServiceOverlay {
         // or coming off shows as a number changing in front of you.
         stack(labels, new PartLabel(specAt.box(pos, yaw).getCenter().subtract(pos),
                 Component.translatable("gui.car.plate_spec",
-                        Math.round(car.getMaxSpeed() * 72.0F),
+                        String.format(java.util.Locale.ROOT, "%.1f", car.getMaxSpeed() * 20.0F),
                         String.format(java.util.Locale.ROOT, "%.2f",
                                 car.throttleStep() / CarEntity.ACCELERATION),
                         String.format(java.util.Locale.ROOT, "%.2f", car.thirstFactor())),

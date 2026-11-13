@@ -43,7 +43,7 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **Drift** — hızda el freni + direksiyon arkayı kaydırır
 - **Römork** — tek akslı kasalı römork; aracın arkasına bağlanır, 27 slotluk yük taşır, yük çekeni yavaşlatır
 - **İki tekerliler** — Vespa scooter ve Honda CBR spor motor; virajda yatıyorlar
-- **Gerçek araçlar** — Toyota Corolla, Tofaş Şahin, Jeep Wrangler, Ford Mustang (yarış arabası), Ford Transit dolmuş (11 kişilik), Toyota Hilux, Mercedes-Benz Atego tanker, Vespa Primavera, Honda CBR600RR ve kasalı römork; eski deneme arabası yok
+- **Gerçek araçlar** — Toyota Corolla, Tofaş Şahin, Jeep Wrangler, Ford Mustang (yarış arabası), Toyota Hilux, Mercedes-Benz Atego tanker, Vespa Primavera, Honda CBR600RR ve kasalı römork; eski deneme arabası yok
 - **3B istasyon blokları** — pompa, rafineri, arıtıcı, pumpjack, jeneratörler ve depo küp değil, kaideli/kolonlu/bacalı modeller
 - **Makine ekranları** — jeneratör, arıtıcı, pompa kulesi, akü ve şarj direği: depo, enerji, akış ve çalışıyor/boşta lambası
 - **Akü bankası ve şarj direği** — 200 000 E'lik depo (önünden verir, öbür yüzlerinden alır), yanındaki elektrikli aracı şarj eden direk
@@ -169,7 +169,7 @@ Kabin oyuk olduğu için içi gerçekten görünüyor, o yüzden içi de var. He
 - `gauges`: sürücünün önünde siyah siperlik, iki krem kadran ve kırmızı ibreler.
 - `carpet`: kabin tabanı halı.
 
-Corolla, Wrangler, Hilux, Şahin, Mustang, Transit (üç sıra) ve Atego'nun
+Corolla, Wrangler, Hilux, Şahin, Mustang ve Atego'nun
 kabinleri bunlarla döşeli. Fotoğraf sahnesi: `cabins` (sürücü gözü, aşağı bakış,
 camdan).
 
@@ -804,15 +804,14 @@ arabasının deposu eskisi gibi 100 birim, bir kova benzin, bir dolu bidon.
 
 | Araç | Depo | Menzil (dolu depo, azami hızın %60'ı) |
 |------|------|--------------------------------------|
-| Toyota Corolla | 50 L | 6.3 km |
-| Tofaş Şahin | 50 L | 5.6 km |
-| Jeep Wrangler | 66 L | 4.1 km |
-| Ford Mustang | 61 L | 2.9 km |
-| Toyota Hilux | 80 L | 9.4 km |
-| Ford Transit | 80 L | 8.2 km |
-| Mercedes Atego | 200 L | 10.0 km |
-| Vespa Primavera | 8 L | 2.0 km |
-| Honda CBR600RR | 18 L | 2.8 km |
+| Toyota Corolla | 50 L | 6.3 kb |
+| Tofaş Şahin | 50 L | 5.6 kb |
+| Jeep Wrangler | 66 L | 4.1 kb |
+| Ford Mustang | 61 L | 2.9 kb |
+| Toyota Hilux | 80 L | 9.4 kb |
+| Mercedes Atego | 200 L | 10.0 kb |
+| Vespa Primavera | 8 L | 2.0 kb |
+| Honda CBR600RR | 18 L | 2.8 kb |
 
 Tüketim oranları (`fuel_use`) gerçek araçların 100 km'de yaktığına göre
 ayarlı: Vespa ~2.8, Corolla ~6, Mustang ~16, Atego ~15 L/100 km karşılığı.
@@ -1556,7 +1555,7 @@ kaşları ve Wrangler'ın tavanı açık krem renkte; camlar açık mavi ve yar�
 Üretici aracı (`tools/GenVehicles.java`) bunu her araca aynı biçimde uyguluyor:
 `grow` tekerin yazılan boyuna oranı, `widen` genişliğine oranı (1.1). Tekerler
 gerçek ölçüden biraz iri, yarıçapları 6.25 ile 7.5 piksel arasında: Corolla
-1.18, Şahin 1.25, Hilux 1.08, Wrangler 1.04, Mustang 1.08, Transit 1.12, Atego 1.0. (Eskiden tekerin boyu
+1.18, Şahin 1.25, Hilux 1.08, Wrangler 1.04, Mustang 1.08, Atego 1.0. (Eskiden tekerin boyu
 model her karede sıfırlandığı için hiç uygulanmıyordu, bütün tekerler aynı iri
 boyda çiziliyordu; artık `setAngles` her karede yeniden uyguluyor.)
 Gövde boyuna esnetilerek çiziliyor: her teker kemerinin çevresi yazıldığı gibi
@@ -1574,7 +1573,6 @@ değişmedi. Römork ve iki tekerliler eski ölçüsünde.
 | Corolla | 4.1 | 5.2 | 3.1 |
 | Mustang | 4.2 | 5.3 | 3.2 |
 | Wrangler | 4.3 | 5.4 | 3.2 |
-| Transit | 4.6 | 5.9 | 3.6 |
 | Hilux | 4.8 | 6.3 | 3.7 |
 | Atego | 5.8 | 6.8 | 4.1 |
 
@@ -1591,7 +1589,6 @@ Hepsi yukarıdaki yoldan, sıradan veri olarak geliyor (`tools/GenVehicles.java`
 | Tofaş Şahin | araba | | sıralı 4, benzin |
 | Jeep Wrangler | araba | | V6, benzin, arazi lastiği |
 | Ford Mustang | araba | | V8, benzin, spor lastik |
-| Ford Transit dolmuş | araba | | sıralı 4, dizel; 11 koltuk |
 | Toyota Hilux | kamyonet | kamyonetin varsayılanı | sıralı 4 turbo dizel |
 | Mercedes-Benz Atego | tanker | tankerin varsayılanı | dizel kamyon |
 | Honda CBR600RR | motosiklet | motosikletin varsayılanı | sıralı 4, benzin, spor lastik |
@@ -1603,9 +1600,7 @@ Yaratıcı sekmede hepsi ayrı duruyor; hayatta kalmada hepsi
 
 Mustang, 1967 fastback çizgisinde: uzun kaput, tavandan kuyruğa tek çizgide
 inen arka cam, kalkık kuyruk, her yanda üç stop lambası ve kaputtan kuyruğa iki
-beyaz şerit. Yarış arabası: en hızlısı ve en çok yakanı. Transit, İstanbul
-dolmuşu gibi sarı; yanında siyah-beyaz damalı şerit, sürgülü kapı, tavanda
-lamba, kabinde iki koltuk ve arkada üçer kişilik üç sıra var.
+beyaz şerit. Yarış arabası: en hızlısı ve en çok yakanı.
 
 Tekerlekler takılı lastiğe göre değişiyor (yol: gümüş jant, arazi ve kış:
 tırtıklı kara lastik, spor: ince kollu jant) ve Minecraft piksel dokulu.
@@ -1638,7 +1633,6 @@ araca geçiyor, tıpkı liftte olduğu gibi.
 | Tofaş Şahin | 2 demir külçe, 1 demir parmaklık |
 | Jeep Wrangler | 2 demir blok, 2 demir parmaklık, 2 deri |
 | Ford Mustang | 1 demir blok, 2 demir külçe, 1 kızıltaş bloğu |
-| Ford Transit | 2 demir blok, 1 demir külçe, 2 cam levha |
 | Vespa | motor, şanzıman, 2 süspansiyon, 2 lastik + 2 demir külçe, 1 deri |
 | Honda CBR | motor, şanzıman, 2 süspansiyon, 2 lastik + 3 demir külçe, 2 kızıltaş, 1 deri |
 | Kasalı römork | 2 süspansiyon + 1 sandık, 3 demir külçe, 3 meşe basamak |
@@ -1833,11 +1827,13 @@ baskılı: ibrenin bandın içine girmesiyle gücün düşmesi aynı olay.
 baskılanıyor: yeniden örneklenmiş bir çerçeve, yanındaki iki keskin çerçevenin
 arasında hemen belli olurdu. Sağ tarafta duruyor çünkü sol taraf sohbetin yeri.
 
-Hız, arabanın gerçek sürat değerinden geliyor: bir blok bir metre, bir tik
-saniyenin yirmide biri, yani `blok/tik × 72 = km/sa`. Kadranın sonu sabit
-değil: `getRatedTopSpeed()` — aracın gövdesi, motoru, yakıtı, turbosu ve parça
-sınıfları, aşınma hariç — ×1,12 ve 30'un katına yuvarlanmış. Fabrika Corolla
-60'ta biten bir kadran görüyor; turbolu, performans motorlu bir V8 100'ü geçen.
+Hız, arabanın gerçek sürat değerinden geliyor ve dünyanın kendi biriminde,
+**blok/saniye** okunuyor: bir saniye yirmi tik, yani `blok/tik × 20`. Kadranın
+sonu sabit değil: `getRatedTopSpeed()` — aracın gövdesi, motoru, yakıtı,
+turbosu ve parça sınıfları, aşınma hariç — ×1,12 ve 3'ün katına yuvarlanmış.
+Fabrika Corolla 15'te biten bir kadran görüyor; turbolu, performans motorlu bir
+V8 daha uzununu. Kadranın altındaki yazılar (sayaç, menzil) kadrana sığmazsa
+küçülüyor.
 
 İbreler ani zıplamıyor: her kare hedefe doğru `NEEDLE_RESPONSE` kadar
 yaklaşıyorlar, kare süresi hesaba katıldığı için hız salınımı FPS'ten bağımsız.
@@ -1926,7 +1922,7 @@ yutuyor, duvar boyunca sıyırma neredeyse hiçbir şey.
 Hırpalanan araba:
 
 - **Yavaşlıyor.** Üst hız durumla birlikte düşüyor, boş durumda `MAX_SPEED`'in
-  yarısına kadar — ama oraya varmadan dağılıyor. %35'te ~30 km/sa.
+  yarısına kadar — ama oraya varmadan dağılıyor. %35'te ~8 blok/sn.
 - **Tütüyor.** %35'in altında kaputun önünden duman çıkıyor, %15'in altında
   duman kalınlaşıyor.
 - **Uyarı veriyor.** Hızölçerdeki anahtar ikonu kırmızı yanıyor.
@@ -2025,8 +2021,8 @@ geçer. Devir sınırı 4500.
 
 ### Kilometre, aşınma ve OBD tableti
 
-- Araç sürüldükçe **kilometre sayacı** artar (göstergede altı haneli), kayıtta
-  saklanır. 50 000 bloğa kadar her parça %50'ye varan oranda daha hızlı aşınır;
+- Araç sürüldükçe **sayaç** blok blok artar (1000 bloğa kadar `57 blok`,
+  sonra **kiloblok**: 1 kb = 1000 blok, örn. `12.4 kb`), kayıtta saklanır. Yalnızca tekerlekler yerdeyken sayar. 50 000 bloğa kadar her parça %50'ye varan oranda daha hızlı aşınır;
   yarı ömrünü bitirmiş bir parça kendi başına %25 daha hızlı gider. Servisi
   ertelemek servisin kendisinden pahalıya gelir.
 - **OBD tableti** gerçek bir atölye tableti gibi **3B**: kalın gövde, turuncu
@@ -2203,7 +2199,7 @@ Her dosyanın tek bir sahibi var: hangi üreticiyi çalıştırırsan çalışt�
 
 Henüz yapılmadı, MrCrayfish'te olan katmanlar:
 
-- **Daha fazla araç tipi** — yarış arabası (Mustang) ve dolmuş (Transit)
+- **Daha fazla araç tipi** — yarış arabası (Mustang)
   eklendi; yeni bir araç artık `tools/GenVehicles.java`'da bir yöntem ve bir
   tarif dosyası demek
 - **Ertelenenler** ([GELISTIRME.md](GELISTIRME.md)'de nedenleriyle):

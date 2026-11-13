@@ -13,7 +13,7 @@ import java.util.Map;
  * between its front axle and its nose, the gearbox under its floor between its
  * axles, the exhaust at its own tail. A long van, a short hatch, a cab-over
  * lorry and a motorbike each get their own map, so pointing at the wheel of a
- * Transit is pointing at the wheel.
+ * long van is pointing at the wheel.
  *
  * <p>Worked in the definition's pixels — x across, y up, z towards the front —
  * and handed out as {@link CarPart.Anchor}s in blocks, in the model's sense

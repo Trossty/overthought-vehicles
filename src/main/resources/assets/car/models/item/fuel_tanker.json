@@ -3,7 +3,7 @@
   "overrides": [
     {
       "predicate": {
-        "car:vehicle": 6
+        "car:vehicle": 5
       },
       "model": "car:item/vehicle_mercedes_atego"
     }

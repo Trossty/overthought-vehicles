@@ -33,7 +33,7 @@ public final class ItemLooks {
      */
     public static final List<ResourceLocation> VEHICLES = List.of(
             CarMain.id("toyota_corolla"), CarMain.id("tofas_sahin"), CarMain.id("jeep_wrangler"),
-            CarMain.id("ford_mustang"), CarMain.id("ford_transit"), CarMain.id("mercedes_atego"),
+            CarMain.id("ford_mustang"), CarMain.id("mercedes_atego"),
             CarMain.id("vespa_primavera"), CarMain.id("honda_cbr600rr"), CarMain.id("toyota_hilux"),
             CarMain.id("box_trailer"));
 

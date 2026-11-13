@@ -3,7 +3,7 @@
   "overrides": [
     {
       "predicate": {
-        "car:vehicle": 9
+        "car:vehicle": 8
       },
       "model": "car:item/vehicle_toyota_hilux"
     }

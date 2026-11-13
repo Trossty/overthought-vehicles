@@ -3,13 +3,13 @@
   "overrides": [
     {
       "predicate": {
-        "car:vehicle": 7
+        "car:vehicle": 6
       },
       "model": "car:item/vehicle_vespa_primavera"
     },
     {
       "predicate": {
-        "car:vehicle": 8
+        "car:vehicle": 7
       },
       "model": "car:item/vehicle_honda_cbr600rr"
     }

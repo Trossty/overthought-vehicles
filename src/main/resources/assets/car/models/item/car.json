@@ -24,12 +24,6 @@
         "car:vehicle": 4
       },
       "model": "car:item/vehicle_ford_mustang"
-    },
-    {
-      "predicate": {
-        "car:vehicle": 5
-      },
-      "model": "car:item/vehicle_ford_transit"
     }
   ]
 }

@@ -979,108 +979,6 @@ public class GenVehicles {
     }
 
     // ------------------------------------------------------------------
-    // Ford Transit as a dolmuş: the yellow minibus with a chequered band
-    // down its side, a sliding door and three benches behind the cab.
-    // The bus.
-    // ------------------------------------------------------------------
-    static Vehicle transit() {
-        Vehicle v = new Vehicle("ford_transit");
-        v.between = LONG_BETWEEN;
-        v.overhang = LONG_OVERHANG;
-        v.tank = 80;
-        v.grow = 1.12;
-        v.dye = "yellow";
-        v.paint = 0xFED83D;
-        v.width = 2.0;
-        v.height = 2.55;
-        v.stretch = 15.0 / 14.0;
-        v.performance = "\"speed\": 0.85, \"acceleration\": 0.8, \"fuel_use\": 1.4, "
-                + "\"braking\": 0.85, \"steering\": 0.85, \"offroad\": 0.15";
-        v.factory = "\"engine\": \"inline4\", \"fuel\": \"diesel\", \"tyres\": \"road\"";
-        v.materials = new String[] {"minecraft:iron_block", "2", "minecraft:iron_ingot", "1", "minecraft:glass_pane", "2"};
-        double roof = 36;
-        double sill = 21;
-
-        // the short nose
-        v.box(-14, 5, 37, 14, 15, 43, "paint");
-        v.panel(-13.8, 13.8, 19, 30, 15, 43, 1.2, "paint");
-        v.box(-9, 8, 43, 9, 13.5, 43.4, BLACK);
-        v.box(-9, 10.4, 43.4, 9, 11, 43.6, CHROME);
-        v.box(-1.6, 9.9, 43.6, 1.6, 11.5, 43.8, "#2C4D9C");
-        v.pair(9.5, 10, 43, 13.6, 14, 43.4, LAMP);
-        v.pair(11.8, 7.6, 43, 13.6, 9.6, 43.4, AMBER);
-        v.bumper(-14.4, 4.5, 43, 14.4, 7.5, 44.6);
-        v.box(-3.5, 5.2, 44.6, 3.5, 7, 44.8, "#E8E8E8");
-        v.arch(14, 9.5, 5, 15, 13, 30, 7);
-
-        // the box: floor, lower sides between and behind the arches, upper sides the whole way
-        v.box(-9.4, 5.5, -42, 9.4, 7, 37, "paint_dark");
-        v.pair(13, 5.5, -17, 14, 13, 23, "paint");
-        v.pair(13, 5.5, -42, 14, 13, -31, "paint");
-        v.pair(13, 13, -42, 14, sill, 30, "paint");
-        v.pair(13.7, 5, -17, 14.3, 6.4, 23, BLACK);
-        v.pair(14, 7, -6, 14.1, sill, -5.8, "paint_dark");
-        v.pair(14, 7, 12.2, 14.1, sill, 12.4, "paint_dark");
-        v.pair(14, 13.6, 9.8, 14.3, 14.2, 11.6, BLACK);
-        // the dolmuş band: white, chequered black in two rows
-        v.pair(14, 17.4, -41, 14.1, 19.6, 29, "#F4F4F4");
-        for (int square = 0; square < 35; square++) {
-            double z = -41 + square * 2.0;
-            if (z + 1.1 > 29) {
-                break;
-            }
-            double y = square % 2 == 0 ? 17.4 : 18.5;
-            v.pair(14.1, y, z, 14.2, y + 1.1, z + 1.1, BLACK);
-            v.pair(14.1, y == 17.4 ? 18.5 : 17.4, z + 1.0, 14.2, (y == 17.4 ? 18.5 : 17.4) + 1.1, z + 2.0, BLACK);
-        }
-
-        // the back doors, split down the middle, glass in the top half
-        v.box(-14, 5.5, -42.5, 14, sill, -41.5, "paint");
-        v.pair(12, sill, -42.5, 14, roof, -41.5, "paint");
-        v.box(-0.6, sill, -42.5, 0.6, roof, -41.5, "paint");
-        v.box(-12, sill, -42.2, 12, roof, -41.8, GLASS);
-        v.pair(12.4, 9, -42.8, 14, 18, -42.5, TAIL);
-        v.box(-3, 8, -42.7, 3, 10.5, -42.5, "#E8E8E8");
-        v.bumper(-14.4, 4.5, -44, 14.4, 7.5, -42.5);
-        v.pair(0.6, 13, -42.8, 2, 13.6, -42.5, CHROME);
-
-        // screen, roof, the pillars between the side windows
-        v.panels(12.6, 14, 19, 30, roof, 22, 1.3, "paint");
-        v.box(-14, roof - 0.8, 21, 14, roof, 23, "paint");
-        v.box(-14, roof, -42.5, 14, roof + 1.5, 23, "paint");
-        v.box(-5, roof + 1.5, 17.5, 5, roof + 4, 19, LAMP);
-        v.box(-4, roof + 2.2, 19, 4, roof + 3.3, 19.1, BLACK);
-        for (double z : new double[] {12, 1, -10, -21, -32}) {
-            v.pair(13, sill, z, 14, roof, z + 1.5, "paint");
-        }
-        v.pair(13, sill, -42.5, 14, roof, -40.5, "paint");
-        v.screen(12.6, 19, 30, roof, 22);
-        v.sideWindows(13.5, sill, roof, -40.5, -40.5, 28.8, 22);
-        v.pair(14, 21, 24.5, 17.5, 25.5, 26, BLACK);
-
-        // inside: the cab, then three benches of three
-        v.dash(13, 16.5, 20, 25.5, 29, 7, 10.4);
-        v.gauges(3.5, 17.5, 23, 3.2, 35);
-        v.frontSeats(7, 9.1, 10.4, 19.5, 22.5, true);
-        for (double z : new double[] {-2, -16, -30}) {
-            v.rearBench(12.5, 7, 9.1, z - 1.6, z + 7, 21.5, 3);
-        }
-        v.carpet(9.4, 7, -42, 25.5);
-
-        v.axle(12, 30, 6, 4.5, true);
-        v.axle(12, -24, 6, 4.5, false);
-
-        v.seat(6.4, 6.9, 15.5);
-        v.seat(-6.4, 6.9, 15.5);
-        for (double z : new double[] {1.5, -12.5, -26.5}) {
-            v.seat(8, 6.9, z);
-            v.seat(0, 6.9, z);
-            v.seat(-8, 6.9, z);
-        }
-        return v;
-    }
-
-    // ------------------------------------------------------------------
     // Mercedes-Benz Atego: a cab-over two-axle rigid with a fuel barrel
     // on its back. The tanker.
     // ------------------------------------------------------------------
@@ -1605,7 +1503,7 @@ public class GenVehicles {
     }
 
     public static void main(String[] args) throws Exception {
-        List<Vehicle> all = List.of(corolla(), sahin(), wrangler(), mustang(), transit(), hilux(), atego(),
+        List<Vehicle> all = List.of(corolla(), sahin(), wrangler(), mustang(), hilux(), atego(),
                 trailer(), vespa(), cbr());
         item("car", all, "car", "toyota_corolla");
         item("pickup", all, "pickup", "toyota_hilux");
