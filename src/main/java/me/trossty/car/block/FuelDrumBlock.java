@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>It faces the way it was put down only so the filler cap on its lid is on
  * the side nearest you.
  */
-public class FuelDrumBlock extends BaseEntityBlock {
+public class FuelDrumBlock extends ModelEntityBlock {
 
     public static final MapCodec<FuelDrumBlock> CODEC = simpleCodec(FuelDrumBlock::new);
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;

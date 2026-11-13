@@ -16,7 +16,6 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -32,7 +31,7 @@ import net.minecraft.world.phys.BlockHitResult;
  * a house's, on a skid, with the exhaust out of the back. One class for all
  * three; which fuel it takes is the kind it was registered with.
  */
-public class GeneratorBlock extends BaseEntityBlock {
+public class GeneratorBlock extends ModelEntityBlock {
 
     public static final MapCodec<GeneratorBlock> CODEC =
             simpleCodec(settings -> new GeneratorBlock(GeneratorBlockEntity.Kind.COAL, settings));
@@ -125,11 +124,6 @@ public class GeneratorBlock extends BaseEntityBlock {
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
         return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
-    }
-
-    @Override
-    protected RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL;
     }
 
     @Override

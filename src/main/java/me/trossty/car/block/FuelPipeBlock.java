@@ -40,7 +40,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * <p>Right-clicking one says how much petrol is standing in that segment, which
  * is the only way to see a line working from the outside.
  */
-public class FuelPipeBlock extends BaseEntityBlock {
+public class FuelPipeBlock extends ModelEntityBlock {
 
     public static final MapCodec<FuelPipeBlock> CODEC = simpleCodec(FuelPipeBlock::new);
 

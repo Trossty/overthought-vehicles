@@ -41,7 +41,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * through the six directions if you aimed wrong, and says which way it is
  * pointing and whether redstone currently has it shut.
  */
-public class FuelValveBlock extends BaseEntityBlock {
+public class FuelValveBlock extends ModelEntityBlock {
 
     public static final MapCodec<FuelValveBlock> CODEC = simpleCodec(FuelValveBlock::new);
 

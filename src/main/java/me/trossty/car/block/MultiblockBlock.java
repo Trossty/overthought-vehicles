@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * parts as it ticks, so one blown away by a creeper takes the rest with it
  * rather than leaving half a refinery standing.
  */
-public abstract class MultiblockBlock extends BaseEntityBlock {
+public abstract class MultiblockBlock extends ModelEntityBlock {
 
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty LIT = BlockStateProperties.LIT;
@@ -194,11 +194,6 @@ public abstract class MultiblockBlock extends BaseEntityBlock {
             }
         }
         super.onRemove(state, world, pos, newState, moved);
-    }
-
-    @Override
-    protected net.minecraft.world.level.block.RenderShape getRenderShape(BlockState state) {
-        return net.minecraft.world.level.block.RenderShape.MODEL;
     }
 
     /**

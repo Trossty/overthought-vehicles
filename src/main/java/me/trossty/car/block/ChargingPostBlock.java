@@ -16,7 +16,6 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -34,7 +33,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * charges the nearest electric vehicle parked beside it; the screen lights
  * while one is drawing.
  */
-public class ChargingPostBlock extends BaseEntityBlock {
+public class ChargingPostBlock extends ModelEntityBlock {
 
     public static final MapCodec<ChargingPostBlock> CODEC = simpleCodec(ChargingPostBlock::new);
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -65,11 +64,6 @@ public class ChargingPostBlock extends BaseEntityBlock {
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPE;
-    }
-
-    @Override
-    protected RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL;
     }
 
     @Override

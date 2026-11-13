@@ -43,7 +43,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * is the one control it has besides redstone;
  * {@link VehicleLiftBlockEntity} explains how the two get along.
  */
-public class VehicleLiftBlock extends BaseEntityBlock {
+public class VehicleLiftBlock extends ModelEntityBlock {
 
     public static final MapCodec<VehicleLiftBlock> CODEC = simpleCodec(VehicleLiftBlock::new);
 

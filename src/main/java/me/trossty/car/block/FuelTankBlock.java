@@ -40,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  * liquid pours in or draws off with a right click, an empty hand reads what is
  * in it, and a comparator reads how full it is.
  */
-public class FuelTankBlock extends BaseEntityBlock {
+public class FuelTankBlock extends ModelEntityBlock {
 
     public static final MapCodec<FuelTankBlock> CODEC = simpleCodec(FuelTankBlock::new);
 

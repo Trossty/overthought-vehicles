@@ -52,7 +52,7 @@ import net.minecraft.world.phys.BlockHitResult;
  * <p>Every one of those also says what is left in the tank on the action bar,
  * which is the whole user interface and all it needs to be.
  */
-public class FuelPumpBlock extends BaseEntityBlock {
+public class FuelPumpBlock extends ModelEntityBlock {
 
     public static final MapCodec<FuelPumpBlock> CODEC = simpleCodec(FuelPumpBlock::new);
 

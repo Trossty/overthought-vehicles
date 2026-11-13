@@ -44,7 +44,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * junction marks the bends, tees and ends. What moves is decided in
  * {@link EnergyCableBlockEntity}; right-clicking says what is in that length.
  */
-public class EnergyCableBlock extends BaseEntityBlock {
+public class EnergyCableBlock extends ModelEntityBlock {
 
     public static final MapCodec<EnergyCableBlock> CODEC = simpleCodec(EnergyCableBlock::new);
 
