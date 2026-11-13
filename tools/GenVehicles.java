@@ -122,6 +122,9 @@ public class GenVehicles {
         String factory = "";
         /** The fuel tank, in litres, as the real thing has. */
         double tank = 50;
+        /** How far down the road the head lamps light, and how wide, in blocks; 0 leaves the default. */
+        double lightLength = 0;
+        double lightSpread = 0;
         /** What the workstation takes on top of the chassis parts: item id, count, item id, count... */
         String[] materials = {};
         /** Every box and axle is drawn this much wider than written. */
@@ -610,6 +613,8 @@ public class GenVehicles {
         v.between = LONG_BETWEEN;
         v.overhang = LONG_OVERHANG;
         v.tank = 66;
+        v.lightLength = 15;
+        v.lightSpread = 4;
         v.grow = 1.04;
         v.dye = "green";
         v.paint = 0x5E7C16;
@@ -712,6 +717,8 @@ public class GenVehicles {
         v.between = LONG_BETWEEN;
         v.overhang = LONG_OVERHANG;
         v.tank = 80;
+        v.lightLength = 14;
+        v.lightSpread = 3.5;
         v.grow = 1.08;
         v.chassis = "pickup";
         v.dye = "red";
@@ -885,6 +892,8 @@ public class GenVehicles {
         v.between = LONG_BETWEEN;
         v.overhang = LONG_OVERHANG;
         v.tank = 61;
+        v.lightLength = 13;
+        v.lightSpread = 3;
         v.grow = 1.08;
         v.dye = "blue";
         v.paint = 0x3C44AA;
@@ -985,6 +994,8 @@ public class GenVehicles {
     static Vehicle atego() {
         Vehicle v = new Vehicle("mercedes_atego");
         v.tank = 200;
+        v.lightLength = 16;
+        v.lightSpread = 4;
         v.chassis = "tanker";
         v.dye = "white";
         v.paint = 0xF9FFFE;
@@ -1153,6 +1164,8 @@ public class GenVehicles {
     static Vehicle vespa() {
         Vehicle v = new Vehicle("vespa_primavera");
         v.tank = 8;
+        v.lightLength = 7;
+        v.lightSpread = 1.5;
         v.chassis = "motorcycle";
         v.dye = "light_blue";
         v.paint = 0x3AB3DA;
@@ -1221,6 +1234,8 @@ public class GenVehicles {
     static Vehicle cbr() {
         Vehicle v = new Vehicle("honda_cbr600rr");
         v.tank = 18;
+        v.lightLength = 10;
+        v.lightSpread = 2;
         v.chassis = "motorcycle";
         v.dye = "red";
         v.paint = 0xB02E26;
@@ -1338,6 +1353,10 @@ public class GenVehicles {
         out.append("  \"performance\": { ").append(v.performance).append(" },\n");
         out.append("  \"factory\": { ").append(v.factory).append(" },\n");
         out.append("  \"tank\": ").append(n(v.tank)).append(",\n");
+        if (v.lightLength > 0) {
+            out.append("  \"lights\": { \"length\": ").append(n(v.lightLength))
+                    .append(", \"spread\": ").append(n(v.lightSpread)).append(" },\n");
+        }
         if (v.materials.length > 0) {
             out.append("  \"materials\": [");
             for (int i = 0; i < v.materials.length; i += 2) {

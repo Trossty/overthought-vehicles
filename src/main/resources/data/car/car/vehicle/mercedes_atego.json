@@ -6,6 +6,7 @@
   "performance": { "speed": 1.0, "acceleration": 1.0, "fuel_use": 2.4, "braking": 1.0, "steering": 1.0, "offroad": 0.2 },
   "factory": { "engine": "inline6", "fuel": "diesel", "tyres": "road" },
   "tank": 200,
+  "lights": { "length": 16, "spread": 4 },
   "seats": [
     [7, 13, 37.72],
     [-7, 13, 37.72]

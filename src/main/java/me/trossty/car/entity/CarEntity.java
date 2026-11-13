@@ -342,6 +342,9 @@ public class CarEntity extends VehicleEntity {
      */
     private static final EntityDataAccessor<Boolean> FLOODED =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
+    /** The driver has the brake on; see {@link #areBrakeLampsOn}. */
+    private static final EntityDataAccessor<Boolean> BRAKE_LAMPS =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
 
     /**
      * How deep the water has to be, in blocks, to reach the air intake: a
@@ -553,6 +556,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(LOCKED, false);
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
+        builder.define(BRAKE_LAMPS, false);
         builder.define(HEALTH, MAX_HEALTH);
         for (CarPart part : CarPart.values()) {
             builder.define(PART_CONDITION.get(part.ordinal()), CarPart.MAX_CONDITION);
@@ -683,6 +687,16 @@ public class CarEntity extends VehicleEntity {
         return bits;
     }
 
+    /**
+     * The short way round. A car's yaw is kept between -180 and 180, so
+     * heading north it flips from one to the other, and vanilla's straight
+     * lerp would spin the car through south for a frame.
+     */
+    @Override
+    public float getViewYRot(float partialTick) {
+        return partialTick == 1.0F ? this.getYRot() : Mth.rotLerp(partialTick, this.yRotO, this.getYRot());
+    }
+
     @Override
     public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
         this.lerpX = x;
@@ -763,6 +777,9 @@ public class CarEntity extends VehicleEntity {
         this.stepLerp();
 
         if (!this.level().isClientSide()) {
+            if (this.getControllingPassenger() == null && this.entityData.get(BRAKE_LAMPS)) {
+                this.setBrakeLamps(false);
+            }
             this.wearParts();
             this.tickTemperature();
             this.tickWater();
@@ -1254,6 +1271,27 @@ public class CarEntity extends VehicleEntity {
                 this.push(entity);
             }
         }
+    }
+
+    /**
+     * Whether the brake lamps are lit: the pedal, or reverse held while still
+     * rolling forward, which is braking too. The driving client knows that
+     * itself; everybody else has it from the server, which the driver tells.
+     */
+    public boolean areBrakeLampsOn() {
+        if (this.getControllingPassenger() == null) {
+            return false;
+        }
+        return this.isControlledByLocalInstance() ? this.brakePedal() : this.entityData.get(BRAKE_LAMPS);
+    }
+
+    /** The driver's feet, on the driving client. */
+    public boolean brakePedal() {
+        return this.pressingBrake || this.pressingBack && this.flyDist > SPEED_EPSILON;
+    }
+
+    public void setBrakeLamps(boolean on) {
+        this.entityData.set(BRAKE_LAMPS, on);
     }
 
     /** Called on the controlling client every tick with that player's held keys. */
@@ -2659,6 +2697,14 @@ public class CarEntity extends VehicleEntity {
      * worth of parts.
      */
     public InteractionResult openService(Player player) {
+        // Nothing to read off a car standing on its wheels: the sheet is
+        // filled in on the lift, where the parts can be seen.
+        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
+            if (!this.level().isClientSide()) {
+                player.displayClientMessage(Component.translatable("message.car.needs_lift"), true);
+            }
+            return InteractionResult.sidedSuccess(this.level().isClientSide());
+        }
         if (this.level().isClientSide()) {
             return InteractionResult.SUCCESS;
         }

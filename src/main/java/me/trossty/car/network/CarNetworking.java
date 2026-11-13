@@ -36,6 +36,13 @@ public final class CarNetworking {
             }
         });
 
+        registrar.playToServer(BrakeC2SPayload.ID, BrakeC2SPayload.CODEC, (payload, context) -> {
+            if (context.player().getVehicle() instanceof CarEntity car
+                    && car.getControllingPassenger() == context.player()) {
+                car.setBrakeLamps(payload.pressed());
+            }
+        });
+
         registrar.playToServer(ServicePartC2SPayload.ID, ServicePartC2SPayload.CODEC, (payload, context) ->
                 serviceByHand(context.player(), payload.car(), payload.part()));
 

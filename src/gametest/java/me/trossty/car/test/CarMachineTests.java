@@ -884,6 +884,19 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** The clipboard reads nothing off a car standing on its wheels: no lift, no service window. */
+    @GameTest(template = "empty")
+    public static void clipboardNeedsALift(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.DIAGNOSTIC_SHEET));
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(player.containerMenu == player.inventoryMenu,
+                "the clipboard opened a service window off the lift");
+        context.succeed();
+    }
+
     /** A locked car keeps its parts, however the request to take one arrives. */
     @GameTest(template = "empty")
     public static void lockedCarRefusesService(GameTestHelper context) {

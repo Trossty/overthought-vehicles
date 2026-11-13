@@ -34,6 +34,9 @@ import java.util.Optional;
  *
  * <p>{@code tank} is the fuel tank, in litres: eight for a scooter, fifty for
  * a family car, two hundred for a lorry. A trailer has none.
+ *
+ * <p>{@code lights} is how far the head lamps throw their light down the
+ * road, and how wide it has spread at the far end, both in blocks.
  */
 public record VehicleDefinition(
         Chassis chassis,
@@ -46,7 +49,8 @@ public record VehicleDefinition(
         Factory factory,
         List<Box> shape,
         List<Cost> materials,
-        float tank) {
+        float tank,
+        Lights lights) {
 
     /** A tank nobody wrote down: a family car's, fifty litres. */
     public static final float DEFAULT_TANK_LITRES = 50.0F;
@@ -97,6 +101,17 @@ public record VehicleDefinition(
                 Codec.floatRange(0.5F, 16.0F).optionalFieldOf("width", 3.0F).forGetter(Wheel::width),
                 Codec.BOOL.optionalFieldOf("steers", false).forGetter(Wheel::steers)
         ).apply(instance, Wheel::new));
+    }
+
+    /** The head lamps' pool of light on the road: its length and how far it fans out past the sides. */
+    public record Lights(float length, float spread) {
+
+        public static final Lights PLAIN = new Lights(11.0F, 3.0F);
+
+        public static final Codec<Lights> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.floatRange(2.0F, 32.0F).optionalFieldOf("length", PLAIN.length()).forGetter(Lights::length),
+                Codec.floatRange(0.0F, 8.0F).optionalFieldOf("spread", PLAIN.spread()).forGetter(Lights::spread)
+        ).apply(instance, Lights::new));
     }
 
     /**
@@ -194,7 +209,8 @@ public record VehicleDefinition(
             Box.CODEC.listOf(1, MAX_BOXES).fieldOf("shape").forGetter(VehicleDefinition::shape),
             Cost.CODEC.listOf(0, 16).optionalFieldOf("materials", List.of()).forGetter(VehicleDefinition::materials),
             Codec.floatRange(0.0F, 1000.0F).optionalFieldOf("tank", DEFAULT_TANK_LITRES)
-                    .forGetter(VehicleDefinition::tank)
+                    .forGetter(VehicleDefinition::tank),
+            Lights.CODEC.optionalFieldOf("lights", Lights.PLAIN).forGetter(VehicleDefinition::lights)
     ).apply(instance, VehicleDefinition::new));
 
     /**

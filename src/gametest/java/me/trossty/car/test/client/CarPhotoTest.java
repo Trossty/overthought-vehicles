@@ -68,6 +68,7 @@ public class CarPhotoTest {
             scenes.put("gasPump", this::gasPump);
             scenes.put("drums", this::drums);
             scenes.put("cabins", this::cabins);
+            scenes.put("lamps", this::lamps);
             scenes.put("playtest", Playtest::run);
             String only = System.getProperty("car.photo.scenes", "");
             List<String> wanted = Boolean.getBoolean("car.photo.all") ? List.copyOf(scenes.keySet())
@@ -1714,9 +1715,10 @@ public class CarPhotoTest {
             client.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
         });
         context.getInput().holdKey(options -> options.keyUp);
-        context.waitTicks(20);
+        context.waitTicks(10);
+        towJitter(context, 10, "straight");
         context.getInput().holdKey(options -> options.keyRight);
-        context.waitTicks(12);
+        towJitter(context, 12, "bend");
         context.takeScreenshot("trailer_turning");
         report(server, "turning");
         context.getInput().releaseKey(options -> options.keyRight);
@@ -1729,6 +1731,31 @@ public class CarPhotoTest {
         context.waitTicks(5);
         context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
         context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /**
+     * How steadily the client draws the trailer behind the car, tick by tick:
+     * the gap between the two at the start, middle and end of each frame's
+     * interpolation. Pulled smoothly it barely moves; a trailer that jumps
+     * back and forth between frames shows up as a spread in these.
+     */
+    private void towJitter(ClientGameTestContext context, int ticks, String when) {
+        double[] spread = {Double.MAX_VALUE, -Double.MAX_VALUE};
+        for (int i = 0; i < ticks; i++) {
+            context.waitTicks(1);
+            context.runOnClient(client -> {
+                var car = client.player.getVehicle();
+                var trailer = client.level.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class,
+                        car.getBoundingBox().inflate(8.0), e -> true).get(0);
+                for (float partial : new float[] {0.0F, 0.5F, 1.0F}) {
+                    double gap = car.getPosition(partial).distanceTo(trailer.getPosition(partial));
+                    spread[0] = Math.min(spread[0], gap);
+                    spread[1] = Math.max(spread[1], gap);
+                }
+            });
+        }
+        System.out.printf("car drive test tow jitter %s: gap %.3f to %.3f (spread %.3f)%n",
+                when, spread[0], spread[1], spread[1] - spread[0]);
     }
 
     /** Where the trailer is against the tow ball, on the server: printed for the log. */
@@ -1909,6 +1936,76 @@ public class CarPhotoTest {
         context.getInput().releaseKey(options -> options.keyRight);
         context.getInput().releaseKey(options -> options.keyUp);
         context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** Every vehicle at night with somebody at the wheel: the head lamps and their beam, then the brake lamps. */
+    private void lamps(ClientGameTestContext context, TestServerContext server) {
+        server.runCommand("fill -20 %d -30 20 %d 30 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -20 %d -30 20 %d 30 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("time set 18000");
+        String[][] vehicles = {
+                {"car:car", "car:toyota_corolla"},
+                {"car:car", "car:jeep_wrangler"},
+                {"car:car", "car:ford_mustang"},
+                {"car:car", "car:tofas_sahin"},
+                {"car:pickup", "car:toyota_hilux"},
+                {"car:fuel_tanker", "car:mercedes_atego"},
+                {"car:motorcycle", "car:honda_cbr600rr"},
+        };
+        for (String[] vehicle : vehicles) {
+            clear(server);
+            String name = vehicle[1].substring(4);
+            server.runCommand("summon %s 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"%s\",Color:14,Tags:[\"photo\"]}"
+                    .formatted(vehicle[0], Y, vehicle[1]));
+            server.runCommand("tp @a 3.5 %d 0.5".formatted(Y));
+            context.waitTicks(10);
+            server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+            context.waitTicks(10);
+            context.runOnClient(client -> {
+                client.player.setYRot(0);
+                client.options.hideGui = true;
+            });
+            // A stand-in camera out on the road, so the driver can stay at the wheel.
+            lampCamera(context, server, 3.5, Y + 1.4, 7.5, 156, 8);
+            context.takeScreenshot("lamps_" + name + "_front");
+            context.getInput().holdKey(options -> options.keyJump);
+            lampCamera(context, server, 3.0, Y + 1.4, -5.5, 22, 8);
+            context.takeScreenshot("lamps_" + name + "_brake");
+            context.getInput().releaseKey(options -> options.keyJump);
+            context.waitTicks(3);
+            context.takeScreenshot("lamps_" + name + "_off");
+            // And what the driver sees of it over the bonnet.
+            context.runOnClient(client -> {
+                client.setCameraEntity(client.player);
+                client.options.setCameraType(CameraType.FIRST_PERSON);
+                client.player.setXRot(15);
+            });
+            context.waitTicks(5);
+            context.takeScreenshot("lamps_" + name + "_driver");
+            server.runCommand("ride @p dismount");
+            context.waitTicks(5);
+        }
+        context.runOnClient(client -> {
+            client.options.hideGui = false;
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+        });
+        server.runCommand("time set noon");
+    }
+
+    /** Looks through an invisible stand placed here, until the camera is handed back to the player. */
+    private void lampCamera(ClientGameTestContext context, TestServerContext server,
+                            double x, double y, double z, float yaw, float pitch) {
+        server.runCommand("kill @e[tag=camera]");
+        server.runCommand("summon armor_stand %.2f %.2f %.2f {Rotation:[%.1ff,%.1ff],Invisible:1b,NoGravity:1b,Marker:1b,Tags:[\"camera\"]}"
+                .formatted(x, y, z, yaw, pitch));
+        context.waitTicks(5);
+        context.runOnClient(client -> client.level.entitiesForRendering().forEach(entity -> {
+            if (entity instanceof net.minecraft.world.entity.decoration.ArmorStand) {
+                client.setCameraEntity(entity);
+                client.options.setCameraType(CameraType.FIRST_PERSON);
+            }
+        }));
+        context.waitTicks(5);
     }
 
     /** The cabins: the round wheel, the seats, the dash and the carpet, from the driver's seat and through a window. */

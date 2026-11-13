@@ -54,6 +54,15 @@ public class TrailerEntity extends CarEntity {
 
     public static final int LOAD_SLOTS = 27;
 
+    /** The game tick this last ticked, and the one the tractor last pulled it before that. */
+    private long tickedAt = Long.MIN_VALUE;
+    private long pulledAt = Long.MIN_VALUE;
+    private boolean ticking;
+    private double pulledFromX;
+    private double pulledFromY;
+    private double pulledFromZ;
+    private float pulledFromYRot;
+
     public static final float EMPTY_TOW_FACTOR = 0.92F;
     public static final float LADEN_TOW_FACTOR = 0.78F;
 
@@ -177,7 +186,23 @@ public class TrailerEntity extends CarEntity {
 
     @Override
     public void tick() {
-        super.tick();
+        long now = this.level().getGameTime();
+        if (this.pulledAt == now) {
+            // The tractor ticked first this tick and already dragged us along,
+            // after the game had noted where we started. Put that start back,
+            // or the step it took is never drawn and the trailer judders.
+            this.xo = this.xOld = this.pulledFromX;
+            this.yo = this.yOld = this.pulledFromY;
+            this.zo = this.zOld = this.pulledFromZ;
+            this.yRotO = this.pulledFromYRot;
+        }
+        this.tickedAt = now;
+        this.ticking = true;
+        try {
+            super.tick();
+        } finally {
+            this.ticking = false;
+        }
         if (this.isRemoved()) {
             return;
         }
@@ -210,6 +235,15 @@ public class TrailerEntity extends CarEntity {
      * the tractor finished, never a tick behind it.
      */
     void follow(CarEntity tractor) {
+        long now = this.level().getGameTime();
+        if (!this.ticking && this.tickedAt != now && this.pulledAt != now) {
+            // Moved before our own tick this tick: remember where from.
+            this.pulledAt = now;
+            this.pulledFromX = this.getX();
+            this.pulledFromY = this.getY();
+            this.pulledFromZ = this.getZ();
+            this.pulledFromYRot = this.getYRot();
+        }
         Vec3 ball = tractor.hitchPoint();
         double dx = ball.x - this.getX();
         double dz = ball.z - this.getZ();
@@ -239,6 +273,18 @@ public class TrailerEntity extends CarEntity {
                 ball.x - dirX * reach - this.getX(), y - this.getY(), ball.z - dirZ * reach - this.getZ()));
         this.setYRot((float) Math.toDegrees(Math.atan2(-dirX, dirZ)));
         this.setDeltaMovement(Vec3.ZERO);
+    }
+
+    /**
+     * Hitched on, a client places the trailer itself, behind its own view of
+     * the tractor; the server's word on where it is would only drag it a step
+     * behind that, and the two fighting is a judder. Unhitched, it listens.
+     */
+    @Override
+    public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        if (this.getTractor() == null) {
+            super.lerpTo(x, y, z, yRot, xRot, steps);
+        }
     }
 
     /** From the middle of the trailer forward to the tip of its drawbar, in blocks. */

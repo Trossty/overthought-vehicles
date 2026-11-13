@@ -78,6 +78,9 @@ import java.util.Locale;
 @Mod(value = CarMain.MOD_ID, dist = Dist.CLIENT)
 public class CarMainClient {
 
+    /** The brake pedal as the server last heard it from this client. */
+    private static boolean brakeSent;
+
     public static final KeyMapping HORN_KEY = new KeyMapping(
             "key.car.horn",
             InputConstants.Type.KEYSYM,
@@ -230,6 +233,12 @@ public class CarMainClient {
         // The controlling client simulates the car, so feed it that player's keys.
         if (car.getControllingPassenger() == player) {
             car.setInputs(player.input.up, player.input.down, player.input.left, player.input.right, player.input.jumping);
+            // Everybody else sees the brake lamps from the server, so tell it when the pedal moves.
+            boolean pedal = car.brakePedal();
+            if (pedal != brakeSent) {
+                brakeSent = pedal;
+                PacketDistributor.sendToServer(new me.trossty.car.network.BrakeC2SPayload(pedal));
+            }
         }
 
         boolean honked = false;
