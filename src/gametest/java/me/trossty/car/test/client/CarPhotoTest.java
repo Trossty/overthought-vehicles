@@ -57,6 +57,7 @@ public class CarPhotoTest {
             scenes.put("garageTools", this::garageTools);
             scenes.put("garageParts", this::garageParts);
             scenes.put("rapeseed", this::rapeseed);
+            scenes.put("itemGrid", this::itemGrid);
             scenes.put("roadLife", this::roadLife);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
@@ -2202,6 +2203,37 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
         shot(context, server, "garage_obd_front", 0.5, Y + 2.2, 5.0, 180, 25);
         shot(context, server, "garage_obd_rear", 3.5, Y + 1.4, -4.0, 40, 15);
+    }
+
+    /** Every item of the mod as it shows in an inventory, a page of 40 at a time on a plain wall. */
+    private void itemGrid(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (var key : net.minecraft.core.registries.BuiltInRegistries.ITEM.keySet()) {
+            if (key.getNamespace().equals("car")) {
+                ids.add(key.getPath());
+            }
+        }
+        java.util.Collections.sort(ids);
+        System.out.println("car photo itemGrid: " + ids);
+        server.runCommand("time set noon");
+        server.runCommand("fill -8 %d 6 8 %d 6 minecraft:light_gray_concrete".formatted(Y - 1, Y + 8));
+        context.runOnClient(client -> client.options.hideGui = true);
+        int perPage = 40;
+        for (int page = 0; page * perPage < ids.size(); page++) {
+            server.runCommand("kill @e[type=item_display]");
+            for (int i = 0; i < perPage && page * perPage + i < ids.size(); i++) {
+                double x = 3.5 - (i % 8);
+                double y = Y + 4.6 - (i / 8) * 1.05;
+                server.runCommand(("summon item_display %.2f %.2f 5.4 {item:{id:\"car:%s\",count:1},item_display:\"gui\","
+                        + "Rotation:[0f,0f],brightness:{sky:15,block:15},"
+                        + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                        + "translation:[0f,0f,0f],scale:[0.9f,0.9f,0.9f]}}").formatted(x, y, ids.get(page * perPage + i)));
+            }
+            context.waitTicks(10);
+            shot(context, server, "items_" + page, 0.0, Y + 1.0, -1.4, 0, 0);
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
     }
 
     /** A rapeseed field at each stage of growth, sprout to ripe pods, with the seed beside it. */

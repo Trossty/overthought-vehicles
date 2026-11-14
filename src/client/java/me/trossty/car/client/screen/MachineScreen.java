@@ -21,14 +21,17 @@ import net.minecraft.world.inventory.Slot;
  */
 public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler> {
 
-    private static final int TANK_WALL = 0xFF3A3A3A;
     private static final int TANK_EMPTY = 0xFF2A2A2A;
     private static final int ARROW = 0xFF6E6E6E;
     private static final int ARROW_LIT = 0xFF4A90D9;
+    private static final int ARROW_EDGE = 0xFF4A4A4A;
+    private static final int GAUGE_TICK = 0x99FFFFFF;
+    private static final int GLASS = 0x33FFFFFF;
     private static final int POWER = 0xFFD43C2E;
     private static final int POWER_LIGHT = 0xFFF2705F;
     private static final int FLAME = 0xFFE8861B;
     private static final int FLAME_TIP = 0xFFF8D040;
+    private static final int FLAME_BASE = 0xFFC8401A;
 
     /** Body and highlight colours by the fluid numbers {@link MachineScreenHandler#FLUIDS} sends. */
     private static final int[][] FLUID_COLOURS = {
@@ -131,50 +134,86 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
 
     /** A bar fills from the bottom, which is how a gauge is read. */
     private static void drawBar(GuiGraphics context, int x, int y, int width, float fill, int body, int highlight) {
-        context.fill(x - 1, y - 1, x + width + 1, y + TANK_HEIGHT + 1, TANK_WALL);
+        inset(context, x, y, width, TANK_HEIGHT);
         context.fill(x, y, x + width, y + TANK_HEIGHT, TANK_EMPTY);
         int filled = Math.round(fill * TANK_HEIGHT);
-        if (filled <= 0) {
-            return;
+        if (filled > 0) {
+            int surface = y + TANK_HEIGHT - filled;
+            context.fill(x, surface, x + width, y + TANK_HEIGHT, body);
+            // the far side of the liquid in shade, the near side catching the light
+            context.fill(x + width - 2, surface, x + width, y + TANK_HEIGHT, darker(body));
+            context.fill(x + 1, surface, x + 3, y + TANK_HEIGHT, highlight);
+            context.fill(x, surface, x + width, surface + 1, highlight);
         }
-        int surface = y + TANK_HEIGHT - filled;
-        context.fill(x, surface, x + width, y + TANK_HEIGHT, body);
-        context.fill(x, surface, x + width, surface + 1, highlight);
-        context.fill(x + 1, surface, x + 3, y + TANK_HEIGHT, highlight);
+        // a scale down the side, every quarter, the half a little longer
+        for (int quarter = 1; quarter < 4; quarter++) {
+            int tick = y + TANK_HEIGHT - quarter * TANK_HEIGHT / 4;
+            context.fill(x + width - (quarter == 2 ? 6 : 4), tick, x + width, tick + 1, GAUGE_TICK);
+        }
+        // the glass front: a pale streak down the left
+        context.fill(x + 4, y + 1, x + 5, y + TANK_HEIGHT - 1, GLASS);
+    }
+
+    /** A sunken edge, as vanilla draws round a slot: dark above and left, light below and right. */
+    private static void inset(GuiGraphics context, int x, int y, int width, int height) {
+        context.fill(x - 1, y - 1, x + width + 1, y + height + 1, GuiStyle.PANEL_LIGHT);
+        context.fill(x - 1, y - 1, x + width, y + height, GuiStyle.SLOT_DARK);
+    }
+
+    private static int darker(int colour) {
+        int r = (colour >> 16 & 0xFF) * 3 / 4;
+        int g = (colour >> 8 & 0xFF) * 3 / 4;
+        int b = (colour & 0xFF) * 3 / 4;
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
     /** A stack of strata with an oil pocket, for the pumpjack's "where it comes from". */
     private static void drawGround(GuiGraphics context, int x, int y) {
-        context.fill(x - 1, y - 1, x + 15, y + TANK_HEIGHT + 1, TANK_WALL);
+        inset(context, x, y, 14, TANK_HEIGHT);
         context.fill(x, y, x + 14, y + 8, 0xFF5E9E3A);
+        context.fill(x, y + 2, x + 14, y + 3, 0xFF4C8A2E);
         context.fill(x, y + 8, x + 14, y + 24, 0xFF7A5A3A);
         context.fill(x, y + 24, x + 14, y + TANK_HEIGHT, 0xFF6B6B6B);
         context.fill(x + 3, y + 34, x + 11, y + 44, 0xFF1E1A16);
         context.fill(x + 6, y, x + 8, y + 36, 0xFF3A3A3A);
     }
 
-    /** A flame that shrinks as the piece burning runs out. */
+    /** A flame that shrinks as the piece burning runs out, over a grate. */
     private static void drawFlame(GuiGraphics context, int x, int y, float left) {
         int height = 14;
-        context.fill(x, y, x + 14, y + height, TANK_EMPTY);
+        // the grate it burns on, unlit
+        for (int bar = 0; bar < 14; bar += 3) {
+            context.fill(x + bar, y + height - 1, x + bar + 2, y + height, ARROW);
+        }
         int lit = Math.round(left * height);
         if (lit <= 0) {
             return;
         }
         int topY = y + height - lit;
-        context.fill(x + 2, topY + lit / 3, x + 12, y + height, FLAME);
-        context.fill(x + 5, topY, x + 9, y + height, FLAME_TIP);
+        // widest at the bottom, narrowing in steps to a tongue
+        for (int row = topY; row < y + height; row++) {
+            int up = row - topY;
+            int half = Math.min(6, 1 + up * 6 / Math.max(1, lit));
+            int colour = up < lit / 3 ? FLAME_TIP : up < 2 * lit / 3 ? FLAME : FLAME_BASE;
+            context.fill(x + 7 - half, row, x + 7 + half, row + 1, colour);
+        }
+        context.fill(x + 6, Math.max(topY, y + height - lit / 2), x + 8, y + height, FLAME_TIP);
     }
 
+    /** Vanilla's furnace arrow: an outlined shaft and head that fill left to right. */
     private static void drawArrow(GuiGraphics context, int x, int y, float progress) {
         int width = 16;
-        context.fill(x, y + 3, x + width, y + 7, ARROW);
-        context.fill(x + width - 4, y + 1, x + width - 3, y + 9, ARROW);
-        context.fill(x + width - 3, y + 2, x + width - 2, y + 8, ARROW);
-        context.fill(x + width - 2, y + 3, x + width - 1, y + 7, ARROW);
         int lit = Math.round(Math.min(1.0F, Math.max(0.0F, progress)) * width);
-        if (lit > 0) {
-            context.fill(x, y + 4, x + lit, y + 6, ARROW_LIT);
+        for (int column = 0; column < width; column++) {
+            // shaft four high, head widening to eight at its base and closing to a point
+            int head = column - (width - 6);
+            int half = head < 0 ? 2 : 4 - head * 4 / 6;
+            if (half <= 0) {
+                half = 1;
+            }
+            int colour = column < lit ? ARROW_LIT : ARROW;
+            context.fill(x + column, y + 5 - half - 1, x + column + 1, y + 5 + half + 1, ARROW_EDGE);
+            context.fill(x + column, y + 5 - half, x + column + 1, y + 5 + half, colour);
         }
     }
 
