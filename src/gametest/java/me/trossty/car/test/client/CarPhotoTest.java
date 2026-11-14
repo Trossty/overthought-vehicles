@@ -1163,7 +1163,7 @@ public class CarPhotoTest {
             for (int[] c : run) {
                 if (world.getBlockEntity(new net.minecraft.core.BlockPos(c[0], Y + c[1], c[2]))
                         instanceof me.trossty.car.block.entity.EnergyCableBlockEntity cable) {
-                    line.append(" c").append(cable.getEnergy());
+                    line.append(" c").append(cable.getFlow());
                 }
             }
             if (world.getBlockEntity(at(10, 25)) instanceof me.trossty.car.block.entity.FuelRefineryBlockEntity r) {

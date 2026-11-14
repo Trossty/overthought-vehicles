@@ -42,7 +42,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * machine rather than more cable it ends in a flat terminal plate bolted to
  * the casing, so it reads as plugged in rather than just touching. A copper
  * junction marks the bends, tees and ends. What moves is decided in
- * {@link EnergyCableBlockEntity}; right-clicking says what is in that length.
+ * {@link EnergyCableBlockEntity}; right-clicking says what the run is carrying.
  */
 public class EnergyCableBlock extends ModelEntityBlock {
 
@@ -251,10 +251,10 @@ public class EnergyCableBlock extends ModelEntityBlock {
         if (world.isClientSide()) {
             return null;
         }
-        return createTickerHelper(type, ModBlockEntities.ENERGY_CABLE, EnergyCableBlockEntity::tick);
+        return createTickerHelper(type, ModBlockEntities.ENERGY_CABLE, me.trossty.car.network.NetworkBlockEntity::tick);
     }
 
-    /** Right-clicking a length says how much charge is standing in it. */
+    /** Right-clicking a length says how much power the run is carrying. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
                                  Player player, BlockHitResult hit) {
@@ -262,24 +262,10 @@ public class EnergyCableBlock extends ModelEntityBlock {
             return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(pos) instanceof EnergyCableBlockEntity cable) {
-            player.displayClientMessage(Component.translatable("message.car.cable_level",
-                    cable.getEnergy(), EnergyCableBlockEntity.CAPACITY), true);
+            player.displayClientMessage(cable.getFlow() <= 0
+                    ? Component.translatable("message.car.cable_idle")
+                    : Component.translatable("message.car.cable_flow", cable.getFlow()), true);
         }
         return InteractionResult.CONSUME;
-    }
-
-    // ---- redstone ----
-
-    @Override
-    protected boolean hasAnalogOutputSignal(BlockState state) {
-        return true;
-    }
-
-    @Override
-    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
-        if (!(world.getBlockEntity(pos) instanceof EnergyCableBlockEntity cable) || cable.getEnergy() <= 0) {
-            return 0;
-        }
-        return Mth.clamp(1 + cable.getEnergy() * 14 / EnergyCableBlockEntity.CAPACITY, 1, 15);
     }
 }

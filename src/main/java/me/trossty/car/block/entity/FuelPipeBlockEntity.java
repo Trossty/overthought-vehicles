@@ -1,105 +1,132 @@
 package me.trossty.car.block.entity;
 
-import me.trossty.car.fluid.FluidSource;
-import me.trossty.car.fluid.Liquids;
-import me.trossty.car.fluid.UnitTank;
+import me.trossty.car.network.FluidNetwork;
+import me.trossty.car.network.Network;
+import me.trossty.car.network.NetworkBlockEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import me.trossty.car.registry.ModFluids;
 import me.trossty.car.util.ValueInput;
 import me.trossty.car.util.ValueOutput;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.PipeBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A length of pipe. It carries any liquid — crude, raw fuel, petrol, diesel,
- * water, another mod's — one at a time, like a real line.
+ * water, another mod's — and holds none: the whole line it is part of works as
+ * one {@link FluidNetwork}, which takes from what gives and hands it straight
+ * to what takes.
  *
- * <p>There is no network here, no graph to rebuild when somebody breaks a pipe
- * in the middle: every pipe is a small tank that, each tick, looks along each
- * of its connected arms and does one thing there.
- *
- * <ol>
- *   <li><b>Another pipe:</b> the two even out, if they hold the same liquid or
- *       one is empty. Liquid flows downhill towards whatever is drawing it off.
- *   <li><b>A valve:</b> nothing; the valve does its own pumping.
- *   <li><b>A machine that makes something</b> (pumpjack, refinery,
- *       hydrotreater): the pipe hands over what it carries if the machine
- *       takes it — crude into a refinery — and draws off what the machine
- *       makes. An empty pipe only starts drawing when no pipe beside it holds
- *       something else, so a refinery's product does not back up into the
- *       crude line feeding it.
- *   <li><b>Anything that only takes</b> (a fuel pump, a generator, an empty
- *       tank): the pipe empties into it.
- *   <li><b>Anything that holds</b> (a yard tank, a drum, another mod's tank):
- *       the pipe settles at {@link #SETTLE} against it, so the same line fills it from
- *       one end and empties it towards the other.
- * </ol>
- *
- * <p>Two liquids never mix: a pipe holding one will not take another, which is
- * how a crude line and a petrol line can run side by side as long as a wrench
- * has cut the arm between them.
+ * <p>The one thing a length keeps is which of its arms a wrench has cut, which
+ * is how two lines running side by side are kept apart.
  */
-public class FuelPipeBlockEntity extends BlockEntity {
-
-    /** A bucket a block: enough for a line to carry a pumpjack's flow without backing up. */
-    public static final int CAPACITY = 1_000;
-
-    /** Liquid moved across one join per tick. */
-    public static final int TRANSFER_RATE = 50;
-
-    /**
-     * What a pipe keeps against a tank it touches: below this it drinks, above
-     * it tips the surplus in. Low, so a tank on a line ends up holding the
-     * liquid rather than the pipes.
-     */
-    public static final int SETTLE = 100;
-
-    private final UnitTank tank = new UnitTank(CAPACITY, fluid -> true, true, true, this::setChanged);
+public class FuelPipeBlockEntity extends NetworkBlockEntity<FluidNetwork> {
 
     /** Arms a wrench has cut, one bit per {@link Direction#ordinal()}. */
     private int blocked;
+
+    private final IFluidHandler[] doors = new IFluidHandler[7];
 
     public FuelPipeBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.FUEL_PIPE, pos, state);
     }
 
-    /** This pipe as other mods' pipes, valves and hoses see it. */
-    public IFluidHandler getFluidStorage() {
-        return this.tank;
+    @Override
+    public Network.Link link(Direction side) {
+        if (!this.getBlockState().getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side))) {
+            return Network.Link.NONE;
+        }
+        return this.level != null && this.level.getBlockEntity(this.worldPosition.relative(side)) instanceof FuelPipeBlockEntity
+                ? Network.Link.MEMBER : Network.Link.PORT;
     }
 
-    public UnitTank getTank() {
-        return this.tank;
+    @Override
+    protected Object linkIn(BlockState state, Direction side) {
+        return state.getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side));
     }
 
+    @Override
+    protected FluidNetwork gather(ServerLevel world) {
+        return Network.gather(world, this, FluidNetwork::new);
+    }
+
+    /** What the line is carrying, or nothing. */
     public Fluid getFluid() {
-        return this.tank.getFluid();
+        FluidNetwork network = this.network();
+        return network == null ? Fluids.EMPTY : network.carrying();
     }
 
-    public int getAmount() {
-        return this.tank.getUnits();
+    /** Millibuckets the line moved in its last busy tick. */
+    public int getFlow() {
+        FluidNetwork network = this.network();
+        return network == null ? 0 : network.flow();
     }
 
-    /** Petrol standing in the pipe; nought if it holds something else. */
-    public int getPetrol() {
-        return this.tank.getFluid() == ModFluids.PETROL ? this.tank.getUnits() : 0;
+    /**
+     * The pipe as other mods' pipes, valves and machines see it on one face:
+     * whatever goes in goes on along the line, and drawing from it draws from
+     * what the line reaches.
+     */
+    public IFluidHandler getFluidStorage(@Nullable Direction side) {
+        int index = side == null ? 6 : side.ordinal();
+        if (this.doors[index] == null) {
+            BlockPos from = side == null ? this.worldPosition : this.worldPosition.relative(side);
+            this.doors[index] = new Door(from);
+        }
+        return this.doors[index];
     }
 
-    public int getCapacity() {
-        return CAPACITY;
-    }
+    private final class Door implements IFluidHandler {
+        private final BlockPos from;
 
-    public void setPetrol(int petrol) {
-        this.tank.set(ModFluids.PETROL, petrol);
-        this.setChanged();
+        Door(BlockPos from) {
+            this.from = from;
+        }
+
+        @Override
+        public int getTanks() {
+            return 1;
+        }
+
+        @Override
+        public FluidStack getFluidInTank(int tank) {
+            return FluidStack.EMPTY;
+        }
+
+        @Override
+        public int getTankCapacity(int tank) {
+            return FluidNetwork.RATE;
+        }
+
+        @Override
+        public boolean isFluidValid(int tank, FluidStack stack) {
+            return true;
+        }
+
+        @Override
+        public int fill(FluidStack resource, FluidAction action) {
+            FluidNetwork network = FuelPipeBlockEntity.this.network();
+            return network == null ? 0 : network.insert(resource, action, this.from);
+        }
+
+        @Override
+        public FluidStack drain(FluidStack resource, FluidAction action) {
+            FluidNetwork network = FuelPipeBlockEntity.this.network();
+            return network == null || resource.isEmpty() ? FluidStack.EMPTY
+                    : network.extract(resource.getFluid(), resource.getAmount(), action, this.from);
+        }
+
+        @Override
+        public FluidStack drain(int maxDrain, FluidAction action) {
+            FluidNetwork network = FuelPipeBlockEntity.this.network();
+            return network == null ? FluidStack.EMPTY : network.extract(null, maxDrain, action, this.from);
+        }
     }
 
     // ---- the wrench ----
@@ -114,118 +141,18 @@ public class FuelPipeBlockEntity extends BlockEntity {
         this.setChanged();
     }
 
-    // ---- each tick ----
-
-    public static void tick(Level world, BlockPos pos, BlockState state, FuelPipeBlockEntity pipe) {
-        UnitTank tank = pipe.tank;
-        for (Direction side : Direction.values()) {
-            if (!state.getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side))) {
-                continue;
-            }
-            BlockPos next = pos.relative(side);
-            BlockEntity there = world.getBlockEntity(next);
-
-            if (there instanceof FuelPipeBlockEntity neighbour) {
-                level(tank, neighbour.tank);
-                continue;
-            }
-            if (there instanceof FuelValveBlockEntity) {
-                continue;
-            }
-            IFluidHandler other = world.getCapability(Capabilities.FluidHandler.BLOCK, next, side.getOpposite());
-            if (other == null) {
-                continue;
-            }
-
-            if (FluidSource.at(world, next)) {
-                if (!tank.isEmpty()) {
-                    Liquids.move(tank, other, tank.getFluid(), TRANSFER_RATE);
-                }
-                if (tank.room() > 0) {
-                    draw(world, pos, state, tank, other);
-                }
-                continue;
-            }
-
-            boolean gives = !other.drain(1, IFluidHandler.FluidAction.SIMULATE).isEmpty();
-            if (!gives) {
-                if (!tank.isEmpty()) {
-                    Liquids.move(tank, other, tank.getFluid(), TRANSFER_RATE);
-                }
-                continue;
-            }
-            int room = SETTLE - tank.getUnits();
-            if (room > 0) {
-                Liquids.move(other, tank, tank.isEmpty() ? null : tank.getFluid(), Math.min(TRANSFER_RATE, room));
-            } else if (room < 0) {
-                Liquids.move(tank, other, tank.getFluid(), Math.min(TRANSFER_RATE, -room));
-            }
-        }
-    }
-
-    /**
-     * Half the gap, so two pipes settle instead of swapping their contents back
-     * and forth for ever. Different liquids stay where they are.
-     */
-    private static void level(UnitTank from, UnitTank to) {
-        int gap = from.getUnits() - to.getUnits();
-        if (gap > 1 && to.canTake(from.getFluid())) {
-            Liquids.move(from, to, from.getFluid(), Math.min(TRANSFER_RATE, gap / 2));
-        }
-    }
-
-    /** Draws off what a machine makes, without starting a second liquid in a line already carrying one. */
-    private static void draw(Level world, BlockPos pos, BlockState state, UnitTank tank, IFluidHandler machine) {
-        int want = Math.min(TRANSFER_RATE, tank.room());
-        if (!tank.isEmpty()) {
-            Liquids.move(machine, tank, tank.getFluid(), want);
-            return;
-        }
-        FluidStack offered = machine.drain(want, IFluidHandler.FluidAction.SIMULATE);
-        if (offered.isEmpty()) {
-            return;
-        }
-        for (Direction side : Direction.values()) {
-            if (state.getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side))
-                    && world.getBlockEntity(pos.relative(side)) instanceof FuelPipeBlockEntity neighbour
-                    && !neighbour.tank.isEmpty() && neighbour.tank.getFluid() != offered.getFluid()) {
-                return;
-            }
-        }
-        Liquids.move(machine, tank, offered.getFluid(), want);
-    }
-
-    // ---- saving and syncing ----
-
-    @Override
-    public net.minecraft.network.protocol.@org.jetbrains.annotations.Nullable Packet<
-            net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
-        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    @Override
-    public net.minecraft.nbt.CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
-        return this.saveWithoutMetadata(registries);
-    }
+    // ---- saving ----
 
     @Override
     protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
-        ValueInput view = ValueInput.of(tag, registries);
         super.loadAdditional(tag, registries);
-        if (tag.contains("Petrol")) {
-            // Saved before pipes carried anything but petrol.
-            this.tank.set(ModFluids.PETROL, view.getIntOr("Petrol", 0));
-        } else {
-            this.tank.read(view, "Tank");
-        }
-        this.blocked = view.getIntOr("Blocked", 0);
+        // Pipes saved before lines became networks held liquid of their own; it is let go.
+        this.blocked = ValueInput.of(tag, registries).getIntOr("Blocked", 0);
     }
 
     @Override
     protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
-        ValueOutput view = ValueOutput.of(tag, registries);
         super.saveAdditional(tag, registries);
-        this.tank.write(view, "Tank");
-        view.putInt("Blocked", this.blocked);
+        ValueOutput.of(tag, registries).putInt("Blocked", this.blocked);
     }
 }

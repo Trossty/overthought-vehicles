@@ -31,10 +31,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 /**
  * The valve that gives a line of pipe a destination.
  *
- * <p>It points somewhere, and that is the whole interface: fuel goes in the
- * back and out the front, never the other way, and faster than pipe levelling
- * can move it. {@link FuelValveBlockEntity} explains why that amounts to
- * priority.
+ * <p>It points somewhere, and that is the whole interface: liquid is drawn
+ * in at the back and pushed out of the front, never the other way.
+ * {@link FuelValveBlockEntity} explains why a line needs one to pull from a
+ * tank.
  *
  * <p>Placed against a block it feeds that block, the way a hopper does, so you
  * aim it by clicking the thing you want filled. A bare right click opens or

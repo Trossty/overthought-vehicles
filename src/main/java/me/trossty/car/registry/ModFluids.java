@@ -138,8 +138,7 @@ public final class ModFluids {
         // ...and the station's own plumbing is open to other mods' pipes all
         // the way along: a Create pipe can feed a pump, draw off a line, or
         // stand in for a run of this mod's pipe entirely.
-        event.registerBlockEntity(fluids, ModBlockEntities.FUEL_PIPE, (pipe, side) -> pipe.getFluidStorage());
-        event.registerBlockEntity(fluids, ModBlockEntities.FUEL_VALVE, (valve, side) -> valve.getFluidStorage());
+        event.registerBlockEntity(fluids, ModBlockEntities.FUEL_PIPE, (pipe, side) -> pipe.getFluidStorage(side));
         // Either half of a pump: the upper half has no block entity of its own.
         event.registerBlock(fluids, (world, pos, state, blockEntity, side) -> {
             var pump = me.trossty.car.block.FuelPumpBlock.tankAt(world, pos);
@@ -160,7 +159,7 @@ public final class ModFluids {
                         instanceof me.trossty.car.block.entity.PumpjackBlockEntity jack
                         ? jack.getEnergyStorage() : null, ModBlocks.PUMPJACK);
         event.registerBlockEntity(energy, ModBlockEntities.GENERATOR, (generator, side) -> generator.getEnergyStorage());
-        event.registerBlockEntity(energy, ModBlockEntities.ENERGY_CABLE, (cable, side) -> cable.getEnergyStorage());
+        event.registerBlockEntity(energy, ModBlockEntities.ENERGY_CABLE, (cable, side) -> cable.getEnergyStorage(side));
         event.registerBlockEntity(energy, ModBlockEntities.BATTERY_BANK,
                 (bank, side) -> bank.sideStorage(side == null ? net.minecraft.core.Direction.UP : side));
         event.registerBlockEntity(energy, ModBlockEntities.CHARGING_POST, (post, side) -> post.getEnergyStorage());

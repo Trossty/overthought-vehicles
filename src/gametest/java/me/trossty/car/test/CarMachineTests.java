@@ -183,8 +183,8 @@ public class CarMachineTests {
         context.runAtTickTime(200, () -> {
             EnergyCableBlockEntity first = context.<EnergyCableBlockEntity>getBlockEntity(run[0]);
             EnergyCableBlockEntity last = context.<EnergyCableBlockEntity>getBlockEntity(run[run.length - 1]);
-            context.assertTrue(first.getEnergy() >= last.getEnergy(),
-                    "charge should fall along the line, got " + first.getEnergy() + " then " + last.getEnergy());
+            context.assertTrue(first.network() == last.network() && first.network().size() == run.length,
+                    "the six lengths are not one run");
             context.assertTrue(plant.getOutput().getUnits() > 0,
                     "the hydrotreater at the end of the cable never ran");
             context.assertTrue(context.getBlockState(run[0]).getValue(EnergyCableBlock.SIDES.get(Direction.WEST))
@@ -201,8 +201,7 @@ public class CarMachineTests {
         BlockPos b = new BlockPos(3, 1, 2);
         cable(context, a, b);
         context.runAtTickTime(40, () -> {
-            context.assertTrue(context.<EnergyCableBlockEntity>getBlockEntity(a).getEnergy() == 0
-                    && context.<EnergyCableBlockEntity>getBlockEntity(b).getEnergy() == 0,
+            context.assertTrue(context.<EnergyCableBlockEntity>getBlockEntity(a).getFlow() == 0,
                     "cable made energy out of nothing");
             context.succeed();
         });
@@ -339,9 +338,7 @@ public class CarMachineTests {
         joinPipes(context, p1, p2);
         context.runAtTickTime(140, () -> {
             FuelTankBlockEntity tank = context.<FuelTankBlockEntity>getBlockEntity(tankAt);
-            int inPipes = context.<FuelPipeBlockEntity>getBlockEntity(p1).getPetrol()
-                    + context.<FuelPipeBlockEntity>getBlockEntity(p2).getPetrol();
-            int total = plant.getOutput().getUnits() + inPipes + tank.getPetrol();
+            int total = plant.getOutput().getUnits() + tank.getPetrol();
             context.assertTrue(tank.getPetrol() > 0, "no petrol reached the tank");
             context.assertTrue(total == 400, "petrol is not conserved: " + total + " of 400");
             context.succeed();
@@ -404,19 +401,72 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void pipesKeepLiquidsApart(GameTestHelper context) {
-        BlockPos a = new BlockPos(2, 1, 2);
-        BlockPos b = new BlockPos(3, 1, 2);
-        context.setBlock(a, ModBlocks.FUEL_PIPE);
-        context.setBlock(b, ModBlocks.FUEL_PIPE);
-        joinPipes(context, a, b);
-        context.<FuelPipeBlockEntity>getBlockEntity(a).getTank().set(ModFluids.CRUDE_OIL, 800);
-        context.<FuelPipeBlockEntity>getBlockEntity(b).getTank().set(ModFluids.DIESEL, 100);
-        context.runAtTickTime(20, () -> {
-            context.assertTrue(context.<FuelPipeBlockEntity>getBlockEntity(a).getAmount() == 800
-                    && context.<FuelPipeBlockEntity>getBlockEntity(b).getFluid() == ModFluids.DIESEL,
-                    "two liquids mixed in the pipes");
+    /** Tank, pipe, pipe, tank, with a valve at the start if asked for; the first tank holds 500 petrol. */
+    private static FuelTankBlockEntity[] tankToTank(GameTestHelper context, boolean valve) {
+        BlockPos from = new BlockPos(1, 1, 3);
+        BlockPos to = new BlockPos(5, 1, 3);
+        context.setBlock(from, ModBlocks.FUEL_TANK);
+        context.setBlock(to, ModBlocks.FUEL_TANK);
+        if (valve) {
+            context.setBlock(new BlockPos(2, 1, 3), ModBlocks.FUEL_VALVE.defaultBlockState()
+                    .setValue(me.trossty.car.block.FuelValveBlock.FACING, Direction.EAST));
+        } else {
+            context.setBlock(new BlockPos(2, 1, 3), ModBlocks.FUEL_PIPE);
+        }
+        context.setBlock(new BlockPos(3, 1, 3), ModBlocks.FUEL_PIPE);
+        context.setBlock(new BlockPos(4, 1, 3), ModBlocks.FUEL_PIPE);
+        joinPipes(context, valve ? new BlockPos[] {new BlockPos(3, 1, 3), new BlockPos(4, 1, 3)}
+                : new BlockPos[] {new BlockPos(2, 1, 3), new BlockPos(3, 1, 3), new BlockPos(4, 1, 3)});
+        FuelTankBlockEntity first = context.<FuelTankBlockEntity>getBlockEntity(from);
+        first.fill(ModFluids.PETROL, 500);
+        return new FuelTankBlockEntity[] {first, context.<FuelTankBlockEntity>getBlockEntity(to)};
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void twoTanksOnALineSitStill(GameTestHelper context) {
+        FuelTankBlockEntity[] tanks = tankToTank(context, false);
+        context.runAtTickTime(40, () -> {
+            context.assertTrue(tanks[0].getAmount() == 500 && tanks[1].getAmount() == 0,
+                    "a line moved petrol between two tanks with no valve: " + tanks[0].getAmount() + " / " + tanks[1].getAmount());
+            context.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void aValvePullsOneTankIntoAnother(GameTestHelper context) {
+        FuelTankBlockEntity[] tanks = tankToTank(context, true);
+        context.runAtTickTime(40, () -> {
+            context.assertTrue(tanks[0].getAmount() == 0 && tanks[1].getAmount() == 500
+                            && tanks[1].getFluid() == ModFluids.PETROL,
+                    "the valve did not empty one tank into the other: " + tanks[0].getAmount() + " / " + tanks[1].getAmount());
+            context.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void aLineTakesTwoLiquidsInTurnWithoutMixing(GameTestHelper context) {
+        // Two drums, each with a valve pushing into one line, and two empty tanks on it.
+        BlockPos[] line = {new BlockPos(2, 1, 2), new BlockPos(2, 1, 3), new BlockPos(2, 1, 4)};
+        for (BlockPos at : line) {
+            context.setBlock(at, ModBlocks.FUEL_PIPE);
+        }
+        context.setBlock(new BlockPos(0, 1, 2), ModBlocks.FUEL_TANK);
+        context.setBlock(new BlockPos(1, 1, 2), ModBlocks.FUEL_VALVE.defaultBlockState()
+                .setValue(me.trossty.car.block.FuelValveBlock.FACING, Direction.EAST));
+        context.setBlock(new BlockPos(0, 1, 4), ModBlocks.FUEL_TANK);
+        context.setBlock(new BlockPos(1, 1, 4), ModBlocks.FUEL_VALVE.defaultBlockState()
+                .setValue(me.trossty.car.block.FuelValveBlock.FACING, Direction.EAST));
+        context.setBlock(new BlockPos(3, 1, 2), ModBlocks.FUEL_TANK);
+        context.setBlock(new BlockPos(3, 1, 4), ModBlocks.FUEL_TANK);
+        joinPipes(context, line);
+        context.<FuelTankBlockEntity>getBlockEntity(new BlockPos(0, 1, 2)).fill(ModFluids.PETROL, 300);
+        context.<FuelTankBlockEntity>getBlockEntity(new BlockPos(0, 1, 4)).fill(ModFluids.DIESEL, 300);
+        context.runAtTickTime(60, () -> {
+            FuelTankBlockEntity a = context.<FuelTankBlockEntity>getBlockEntity(new BlockPos(3, 1, 2));
+            FuelTankBlockEntity b = context.<FuelTankBlockEntity>getBlockEntity(new BlockPos(3, 1, 4));
+            context.assertTrue(a.getAmount() == 300 && b.getAmount() == 300 && a.getFluid() != b.getFluid(),
+                    "expected one tank of each, got " + a.getFluid() + " " + a.getAmount()
+                            + " and " + b.getFluid() + " " + b.getAmount());
             context.succeed();
         });
     }
@@ -462,13 +512,14 @@ public class CarMachineTests {
     public static void batteryGivesOnlyOutOfItsFront(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         BatteryBankBlockEntity bank = battery(context, at, Direction.SOUTH, 50_000);
+        // A second battery takes in through its back off each side's cable.
+        BatteryBankBlockEntity ahead = battery(context, new BlockPos(3, 1, 5), Direction.SOUTH, 0);
+        BatteryBankBlockEntity behind = battery(context, new BlockPos(3, 1, 1), Direction.NORTH, 0);
         cable(context, new BlockPos(3, 1, 4), new BlockPos(3, 1, 2));
-        EnergyCableBlockEntity front = context.<EnergyCableBlockEntity>getBlockEntity(new BlockPos(3, 1, 4));
-        EnergyCableBlockEntity back = context.<EnergyCableBlockEntity>getBlockEntity(new BlockPos(3, 1, 2));
         context.runAtTickTime(20, () -> {
-            context.assertTrue(front.getEnergyStorage().getEnergyStored() > 0, "the cable on the front got nothing");
-            context.assertTrue(back.getEnergyStorage().getEnergyStored() == 0,
-                    "the battery gave " + back.getEnergyStorage().getEnergyStored() + " out of its back");
+            context.assertTrue(ahead.getEnergy() > 0, "the battery on the front got nothing");
+            context.assertTrue(behind.getEnergy() == 0,
+                    "the battery gave " + behind.getEnergy() + " out of its back");
             context.assertTrue(bank.getEnergy() < 50_000, "the battery did not drain");
             context.assertTrue(context.getBlockState(at).getValue(BatteryBankBlock.LEVEL) == 1,
                     "a quarter-full battery shows " + context.getBlockState(at).getValue(BatteryBankBlock.LEVEL) + " bars");
@@ -581,12 +632,13 @@ public class CarMachineTests {
 
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void cableGlowsOnlyWhileCarrying(GameTestHelper context) {
-        cable(context, new BlockPos(2, 1, 3), new BlockPos(3, 1, 3), new BlockPos(5, 1, 3));
-        context.<EnergyCableBlockEntity>getBlockEntity(new BlockPos(2, 1, 3)).setEnergy(800);
+        battery(context, new BlockPos(1, 1, 3), Direction.EAST, 50_000);
+        battery(context, new BlockPos(4, 1, 3), Direction.EAST, 0);
+        cable(context, new BlockPos(2, 1, 3), new BlockPos(3, 1, 3), new BlockPos(6, 1, 3));
         context.runAtTickTime(25, () -> {
             context.assertTrue(context.getBlockState(new BlockPos(3, 1, 3)).getValue(EnergyCableBlock.POWERED),
                     "a cable carrying power is dark");
-            context.assertTrue(!context.getBlockState(new BlockPos(5, 1, 3)).getValue(EnergyCableBlock.POWERED),
+            context.assertTrue(!context.getBlockState(new BlockPos(6, 1, 3)).getValue(EnergyCableBlock.POWERED),
                     "a cable on its own glows");
             context.succeed();
         });

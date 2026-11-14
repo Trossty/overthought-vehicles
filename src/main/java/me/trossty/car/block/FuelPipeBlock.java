@@ -217,7 +217,7 @@ public class FuelPipeBlock extends ModelEntityBlock {
         if (world.isClientSide()) {
             return null;
         }
-        return createTickerHelper(type, ModBlockEntities.FUEL_PIPE, FuelPipeBlockEntity::tick);
+        return createTickerHelper(type, ModBlockEntities.FUEL_PIPE, me.trossty.car.network.NetworkBlockEntity::tick);
     }
 
     /**
@@ -267,7 +267,7 @@ public class FuelPipeBlock extends ModelEntityBlock {
         return Direction.getNearest(at.x, at.y, at.z);
     }
 
-    /** Sneaking and knocking on a pipe says what is standing inside. */
+    /** Sneaking and knocking on a pipe says what the line is carrying. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
                                  Player player, BlockHitResult hit) {
@@ -278,26 +278,11 @@ public class FuelPipeBlock extends ModelEntityBlock {
             return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) {
-            player.displayClientMessage(pipe.getAmount() <= 0
+            player.displayClientMessage(pipe.getFlow() <= 0
                     ? Component.translatable("message.car.pipe_empty")
-                    : Component.translatable("message.car.pipe_level",
-                            me.trossty.car.fluid.Liquids.name(pipe.getFluid()), pipe.getAmount(), pipe.getCapacity()), true);
+                    : Component.translatable("message.car.pipe_flow",
+                            me.trossty.car.fluid.Liquids.name(pipe.getFluid()), pipe.getFlow()), true);
         }
         return InteractionResult.CONSUME;
-    }
-
-    // ---- redstone ----
-
-    @Override
-    protected boolean hasAnalogOutputSignal(BlockState state) {
-        return true;
-    }
-
-    @Override
-    protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
-        if (!(world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) || pipe.getAmount() <= 0) {
-            return 0;
-        }
-        return Mth.clamp(1 + pipe.getAmount() * 14 / pipe.getCapacity(), 1, 15);
     }
 }
