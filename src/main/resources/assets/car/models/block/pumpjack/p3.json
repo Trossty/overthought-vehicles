@@ -12,6 +12,8 @@
     "lamp": "minecraft:block/redstone_lamp"
   },
   "elements": [
-    { "from": [7.500, 0, 7.500], "to": [8.500, 12, 8.500], "faces": { "north": { "texture": "#iron" }, "south": { "texture": "#iron" }, "west": { "texture": "#iron" }, "east": { "texture": "#iron" }, "up": { "texture": "#iron" } } }
+    { "from": [7.500, 0, 7.500], "to": [8.500, 12, 8.500], "faces": { "north": { "texture": "#iron" }, "south": { "texture": "#iron" }, "west": { "texture": "#iron" }, "east": { "texture": "#iron" }, "up": { "texture": "#iron" } } },
+    { "from": [1.500, 0, 15.500], "to": [4, 1, 16], "faces": { "north": { "texture": "#yellow" }, "west": { "texture": "#yellow" }, "east": { "texture": "#yellow" }, "up": { "texture": "#yellow" } } },
+    { "from": [12, 0, 15.500], "to": [14.500, 1, 16], "faces": { "north": { "texture": "#yellow" }, "west": { "texture": "#yellow" }, "east": { "texture": "#yellow" }, "up": { "texture": "#yellow" } } }
   ]
 }

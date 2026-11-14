@@ -66,11 +66,37 @@ public class VehicleLiftBlock extends ModelEntityBlock {
     private static final int REACH = 2;
 
     /**
-     * The base plate a car is driven on to. The posts and arms are only
-     * drawn: the car is held by the lift itself, not stood on a shape, and
-     * the space under a raised car is left clear to walk into.
+     * The base plate a car is driven on to, and the two posts either side of
+     * it, which stand out into the next blocks over. The arms are only drawn:
+     * the car is held by the lift itself, not stood on a shape, and the space
+     * under a raised car is left clear to walk into. One shape per facing,
+     * the posts turned with the model.
      */
-    private static final VoxelShape PLATE = Block.box(0.0, 0.0, 0.0, 16.0, 2.0, 16.0);
+    private static final java.util.Map<net.minecraft.core.Direction, VoxelShape> SHAPES = new java.util.EnumMap<>(
+            net.minecraft.core.Direction.class);
+
+    static {
+        for (net.minecraft.core.Direction facing : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+            SHAPES.put(facing, net.minecraft.world.phys.shapes.Shapes.or(
+                    Block.box(0.0, 0.0, 0.0, 16.0, 2.0, 16.0),
+                    post(facing, -15.0, 5.0, -10.5, 11.0),
+                    post(facing, 26.5, 5.0, 31.0, 11.0)));
+        }
+    }
+
+    /** A post drawn at x1..x2, z1..z2 with the lift facing north, turned to {@code facing}. */
+    private static VoxelShape post(net.minecraft.core.Direction facing, double x1, double z1, double x2, double z2) {
+        // each quarter turn clockwise takes (x, z) to (16 - z, x), as the blockstate turns the model
+        for (int turn = 0; turn < ((facing.get2DDataValue() + 2) & 3); turn++) {
+            double nx1 = 16.0 - z2;
+            double nx2 = 16.0 - z1;
+            z1 = x1;
+            z2 = x2;
+            x1 = nx1;
+            x2 = nx2;
+        }
+        return Block.box(x1, 0.0, z1, x2, 31.0, z2);
+    }
 
     public VehicleLiftBlock(Properties settings) {
         super(settings);
@@ -95,12 +121,12 @@ public class VehicleLiftBlock extends ModelEntityBlock {
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        return PLATE;
+        return SHAPES.get(state.getValue(FACING));
     }
 
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        return PLATE;
+        return SHAPES.get(state.getValue(FACING));
     }
 
     @Override

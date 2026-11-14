@@ -58,6 +58,8 @@ public class CarPhotoTest {
             scenes.put("garageParts", this::garageParts);
             scenes.put("rapeseed", this::rapeseed);
             scenes.put("itemGrid", this::itemGrid);
+            scenes.put("pumpjackLook", this::pumpjackLook);
+            scenes.put("glassWater", this::glassWater);
             scenes.put("roadLife", this::roadLife);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
@@ -1261,6 +1263,31 @@ public class CarPhotoTest {
     }
 
     /** Sets a machine down facing south, every part of it, as placing it by hand would. */
+    /** A tank of water beside a car, seen through both its side windows. */
+    private void glassWater(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill 92 %d 94 110 %d 116 minecraft:air".formatted(Y, Y + 6));
+        server.runCommand("fill 92 %d 94 110 %d 116 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        // a glass tank of water standing at window height
+        server.runCommand("fill 103 %d 94 106 %d 105 minecraft:glass".formatted(Y, Y + 3));
+        server.runCommand("fill 104 %d 95 105 %d 104 minecraft:water".formatted(Y, Y + 2));
+        server.runCommand("summon car:car 100.5 %d 99.5 {Rotation:[0f,0f],Color:3}".formatted(Y));
+        context.waitTicks(20);
+        // through both side windows to the tank on the far side
+        shot(context, server, "glass_water_side", 97.0, Y + 1.5, 99.4, -90, 4);
+        shot(context, server, "glass_water_quarter", 97.5, Y + 2.2, 96.0, -60, 20);
+    }
+
+    /** The pumpjack alone, from the side, the front and a three-quarter angle, mid-stroke. */
+    private void pumpjackLook(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        place(server, "car:pumpjack", 0, 0);
+        context.waitTicks(30);
+        shot(context, server, "pumpjack_side", 6.5, Y + 1.6, -1.0, 90, 8);
+        shot(context, server, "pumpjack_front", 0.5, Y + 1.6, 6.0, 180, 8);
+        shot(context, server, "pumpjack_quarter", 5.0, Y + 2.6, 4.5, 135, 16);
+    }
+
     private void place(TestServerContext server, String block, int x, int z) {
         server.runCommand("setblock %d %d %d %s[facing=south]".formatted(x, Y, z, block));
         server.runOnServer(minecraft -> {

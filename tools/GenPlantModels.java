@@ -513,11 +513,20 @@ public final class GenPlantModels {
         m.box(1, 4.5F, 6, 2, 8.5F, 10, "#red");
         m.box(6, 8, 6, 10, 11, 10, "#iron");
         m.box(7.5F, 11, 7.5F, 8.5F, 28, 8.5F, "#iron");
-        // the Samson post: two legs, braced, with the bearing on top
-        m.box(1.5F, 3, 21, 4, 38, 27, "#yellow");
-        m.box(12, 3, 21, 14.5F, 38, 27, "#yellow");
-        m.box(4, 14, 23, 12, 15.5F, 25, "#yellow");
-        m.box(4, 26, 23, 12, 27.5F, 25, "#yellow");
+        // the Samson post, a tripod: a leg either side leaning in from the
+        // front, one down the middle from the back (inside the counterweights'
+        // swing), stepped in to meet under the bearing, braced across
+        for (int step = 0; step < 10; step++) {
+            float y = 3 + step * 3.5F;
+            float front = 12.5F + step;
+            m.box(1.5F, y, front, 4, y + 3.5F, front + 3.5F, "#yellow");
+            m.box(12, y, front, 14.5F, y + 3.5F, front + 3.5F, "#yellow");
+            float back = 31.5F - step;
+            m.box(6.5F, y, back, 9.5F, y + 3.5F, back + 3, "#yellow");
+        }
+        m.box(4, 14, 16, 12, 15.5F, 18, "#yellow");
+        m.box(4, 26, 19, 12, 27.5F, 21, "#yellow");
+        m.box(2, 2, 30, 14, 3.5F, 35, "#dark");
         m.box(1, 37, 21.5F, 15, 42, 26.5F, "#dark");
         // the gearbox and the motor at the back
         m.box(4, 4, 35, 12, 16, 45, "*", "#grey", "down", "-");
@@ -534,8 +543,10 @@ public final class GenPlantModels {
                 .tex("particle", YELLOW)
                 .tex("yellow", YELLOW).tex("dark", DARK).tex("iron", IRON).tex("grey", GREY);
         m.explicitUv = true;
-        // the beam itself, over the bearing
-        m.box(6, 7, -6, 10, 10.5F, 31, "#yellow");
+        // the beam itself, an I-section over the bearing
+        m.box(5.5F, 7, -6, 10.5F, 7.6F, 31, "#yellow");
+        m.box(6.5F, 7.6F, -6, 9.5F, 9.9F, 31, "#yellow");
+        m.box(5.5F, 9.9F, -6, 10.5F, 10.5F, 31, "#yellow");
         m.box(5.5F, 6, 6, 10.5F, 7, 10, "#dark");
         // the horse head over the well, rounded at the front
         m.box(4.5F, -1, -12.5F, 11.5F, 14, -5, "#yellow");
@@ -547,8 +558,8 @@ public final class GenPlantModels {
         m.box(6, -7, -9, 10, -6, -7, "#dark");
         // the equaliser and the pitman arms down to the crank
         m.box(0.5F, 5, 23, 15.5F, 7, 25, "#dark");
-        m.box(0.5F, -8, 23.25F, 1.75F, 5, 24.75F, "#grey");
-        m.box(14.25F, -8, 23.25F, 15.5F, 5, 24.75F, "#grey");
+        m.box(0.5F, -8, 22.75F, 1.75F, 5, 25.25F, "#grey");
+        m.box(14.25F, -8, 22.75F, 15.5F, 5, 25.25F, "#grey");
         return m;
     }
 
@@ -561,7 +572,10 @@ public final class GenPlantModels {
         m.box(1.5F, 1, 7, 14.5F, 3, 9, "#iron");
         for (float x : new float[]{1.75F, 12.25F}) {
             m.box(x, 0, 6.5F, x + 2, 9, 9.5F, "#grey");
-            m.box(x - 0.25F, -9, 3.5F, x + 2.25F, -1, 12.5F, "#red");
+            // a heavy plate, its outer edge rounded off in a step
+            m.box(x - 0.25F, -9, 2, x + 2.25F, -1, 14, "#red");
+            m.box(x - 0.25F, -10.5F, 4.5F, x + 2.25F, -9, 11.5F, "#red");
+            m.box(x - 0.5F, -2.5F, 6.5F, x + 2.5F, 0, 9.5F, "#dark");
         }
         m.box(0.5F, 7, 7, 1.75F, 9, 9, "#iron");
         m.box(14.25F, 7, 7, 15.5F, 9, 9, "#iron");

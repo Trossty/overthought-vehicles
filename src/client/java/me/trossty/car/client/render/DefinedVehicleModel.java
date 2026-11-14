@@ -129,7 +129,7 @@ public class DefinedVehicleModel extends VehicleModel {
     private DefinedVehicleModel(ModelPart root, VehicleDefinition definition, boolean glass) {
         // The bodywork is solid; the glass is its own model, drawn see-through
         // and after everything else, so whoever sits behind it still shows.
-        super(root, glass ? net.minecraft.client.renderer.RenderType::entityTranslucent
+        super(root, glass ? VehicleRenderTypes::glass
                 : net.minecraft.client.renderer.RenderType::entityCutoutNoCull);
         this.chassis = root.hasChild("chassis") ? root.getChild("chassis") : null;
         ModelPart turn = null;

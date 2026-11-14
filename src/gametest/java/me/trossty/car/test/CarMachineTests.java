@@ -604,6 +604,27 @@ public class CarMachineTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void liftPostsAreSolid(GameTestHelper context) {
+        BlockPos at = new BlockPos(3, 1, 3);
+        for (Direction facing : Direction.Plane.HORIZONTAL) {
+            context.setBlock(at, ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                    .setValue(me.trossty.car.block.VehicleLiftBlock.FACING, facing));
+            var shape = context.getBlockState(at).getCollisionShape(context.getLevel(), context.absolutePos(at));
+            // the posts stand a block either side, across the way a car drives on
+            Direction side = facing.getClockWise();
+            for (Direction out : new Direction[] {side, side.getOpposite()}) {
+                double px = 0.5 + out.getStepX() * 1.3;
+                double pz = 0.5 + out.getStepZ() * 1.3;
+                boolean hit = shape.toAabbs().stream().anyMatch(box -> box.contains(px, 1.5, pz));
+                context.assertTrue(hit, "no post " + out + " of a lift facing " + facing);
+            }
+            context.assertTrue(shape.toAabbs().stream().noneMatch(box -> box.contains(0.5, 1.0, 0.5)),
+                    "the middle of a lift facing " + facing + " is not clear to stand in");
+        }
+        context.succeed();
+    }
+
     // ---- battery bank and charging post ----
 
     private static BatteryBankBlockEntity battery(GameTestHelper context, BlockPos at, Direction front, long energy) {
