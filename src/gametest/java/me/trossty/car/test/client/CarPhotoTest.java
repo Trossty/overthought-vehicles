@@ -56,6 +56,7 @@ public class CarPhotoTest {
             scenes.put("hoist", this::hoist);
             scenes.put("garageTools", this::garageTools);
             scenes.put("garageParts", this::garageParts);
+            scenes.put("roadLife", this::roadLife);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -2121,6 +2122,92 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
         shot(context, server, "garage_obd_front", 0.5, Y + 2.2, 5.0, 180, 25);
         shot(context, server, "garage_obd_rear", 3.5, Y + 1.4, -4.0, 40, 15);
+    }
+
+    /**
+     * What driving leaves behind: ruts and dust over dirt and a muddy car,
+     * sparks off a wall, rubber from a slide on stone, and a dirty car beside
+     * a clean one.
+     */
+    private void roadLife(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -6 12 %d 24 minecraft:dirt".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d 25 12 %d 60 minecraft:stone".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -6 %d 44 6 %d 45 minecraft:stone_bricks".formatted(Y, Y + 2));
+        server.runCommand("summon car:car 0.5 %d -2.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:14,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("tp @a 0.5 %d -2.5".formatted(Y));
+        context.waitTicks(20);
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            client.player.setYRot(0);
+            client.options.hideGui = true;
+        });
+        lampCamera(context, server, 11.0, Y + 4.0, 14.0, 110, 22);
+        context.getInput().holdKey(options -> options.keyUp);
+        int shots = 0;
+        StringBuilder trace = new StringBuilder("car photo roadLife:");
+        for (int t = 0; t < 140 && shots < 8; t++) {
+            context.waitTicks(1);
+            double z = context.computeOnClient(client -> client.player.getVehicle() == null
+                    ? 99.0 : client.player.getVehicle().getZ());
+            trace.append(" %.1f".formatted(z));
+            if (z > 9.0 && z < 24.0 && t % 3 == 0 && shots < 3) {
+                context.takeScreenshot("road_dirt_" + shots++);
+            }
+            if (z > 40.5 && shots < 8) {
+                if (shots < 3) {
+                    shots = 3;
+                }
+                if (shots == 3) {
+                    lampCamera(context, server, 8.0, Y + 2.0, 37.5, 62, 12);
+                }
+                context.takeScreenshot("road_crash_" + (shots++ - 3));
+            }
+        }
+        context.getInput().releaseKey(options -> options.keyUp);
+        System.out.println(trace);
+        float dirt = context.computeOnClient(client -> client.player.getVehicle()
+                instanceof me.trossty.car.entity.CarEntity car ? car.getDirt() : -1.0F);
+        System.out.println("car photo roadLife dirt after the dirt road: " + dirt);
+        lampCamera(context, server, 9.0, Y + 6.0, 6.0, 120, 35);
+        context.takeScreenshot("road_ruts");
+
+        // A slide on stone: up to speed, then the wheel hard over.
+        server.runCommand("ride @p dismount");
+        server.runCommand("kill @e[tag=photo]");
+        clear(server);
+        server.runCommand("fill -30 %d -30 30 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 15.5 %d -24.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("tp @a 15.5 %d -24.5".formatted(Y));
+        context.waitTicks(20);
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(10);
+        context.runOnClient(client -> client.player.setYRot(0));
+        lampCamera(context, server, 15.5, Y + 20.0, -14.0, 0, 55);
+        context.getInput().holdKey(options -> options.keyUp);
+        context.waitTicks(45);
+        // The handbrake with the wheel over: the back steps out.
+        context.getInput().holdKey(options -> options.keyLeft);
+        context.getInput().holdKey(options -> options.keyJump);
+        context.waitTicks(25);
+        context.getInput().releaseKey(options -> options.keyUp);
+        context.getInput().releaseKey(options -> options.keyLeft);
+        context.getInput().releaseKey(options -> options.keyJump);
+        context.waitTicks(15);
+        context.takeScreenshot("road_skid");
+        server.runCommand("ride @p dismount");
+        server.runCommand("kill @e[tag=camera]");
+        context.runOnClient(client -> client.setCameraEntity(client.player));
+
+        // Clean and filthy, side by side.
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car -2.0 %d 0.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:0}".formatted(Y));
+        server.runCommand("summon car:car -2.0 %d 6.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:0,Dirt:1.0f}".formatted(Y));
+        context.waitTicks(10);
+        shot(context, server, "road_clean_and_dirty", 6.0, Y + 1.0, 3.5, 90, 8);
+        context.runOnClient(client -> client.options.hideGui = false);
     }
 
     private void tyreLooks(ClientGameTestContext context, TestServerContext server) {

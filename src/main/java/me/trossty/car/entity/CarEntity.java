@@ -377,6 +377,13 @@ public class CarEntity extends VehicleEntity {
      */
     private float travelYaw = Float.NaN;
     private int skidSoundCooldown;
+    /** Where each rear wheel last left a mark, so the next joins on; null when it left none. */
+    private final Vec3[] lastMarks = new Vec3[2];
+    /** Below this speed, in blocks a tick, a wheel neither marks nor throws anything. */
+    private static final double MARK_MIN_SPEED = 0.03;
+    private static final double SPRAY_MIN_SPEED = 0.12;
+    private static final float SKID_MARK_DARKNESS = 0.7F;
+    private static final float RUT_DARKNESS = 0.35F;
 
     /**
      * Which data-pack vehicle this is, as its id; empty for the plain machine.
@@ -424,6 +431,9 @@ public class CarEntity extends VehicleEntity {
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
     /** Air in the tyres, 1 at the pressure on the door pillar, 0 down on the rims. */
     private static final EntityDataAccessor<Float> TYRE_PRESSURE =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** Mud and dust on the bodywork, 0 clean to 1 caked. */
+    private static final EntityDataAccessor<Float> DIRT =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
     /** Which lids stand open: {@link #BONNET_BIT}, {@link #BOOT_BIT}. */
     private static final EntityDataAccessor<Byte> LIDS =
@@ -624,6 +634,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(BELT_WEAR, 0.0F);
         builder.define(CAT_CLOG, 0.0F);
         builder.define(TYRE_PRESSURE, 1.0F);
+        builder.define(DIRT, 0.0F);
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
@@ -926,6 +937,7 @@ public class CarEntity extends VehicleEntity {
             // Braking only exists on the driver's client, so the brakes are
             // charged for the speed the car was actually seen to lose.
             this.wearBrakes(travelled);
+            this.weather(travelled);
             this.entityData.set(KEY_MISSING, this.lockCode != 0
                     && this.getControllingPassenger() instanceof Player driver
                     && !driver.isCreative() && !carriesKey(driver, this.lockCode));
@@ -1394,43 +1406,121 @@ public class CarEntity extends VehicleEntity {
     }
 
     /**
-     * Tyre smoke and squeal whenever the car is seen moving sideways to the
-     * way it points. Worked out from where it went, so every client sees
-     * every slide, not only the driver.
+     * What the tyres do to the road and the road to the tyres, seen from where
+     * the car went: smoke and squeal and rubber left behind whenever it slides
+     * sideways to the way it points, ruts cut in soft ground, dirt thrown up
+     * off it, and spray off a wet road or out of a puddle. Worked out from the
+     * movement itself, so every client sees every slide, not only the driver.
      */
     private void emitSkid() {
         if (this.skidSoundCooldown > 0) {
             this.skidSoundCooldown--;
         }
         if (!this.hasLastTickPos || !this.onGround()) {
+            this.lastMarks[0] = this.lastMarks[1] = null;
             return;
         }
         double dx = this.getX() - this.lastTickX;
         double dz = this.getZ() - this.lastTickZ;
         double moved = Math.sqrt(dx * dx + dz * dz);
-        if (moved < DRIFT_MIN_SPEED * 0.9) {
+        if (moved < MARK_MIN_SPEED) {
+            this.lastMarks[0] = this.lastMarks[1] = null;
             return;
         }
         float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
         double forwardX = -Mth.sin(yawRad);
         double forwardZ = Mth.cos(yawRad);
         double along = Math.abs(dx * forwardX + dz * forwardZ) / moved;
-        if (along > 0.97) {
-            return;
+        boolean sliding = moved >= DRIFT_MIN_SPEED * 0.9 && along <= 0.97;
+
+        double[] rear = this.rearAxle();
+        double back = rear[0];
+        double track = rear[1];
+        int wheels = track < 0.05 ? 1 : 2;
+        long now = this.level().getGameTime();
+        for (int wheel = 0; wheel < wheels; wheel++) {
+            int side = wheels == 1 ? 0 : wheel * 2 - 1;
+            double x = this.getX() - forwardX * back + forwardZ * side * track;
+            double z = this.getZ() - forwardZ * back - forwardX * side * track;
+            BlockPos under = BlockPos.containing(x, this.getY() - 0.2, z);
+            net.minecraft.world.level.block.state.BlockState ground = this.level().getBlockState(under);
+            boolean soft = isSoftGround(ground);
+            boolean wet = this.level().isRainingAt(under.above())
+                    || this.level().getFluidState(BlockPos.containing(x, this.getY() + 0.05, z))
+                            .is(net.minecraft.tags.FluidTags.WATER);
+
+            if (sliding) {
+                this.level().addParticle(wet ? ParticleTypes.SPLASH : ParticleTypes.CLOUD, x, this.getY() + 0.15, z,
+                        (this.random.nextDouble() - 0.5) * 0.04, 0.02, (this.random.nextDouble() - 0.5) * 0.04);
+            }
+
+            // Rubber on the road when it slides, a rut in soft ground whenever it
+            // rolls over it; a wet road takes neither.
+            Vec3 here = new Vec3(x, this.getY(), z);
+            float dark = sliding && !wet ? SKID_MARK_DARKNESS : soft ? RUT_DARKNESS : 0.0F;
+            if (dark > 0.0F) {
+                Vec3 last = this.lastMarks[wheel];
+                if (last != null && last.distanceToSqr(here) < 4.0) {
+                    TyreMarks.add(new TyreMarks.Mark(last.x, last.y, last.z, x, this.getY(), z,
+                            wheels == 1 ? 0.18F : 0.3F, dark, now));
+                }
+                this.lastMarks[wheel] = here;
+            } else {
+                this.lastMarks[wheel] = null;
+            }
+
+            // Thrown up behind the wheel, more the faster it goes.
+            if (moved > SPRAY_MIN_SPEED && this.random.nextFloat() < moved * 2.5) {
+                double up = 0.08 + moved * 0.3;
+                double vx = -dx * 0.6 + (this.random.nextDouble() - 0.5) * 0.08;
+                double vz = -dz * 0.6 + (this.random.nextDouble() - 0.5) * 0.08;
+                if (wet) {
+                    this.level().addParticle(ParticleTypes.SPLASH, x, this.getY() + 0.1, z, vx, up, vz);
+                    this.level().addParticle(ParticleTypes.FALLING_WATER, x, this.getY() + 0.3, z, vx, up * 0.5, vz);
+                } else if (soft) {
+                    this.level().addParticle(new net.minecraft.core.particles.BlockParticleOption(
+                            ParticleTypes.BLOCK, ground), x, this.getY() + 0.1, z, vx, up, vz);
+                }
+            }
         }
-        double back = this.getBbWidth() * 0.45;
-        for (int side = -1; side <= 1; side += 2) {
-            double x = this.getX() - forwardX * back + forwardZ * side * 0.7;
-            double z = this.getZ() - forwardZ * back - forwardX * side * 0.7;
-            this.level().addParticle(ParticleTypes.CLOUD, x, this.getY() + 0.15, z,
-                    (this.random.nextDouble() - 0.5) * 0.04, 0.02, (this.random.nextDouble() - 0.5) * 0.04);
-        }
-        if (this.skidSoundCooldown == 0) {
+
+        if (sliding && this.skidSoundCooldown == 0) {
             this.skidSoundCooldown = 9;
             this.level().playLocalSound(this.getX(), this.getY(), this.getZ(),
                     ModSounds.TYRE_SKID, SoundSource.NEUTRAL, 0.55F,
                     0.9F + this.random.nextFloat() * 0.2F, false);
         }
+    }
+
+    /**
+     * The back wheels, in blocks: how far behind the middle they are, and how
+     * far out to either side — nought for a single track, like a bike's.
+     */
+    private double[] rearAxle() {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        if (defined == null || defined.wheels().isEmpty()) {
+            return new double[] {this.getBbWidth() * 0.45, Math.min(0.8, this.getBbWidth() * 0.35)};
+        }
+        float rearZ = Float.MAX_VALUE;
+        for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : defined.wheels()) {
+            rearZ = Math.min(rearZ, wheel.at().z());
+        }
+        float side = 0.0F;
+        for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : defined.wheels()) {
+            if (wheel.at().z() < rearZ + 1.0F) {
+                side = Math.max(side, Math.abs(wheel.at().x()));
+            }
+        }
+        return new double[] {-rearZ / 16.0, side / 16.0};
+    }
+
+    /** Ground a wheel sinks into, cutting a rut and throwing it up behind. */
+    private static boolean isSoftGround(net.minecraft.world.level.block.state.BlockState ground) {
+        return ground.is(net.minecraft.tags.BlockTags.DIRT) || ground.is(net.minecraft.tags.BlockTags.SAND)
+                || ground.is(net.minecraft.world.level.block.Blocks.GRAVEL)
+                || ground.is(net.minecraft.tags.BlockTags.SNOW)
+                || ground.is(net.minecraft.world.level.block.Blocks.SOUL_SAND)
+                || ground.is(net.minecraft.world.level.block.Blocks.SOUL_SOIL);
     }
 
     private static float approachZero(float value, float amount) {
@@ -3176,6 +3266,65 @@ public class CarEntity extends VehicleEntity {
         this.entityData.set(TYRE_PRESSURE, Mth.clamp(pressure, 0.0F, 1.0F));
     }
 
+    public float getDirt() {
+        return this.entityData.get(DIRT);
+    }
+
+    public void setDirt(float dirt) {
+        this.entityData.set(DIRT, Mth.clamp(dirt, 0.0F, 1.0F));
+    }
+
+    /** Off the road this many blocks to go from clean to caked. */
+    private static final float DIRT_PER_BLOCK = 1.0F / 600.0F;
+    /** Rain on it rinses it clean in about four minutes; driving through water in seconds. */
+    private static final float RAIN_RINSE = 1.0F / 4800.0F;
+    private static final float WATER_RINSE = 1.0F / 60.0F;
+    /** How much one wet sponge wipes off. */
+    private static final float SPONGE_WIPE = 0.5F;
+
+    /**
+     * Picks up mud off soft ground the way it picks up miles, and loses it to
+     * the rain and to water. Server side, where it is kept.
+     */
+    private void weather(float travelled) {
+        float dirt = this.getDirt();
+        if (this.isInWater()) {
+            dirt -= WATER_RINSE;
+        } else if (this.level().isRainingAt(this.blockPosition().above())) {
+            dirt -= RAIN_RINSE;
+        }
+        if (this.onGround() && Math.abs(travelled) > 0.0F
+                && isSoftGround(this.level().getBlockState(this.getBlockPosBelowThatAffectsMyMovement()))) {
+            dirt += Math.abs(travelled) * DIRT_PER_BLOCK;
+        }
+        if (dirt != this.getDirt()) {
+            this.setDirt(dirt);
+        }
+    }
+
+    /** A wet sponge wiped over the bodywork: half the dirt off, and the sponge wrung dry. */
+    private InteractionResult wash(Player player, ItemStack held) {
+        if (!held.is(Items.WET_SPONGE) || this.getDirt() <= 0.0F) {
+            return InteractionResult.PASS;
+        }
+        if (this.level() instanceof ServerLevel world) {
+            this.setDirt(this.getDirt() - SPONGE_WIPE);
+            world.sendParticles(ParticleTypes.SPLASH, this.getX(), this.getY() + 1.0, this.getZ(),
+                    24, this.getBbWidth() * 0.4, 0.4, this.getBbWidth() * 0.4, 0.1);
+            world.sendParticles(ParticleTypes.BUBBLE_POP, this.getX(), this.getY() + 1.0, this.getZ(),
+                    10, this.getBbWidth() * 0.4, 0.3, this.getBbWidth() * 0.4, 0.02);
+            world.playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
+                    SoundEvents.BUCKET_EMPTY, SoundSource.NEUTRAL, 0.6F, 1.3F);
+            if (!player.getAbilities().instabuild) {
+                held.shrink(1);
+                if (!player.getInventory().add(new ItemStack(Items.SPONGE))) {
+                    player.drop(new ItemStack(Items.SPONGE), false);
+                }
+            }
+        }
+        return InteractionResult.sidedSuccess(this.level().isClientSide());
+    }
+
     /** How soft the tyres are, 0 at the right pressure or above SOFT_TYRES, 1 on the rims. */
     public float tyreSoftness() {
         if (!this.hasPart(CarPart.WHEELS)) {
@@ -4380,6 +4529,10 @@ public class CarEntity extends VehicleEntity {
                 return jumped;
             }
         }
+        InteractionResult washed = this.wash(player, held);
+        if (washed != InteractionResult.PASS) {
+            return washed;
+        }
         InteractionResult topped = this.topUp(player, held);
         if (topped != InteractionResult.PASS) {
             return topped;
@@ -5236,6 +5389,28 @@ public class CarEntity extends VehicleEntity {
      * vanilla's rule of breaking once the wobble passes 40, which would have
      * healed itself a point a tick.
      */
+    /**
+     * Metal on whatever it hit: sparks off the front corner, and on a hard
+     * enough knock glass and a puff of dust and smoke with them.
+     */
+    private void throwSparks(ServerLevel world, float amount) {
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double reach = this.rearAxle()[0] + 0.5;
+        double x = this.getX() - Mth.sin(yawRad) * reach;
+        double z = this.getZ() + Mth.cos(yawRad) * reach;
+        double y = this.getY() + 0.5;
+        int sparks = Mth.clamp((int) (amount * 3.0F), 8, 40);
+        world.sendParticles(ParticleTypes.CRIT, x, y, z, sparks, 0.5, 0.3, 0.5, 0.6);
+        world.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, sparks, 0.5, 0.25, 0.5, 0.4);
+        world.sendParticles(ParticleTypes.LAVA, x, y, z, Math.max(2, sparks / 4), 0.4, 0.2, 0.4, 0.0);
+        if (amount >= PUNCTURE_MIN_DAMAGE) {
+            world.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK,
+                            net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState()),
+                    x, y + 0.3, z, 16, 0.5, 0.3, 0.5, 0.15);
+            world.sendParticles(ParticleTypes.POOF, x, y, z, 6, 0.4, 0.2, 0.4, 0.03);
+        }
+    }
+
     private void applyCarDamage(ServerLevel world, float amount) {
         if (amount <= 0.0F || this.isRemoved()) {
             return;
@@ -5254,6 +5429,7 @@ public class CarEntity extends VehicleEntity {
         this.setHurtTime(10);
         this.setDamage(Math.min(this.getDamage() + amount * 10.0F, 40.0F));
         this.markHurt();
+        this.throwSparks(world, amount);
 
         // A hard enough knock holes the tank. It is not the end of the car,
         // but it is the end of the journey unless somebody patches it.
@@ -5556,6 +5732,7 @@ public class CarEntity extends VehicleEntity {
         this.setBeltWear(view.getFloatOr("BeltWear", 0.0F));
         this.setCatClog(view.getFloatOr("CatClog", 0.0F));
         this.setTyrePressure(view.getFloatOr("TyrePressure", 1.0F));
+        this.setDirt(view.getFloatOr("Dirt", 0.0F));
         if (view.tag().contains("Boot")) {
             net.minecraft.world.ContainerHelper.loadAllItems(
                     view.tag().getCompound("Boot"), this.boot.getItems(), view.registries());
@@ -5622,6 +5799,9 @@ public class CarEntity extends VehicleEntity {
         }
         if (this.getTyrePressure() < 1.0F) {
             view.putFloat("TyrePressure", this.getTyrePressure());
+        }
+        if (this.getDirt() > 0.0F) {
+            view.putFloat("Dirt", this.getDirt());
         }
         if (!this.boot.isEmpty()) {
             view.tag().put("Boot", net.minecraft.world.ContainerHelper.saveAllItems(

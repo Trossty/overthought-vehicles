@@ -40,6 +40,8 @@ public class CarRenderState {
     public boolean headlights;
     /** Slowing hard enough to light the brake lamps. */
     public boolean braking;
+    /** Mud on the bodywork, 0 clean to 1 caked. */
+    public float dirt;
     /** How settled into its parked pose: a bike on its stand, a trailer on its jockey wheel. */
     public float restPose;
     public int damageWobbleSide;

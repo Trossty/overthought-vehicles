@@ -210,6 +210,7 @@ public class CarMainClient {
                     client.renderBuffers().bufferSource(), camera,
                     new Matrix4f(event.getModelViewMatrix()).mul(event.getPoseStack().last().pose()));
             WorldLabels.begin(context);
+            me.trossty.car.client.render.TyreMarkRenderer.render(context);
             CarServiceOverlay.render(context);
             FuelHoseRenderer.render(context);
         });

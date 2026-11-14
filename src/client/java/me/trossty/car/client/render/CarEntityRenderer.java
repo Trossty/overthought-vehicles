@@ -96,6 +96,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.engineRunning = car.isEngineRunning();
         state.headlights = lampsOn(car);
         state.braking = car.areBrakeLampsOn();
+        state.dirt = car.getDirt();
         state.restPose = car.getRestPose(tickProgress);
         state.bonnetOpen = car.getBonnetSwing(tickProgress);
         state.bootOpen = car.getBootSwing(tickProgress);
@@ -999,7 +1000,24 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
     private static void draw(VehicleModel model, CarRenderState state, PoseStack matrices,
                              MultiBufferSource buffers, net.minecraft.client.renderer.RenderType type) {
         model.setupAnim(state);
-        model.renderToBuffer(matrices, buffers.getBuffer(type), state.lightCoords, OverlayTexture.NO_OVERLAY, -1);
+        model.renderToBuffer(matrices, buffers.getBuffer(type), state.lightCoords, OverlayTexture.NO_OVERLAY,
+                grime(state.dirt));
+    }
+
+    /** The colour mud lends a dirty car: a dull brown, laid over by at most this much. */
+    private static final int MUD = 0x8A6A48;
+    private static final float MAX_GRIME = 0.6F;
+
+    /** The tint a car this dirty is drawn in: white when clean, browner the dirtier. */
+    private static int grime(float dirt) {
+        if (dirt <= 0.0F) {
+            return -1;
+        }
+        float t = Math.min(dirt, 1.0F) * MAX_GRIME;
+        int r = (int) Mth.lerp(t, 255, MUD >> 16 & 0xFF);
+        int g = (int) Mth.lerp(t, 255, MUD >> 8 & 0xFF);
+        int b = (int) Mth.lerp(t, 255, MUD & 0xFF);
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
     private static final int PLATE_BACKGROUND = 0xA0101418;
