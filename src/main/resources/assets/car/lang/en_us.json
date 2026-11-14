@@ -445,7 +445,7 @@
   "advancements.car.root.title": "Overthought Vehicles",
   "advancements.car.root.description": "Oil out of the ground, fuel out of the oil, cars out of the workshop",
   "advancements.car.strike_oil.title": "Strike Oil",
-  "advancements.car.strike_oil.description": "Make a pumpjack and stand it over an oil deposit: look for the black seeps on the ground",
+  "advancements.car.strike_oil.description": "Make a pumpjack and stand it over an oil deposit: black seeps on the ground give one away, and a seismic survey kit struck on the ground finds the rest",
   "advancements.car.power_up.title": "Power Up",
   "advancements.car.power_up.description": "Make a generator; energy cables carry its power to the pumpjack and the refinery",
   "advancements.car.refined.title": "Crude to Petrol",
@@ -591,5 +591,14 @@
   "message.car.compression_no_engine": "There is no engine here to test.",
   "message.car.compression_running": "Switch the engine off first.",
   "message.car.compression_plugs_in": "Take the spark plugs out first: the tester screws into a plug hole.",
-  "message.car.compression_flat": "The engine has to turn over on the starter, and the battery is flat."
+  "message.car.compression_flat": "The engine has to turn over on the starter, and the battery is flat.",
+  "item.car.seismic_survey": "Seismic Survey Kit",
+  "message.car.survey_here": "Oil under the hammer: about %s buckets within a pumpjack's reach, %s blocks down. Put the pumpjack here.",
+  "message.car.survey_away": "Oil %s blocks %s, %s blocks down: about %s buckets in that deposit.",
+  "message.car.survey_huge": "a great many",
+  "message.car.survey_none": "No echo of oil within %s blocks. Try elsewhere; black seeps on the ground give deposits away.",
+  "direction.car.north_east": "north-east",
+  "direction.car.south_east": "south-east",
+  "direction.car.south_west": "south-west",
+  "direction.car.north_west": "north-west"
 }

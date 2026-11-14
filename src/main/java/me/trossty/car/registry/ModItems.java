@@ -173,6 +173,10 @@ public final class ModItems {
             register("catalytic_converter", Item::new, new Item.Properties().stacksTo(16));
 
     /** A foot pump: a stroke of air into every tyre. */
+    /** A sledgehammer and a plate: the echo finds oil under the ground. */
+    public static final Item SEISMIC_SURVEY = register("seismic_survey", me.trossty.car.item.SeismicSurveyItem::new,
+            new Item.Properties().durability(128));
+
     /** A gauge on a hose that screws into a plug hole: reads each cylinder. */
     public static final Item COMPRESSION_TESTER =
             register("compression_tester", Item::new, new Item.Properties().stacksTo(1));
@@ -329,7 +333,7 @@ public final class ModItems {
         entries.add(ModBlocks.VEHICLE_WORKSTATION, ModBlocks.VEHICLE_WORKBENCH, ModBlocks.VEHICLE_LIFT, ModBlocks.MOTORCYCLE_LIFT,
                 ModBlocks.ENGINE_STAND, ModBlocks.ENGINE_HOIST, ModBlocks.DRAIN_PAN, ModBlocks.DYNO,
                 ModBlocks.TOOLBOX, ModBlocks.BOAT_CRADLE, ModBlocks.AIRCRAFT_JACK);
-        entries.add(ModBlocks.OIL_DEPOSIT, ModBlocks.OIL_SEEP, ModBlocks.PUMPJACK, ModBlocks.FUEL_REFINERY,
+        entries.add(SEISMIC_SURVEY, ModBlocks.OIL_DEPOSIT, ModBlocks.OIL_SEEP, ModBlocks.PUMPJACK, ModBlocks.FUEL_REFINERY,
                 ModBlocks.HYDROTREATER, ModBlocks.FUEL_TANK, ModBlocks.FUEL_DRUM, ModBlocks.FUEL_PIPE,
                 ModBlocks.FUEL_VALVE, ModBlocks.FUEL_PUMP, FUEL_NOZZLE);
         entries.add(ModBlocks.GENERATOR, ModBlocks.BIOFUEL_GENERATOR, ModBlocks.DIESEL_GENERATOR,

@@ -231,6 +231,47 @@ public class CarMachineTests {
         });
     }
 
+    /** A well that has run dry still trickles: a tenth of what it drew. One that never struck gives nothing. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void aDryWellStillTrickles(GameTestHelper context) {
+        context.setBlock(new BlockPos(3, 0, 4), ModBlocks.OIL_DEPOSIT);
+        BlockPos at = new BlockPos(3, 1, 5);
+        machine(context, ModBlocks.PUMPJACK, at);
+        PumpjackBlockEntity jack = context.<PumpjackBlockEntity>getBlockEntity(at);
+        jack.setEnergy(PumpjackBlockEntity.ENERGY_CAPACITY);
+        context.runAtTickTime(130, () -> {
+            context.assertTrue(!context.getBlockState(new BlockPos(3, 0, 4)).is(ModBlocks.OIL_DEPOSIT),
+                    "the deposit block was not spent");
+            int before = jack.getCrude().getUnits();
+            context.assertTrue(jack.hasStruck() && before >= PumpjackBlockEntity.CRUDE_PER_DEPOSIT,
+                    "the jack did not draw the whole block: " + before);
+            context.runAfterDelay(20, () -> {
+                int trickled = jack.getCrude().getUnits() - before;
+                context.assertTrue(trickled > 0 && trickled <= 20 * PumpjackBlockEntity.TRICKLE,
+                        "a dry well gave " + trickled + " in 20 ticks");
+                context.succeed();
+            });
+        });
+    }
+
+    /** The survey kit finds oil under the hammer, and points the way to oil that is not. */
+    @GameTest(template = "empty")
+    public static void theSurveyKitFindsOil(GameTestHelper context) {
+        context.setBlock(new BlockPos(2, 0, 2), ModBlocks.OIL_DEPOSIT);
+        context.setBlock(new BlockPos(2, 0, 3), ModBlocks.OIL_DEPOSIT);
+        var world = context.getLevel();
+        var here = me.trossty.car.item.SeismicSurveyItem.survey(world, context.absolutePos(new BlockPos(2, 2, 2)));
+        context.assertTrue(here.underfoot() && here.belowHere() == 2 && here.depositBlocks() == 2,
+                "the kit did not hear the two blocks underfoot: " + here);
+        var away = me.trossty.car.item.SeismicSurveyItem.survey(world, context.absolutePos(new BlockPos(8, 2, 2)));
+        context.assertTrue(!away.underfoot() && away.nearest() != null
+                        && away.nearest().equals(context.absolutePos(new BlockPos(2, 0, 2))),
+                "the kit did not point at the deposit six blocks off: " + away);
+        context.assertTrue(me.trossty.car.item.SeismicSurveyItem.report(away, context.absolutePos(new BlockPos(8, 2, 2)))
+                .getString().contains("west"), "the deposit to the west was not called west");
+        context.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void pumpjackWithoutPowerStands(GameTestHelper context) {
         context.setBlock(new BlockPos(3, 0, 4), ModBlocks.OIL_DEPOSIT);

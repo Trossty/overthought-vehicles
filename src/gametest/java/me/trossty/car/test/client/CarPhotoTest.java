@@ -2173,11 +2173,11 @@ public class CarPhotoTest {
     private void garageParts(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        String[] parts = {"pistons", "crankshaft", "head_gasket", "timing_belt", "catalytic_converter", "tyre_pump", "compression_tester"};
+        String[] parts = {"pistons", "crankshaft", "head_gasket", "timing_belt", "catalytic_converter", "tyre_pump", "compression_tester", "seismic_survey"};
         for (int i = 0; i < parts.length; i++) {
             server.runCommand(("summon item_display -6.5 %.2f %.2f {item:{id:\"car:%s\",count:1},"
                     + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
-                    + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(Y + 0.45, -3.1 + i * 0.95, parts[i]));
+                    + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(Y + 0.45, -3.3 + i * 0.85, parts[i]));
         }
         server.runCommand("setblock 6 %d 0 car:dyno".formatted(Y));
         server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
