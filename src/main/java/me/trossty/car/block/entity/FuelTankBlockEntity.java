@@ -189,11 +189,18 @@ public class FuelTankBlockEntity extends BlockEntity {
                 if (neighbour instanceof FuelTankBlockEntity) {
                     continue;
                 }
-                FuelPumpBlockEntity pump = FuelPumpBlock.tankAt(world, next);
-                if (pump != null && whole.fluid == ModFluids.PETROL) {
-                    int offer = Math.min(FEED_RATE, tank.getPetrol());
+            }
+        }
+        // A pump against the tank is fed whatever fuel the tank holds:
+        // petrol, diesel or biofuel, one at a time.
+        me.trossty.car.entity.CarSetup.Fuel fuel = ModFluids.fuelOf(whole.fluid);
+        if (fuel != null && !fuel.isElectric()) {
+            for (Direction side : Direction.values()) {
+                FuelPumpBlockEntity pump = FuelPumpBlock.tankAt(world, pos.relative(side));
+                if (pump != null) {
+                    int offer = (int) Math.min(FEED_RATE, whole.amount / ModFluids.UNIT);
                     if (offer > 0) {
-                        tank.drain(pump.fill(offer));
+                        tank.drain(whole.fluid, pump.fill(fuel, offer));
                     }
                 }
             }

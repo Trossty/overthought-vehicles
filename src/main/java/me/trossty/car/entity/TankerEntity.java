@@ -309,8 +309,8 @@ public class TankerEntity extends CarEntity {
             default -> false;
         };
 
-        Fluid petrol = ModFluids.PETROL;
         if (loading && pump != null) {
+            Fluid petrol = ModFluids.fluidOf(pump.getFuel());
             // A pump hands petrol over through its own counter, not its pipe
             // connection, which only takes it in.
             int room = this.roomFor(petrol);

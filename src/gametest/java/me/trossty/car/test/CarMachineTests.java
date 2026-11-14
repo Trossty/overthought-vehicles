@@ -117,6 +117,27 @@ public class CarMachineTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void pumpTakesDieselFromAPipe(GameTestHelper context) {
+        BlockPos at = new BlockPos(3, 1, 3);
+        context.setBlock(at, ModBlocks.FUEL_PUMP);
+        var pump = context.<me.trossty.car.block.entity.FuelPumpBlockEntity>getBlockEntity(at);
+        var pipe = pump.getFluidStorage();
+        var execute = net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE;
+        int diesel = pipe.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.DIESEL, 300), execute);
+        context.assertTrue(diesel == 300, "the pump took " + diesel + " of 300 diesel");
+        context.assertTrue(pump.getFuel() == me.trossty.car.entity.CarSetup.Fuel.DIESEL, "the pump does not hold diesel");
+        int petrol = pipe.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.PETROL, 100), execute);
+        context.assertTrue(petrol == 0, "petrol went into a pump holding diesel");
+        int crude = pipe.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.CRUDE_OIL, 100), execute);
+        context.assertTrue(crude == 0, "crude oil went into a pump");
+        pump.drain(300);
+        int bio = pipe.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.BIOFUEL, 50), execute);
+        context.assertTrue(bio == 50 && pump.getFuel() == me.trossty.car.entity.CarSetup.Fuel.BIOFUEL,
+                "an emptied pump did not take biofuel");
+        context.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void dieselGeneratorDrinksItsTank(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);

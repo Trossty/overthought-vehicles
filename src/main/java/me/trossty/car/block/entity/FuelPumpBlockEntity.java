@@ -1,6 +1,8 @@
 package me.trossty.car.block.entity;
 
 import me.trossty.car.entity.CarEntity;
+import me.trossty.car.entity.CarSetup;
+import me.trossty.car.registry.ModFluids;
 import me.trossty.car.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -54,9 +56,74 @@ public class FuelPumpBlockEntity extends BlockEntity {
         return this.saveWithoutMetadata(registries);
     }
 
-    /** This holder as other mods' pipes see it. */
-    private final me.trossty.car.fluid.PetrolSlot fluidStorage = new me.trossty.car.fluid.PetrolSlot(
-            () -> this.petrol, value -> this.petrol = value, CAPACITY, true, false, this::setChanged);
+    /**
+     * What the pump holds: petrol, diesel or biofuel, one at a time. Meaningless
+     * while it is empty, when the next thing in decides it.
+     */
+    private CarSetup.Fuel fuel = CarSetup.Fuel.PETROL;
+
+    /**
+     * This holder as pipes see it: it takes any clean fuel a car runs on, one
+     * at a time, and gives nothing back through the pipe — fuel leaves by the
+     * nozzle, a can or a tanker's hose.
+     */
+    private final net.neoforged.neoforge.fluids.capability.IFluidHandler fluidStorage =
+            new net.neoforged.neoforge.fluids.capability.IFluidHandler() {
+                @Override
+                public int getTanks() {
+                    return 1;
+                }
+
+                @Override
+                public net.neoforged.neoforge.fluids.FluidStack getFluidInTank(int tank) {
+                    return FuelPumpBlockEntity.this.petrol <= 0 ? net.neoforged.neoforge.fluids.FluidStack.EMPTY
+                            : new net.neoforged.neoforge.fluids.FluidStack(ModFluids.fluidOf(FuelPumpBlockEntity.this.fuel),
+                                    FuelPumpBlockEntity.this.petrol);
+                }
+
+                @Override
+                public int getTankCapacity(int tank) {
+                    return CAPACITY;
+                }
+
+                @Override
+                public boolean isFluidValid(int tank, net.neoforged.neoforge.fluids.FluidStack stack) {
+                    return FuelPumpBlockEntity.this.takes(ModFluids.fuelOf(stack.getFluid()));
+                }
+
+                @Override
+                public int fill(net.neoforged.neoforge.fluids.FluidStack resource, FluidAction action) {
+                    CarSetup.Fuel kind = ModFluids.fuelOf(resource.getFluid());
+                    if (!FuelPumpBlockEntity.this.takes(kind)) {
+                        return 0;
+                    }
+                    int units = Math.min(resource.getAmount(), CAPACITY - FuelPumpBlockEntity.this.petrol);
+                    if (units > 0 && action.execute()) {
+                        FuelPumpBlockEntity.this.fill(kind, units);
+                    }
+                    return Math.max(0, units);
+                }
+
+                @Override
+                public net.neoforged.neoforge.fluids.FluidStack drain(net.neoforged.neoforge.fluids.FluidStack resource, FluidAction action) {
+                    return net.neoforged.neoforge.fluids.FluidStack.EMPTY;
+                }
+
+                @Override
+                public net.neoforged.neoforge.fluids.FluidStack drain(int maxDrain, FluidAction action) {
+                    return net.neoforged.neoforge.fluids.FluidStack.EMPTY;
+                }
+            };
+
+    /** Whether this fuel may go in now: a liquid one, and the same as what is there. */
+    public boolean takes(CarSetup.@org.jetbrains.annotations.Nullable Fuel kind) {
+        return kind != null && !kind.isElectric() && (this.petrol <= 0 || kind == this.fuel);
+    }
+
+    /** What the pump holds, or petrol if it is empty. */
+    public CarSetup.Fuel getFuel() {
+        return this.petrol <= 0 ? CarSetup.Fuel.PETROL : this.fuel;
+    }
 
     public net.neoforged.neoforge.fluids.capability.IFluidHandler getFluidStorage() {
         return this.fluidStorage;
@@ -79,10 +146,19 @@ public class FuelPumpBlockEntity extends BlockEntity {
         this.setChanged();
     }
 
-    /** Takes what it can, up to {@code amount}, and reports how much went in. */
+    /** Takes what petrol it can, up to {@code amount}, and reports how much went in. */
     public int fill(int amount) {
+        return this.fill(CarSetup.Fuel.PETROL, amount);
+    }
+
+    /** The same for any fuel; nothing goes into a pump holding something else. */
+    public int fill(CarSetup.Fuel kind, int amount) {
+        if (!this.takes(kind)) {
+            return 0;
+        }
         int accepted = Math.min(amount, CAPACITY - this.petrol);
         if (accepted > 0) {
+            this.fuel = kind;
             this.petrol += accepted;
             this.setChanged();
         }
@@ -114,7 +190,7 @@ public class FuelPumpBlockEntity extends BlockEntity {
         if (affordable <= 0) {
             return 0;
         }
-        float accepted = car.addFuel(affordable);
+        float accepted = car.addFuel(affordable, this.getFuel());
         int spent = Math.round(accepted) * PETROL_PER_FUEL_UNIT;
         this.drain(spent);
         return spent;
@@ -245,6 +321,7 @@ public class FuelPumpBlockEntity extends BlockEntity {
         ValueInput view = ValueInput.of(tag, registries);
         super.loadAdditional(tag, registries);
         this.petrol = view.getIntOr("Petrol", 0);
+        this.fuel = CarSetup.Fuel.byOrdinal(view.getIntOr("Fuel", CarSetup.Fuel.PETROL.ordinal()));
     }
 
     @Override
@@ -252,5 +329,6 @@ public class FuelPumpBlockEntity extends BlockEntity {
         ValueOutput view = ValueOutput.of(tag, registries);
         super.saveAdditional(tag, registries);
         view.putInt("Petrol", this.petrol);
+        view.putInt("Fuel", this.fuel.ordinal());
     }
 }
