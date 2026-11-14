@@ -30,7 +30,11 @@ public class FuelDrumBlockEntity extends BlockEntity {
 
     public static final long CAPACITY = 8 * 1000L;
 
-    private final UnitTank storage = new UnitTank((int) CAPACITY, fluid -> true, true, true, this::changed);
+    /** The liquid a wrench has locked the drum to: it takes nothing else, even empty. */
+    private Fluid lock = Fluids.EMPTY;
+
+    private final UnitTank storage = new UnitTank((int) CAPACITY,
+            fluid -> this.lock == Fluids.EMPTY || fluid == this.lock, true, true, this::changed);
 
     /** The liquid the clients were last told about. */
     private Fluid shown = Fluids.EMPTY;
@@ -50,6 +54,16 @@ public class FuelDrumBlockEntity extends BlockEntity {
     /** In millibuckets. */
     public long getAmount() {
         return this.storage.getUnits();
+    }
+
+    public Fluid getLock() {
+        return this.lock;
+    }
+
+    /** A wrench locks the drum to what is in it, or frees it. */
+    public void toggleLock(net.minecraft.world.entity.player.Player player) {
+        this.lock = LiquidStores.toggleLock(this.level, this.worldPosition, player, this.lock, this.storage.getFluid());
+        this.setChanged();
     }
 
     public int comparatorOutput() {
@@ -83,6 +97,7 @@ public class FuelDrumBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         this.setContents(view.read("Fluid", me.trossty.car.fluid.Liquids.CODEC).orElse(Fluids.EMPTY),
                 view.getLongOr("Amount", 0L));
+        this.lock = view.read("Lock", me.trossty.car.fluid.Liquids.CODEC).orElse(Fluids.EMPTY);
         Fluid now = (Fluid) this.getRenderData();
         if (!now.equals(this.shown)) {
             this.shown = now;
@@ -101,6 +116,9 @@ public class FuelDrumBlockEntity extends BlockEntity {
         if (!this.storage.isEmpty() && this.storage.getUnits() > 0) {
             view.store("Fluid", me.trossty.car.fluid.Liquids.CODEC, this.storage.getFluid());
             view.putLong("Amount", this.storage.getUnits());
+        }
+        if (this.lock != Fluids.EMPTY) {
+            view.store("Lock", me.trossty.car.fluid.Liquids.CODEC, this.lock);
         }
     }
 

@@ -85,16 +85,20 @@ public final class FluidNetwork extends Network {
                 continue;
             }
             boolean maker = FluidSource.at(this.world, port.pos());
-            boolean store = !maker && (isStore(this.world.getBlockEntity(port.pos()))
-                    || !handler.drain(1, IFluidHandler.FluidAction.SIMULATE).isEmpty());
+            boolean store = !maker && isStore(this.world.getBlockEntity(port.pos()), handler);
             ends.add(new End(port.pos(), handler, maker, store));
         }
         return ends;
     }
 
-    /** This mod's stores count as stores even while empty. */
-    private static boolean isStore(@Nullable BlockEntity entity) {
-        return entity instanceof FuelTankBlockEntity || entity instanceof FuelDrumBlockEntity;
+    /**
+     * Whether something that is not a machine holds liquid and gives it back:
+     * this mod's tanks and drums even while empty, anything else while it has
+     * something to give.
+     */
+    public static boolean isStore(@Nullable BlockEntity entity, IFluidHandler handler) {
+        return entity instanceof FuelTankBlockEntity || entity instanceof FuelDrumBlockEntity
+                || !handler.drain(1, IFluidHandler.FluidAction.SIMULATE).isEmpty();
     }
 
     // ---- each tick ----

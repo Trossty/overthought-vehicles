@@ -106,14 +106,25 @@ public class FuelTankBlock extends ModelEntityBlock {
         BlockPos pos = context.getClickedPos();
         // A cell between two tanks of different liquids would have to make
         // one tank of them; it is refused instead.
+        // The same goes for a cell that carries liquid of its own, and for a
+        // tank locked to another liquid.
         if (!world.isClientSide()) {
-            net.minecraft.world.level.material.Fluid liquid = net.minecraft.world.level.material.Fluids.EMPTY;
+            java.util.List<net.minecraft.world.level.material.Fluid> liquids = new java.util.ArrayList<>();
+            me.trossty.car.registry.ModComponents.StoredFluid carried =
+                    context.getItemInHand().get(me.trossty.car.registry.ModComponents.STORED_FLUID);
+            if (carried != null && carried.amount() > 0) {
+                liquids.add(carried.fluid());
+            }
             for (Direction side : Direction.values()) {
                 FuelTankBlockEntity next = tankAt(world, pos.relative(side));
-                if (next == null) {
-                    continue;
+                if (next != null) {
+                    FuelTankBlockEntity.Group group = next.getGroup();
+                    liquids.add(group.getResource());
+                    liquids.add(group.getLock());
                 }
-                net.minecraft.world.level.material.Fluid held = next.getGroup().getResource();
+            }
+            net.minecraft.world.level.material.Fluid liquid = net.minecraft.world.level.material.Fluids.EMPTY;
+            for (net.minecraft.world.level.material.Fluid held : liquids) {
                 if (me.trossty.car.fluid.Liquids.isBlank(held)) {
                     continue;
                 }
@@ -138,7 +149,7 @@ public class FuelTankBlock extends ModelEntityBlock {
     @Override
     protected void onPlace(BlockState state, Level world, BlockPos pos, BlockState oldState, boolean notify) {
         super.onPlace(state, world, pos, oldState, notify);
-        FuelTankBlockEntity.reshape();
+        FuelTankBlockEntity.reshapeAround(world, pos);
     }
 
     @Override
@@ -146,9 +157,8 @@ public class FuelTankBlock extends ModelEntityBlock {
                             BlockState newState, boolean moved) {
         // Only when the block really goes, not when its state changes.
         if (!world.isClientSide() && !state.is(newState.getBlock())) {
-            // Breaking a cell out of a tank loses only the share that was in that
-            // cell, which is what was really in it.
-            FuelTankBlockEntity.reshape();
+            // A cell broken out of a tank takes its share with it in the item.
+            FuelTankBlockEntity.reshapeAround(world, pos);
         }
         super.onRemove(state, world, pos, newState, moved);
     }
@@ -180,6 +190,10 @@ public class FuelTankBlock extends ModelEntityBlock {
         if (!(world.getBlockEntity(pos) instanceof FuelTankBlockEntity tank)) {
             return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
+        if (held.is(me.trossty.car.registry.ModItems.WRENCH)) {
+            tank.toggleLock(player);
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
+        }
         if (LiquidStores.useWith(world, pos, player, hand, held, tank.getFluidStorage())) {
             return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
@@ -189,7 +203,7 @@ public class FuelTankBlock extends ModelEntityBlock {
     /** "Petrol · 12.5 / 32 B · 2 cells", or "Empty tank · 32 B · 2 cells". */
     private static void report(Player player, FuelTankBlockEntity tank) {
         FuelTankBlockEntity.Group whole = tank.getGroup();
-        LiquidStores.report(player, whole, "message.car.tank_empty", "message.car.tank_contents", whole.size());
+        LiquidStores.report(player, whole, whole.getLock(), "message.car.tank_empty", "message.car.tank_contents", whole.size());
     }
 
     // ---- redstone ----

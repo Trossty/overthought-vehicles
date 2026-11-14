@@ -1317,6 +1317,95 @@ public class CarMachineTests {
         });
     }
 
+    /** A cell broken out of a tank keeps its share in the item it drops. */
+    @GameTest(template = "empty")
+    public static void brokenTankCellKeepsItsShare(GameTestHelper context) {
+        BlockPos a = new BlockPos(1, 1, 2);
+        BlockPos b = a.east();
+        BlockPos c = b.east();
+        context.setBlock(a, ModBlocks.FUEL_TANK);
+        context.setBlock(b, ModBlocks.FUEL_TANK);
+        context.setBlock(c, ModBlocks.FUEL_TANK);
+        context.runAtTickTime(2, () -> {
+            context.<FuelTankBlockEntity>getBlockEntity(a).fill(ModFluids.DIESEL, 30000);
+            context.getLevel().destroyBlock(context.absolutePos(b), true);
+        });
+        context.runAtTickTime(4, () -> {
+            var drops = context.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                    new net.minecraft.world.phys.AABB(context.absolutePos(b)).inflate(2.0),
+                    drop -> drop.getItem().is(ModBlocks.FUEL_TANK.asItem()));
+            context.assertTrue(drops.size() == 1, "the broken cell dropped " + drops.size() + " items");
+            var held = drops.get(0).getItem().get(me.trossty.car.registry.ModComponents.STORED_FLUID);
+            context.assertTrue(held != null && held.fluid() == ModFluids.DIESEL && held.amount() == 10 * BUCKET,
+                    "the dropped cell does not carry its 10 buckets of diesel: " + held);
+            context.succeed();
+        });
+    }
+
+    /** Locked with a wrench, a tank takes nothing but its liquid, even once empty. */
+    @GameTest(template = "empty")
+    public static void aLockedTankTakesOnlyItsLiquid(GameTestHelper context) {
+        BlockPos at = new BlockPos(2, 1, 2);
+        context.setBlock(at, ModBlocks.FUEL_TANK);
+        context.setBlock(at.above(), ModBlocks.FUEL_TANK);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        context.runAtTickTime(2, () -> {
+            FuelTankBlockEntity tank = context.<FuelTankBlockEntity>getBlockEntity(at);
+            var whole = tank.getGroup();
+            var execute = net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE;
+            whole.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.DIESEL, 1000), execute);
+            tank.toggleLock(player);
+            context.assertTrue(context.<FuelTankBlockEntity>getBlockEntity(at.above()).getLock() == ModFluids.DIESEL,
+                    "the upper cell is not locked with the tank");
+            whole.drain(1000, execute);
+            int petrol = whole.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.PETROL, 500), execute);
+            context.assertTrue(petrol == 0, "an empty tank locked to diesel took petrol");
+            int diesel = whole.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.DIESEL, 500), execute);
+            context.assertTrue(diesel == 500, "a tank locked to diesel turned diesel away");
+            tank.toggleLock(player);
+            whole.drain(500, execute);
+            context.assertTrue(whole.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.PETROL, 500), execute) == 500,
+                    "an unlocked empty tank turned petrol away");
+            context.succeed();
+        });
+    }
+
+    /** A locked drum turns other liquids away too. */
+    @GameTest(template = "empty")
+    public static void aLockedDrumTakesOnlyItsLiquid(GameTestHelper context) {
+        BlockPos at = new BlockPos(2, 1, 2);
+        context.setBlock(at, ModBlocks.FUEL_DRUM);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        var drum = context.<me.trossty.car.block.entity.FuelDrumBlockEntity>getBlockEntity(at);
+        var store = drum.getFluidStorage();
+        var execute = net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE;
+        store.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.BIOFUEL, 1000), execute);
+        drum.toggleLock(player);
+        store.drain(1000, execute);
+        context.assertTrue(store.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.PETROL, 100), execute) == 0,
+                "an empty drum locked to biofuel took petrol");
+        context.assertTrue(store.fill(new net.neoforged.neoforge.fluids.FluidStack(ModFluids.BIOFUEL, 100), execute) == 100,
+                "a drum locked to biofuel turned biofuel away");
+        context.succeed();
+    }
+
+    /** A tank feeds a pump standing against it, diesel as well as petrol. */
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aTankFeedsATouchingPump(GameTestHelper context) {
+        BlockPos tankAt = new BlockPos(1, 1, 3);
+        BlockPos pumpAt = tankAt.east();
+        context.setBlock(tankAt, ModBlocks.FUEL_TANK);
+        context.setBlock(pumpAt, ModBlocks.FUEL_PUMP);
+        context.runAtTickTime(2, () -> context.<FuelTankBlockEntity>getBlockEntity(tankAt).fill(ModFluids.DIESEL, 5000));
+        context.succeedWhen(() -> {
+            var pump = context.<me.trossty.car.block.entity.FuelPumpBlockEntity>getBlockEntity(pumpAt);
+            context.assertTrue(pump.getFuel() == me.trossty.car.entity.CarSetup.Fuel.DIESEL,
+                    "the pump has not been fed diesel from the tank");
+            context.assertTrue(context.<FuelTankBlockEntity>getBlockEntity(tankAt).getGroup().getAmount() < 5000,
+                    "the tank still holds all its diesel");
+        });
+    }
+
     /** A trailer has no engine: nothing about one can be worked on, read or worn. */
     @GameTest(template = "empty")
     public static void trailerHasNoEngine(GameTestHelper context) {

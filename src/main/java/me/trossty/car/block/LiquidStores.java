@@ -112,6 +112,21 @@ public final class LiquidStores {
      */
     public static void report(Player player, IFluidHandler store,
                               String emptyKey, String contentsKey, Object... extra) {
+        player.displayClientMessage(describe(store, emptyKey, contentsKey, extra), true);
+    }
+
+    /** What {@link #report} says, with the liquid a store is locked to after it, if any. */
+    public static void report(Player player, IFluidHandler store, net.minecraft.world.level.material.Fluid lock,
+                              String emptyKey, String contentsKey, Object... extra) {
+        Component message = describe(store, emptyKey, contentsKey, extra);
+        if (!me.trossty.car.fluid.Liquids.isBlank(lock)) {
+            message = message.copy().append(Component.translatable("message.car.store_lock_suffix",
+                    me.trossty.car.fluid.Liquids.name(lock)));
+        }
+        player.displayClientMessage(message, true);
+    }
+
+    private static Component describe(IFluidHandler store, String emptyKey, String contentsKey, Object... extra) {
         String capacity = buckets(store.getTankCapacity(0));
         FluidStack held = store.getFluidInTank(0);
         Component message;
@@ -122,7 +137,33 @@ public final class LiquidStores {
                     held.getHoverName().copy().withStyle(ChatFormatting.AQUA),
                     buckets(held.getAmount()), capacity}, extra));
         }
+        return message;
+    }
+
+    /**
+     * A wrench on a store: locks it to what it holds so it takes nothing else
+     * even when empty, or frees it again. Says which it did.
+     *
+     * @return the lock now, blank for none
+     */
+    public static net.minecraft.world.level.material.Fluid toggleLock(Level world, BlockPos pos, Player player,
+            net.minecraft.world.level.material.Fluid lock, net.minecraft.world.level.material.Fluid held) {
+        net.minecraft.world.level.material.Fluid now;
+        Component message;
+        if (!me.trossty.car.fluid.Liquids.isBlank(lock)) {
+            now = net.minecraft.world.level.material.Fluids.EMPTY;
+            message = Component.translatable("message.car.store_unlocked");
+        } else if (!me.trossty.car.fluid.Liquids.isBlank(held)) {
+            now = held;
+            message = Component.translatable("message.car.store_locked", me.trossty.car.fluid.Liquids.name(held));
+        } else {
+            player.displayClientMessage(Component.translatable("message.car.store_lock_empty"), true);
+            return lock;
+        }
+        world.playSound(null, pos, SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.BLOCKS, 0.5F,
+                me.trossty.car.fluid.Liquids.isBlank(now) ? 1.8F : 1.4F);
         player.displayClientMessage(message, true);
+        return now;
     }
 
     private static Object[] concat(Object[] first, Object[] second) {

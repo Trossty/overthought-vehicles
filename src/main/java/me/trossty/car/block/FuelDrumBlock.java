@@ -105,6 +105,10 @@ public class FuelDrumBlock extends ModelEntityBlock {
         if (!(world.getBlockEntity(pos) instanceof FuelDrumBlockEntity drum)) {
             return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
+        if (held.is(me.trossty.car.registry.ModItems.WRENCH)) {
+            drum.toggleLock(player);
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
+        }
         if (LiquidStores.useWith(world, pos, player, hand, held, drum.getFluidStorage())) {
             return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
@@ -112,7 +116,7 @@ public class FuelDrumBlock extends ModelEntityBlock {
     }
 
     private static void report(Player player, FuelDrumBlockEntity drum) {
-        LiquidStores.report(player, drum.getFluidStorage(), "message.car.drum_empty", "message.car.drum_contents");
+        LiquidStores.report(player, drum.getFluidStorage(), drum.getLock(), "message.car.drum_empty", "message.car.drum_contents");
     }
 
     @Override
