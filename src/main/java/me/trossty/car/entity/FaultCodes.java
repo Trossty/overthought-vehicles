@@ -50,6 +50,33 @@ public final class FaultCodes {
             return Component.literal(this.code + "  ").withStyle(ChatFormatting.BOLD, this.severity.colour)
                     .append(what.copy().withStyle(ChatFormatting.RESET, this.severity.colour));
         }
+
+        /** Where on the car to look for it, or null when it is nowhere in particular. */
+        public @Nullable Component where() {
+            CarPart at = this.place();
+            return at == null ? null : Component.translatable("obd.car.where." + at.group().key());
+        }
+
+        /**
+         * The part to go and look at for this fault: the one it is about, or
+         * for a fluid or a setting the part it lives next to. Null for what has
+         * no one place on the car, like the fuel in the tank.
+         */
+        public @Nullable CarPart place() {
+            if (this.part != null) {
+                return this.part;
+            }
+            return switch (this.key) {
+                case "obd.car.oil_low", "obd.car.oil_old", "obd.car.oil_leak" -> CarPart.OIL_FILTER;
+                case "obd.car.overheat", "obd.car.coolant_low" -> CarPart.RADIATOR;
+                case "obd.car.brake_fluid_low" -> CarPart.BRAKE_PADS;
+                case "obd.car.alignment" -> CarPart.STEERING_RACK;
+                case "obd.car.belt_snapped", "obd.car.belt_due" -> CarPart.ENGINE;
+                case "obd.car.cat_clogged" -> CarPart.EXHAUST;
+                case "obd.car.tyres_soft" -> CarPart.WHEELS;
+                default -> null;
+            };
+        }
     }
 
     private FaultCodes() {
@@ -126,6 +153,19 @@ public final class FaultCodes {
         }
         if (car.hasPart(CarPart.BRAKE_PADS) && car.getBrakeFluid() < CarEntity.FLUID_LOW) {
             faults.add(new Fault("C1513", null, "obd.car.brake_fluid_low", Severity.CRITICAL, -1));
+        }
+        if (car.isBeltSnapped()) {
+            faults.add(new Fault("P0016", null, "obd.car.belt_snapped", Severity.CRITICAL, -1));
+        } else if (car.hasOil() && car.getBeltWear() >= CarEntity.BELT_DUE) {
+            faults.add(new Fault("P0016", null, "obd.car.belt_due", Severity.WARNING, -1));
+        }
+        if (car.hasCat() && car.getCatClog() >= CarEntity.CAT_CHOKED) {
+            faults.add(new Fault("P0421", null, "obd.car.cat_clogged",
+                    car.getCatClog() >= 0.8F ? Severity.CRITICAL : Severity.WARNING, -1));
+        }
+        if (car.hasPart(CarPart.WHEELS) && car.isFitted(CarPart.WHEELS) && car.tyreSoftness() > 0.0F) {
+            faults.add(new Fault("C0755", null, "obd.car.tyres_soft",
+                    car.tyreSoftness() >= 0.5F ? Severity.CRITICAL : Severity.WARNING, -1));
         }
         if (Math.abs(car.getAlignment()) >= 0.15F) {
             faults.add(new Fault("C0455", null, "obd.car.alignment", Severity.ADVISORY, -1));

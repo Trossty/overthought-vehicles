@@ -22,7 +22,16 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * what it actually does — top speed, pull away, stopping distance, which way it
  * drifts and what its fluids read — so a repair can be measured, not guessed.
  */
-public class DynoBlock extends Block {
+public class DynoBlock extends ModelEntityBlock {
+
+    public static final com.mojang.serialization.MapCodec<DynoBlock> CODEC = simpleCodec(DynoBlock::new);
+
+    /**
+     * Never placed: the state the renderer draws a roller from, so the
+     * rollers can turn while the rest of the block stands still.
+     */
+    public static final net.minecraft.world.level.block.state.properties.BooleanProperty ROLLER =
+            net.minecraft.world.level.block.state.properties.BooleanProperty.create("roller");
 
     private static final VoxelShape SHAPE = Block.box(0.0, 0.0, 0.0, 16.0, 4.0, 16.0);
     /** The speed a stop is measured from, blocks a second. */
@@ -30,6 +39,36 @@ public class DynoBlock extends Block {
 
     public DynoBlock(Properties settings) {
         super(settings);
+        this.registerDefaultState(this.getStateDefinition().any().setValue(ROLLER, false));
+    }
+
+    @Override
+    protected com.mojang.serialization.MapCodec<? extends net.minecraft.world.level.block.BaseEntityBlock> codec() {
+        return CODEC;
+    }
+
+    @Override
+    protected void createBlockStateDefinition(
+            net.minecraft.world.level.block.state.StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(ROLLER);
+    }
+
+    @Override
+    public net.minecraft.world.level.block.entity.BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new me.trossty.car.block.entity.DynoBlockEntity(pos, state);
+    }
+
+    @Override
+    public <T extends net.minecraft.world.level.block.entity.BlockEntity> net.minecraft.world.level.block.entity.BlockEntityTicker<T> getTicker(
+            Level world, BlockState state, net.minecraft.world.level.block.entity.BlockEntityType<T> type) {
+        return world.isClientSide() ? createTickerHelper(type, me.trossty.car.registry.ModBlockEntities.DYNO,
+                me.trossty.car.block.entity.DynoBlockEntity::clientTick) : null;
+    }
+
+    /** The car standing on these rollers, if there is one. */
+    public static @org.jetbrains.annotations.Nullable CarEntity carOn(Level world, BlockPos pos) {
+        AABB over = new AABB(pos).inflate(0.6, 0.0, 0.6).expandTowards(0.0, 1.5, 0.0);
+        return world.getEntitiesOfClass(CarEntity.class, over, c -> true).stream().findFirst().orElse(null);
     }
 
     @Override
@@ -43,8 +82,7 @@ public class DynoBlock extends Block {
         if (world.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        AABB over = new AABB(pos).inflate(0.6, 0.0, 0.6).expandTowards(0.0, 1.5, 0.0);
-        CarEntity car = world.getEntitiesOfClass(CarEntity.class, over, c -> true).stream().findFirst().orElse(null);
+        CarEntity car = carOn(world, pos);
         if (car == null) {
             player.displayClientMessage(Component.translatable("message.car.dyno_empty"), true);
             return InteractionResult.CONSUME;
@@ -78,6 +116,20 @@ public class DynoBlock extends Block {
         }
         lines.add(Component.translatable("dyno.car.fluids", Math.round(car.getCoolantLevel() * 100.0F),
                 Math.round(car.getBrakeFluid() * 100.0F)));
+        if (car.hasPart(me.trossty.car.entity.CarPart.WHEELS) && car.isFitted(me.trossty.car.entity.CarPart.WHEELS)) {
+            // A new tyre has eight millimetres of tread; the legal limit is 1.6.
+            float tread = 1.6F + 6.4F * car.getConditionFraction(me.trossty.car.entity.CarPart.WHEELS);
+            lines.add(Component.translatable("dyno.car.tyres", String.format(java.util.Locale.ROOT, "%.1f", tread),
+                    Math.round(car.getTyrePressure() * 100.0F)));
+        }
+        if (car.hasOil()) {
+            lines.add(Component.translatable("dyno.car.service", Math.round(car.getBeltWear() * 100.0F),
+                    Math.round(car.getCatClog() * 100.0F)));
+        }
+        if (car.isOnDyno() && Math.abs(car.getEngineSpeed()) > 0.001F) {
+            lines.add(Component.translatable("dyno.car.rolling",
+                    String.format(java.util.Locale.ROOT, "%.1f", Math.abs(car.getEngineSpeed()) * 20.0F)));
+        }
         return lines;
     }
 }

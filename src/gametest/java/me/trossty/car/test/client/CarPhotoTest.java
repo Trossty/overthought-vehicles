@@ -55,6 +55,7 @@ public class CarPhotoTest {
             scenes.put("lids", this::lids);
             scenes.put("hoist", this::hoist);
             scenes.put("garageTools", this::garageTools);
+            scenes.put("garageParts", this::garageParts);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
             scenes.put("heldParts", this::heldParts);
@@ -2083,6 +2084,43 @@ public class CarPhotoTest {
         shot(context, server, "garage_tools", 7.5, Y + 2.2, 0.5, 90, 18);
         shot(context, server, "garage_tools_close", 5.5, Y + 1.4, -1.5, 70, 25);
         context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /**
+     * The new parts laid out on the floor, a bare dyno, and a scanner plugged
+     * into a car with three faults pointing them out.
+     */
+    private void garageParts(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        String[] parts = {"pistons", "crankshaft", "head_gasket", "timing_belt", "catalytic_converter", "tyre_pump"};
+        for (int i = 0; i < parts.length; i++) {
+            server.runCommand(("summon item_display -6.5 %.2f %.2f {item:{id:\"car:%s\",count:1},"
+                    + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                    + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(Y + 0.45, -3.0 + i * 1.1, parts[i]));
+        }
+        server.runCommand("setblock 6 %d 0 car:dyno".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var car = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                    new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
+            car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
+            car.setBeltWear(0.9F);
+            car.setCatClog(0.9F);
+            car.setTyrePressure(0.3F);
+            var scanner = new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.OBD_SCANNER);
+            scanner.set(me.trossty.car.registry.ModComponents.OBD_LINK, car.getUUID());
+            minecraft.getPlayerList().getPlayers().get(0).setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, scanner);
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "garage_parts", -9.0, Y + 1.3, -0.25, -90, 18);
+        shot(context, server, "garage_dyno", 6.5, Y + 0.2, -2.2, 0, 50);
+        context.runOnClient(client -> client.options.hideGui = false);
+        shot(context, server, "garage_obd_front", 0.5, Y + 2.2, 5.0, 180, 25);
+        shot(context, server, "garage_obd_rear", 3.5, Y + 1.4, -4.0, 40, 15);
     }
 
     private void tyreLooks(ClientGameTestContext context, TestServerContext server) {

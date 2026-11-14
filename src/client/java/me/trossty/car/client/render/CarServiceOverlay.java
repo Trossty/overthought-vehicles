@@ -140,7 +140,9 @@ public final class CarServiceOverlay {
         // the same pick the right click will use, so a lit mark is a promise.
         boolean inReach = client.hitResult instanceof EntityHitResult hit
                 && CarEntity.of(hit.getEntity()) == car;
-        if (!servicing && !inReach) {
+        // A scanner plugged into this car points at what is wrong with it.
+        java.util.Set<CarPart> faulty = scannedFaults(player, car);
+        if (!servicing && !inReach && faulty.isEmpty()) {
             return;
         }
 
@@ -197,6 +199,18 @@ public final class CarServiceOverlay {
                     context.outline(consumers.getBuffer(RenderType.lines()), frame,
                             lit ? LINE_AIMED : (fitted ? LINE_FITTED : LINE_ABSENT));
                 }
+            }
+            if (!faulty.isEmpty()) {
+                int pulse = 0x80 + (int) (0x7F * (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 180.0)));
+                int colour = (pulse << 24) | (BAD & 0xFFFFFF);
+                for (CarPart part : faulty) {
+                    for (AABB box : boxesOf(car, part, tickProgress)) {
+                        context.outline(consumers.getBuffer(RenderType.lines()), box.inflate(0.03), colour);
+                    }
+                }
+            }
+            if (!servicing && !inReach) {
+                return;
             }
             // Each plate hangs on a short leader from its own mark; the car's
             // renderer writes the plate itself (see labelsFor).
@@ -425,6 +439,32 @@ public final class CarServiceOverlay {
         lines.addVertex(entry, (float) (to.x - camera.x), (float) (to.y - camera.y),
                         (float) (to.z - camera.z))
                 .setColor(colour).setNormal(entry, 0.0F, 1.0F, 0.0F);
+    }
+
+    /**
+     * The parts a scanner in the player's hand, paired with this car, says
+     * to go and look at. Empty without a paired scanner.
+     */
+    private static java.util.Set<CarPart> scannedFaults(LocalPlayer player, CarEntity car) {
+        boolean paired = false;
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            net.minecraft.world.item.ItemStack held = player.getItemInHand(hand);
+            if (held.is(me.trossty.car.registry.ModItems.OBD_SCANNER)
+                    && car.getUUID().equals(held.get(me.trossty.car.registry.ModComponents.OBD_LINK))) {
+                paired = true;
+            }
+        }
+        if (!paired) {
+            return java.util.Set.of();
+        }
+        java.util.Set<CarPart> parts = java.util.EnumSet.noneOf(CarPart.class);
+        for (me.trossty.car.entity.FaultCodes.Fault fault : me.trossty.car.entity.FaultCodes.read(car)) {
+            CarPart at = fault.place();
+            if (at != null) {
+                parts.add(at);
+            }
+        }
+        return parts;
     }
 
     /** The nearest car in sight, or null. */

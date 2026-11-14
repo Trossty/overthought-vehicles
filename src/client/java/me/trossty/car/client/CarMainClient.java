@@ -144,6 +144,8 @@ public class CarMainClient {
             event.registerBlockEntityRenderer(ModBlockEntities.FUEL_TANK, FuelTankRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.PUMPJACK, PumpjackRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.FUEL_PUMP, FuelPumpRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.DYNO,
+                    me.trossty.car.client.render.DynoRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.ENGINE_STAND,
                     me.trossty.car.client.render.EngineStandRenderer::new);
         });

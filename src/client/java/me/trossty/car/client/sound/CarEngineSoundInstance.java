@@ -193,6 +193,8 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         // The box lifts off the drive for a gear change: the note drops and
         // eases for a moment before it pulls again.
         this.volume *= 1.0F - SHIFT_DIP * this.car.getShift();
+        // A blowing silencer lets the whole bang out.
+        this.volume *= this.car.exhaustNoise();
         // Still on the starter: the loop comes in as the engine catches.
         Long started = STARTED.get(this.car);
         if (started != null) {

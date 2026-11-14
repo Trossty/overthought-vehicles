@@ -160,6 +160,18 @@ public final class ModItems {
     public static final Item JUMPER_CABLES =
             register("jumper_cables", Item::new, new Item.Properties().stacksTo(1));
 
+    /** A new timing belt, for an engine whose old one is due or gone. */
+    public static final Item TIMING_BELT =
+            register("timing_belt", Item::new, new Item.Properties().stacksTo(16));
+
+    /** A new catalytic converter, for an exhaust choked with soot. */
+    public static final Item CATALYTIC_CONVERTER =
+            register("catalytic_converter", Item::new, new Item.Properties().stacksTo(16));
+
+    /** A foot pump: a stroke of air into every tyre. */
+    public static final Item TYRE_PUMP =
+            register("tyre_pump", Item::new, new Item.Properties().stacksTo(1));
+
     /** The insides of an engine, as they come out of one opened up on its stand. */
     public static final Item PISTONS = part("pistons");
     public static final Item HEAD_GASKET = part("head_gasket");
@@ -300,7 +312,7 @@ public final class ModItems {
                 entries.add(stack);
             }
         }
-        entries.add(TURBO, MOTOR_OIL, BRAKE_FLUID, WRENCH, JUMPER_CABLES, PISTONS, HEAD_GASKET, CRANKSHAFT,
+        entries.add(TURBO, MOTOR_OIL, BRAKE_FLUID, WRENCH, JUMPER_CABLES, TIMING_BELT, CATALYTIC_CONVERTER, TYRE_PUMP, PISTONS, HEAD_GASKET, CRANKSHAFT,
                 TANKER_BARREL, PICKUP_BED);
     }
 

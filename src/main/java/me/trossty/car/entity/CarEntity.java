@@ -416,6 +416,15 @@ public class CarEntity extends VehicleEntity {
     /** How far a knock has put the wheels out of true, -1 to 1, signed by the side it pulls to. */
     private static final EntityDataAccessor<Float> ALIGNMENT =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** How far through its life the timing belt is, 0 new to 1 snapped. */
+    private static final EntityDataAccessor<Float> BELT_WEAR =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** How far soot and oil have choked the catalytic converter, 0 clean to 1 blocked. */
+    private static final EntityDataAccessor<Float> CAT_CLOG =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** Air in the tyres, 1 at the pressure on the door pillar, 0 down on the rims. */
+    private static final EntityDataAccessor<Float> TYRE_PRESSURE =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
     /** Which lids stand open: {@link #BONNET_BIT}, {@link #BOOT_BIT}. */
     private static final EntityDataAccessor<Byte> LIDS =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BYTE);
@@ -612,6 +621,9 @@ public class CarEntity extends VehicleEntity {
         builder.define(OIL_AGE, 0.0F);
         builder.define(BRAKE_FLUID, 1.0F);
         builder.define(ALIGNMENT, 0.0F);
+        builder.define(BELT_WEAR, 0.0F);
+        builder.define(CAT_CLOG, 0.0F);
+        builder.define(TYRE_PRESSURE, 1.0F);
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
@@ -873,6 +885,12 @@ public class CarEntity extends VehicleEntity {
                     this.setYRot(yawBefore);
                 }
                 Vec3 requested = this.getDeltaMovement();
+                if (this.isOnDyno()) {
+                    // On the rollers: the wheels turn, the car stays where it is.
+                    this.setYRot(yawBefore);
+                    requested = new Vec3(0.0, requested.y, 0.0);
+                    this.setDeltaMovement(requested);
+                }
                 Vec3 from = this.position();
                 boolean grounded = this.onGround();
                 this.moveKeepingEndsOut(requested);
@@ -2769,7 +2787,7 @@ public class CarEntity extends VehicleEntity {
             // Ground clearance and four driven wheels give back what the tyre loses.
             grip = Mth.lerp(offroad, grip, 1.0F);
         }
-        return grip;
+        return grip * this.softTyreGrip();
     }
 
     /** Grip as far as putting power down goes: a sticky tyre adds none. */
@@ -2838,7 +2856,7 @@ public class CarEntity extends VehicleEntity {
 
     /** Whether the engine can turn at all, fuel aside. */
     public boolean canRun() {
-        return this.missingEssential() == null && !this.isBatteryFlat() && !this.hasWrongFuel()
+        return this.missingEssential() == null && !this.isBatteryFlat() && !this.hasWrongFuel() && !this.isBeltSnapped()
                 && !this.entityData.get(KEY_MISSING) && !this.isFlooded() && !this.isAnyLidOpen();
     }
 
@@ -2933,6 +2951,8 @@ public class CarEntity extends VehicleEntity {
                     ? "message.car.bonnet_open" : "message.car.boot_open"), true);
         } else if (this.isFlooded()) {
             driver.displayClientMessage(Component.translatable("message.car.flooded"), true);
+        } else if (this.isBeltSnapped()) {
+            driver.displayClientMessage(Component.translatable("message.car.belt_snapped"), true);
         } else if (this.entityData.get(KEY_MISSING)) {
             driver.displayClientMessage(Component.translatable("message.car.need_key"), true);
         } else if (this.isBatteryFlat()) {
@@ -2951,6 +2971,8 @@ public class CarEntity extends VehicleEntity {
             driver.displayClientMessage(Component.translatable("message.car.brake_fluid_low"), true);
         } else if (this.isLeaking() && this.hasFuel()) {
             driver.displayClientMessage(Component.translatable("message.car.tank_leaking"), true);
+        } else if (this.tyreSoftness() > 0.0F) {
+            driver.displayClientMessage(Component.translatable("message.car.tyres_soft"), true);
         }
     }
 
@@ -3027,6 +3049,25 @@ public class CarEntity extends VehicleEntity {
         this.entityData.set(COOLANT_LEVEL, Mth.clamp(level, 0.0F, 1.0F));
     }
 
+    /** A timing belt lasts about ten hours of running before it lets go. */
+    private static final float BELT_AGEING = 1.0F / 720000.0F;
+    /** Past this much of its life a belt is due, and the scanner says so. */
+    public static final float BELT_DUE = 0.8F;
+    /** What a snapped belt leaves of the engine: the valves meet the pistons. */
+    private static final float SNAPPED_ENGINE = 0.12F;
+    /** A clean-running engine takes about fifteen hours to choke its converter. */
+    private static final float CAT_CLOGGING = 1.0F / 1080000.0F;
+    /** Past this a converter holds the exhaust back and the engine feels it. */
+    public static final float CAT_CHOKED = 0.5F;
+    /** What a fully blocked converter leaves of the engine's power. */
+    private static final float BLOCKED_CAT_POWER = 0.55F;
+    /** Tyres lose about a quarter of their air in five hours of driving. */
+    private static final float PRESSURE_LOSS = 1.0F / 1200000.0F;
+    /** Below this the tyres are soft: they squirm, wear and drink. */
+    public static final float SOFT_TYRES = 0.75F;
+    /** What one stroke of the pump puts back. */
+    public static final float PUMP_STROKE = 0.25F;
+
     /** A sump of fresh oil is black sludge after about five hours of driving. */
     private static final float OIL_AGEING = 1.0F / 360000.0F;
     /** How many times faster than normal a burning or leaking engine loses its oil. */
@@ -3054,11 +3095,28 @@ public class CarEntity extends VehicleEntity {
             // A leak drips whether or not the engine runs.
             this.setOilLevel(this.getOilLevel() - OIL_BURN * OIL_LOSS_FAULT);
         }
+        float load = Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED);
+        if (load > 0.0F && this.hasPart(CarPart.WHEELS) && this.isFitted(CarPart.WHEELS) && !this.isFlying()) {
+            // Air seeps out of a rolling tyre, faster through a perished one.
+            this.setTyrePressure(this.getTyrePressure() - PRESSURE_LOSS * (1.0F + load)
+                    * (this.getConditionFraction(CarPart.WHEELS) <= FaultCodes.CRITICAL ? 4.0F : 1.0F));
+        }
         if (!this.isEngineRunning()) {
             return;
         }
-        float load = Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED);
         float running = IDLE_WEAR_SHARE + (1.0F - IDLE_WEAR_SHARE) * load;
+        if (this.hasOil()) {
+            this.setBeltWear(this.getBeltWear() + BELT_AGEING * running);
+            if (this.getBeltWear() >= 1.0F) {
+                this.snapBelt();
+                return;
+            }
+        }
+        if (this.hasCat()) {
+            // Unburnt fuel and burnt oil both end up in the honeycomb.
+            this.setCatClog(this.getCatClog() + CAT_CLOGGING * running
+                    * (this.isRunningRich() ? 6.0F : 1.0F) * (this.isBurningOil() ? 10.0F : 1.0F));
+        }
         if (this.hasOil()) {
             this.setOilLevel(this.getOilLevel() - OIL_BURN * running * (this.isBurningOil() ? OIL_LOSS_FAULT : 1.0F));
             if (this.getOilLevel() > 0.0F) {
@@ -3071,6 +3129,93 @@ public class CarEntity extends VehicleEntity {
                     - COOLANT_LOSS * running * (1.0F + 2.0F * this.getEngineTemp())
                     * (this.isGasketBlown() ? GASKET_COOLANT_LOSS : 1.0F));
         }
+    }
+
+    /** The belt lets go: the engine stops dead and the valves are bent. */
+    private void snapBelt() {
+        this.setBeltWear(1.0F);
+        if (this.isFitted(CarPart.ENGINE)) {
+            this.setCondition(CarPart.ENGINE, Math.min(this.getCondition(CarPart.ENGINE),
+                    CarPart.MAX_CONDITION * SNAPPED_ENGINE));
+        }
+        this.flyDist *= 0.5F;
+        this.playSound(SoundEvents.ITEM_BREAK, 1.2F, 0.6F);
+        this.playSound(SoundEvents.ANVIL_LAND, 0.5F, 1.4F);
+    }
+
+    /** A burning engine with an exhaust has a converter in it; a motor has neither. */
+    public boolean hasCat() {
+        return this.hasOil() && this.hasPart(CarPart.EXHAUST);
+    }
+
+    public boolean isBeltSnapped() {
+        return this.hasOil() && this.getBeltWear() >= 1.0F;
+    }
+
+    public float getBeltWear() {
+        return this.entityData.get(BELT_WEAR);
+    }
+
+    public void setBeltWear(float wear) {
+        this.entityData.set(BELT_WEAR, Mth.clamp(wear, 0.0F, 1.0F));
+    }
+
+    public float getCatClog() {
+        return this.entityData.get(CAT_CLOG);
+    }
+
+    public void setCatClog(float clog) {
+        this.entityData.set(CAT_CLOG, Mth.clamp(clog, 0.0F, 1.0F));
+    }
+
+    public float getTyrePressure() {
+        return this.entityData.get(TYRE_PRESSURE);
+    }
+
+    public void setTyrePressure(float pressure) {
+        this.entityData.set(TYRE_PRESSURE, Mth.clamp(pressure, 0.0F, 1.0F));
+    }
+
+    /** How soft the tyres are, 0 at the right pressure or above SOFT_TYRES, 1 on the rims. */
+    public float tyreSoftness() {
+        if (!this.hasPart(CarPart.WHEELS)) {
+            return 0.0F;
+        }
+        return Math.max(0.0F, (SOFT_TYRES - this.getTyrePressure()) / SOFT_TYRES);
+    }
+
+    private float softTyreGrip() {
+        return 1.0F - 0.3F * this.tyreSoftness();
+    }
+
+    /** What a choked converter leaves of the engine's breath. */
+    private float catFactor() {
+        if (!this.hasCat() || this.getCatClog() <= CAT_CHOKED) {
+            return 1.0F;
+        }
+        return Mth.lerp((this.getCatClog() - CAT_CHOKED) / (1.0F - CAT_CHOKED), 1.0F, BLOCKED_CAT_POWER);
+    }
+
+    /**
+     * How much louder than it should be the engine sounds: a blowing silencer
+     * lets the whole bang out, and with none at all it is a racket.
+     */
+    public float exhaustNoise() {
+        if (!this.hasPart(CarPart.EXHAUST) || this.isElectric()) {
+            return 1.0F;
+        }
+        if (!this.isFitted(CarPart.EXHAUST)) {
+            return 1.8F;
+        }
+        float worn = this.getConditionFraction(CarPart.EXHAUST);
+        return worn > FaultCodes.WARNING ? 1.0F : 1.0F + 0.6F * (FaultCodes.WARNING - worn) / FaultCodes.WARNING;
+    }
+
+    /** Whether the car stands on a rolling road: its wheels turn it nowhere. */
+    public boolean isOnDyno() {
+        BlockPos at = this.blockPosition();
+        return this.level().getBlockState(at).is(me.trossty.car.registry.ModBlocks.DYNO)
+                || this.level().getBlockState(at.below()).is(me.trossty.car.registry.ModBlocks.DYNO);
     }
 
     /** A worn engine gets oil past its rings and burns it: blue smoke. */
@@ -3178,6 +3323,73 @@ public class CarEntity extends VehicleEntity {
     }
 
     /** A wrench on the wheels of a car up on the lift: the tracking set straight. */
+    /** A new timing belt goes on under the bonnet; the old one comes off in bits. */
+    private InteractionResult fitBelt(Player player, ItemStack belt) {
+        if (!this.hasOil() || !this.isFitted(CarPart.ENGINE)) {
+            return InteractionResult.PASS;
+        }
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (this.hasLid(BONNET_BIT) && !this.isLidOpen(BONNET_BIT)) {
+            player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
+            return InteractionResult.CONSUME;
+        }
+        if (this.getBeltWear() < 0.05F) {
+            player.displayClientMessage(Component.translatable("message.car.belt_fresh"), true);
+            return InteractionResult.CONSUME;
+        }
+        boolean snapped = this.isBeltSnapped();
+        this.setBeltWear(0.0F);
+        belt.consume(1, player);
+        this.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 1.2F);
+        player.displayClientMessage(Component.translatable(snapped ? "message.car.belt_fitted_snapped"
+                : "message.car.belt_fitted"), true);
+        return InteractionResult.CONSUME;
+    }
+
+    /** The converter hangs under the floor: it is changed with the car up. */
+    private InteractionResult fitCat(Player player, ItemStack cat) {
+        if (!this.hasCat()) {
+            return InteractionResult.PASS;
+        }
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (!VehicleLiftBlock.isServicing(this.level(), this)) {
+            player.displayClientMessage(VehicleLiftBlock.needsLift(this), true);
+            return InteractionResult.CONSUME;
+        }
+        if (this.getCatClog() < 0.05F) {
+            player.displayClientMessage(Component.translatable("message.car.cat_fresh"), true);
+            return InteractionResult.CONSUME;
+        }
+        this.setCatClog(0.0F);
+        cat.consume(1, player);
+        this.playSound(SoundEvents.ANVIL_USE, 0.6F, 1.3F);
+        player.displayClientMessage(Component.translatable("message.car.cat_fitted"), true);
+        return InteractionResult.CONSUME;
+    }
+
+    /** One stroke of the foot pump: a quarter of the air back in every tyre. */
+    private InteractionResult pumpTyres(Player player) {
+        if (!this.hasPart(CarPart.WHEELS) || !this.isFitted(CarPart.WHEELS)) {
+            return InteractionResult.PASS;
+        }
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (this.getTyrePressure() >= 0.99F) {
+            player.displayClientMessage(Component.translatable("message.car.tyres_firm"), true);
+            return InteractionResult.CONSUME;
+        }
+        this.setTyrePressure(this.getTyrePressure() + PUMP_STROKE);
+        this.playSound(SoundEvents.PISTON_EXTEND, 0.5F, 1.7F);
+        player.displayClientMessage(Component.translatable("message.car.tyres_pumped",
+                Math.round(this.getTyrePressure() * 100.0F)), true);
+        return InteractionResult.CONSUME;
+    }
+
     private InteractionResult alignWheels(Player player) {
         if (this.level().isClientSide()) {
             return InteractionResult.SUCCESS;
@@ -3350,6 +3562,7 @@ public class CarEntity extends VehicleEntity {
                 * this.getEngineFuel().pull()
                 * (this.hasTurbo() ? CarSetup.TURBO_PULL : 1.0F)
                 * (this.hasOpenFilter() ? CarSetup.OPEN_FILTER_PULL : 1.0F)
+                * this.catFactor()
                 * this.traction()
                 * this.loadFactor();
     }
@@ -3419,7 +3632,9 @@ public class CarEntity extends VehicleEntity {
                 // Biofuel is weaker stuff: whatever the engine, more of it goes.
                 * (this.getTankFuel() == CarSetup.Fuel.BIOFUEL ? CarSetup.Fuel.BIOFUEL.thirst() : 1.0F)
                 * (this.hasTurbo() ? CarSetup.TURBO_THIRST : 1.0F)
-                * (this.hasOpenFilter() ? CarSetup.OPEN_FILTER_THIRST : 1.0F);
+                * (this.hasOpenFilter() ? CarSetup.OPEN_FILTER_THIRST : 1.0F)
+                // Soft tyres drag.
+                * (1.0F + 0.15F * this.tyreSoftness());
     }
 
     /** How much faster dirty oil wears the things it is supposed to protect. */
@@ -3470,7 +3685,8 @@ public class CarEntity extends VehicleEntity {
             // Wheels up, nothing rolls and nothing steers them.
             if (!this.isFlying()) {
                 float road = this.onAsphalt() ? ASPHALT_WEAR : 1.0F;
-                this.wear(CarPart.WHEELS, CarPart.WHEELS.wearPerTick() * load * this.getTyre().wear() * road);
+                this.wear(CarPart.WHEELS, CarPart.WHEELS.wearPerTick() * load * this.getTyre().wear() * road
+                        * (1.0F + 2.0F * this.tyreSoftness()));
                 this.wear(CarPart.STEERING_RACK, CarPart.STEERING_RACK.wearPerTick() * load * road);
             }
         }
@@ -4149,6 +4365,15 @@ public class CarEntity extends VehicleEntity {
         if (held.is(ModItems.WRENCH)) {
             return this.alignWheels(player);
         }
+        if (held.is(ModItems.TIMING_BELT)) {
+            return this.fitBelt(player, held);
+        }
+        if (held.is(ModItems.CATALYTIC_CONVERTER)) {
+            return this.fitCat(player, held);
+        }
+        if (held.is(ModItems.TYRE_PUMP)) {
+            return this.pumpTyres(player);
+        }
         if (held.is(ModItems.JUMPER_CABLES)) {
             InteractionResult jumped = this.jumpWith(player, held);
             if (jumped != InteractionResult.PASS) {
@@ -4704,6 +4929,7 @@ public class CarEntity extends VehicleEntity {
                 // Wheels that are slipping do not reach the speed the engine could.
                 * (0.7F + 0.3F * this.traction())
                 * (this.isOverheating() ? OVERHEATING_POWER : 1.0F)
+                * this.catFactor()
                 // On a flat it limps: driven faster, the rim would cut the tyre up.
                 * (this.hasFlatTyre() ? FLAT_SPEED : 1.0F)
                 // On a bare hub it scrapes along at a crawl.
@@ -5327,6 +5553,9 @@ public class CarEntity extends VehicleEntity {
         this.setOilAge(view.getFloatOr("OilAge", 0.0F));
         this.setBrakeFluid(view.getFloatOr("BrakeFluid", 1.0F));
         this.setAlignment(view.getFloatOr("Alignment", 0.0F));
+        this.setBeltWear(view.getFloatOr("BeltWear", 0.0F));
+        this.setCatClog(view.getFloatOr("CatClog", 0.0F));
+        this.setTyrePressure(view.getFloatOr("TyrePressure", 1.0F));
         if (view.tag().contains("Boot")) {
             net.minecraft.world.ContainerHelper.loadAllItems(
                     view.tag().getCompound("Boot"), this.boot.getItems(), view.registries());
@@ -5384,6 +5613,15 @@ public class CarEntity extends VehicleEntity {
         }
         if (this.getAlignment() != 0.0F) {
             view.putFloat("Alignment", this.getAlignment());
+        }
+        if (this.getBeltWear() > 0.0F) {
+            view.putFloat("BeltWear", this.getBeltWear());
+        }
+        if (this.getCatClog() > 0.0F) {
+            view.putFloat("CatClog", this.getCatClog());
+        }
+        if (this.getTyrePressure() < 1.0F) {
+            view.putFloat("TyrePressure", this.getTyrePressure());
         }
         if (!this.boot.isEmpty()) {
             view.tag().put("Boot", net.minecraft.world.ContainerHelper.saveAllItems(

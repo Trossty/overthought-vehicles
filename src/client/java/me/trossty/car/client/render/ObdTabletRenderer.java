@@ -130,6 +130,13 @@ public final class ObdTabletRenderer {
         if (faults.size() > shown) {
             screen.text(Component.translatable("obd.car.more", faults.size() - shown).withStyle(ChatFormatting.ITALIC),
                     5, y, 0.55F, DIM, 118);
+            y += 7.0F;
+        }
+        // Where to start looking: the worst fault's place on the car, which a
+        // scanner in hand also lights up on the car itself.
+        Component where = faults.isEmpty() ? null : faults.get(0).where();
+        if (where != null && y < 114.0F) {
+            screen.text(where, 5, y + 1.0F, 0.55F, AMBER, 118);
         }
         float mileage = CarEntity.mileageFactor(car.getOdometer());
         if (mileage > 1.05F) {

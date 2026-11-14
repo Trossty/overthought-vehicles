@@ -841,6 +841,80 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** A worn-out belt stops the engine and says so; a new one under the open bonnet sets it going. */
+    @GameTest(template = "empty")
+    public static void timingBelt(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));
+        context.assertTrue(car.canRun(), "a new car would not start");
+        car.setBeltWear(1.0F);
+        context.assertTrue(car.isBeltSnapped() && !car.canRun(), "a snapped belt still turned the engine");
+        context.assertTrue(FaultCodes.read(car).stream().anyMatch(f -> f.code().equals("P0016")
+                && f.place() == CarPart.ENGINE), "the scanner did not point at the belt");
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.TIMING_BELT));
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(car.isBeltSnapped(), "a belt went on through a shut bonnet");
+        car.setLidOpen(CarEntity.BONNET_BIT, true);
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        car.setLidOpen(CarEntity.BONNET_BIT, false);
+        context.assertTrue(car.getBeltWear() == 0.0F && car.canRun(), "the new belt did not take");
+        context.assertTrue(player.getMainHandItem().isEmpty(), "the belt was not used up");
+        car.discard();
+        context.succeed();
+    }
+
+    /** A choked converter costs power, soft tyres cost grip; a new converter and the pump put both right. */
+    @GameTest(template = "empty")
+    public static void converterAndTyrePressure(GameTestHelper context) {
+        BlockPos lift = new BlockPos(2, 1, 2);
+        context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
+        CarEntity car = context.spawn(ModEntities.CAR, lift.above());
+        float speed = car.getMaxSpeed();
+        float brakes = car.brakeStrength();
+        car.setCatClog(1.0F);
+        car.setTyrePressure(0.3F);
+        context.assertTrue(car.getMaxSpeed() < speed * 0.6F, "a blocked converter did not hold the engine back");
+        context.assertTrue(car.brakeStrength() < brakes, "soft tyres gripped as well as hard ones");
+        var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
+        context.assertTrue(codes.contains("P0421") && codes.contains("C0755"), "the scanner missed them: " + codes);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.CATALYTIC_CONVERTER));
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(car.getCatClog() == 0.0F, "the new converter did not go on");
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.TYRE_PUMP));
+        for (int i = 0; i < 4; i++) {
+            car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        }
+        context.assertTrue(car.getTyrePressure() == 1.0F && car.tyreSoftness() == 0.0F, "the pump did not fill the tyres");
+        context.assertTrue(Math.abs(car.brakeStrength() - brakes) < 1.0E-4F, "pumped tyres did not grip again");
+        car.discard();
+        context.succeed();
+    }
+
+    /** On the rollers the wheels turn and the car stays put. */
+    @GameTest(template = "empty")
+    public static void dynoHoldsTheCar(GameTestHelper context) {
+        BlockPos dyno = new BlockPos(2, 1, 2);
+        context.setBlock(dyno, ModBlocks.DYNO);
+        CarEntity car = context.spawn(ModEntities.CAR, dyno.above());
+        context.runAfterDelay(5, () -> {
+            net.minecraft.world.phys.Vec3 from = car.position();
+            car.setSpeed(0.5F);
+            context.runAfterDelay(10, () -> {
+                context.assertTrue(car.isOnDyno(), "the car did not find the rollers under it");
+                context.assertTrue(car.position().horizontalDistanceSqr() - from.horizontalDistanceSqr() < 1.0E-4
+                        && car.position().subtract(from).horizontalDistance() < 0.01,
+                        "the car rolled off the dyno: " + from + " -> " + car.position());
+                car.discard();
+                context.succeed();
+            });
+        });
+    }
+
     /** A full pan pours its old oil, as crude, into a drum set beside it. */
     @GameTest(template = "empty")
     public static void drainPanEmptiesIntoADrum(GameTestHelper context) {
