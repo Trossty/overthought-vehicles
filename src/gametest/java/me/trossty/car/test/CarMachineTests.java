@@ -154,6 +154,33 @@ public class CarMachineTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 260)
+    public static void theStarterDrawsOnTheBattery(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));
+        CarEntity weak = context.spawn(ModEntities.CAR, new BlockPos(6, 1, 2));
+        weak.setCondition(CarPart.BATTERY, 3.0F);
+        var driver = context.makeMockServerPlayerInLevel();
+        var other = context.makeMockServerPlayerInLevel();
+        context.runAtTickTime(2, () -> {
+            driver.startRiding(car, true);
+            other.startRiding(weak, true);
+        });
+        context.runAtTickTime(6, () -> {
+            context.assertTrue(car.getStarterDebt() > 0.0F
+                    && car.getCondition(CarPart.BATTERY) < CarPart.MAX_CONDITION - 1.0F,
+                    "starting did not draw on the battery: " + car.getCondition(CarPart.BATTERY));
+            context.assertTrue(car.isEngineRunning(), "a good battery did not start the car");
+            context.assertTrue(weak.isBatteryFlat() && !weak.isEngineRunning(),
+                    "a nearly flat battery started the car and kept it running");
+        });
+        context.runAtTickTime(240, () -> {
+            context.assertTrue(car.getStarterDebt() == 0.0F
+                    && car.getCondition(CarPart.BATTERY) >= CarPart.MAX_CONDITION - 0.01F,
+                    "the alternator did not put the start back: " + car.getCondition(CarPart.BATTERY));
+            context.succeed();
+        });
+    }
+
     @GameTest(template = "empty", timeoutTicks = 60)
     public static void aFullGeneratorBanksItsFire(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);

@@ -209,6 +209,10 @@ public class CarEntity extends VehicleEntity {
     private static final float BATTERY_DRAIN = 0.0040F;
     /** At or below this the battery is flat and the car will not start. */
     private static final float FLAT_BATTERY = 2.0F;
+    /** What turning the engine over on the starter takes out of the battery, out of 100. */
+    public static final float STARTER_DRAW = 1.5F;
+    /** What a sound alternator puts back of that a tick, once the engine runs. */
+    private static final float STARTER_RECHARGE = 0.01F;
 
     private static final float WORN_CLUTCH_DRIVE = 0.60F;
     private static final float WORN_SHAFT_DRIVE = 0.70F;
@@ -2460,6 +2464,39 @@ public class CarEntity extends VehicleEntity {
         this.entityData.set(PART_QUALITY, bits);
     }
 
+    /** Whether the engine ran last tick, so a start can be told from running on. */
+    private boolean ranLastTick;
+    /** Charge the starter has taken that the alternator has yet to put back. */
+    private float starterDebt;
+
+    /**
+     * Every start turns the engine over on the battery, and the alternator puts
+     * the charge back over the next few seconds of running. A battery with
+     * little left can manage one turn of the key and no more; one that keeps
+     * being started without a run in between goes flat.
+     */
+    private void tickStarter() {
+        boolean running = this.isEngineRunning();
+        if (running && !this.ranLastTick && !this.isElectric() && this.hasPart(CarPart.BATTERY)
+                && this.isFitted(CarPart.BATTERY)) {
+            float before = this.getCondition(CarPart.BATTERY);
+            float after = Math.max(0.0F, before - STARTER_DRAW);
+            this.setCondition(CarPart.BATTERY, after);
+            this.starterDebt += before - after;
+        }
+        if (running && this.starterDebt > 0.0F && this.isFitted(CarPart.BATTERY)) {
+            float back = Math.min(this.starterDebt, STARTER_RECHARGE * this.getConditionFraction(CarPart.ALTERNATOR));
+            this.setCondition(CarPart.BATTERY, Math.min(CarPart.MAX_CONDITION, this.getCondition(CarPart.BATTERY) + back));
+            this.starterDebt -= back;
+        }
+        // Read again: a start on a battery with nothing to spare leaves it flat and the engine dead.
+        this.ranLastTick = this.isEngineRunning();
+    }
+
+    public float getStarterDebt() {
+        return this.starterDebt;
+    }
+
     /**
      * Wear, which is the one place quality is felt. Every rule above hands its
      * number to this method, so a cheap part wears faster at everything it does
@@ -3820,6 +3857,7 @@ public class CarEntity extends VehicleEntity {
      * costs two ingots and some paper.
      */
     private void wearParts() {
+        this.tickStarter();
         float load = Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED);
         float oil = this.oilWearFactor();
         if (this.isEngineRunning()) {
@@ -5753,6 +5791,7 @@ public class CarEntity extends VehicleEntity {
         this.setCoolantLevel(view.getFloatOr("Coolant", 1.0F));
         this.setOilAge(view.getFloatOr("OilAge", 0.0F));
         this.setBrakeFluid(view.getFloatOr("BrakeFluid", 1.0F));
+        this.starterDebt = Math.max(0.0F, view.getFloatOr("StarterDebt", 0.0F));
         this.setAlignment(view.getFloatOr("Alignment", 0.0F));
         this.setBeltWear(view.getFloatOr("BeltWear", 0.0F));
         this.setCatClog(view.getFloatOr("CatClog", 0.0F));
@@ -5812,6 +5851,7 @@ public class CarEntity extends VehicleEntity {
         }
         if (this.getBrakeFluid() < 1.0F) {
             view.putFloat("BrakeFluid", this.getBrakeFluid());
+            view.putFloat("StarterDebt", this.starterDebt);
         }
         if (this.getAlignment() != 0.0F) {
             view.putFloat("Alignment", this.getAlignment());
