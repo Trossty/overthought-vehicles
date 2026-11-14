@@ -31,6 +31,12 @@ public final class ModBlocks {
             VehicleLiftBlock::new,
             BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().sound(SoundType.METAL));
 
+    /** The narrow table a motorbike is wheeled on to and raised on. */
+    public static final Block MOTORCYCLE_LIFT = register(
+            "motorcycle_lift",
+            me.trossty.car.block.MotorcycleLiftBlock::new,
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().sound(SoundType.METAL));
+
     /** The plant that cracks biomass and crude. Its boiler house glows while it works. */
     public static final Block FUEL_REFINERY = register(
             "fuel_refinery",

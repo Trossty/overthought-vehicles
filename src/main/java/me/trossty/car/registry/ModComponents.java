@@ -113,6 +113,13 @@ public final class ModComponents {
                     .networkSynchronized(net.minecraft.core.BlockPos.STREAM_CODEC)
                     .build());
 
+    /** Which charging post a plug was taken off; it only ever reaches as far as that post's lead. */
+    public static final DataComponentType<net.minecraft.core.BlockPos> CHARGER = register("charger",
+            DataComponentType.<net.minecraft.core.BlockPos>builder()
+                    .persistent(net.minecraft.core.BlockPos.CODEC)
+                    .networkSynchronized(net.minecraft.core.BlockPos.STREAM_CODEC)
+                    .build());
+
     /** A pocketed car's {@code CarSetup}: its engine, tyres, filter, turbo and tank. */
     public static final DataComponentType<Integer> CAR_SETUP = register("setup",
             DataComponentType.<Integer>builder()

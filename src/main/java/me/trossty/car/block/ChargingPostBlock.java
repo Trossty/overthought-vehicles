@@ -94,16 +94,41 @@ public class ChargingPostBlock extends ModelEntityBlock {
                 pos.getZ() + 0.5 + front.getStepZ() * 0.3, 0.0, 0.02, 0.0);
     }
 
+    /**
+     * A bare hand takes the plug: off the holster, or out of the car it is in.
+     * Sneaking opens the post's screen instead.
+     */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
         if (world.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        if (world.getBlockEntity(pos) instanceof ChargingPostBlockEntity post) {
+        if (!(world.getBlockEntity(pos) instanceof ChargingPostBlockEntity post)) {
+            return InteractionResult.CONSUME;
+        }
+        if (player.isShiftKeyDown()) {
             player.openMenu(new SimpleMenuProvider(
                     (syncId, inventory, who) -> MachineScreenHandler.of(syncId, inventory, post, null),
                     this.getName()));
+        } else if (player.getMainHandItem().isEmpty()) {
+            post.takePlug(player);
         }
         return InteractionResult.CONSUME;
+    }
+
+    /** The plug back on its own post's holster. */
+    @Override
+    protected net.minecraft.world.ItemInteractionResult useItemOn(net.minecraft.world.item.ItemStack held, BlockState state,
+            Level world, BlockPos pos, Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
+        if (!held.is(me.trossty.car.registry.ModItems.CHARGING_PLUG)) {
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (!me.trossty.car.item.ChargingPlugItem.isFrom(held, pos)) {
+            return net.minecraft.world.ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (!world.isClientSide() && world.getBlockEntity(pos) instanceof ChargingPostBlockEntity post) {
+            post.hangUpPlug(false);
+        }
+        return net.minecraft.world.ItemInteractionResult.sidedSuccess(world.isClientSide());
     }
 }

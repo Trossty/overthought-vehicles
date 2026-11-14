@@ -92,13 +92,24 @@ public final class PartLayout {
         float engineZ = frontAxle + 0.2F * nose;
         float side = 0.55F * halfWidth;
 
-        put(map, CarPart.RADIATOR, 0.0F, bay + 0.5F * tall, front - 2.5F, 2.0F * scale);
-        put(map, CarPart.ENGINE, 0.0F, bay + 0.4F * tall, engineZ, 3.2F * scale);
-        put(map, CarPart.SPARK_PLUGS, 0.0F, bay + 0.88F * tall, engineZ, 1.7F * scale);
-        put(map, CarPart.AIR_FILTER, 0.0F, bay + 0.8F * tall, frontAxle - 0.25F * nose, 1.9F * scale);
-        put(map, CarPart.BATTERY, side, bay + 0.8F * tall, engineZ, 1.9F * scale);
-        put(map, CarPart.ALTERNATOR, side, bay + 0.4F * tall, engineZ, 1.7F * scale);
-        put(map, CarPart.OIL_FILTER, side, bay, engineZ, 1.5F * scale);
+        net.minecraft.world.phys.AABB hollow = me.trossty.car.vehicle.LidCavity.of(
+                definition, VehicleDefinition.Box.BONNET);
+        if (hollow != null) {
+            // An engine bay under a bonnet: each box goes exactly where the
+            // part is drawn in it, so what you see is what you click.
+            for (BaySpot spot : BAY) {
+                float[] at = spot.centre(hollow);
+                put(map, spot.part(), at[0], at[1], at[2], at[3]);
+            }
+        } else {
+            put(map, CarPart.RADIATOR, 0.0F, bay + 0.5F * tall, front - 2.5F, 2.0F * scale);
+            put(map, CarPart.ENGINE, 0.0F, bay + 0.4F * tall, engineZ, 3.2F * scale);
+            put(map, CarPart.SPARK_PLUGS, 0.0F, bay + 0.88F * tall, engineZ, 1.7F * scale);
+            put(map, CarPart.AIR_FILTER, 0.0F, bay + 0.8F * tall, frontAxle - 0.25F * nose, 1.9F * scale);
+            put(map, CarPart.BATTERY, side, bay + 0.8F * tall, engineZ, 1.9F * scale);
+            put(map, CarPart.ALTERNATOR, side, bay + 0.4F * tall, engineZ, 1.7F * scale);
+            put(map, CarPart.OIL_FILTER, side, bay, engineZ, 1.5F * scale);
+        }
 
         // Under the floor, between the axles.
         float under = Math.max(1.8F, Math.min(bottom, axleY) - 1.5F);
@@ -111,6 +122,51 @@ public final class PartLayout {
         corner(map, wheel);
         return map;
     }
+
+    /**
+     * Where a part stands in an engine bay: across it from -1 (the bay's -x)
+     * to 1, along it from 0 at the windscreen to 1 at the grille, its size as
+     * a share of the bay's width, the lowest and highest pixel of its item
+     * model, and how far it is turned. The renderer stands each part's model
+     * here and the aiming box is put round the same spot, so the two cannot
+     * drift apart.
+     */
+    public record BaySpot(CarPart part, float across, float along, float size,
+                          float bottom, float top, float turn) {
+
+        /** How big the part's model is drawn in this bay, in blocks a model block. */
+        public float scale(net.minecraft.world.phys.AABB bay) {
+            float width = (float) (bay.maxX - bay.minX) / 16.0F;
+            float deep = (float) (bay.maxY - bay.minY) / 16.0F * 0.92F;
+            float tall = (this.top - this.bottom) / 16.0F;
+            return Math.min(width * this.size, deep / tall);
+        }
+
+        /** The middle of the drawn part, in bay pixels, and the half-size of the box round it. */
+        float[] centre(net.minecraft.world.phys.AABB bay) {
+            float scale = this.scale(bay);
+            float x = (float) ((bay.minX + bay.maxX) / 2.0 + this.across * (bay.maxX - bay.minX) / 2.0);
+            float z = (float) (bay.minZ + this.along * (bay.maxZ - bay.minZ));
+            float y = (float) bay.minY + scale * (this.top - this.bottom) / 2.0F;
+            float half = Math.max(1.2F, Math.min(3.5F, scale * 16.0F * 0.32F));
+            return new float[]{x, y, z, half};
+        }
+    }
+
+    /**
+     * Laid out as under a real bonnet: the engine across the middle, the
+     * radiator upright behind the grille, the battery and the air box either
+     * side behind it, the alternator and the oil filter low on the engine's
+     * flanks, the plugs along its back.
+     */
+    public static final List<BaySpot> BAY = List.of(
+            new BaySpot(CarPart.ENGINE, 0.0F, 0.48F, 0.40F, 2.5F, 13.5F, 0.0F),
+            new BaySpot(CarPart.RADIATOR, 0.0F, 0.92F, 0.62F, 2.1F, 13.9F, 0.0F),
+            new BaySpot(CarPart.BATTERY, -0.7F, 0.2F, 0.24F, 3.5F, 12.5F, 90.0F),
+            new BaySpot(CarPart.AIR_FILTER, 0.7F, 0.22F, 0.24F, 4.9F, 11.1F, 0.0F),
+            new BaySpot(CarPart.ALTERNATOR, 0.5F, 0.66F, 0.18F, 1.8F, 14.2F, 0.0F),
+            new BaySpot(CarPart.OIL_FILTER, -0.5F, 0.66F, 0.14F, 3.6F, 12.4F, 0.0F),
+            new BaySpot(CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.4F, 12.6F, 0.0F));
 
     /** A tyre, and the brakes and strut behind it: one at every wheel, not only the first. */
     private static boolean atEveryCorner(CarPart part) {
@@ -207,6 +263,20 @@ public final class PartLayout {
             }
         }
         return top > 0.0F ? top / 16.0F : 1.5F;
+    }
+
+    /** How high the bottom of the bodywork is, in blocks: what a lift's arms lift by. */
+    public static float sill(VehicleDefinition definition) {
+        if (definition == null) {
+            return 0.3F;
+        }
+        float bottom = Float.MAX_VALUE;
+        for (VehicleDefinition.Box box : definition.shape()) {
+            if (solid(box)) {
+                bottom = Math.min(bottom, Math.min(box.from().y(), box.to().y()));
+            }
+        }
+        return bottom == Float.MAX_VALUE ? 0.3F : Math.max(0.0F, bottom / 16.0F);
     }
 
     /** How high the bodywork reaches over this stretch of the car's length, along its middle. */

@@ -1,71 +1,96 @@
 package me.trossty.car.block.entity;
 
-import me.trossty.car.block.FuelPumpBlock;
-import me.trossty.car.block.FuelTankBlock;
+import me.trossty.car.fluid.FluidSource;
+import me.trossty.car.fluid.Liquids;
+import me.trossty.car.fluid.UnitTank;
 import me.trossty.car.registry.ModBlockEntities;
+import me.trossty.car.registry.ModFluids;
+import me.trossty.car.util.ValueInput;
+import me.trossty.car.util.ValueOutput;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.PipeBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import me.trossty.car.util.ValueInput;
-import me.trossty.car.util.ValueOutput;
+import net.minecraft.world.level.material.Fluid;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 /**
- * A length of fuel line.
+ * A length of pipe. It carries any liquid — crude, raw fuel, petrol, diesel,
+ * water, another mod's — one at a time, like a real line.
  *
  * <p>There is no network here, no graph to rebuild when somebody breaks a pipe
- * in the middle: every pipe is a tiny tank that does three things each tick and
- * knows nothing but its six neighbours.
+ * in the middle: every pipe is a small tank that, each tick, looks along each
+ * of its connected arms and does one thing there.
  *
  * <ol>
- *   <li>drinks from any refinery it touches,
- *   <li>empties into any pump it touches,
- *   <li>settles half full against any storage tank it touches,
- *   <li>evens itself out with the pipes next door.
+ *   <li><b>Another pipe:</b> the two even out, if they hold the same liquid or
+ *       one is empty. Liquid flows downhill towards whatever is drawing it off.
+ *   <li><b>A valve:</b> nothing; the valve does its own pumping.
+ *   <li><b>A machine that makes something</b> (pumpjack, refinery,
+ *       hydrotreater): the pipe hands over what it carries if the machine
+ *       takes it — crude into a refinery — and draws off what the machine
+ *       makes. An empty pipe only starts drawing when no pipe beside it holds
+ *       something else, so a refinery's product does not back up into the
+ *       crude line feeding it.
+ *   <li><b>Anything that only takes</b> (a fuel pump, a generator, an empty
+ *       tank): the pipe empties into it.
+ *   <li><b>Anything that holds</b> (a yard tank, a drum, another mod's tank):
+ *       the pipe settles at {@link #SETTLE} against it, so the same line fills it from
+ *       one end and empties it towards the other.
  * </ol>
  *
- * <p>That third rule is what makes fuel travel. A pump that is being emptied
- * pulls the pipe beside it down, that pipe pulls its own neighbour down, and the
- * dip runs back along the line to the refinery — the fuel flows downhill towards
- * whatever is using it. Nothing has to be told where the ends of the line are,
- * loops and branches cost nothing, and a pipe pulled out of the middle just
- * stops the slope there.
- *
- * <p>The cost of the simplicity is that a line takes a moment to prime, since
- * each pipe only moves {@link #TRANSFER_RATE} per tick and only half of whatever
- * gap it sees. In practice a station is a handful of blocks long and the
- * refinery is far slower than the line, so you never see it.
- *
- * <p>It also means every pipe keeps a last drop: half of a gap of one is
- * nothing, and moving the whole drop would only send it sloshing back on the
- * next tick. One petrol is a tenth of one unit of a car's tank, so a line holds
- * a film of fuel rather than running truly dry — which is what a real one does.
+ * <p>Two liquids never mix: a pipe holding one will not take another, which is
+ * how a crude line and a petrol line can run side by side as long as a wrench
+ * has cut the arm between them.
  */
 public class FuelPipeBlockEntity extends BlockEntity {
 
-    /** Deliberately small: a pipe carries fuel, it does not store it. */
-    public static final int CAPACITY = 200;
+    /** A bucket a block: enough for a line to carry a pumpjack's flow without backing up. */
+    public static final int CAPACITY = 1_000;
 
-    /** Petrol moved across one join per tick — twice what a pump siphons alone. */
-    public static final int TRANSFER_RATE = 8;
+    /** Liquid moved across one join per tick. */
+    public static final int TRANSFER_RATE = 50;
 
-    private int petrol;
+    /**
+     * What a pipe keeps against a tank it touches: below this it drinks, above
+     * it tips the surplus in. Low, so a tank on a line ends up holding the
+     * liquid rather than the pipes.
+     */
+    public static final int SETTLE = 100;
 
-    /** This holder as other mods' pipes see it. */
-    private final me.trossty.car.fluid.PetrolSlot fluidStorage = new me.trossty.car.fluid.PetrolSlot(
-            () -> this.petrol, value -> this.petrol = value, CAPACITY, true, true, this::setChanged);
+    private final UnitTank tank = new UnitTank(CAPACITY, fluid -> true, true, true, this::setChanged);
 
-    public net.neoforged.neoforge.fluids.capability.IFluidHandler getFluidStorage() {
-        return this.fluidStorage;
-    }
+    /** Arms a wrench has cut, one bit per {@link Direction#ordinal()}. */
+    private int blocked;
 
     public FuelPipeBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.FUEL_PIPE, pos, state);
     }
 
+    /** This pipe as other mods' pipes, valves and hoses see it. */
+    public IFluidHandler getFluidStorage() {
+        return this.tank;
+    }
+
+    public UnitTank getTank() {
+        return this.tank;
+    }
+
+    public Fluid getFluid() {
+        return this.tank.getFluid();
+    }
+
+    public int getAmount() {
+        return this.tank.getUnits();
+    }
+
+    /** Petrol standing in the pipe; nought if it holds something else. */
     public int getPetrol() {
-        return this.petrol;
+        return this.tank.getFluid() == ModFluids.PETROL ? this.tank.getUnits() : 0;
     }
 
     public int getCapacity() {
@@ -73,103 +98,134 @@ public class FuelPipeBlockEntity extends BlockEntity {
     }
 
     public void setPetrol(int petrol) {
-        this.petrol = Math.max(0, Math.min(CAPACITY, petrol));
+        this.tank.set(ModFluids.PETROL, petrol);
         this.setChanged();
     }
 
-    /** Takes what it can, up to {@code amount}, and reports how much went in. */
-    public int fill(int amount) {
-        int accepted = Math.min(amount, CAPACITY - this.petrol);
-        if (accepted > 0) {
-            this.petrol += accepted;
-            this.setChanged();
-        }
-        return accepted;
+    // ---- the wrench ----
+
+    public boolean isBlocked(Direction side) {
+        return (this.blocked & (1 << side.ordinal())) != 0;
     }
 
-    /** Gives out what it can, up to {@code amount}, and reports how much came out. */
-    public int drain(int amount) {
-        int given = Math.min(amount, this.petrol);
-        if (given > 0) {
-            this.petrol -= given;
-            this.setChanged();
-        }
-        return given;
+    public void setBlocked(Direction side, boolean cut) {
+        int bit = 1 << side.ordinal();
+        this.blocked = cut ? this.blocked | bit : this.blocked & ~bit;
+        this.setChanged();
     }
+
+    // ---- each tick ----
 
     public static void tick(Level world, BlockPos pos, BlockState state, FuelPipeBlockEntity pipe) {
+        UnitTank tank = pipe.tank;
         for (Direction side : Direction.values()) {
+            if (!state.getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side))) {
+                continue;
+            }
             BlockPos next = pos.relative(side);
+            BlockEntity there = world.getBlockEntity(next);
 
-            // 1. the source
-            if (pipe.petrol < CAPACITY
-                    && me.trossty.car.block.MultiblockBlock.controllerEntity(world, next) instanceof me.trossty.car.fluid.PetrolSource refinery) {
-                pipe.fill(refinery.drainPetrol(Math.min(TRANSFER_RATE, CAPACITY - pipe.petrol)));
+            if (there instanceof FuelPipeBlockEntity neighbour) {
+                level(tank, neighbour.tank);
+                continue;
+            }
+            if (there instanceof FuelValveBlockEntity) {
+                continue;
+            }
+            IFluidHandler other = world.getCapability(Capabilities.FluidHandler.BLOCK, next, side.getOpposite());
+            if (other == null) {
                 continue;
             }
 
-            // 2. the drain
-            FuelPumpBlockEntity pump = FuelPumpBlock.tankAt(world, next);
-            if (pump != null) {
-                if (pipe.petrol > 0) {
-                    pipe.drain(pump.fill(Math.min(TRANSFER_RATE, pipe.petrol)));
+            if (FluidSource.at(world, next)) {
+                if (!tank.isEmpty()) {
+                    Liquids.move(tank, other, tank.getFluid(), TRANSFER_RATE);
+                }
+                if (tank.room() > 0) {
+                    draw(world, pos, state, tank, other);
                 }
                 continue;
             }
 
-            // 2b. the yard tank, which is both at once. A pipe settles half
-            //     full against one: below that it drinks, above it tips its
-            //     surplus back. So the same line fills the tank from a refinery
-            //     and empties it towards a pump without being told which job it
-            //     is doing today.
-            FuelTankBlockEntity tank = FuelTankBlock.tankAt(world, next);
-            if (tank != null) {
-                int room = CAPACITY / 2 - pipe.petrol;
-                if (room > 0) {
-                    pipe.fill(tank.drain(Math.min(TRANSFER_RATE, room)));
-                } else if (room < 0) {
-                    pipe.drain(tank.fill(Math.min(TRANSFER_RATE, -room)));
+            boolean gives = !other.drain(1, IFluidHandler.FluidAction.SIMULATE).isEmpty();
+            if (!gives) {
+                if (!tank.isEmpty()) {
+                    Liquids.move(tank, other, tank.getFluid(), TRANSFER_RATE);
                 }
                 continue;
             }
-
-            // 3. the slope. Half the gap, so two pipes settle instead of
-            //    swapping their contents back and forth for ever.
-            if (world.getBlockEntity(next) instanceof FuelPipeBlockEntity neighbour) {
-                int gap = pipe.petrol - neighbour.petrol;
-                if (gap > 1) {
-                    int moved = neighbour.fill(Math.min(TRANSFER_RATE, gap / 2));
-                    pipe.drain(moved);
-                }
-                continue;
-            }
-
-            // 4. anything another mod built: a tank, a machine, a pipe. Treated
-            //    like the yard tank — the pipe settles half full against it —
-            //    so the same join feeds a foreign line or drinks from one.
-            var foreign = me.trossty.car.fluid.ForeignFluids.at(world, pos, side);
-            if (foreign != null) {
-                int room = CAPACITY / 2 - pipe.petrol;
-                if (room > 0) {
-                    me.trossty.car.fluid.ForeignFluids.move(foreign, pipe.fluidStorage, Math.min(TRANSFER_RATE, room));
-                } else if (room < 0) {
-                    me.trossty.car.fluid.ForeignFluids.move(pipe.fluidStorage, foreign, Math.min(TRANSFER_RATE, -room));
-                }
+            int room = SETTLE - tank.getUnits();
+            if (room > 0) {
+                Liquids.move(other, tank, tank.isEmpty() ? null : tank.getFluid(), Math.min(TRANSFER_RATE, room));
+            } else if (room < 0) {
+                Liquids.move(tank, other, tank.getFluid(), Math.min(TRANSFER_RATE, -room));
             }
         }
+    }
+
+    /**
+     * Half the gap, so two pipes settle instead of swapping their contents back
+     * and forth for ever. Different liquids stay where they are.
+     */
+    private static void level(UnitTank from, UnitTank to) {
+        int gap = from.getUnits() - to.getUnits();
+        if (gap > 1 && to.canTake(from.getFluid())) {
+            Liquids.move(from, to, from.getFluid(), Math.min(TRANSFER_RATE, gap / 2));
+        }
+    }
+
+    /** Draws off what a machine makes, without starting a second liquid in a line already carrying one. */
+    private static void draw(Level world, BlockPos pos, BlockState state, UnitTank tank, IFluidHandler machine) {
+        int want = Math.min(TRANSFER_RATE, tank.room());
+        if (!tank.isEmpty()) {
+            Liquids.move(machine, tank, tank.getFluid(), want);
+            return;
+        }
+        FluidStack offered = machine.drain(want, IFluidHandler.FluidAction.SIMULATE);
+        if (offered.isEmpty()) {
+            return;
+        }
+        for (Direction side : Direction.values()) {
+            if (state.getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side))
+                    && world.getBlockEntity(pos.relative(side)) instanceof FuelPipeBlockEntity neighbour
+                    && !neighbour.tank.isEmpty() && neighbour.tank.getFluid() != offered.getFluid()) {
+                return;
+            }
+        }
+        Liquids.move(machine, tank, offered.getFluid(), want);
+    }
+
+    // ---- saving and syncing ----
+
+    @Override
+    public net.minecraft.network.protocol.@org.jetbrains.annotations.Nullable Packet<
+            net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    @Override
+    public net.minecraft.nbt.CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+        return this.saveWithoutMetadata(registries);
     }
 
     @Override
     protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         ValueInput view = ValueInput.of(tag, registries);
         super.loadAdditional(tag, registries);
-        this.petrol = view.getIntOr("Petrol", 0);
+        if (tag.contains("Petrol")) {
+            // Saved before pipes carried anything but petrol.
+            this.tank.set(ModFluids.PETROL, view.getIntOr("Petrol", 0));
+        } else {
+            this.tank.read(view, "Tank");
+        }
+        this.blocked = view.getIntOr("Blocked", 0);
     }
 
     @Override
     protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         ValueOutput view = ValueOutput.of(tag, registries);
         super.saveAdditional(tag, registries);
-        view.putInt("Petrol", this.petrol);
+        this.tank.write(view, "Tank");
+        view.putInt("Blocked", this.blocked);
     }
 }

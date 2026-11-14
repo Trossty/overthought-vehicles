@@ -23,7 +23,6 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
@@ -39,8 +38,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * <em>up</em>, so the job happens where a garage would do it, on a car you can
  * get under.
  *
- * <p>A plain right click opens the window. A sneaking one works the lift, which
- * is the one control it has besides redstone;
+ * <p>A right click takes the lift up a stop and a sneaking one down a stop,
+ * the one control it has besides redstone;
  * {@link VehicleLiftBlockEntity} explains how the two get along.
  */
 public class VehicleLiftBlock extends ModelEntityBlock {
@@ -66,10 +65,12 @@ public class VehicleLiftBlock extends ModelEntityBlock {
      */
     private static final int REACH = 2;
 
-    /** The floor plate, which is the whole block when the lift is down. */
-    private static final VoxelShape PLATE = Block.box(0.0, 0.0, 0.0, 16.0, 16.0, 16.0);
-
-    private final VoxelShape[] shapes = buildShapes();
+    /**
+     * The base plate a car is driven on to. The posts and arms are only
+     * drawn: the car is held by the lift itself, not stood on a shape, and
+     * the space under a raised car is left clear to walk into.
+     */
+    private static final VoxelShape PLATE = Block.box(0.0, 0.0, 0.0, 16.0, 2.0, 16.0);
 
     public VehicleLiftBlock(Properties settings) {
         super(settings);
@@ -87,24 +88,6 @@ public class VehicleLiftBlock extends ModelEntityBlock {
         builder.add(LEVEL, FACING);
     }
 
-    /**
-     * One shape per level: the plate, the ram that comes out of it and the deck
-     * on top. The deck is what a car — or a player who climbed up — stands on,
-     * so it has to be in the collision shape and not just in the model.
-     */
-    private static VoxelShape[] buildShapes() {
-        VoxelShape[] shapes = new VoxelShape[VehicleLiftBlockEntity.MAX_LEVEL + 1];
-        shapes[0] = PLATE;
-        for (int level = 1; level < shapes.length; level++) {
-            double deck = 12.0 + 4.0 * level;
-            shapes[level] = Shapes.or(
-                    PLATE,
-                    Block.box(6.0, 16.0, 6.0, 10.0, deck, 10.0),
-                    Block.box(1.0, deck, 1.0, 15.0, deck + 4.0, 15.0));
-        }
-        return shapes;
-    }
-
     @Override
     public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
         return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection());
@@ -112,12 +95,12 @@ public class VehicleLiftBlock extends ModelEntityBlock {
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        return this.shapes[state.getValue(LEVEL)];
+        return PLATE;
     }
 
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        return this.shapes[state.getValue(LEVEL)];
+        return PLATE;
     }
 
     @Override
@@ -131,7 +114,8 @@ public class VehicleLiftBlock extends ModelEntityBlock {
         if (world.isClientSide()) {
             return null;
         }
-        return createTickerHelper(type, ModBlockEntities.VEHICLE_LIFT, VehicleLiftBlockEntity::tick);
+        return createTickerHelper(type, VehicleLiftBlockEntity.forBikes(state)
+                ? ModBlockEntities.MOTORCYCLE_LIFT : ModBlockEntities.VEHICLE_LIFT, VehicleLiftBlockEntity::tick);
     }
 
     @Override
@@ -143,14 +127,22 @@ public class VehicleLiftBlock extends ModelEntityBlock {
         return working(world, pos, player);
     }
 
-    /** A click is the lift's lever: latch it up, latch it down. It has no window. */
+    /**
+     * A click is the lift's lever: up a stop, or down one when sneaking. It
+     * has no window.
+     */
     private static InteractionResult working(Level world, BlockPos pos, Player player) {
         if (!(world.getBlockEntity(pos) instanceof VehicleLiftBlockEntity lift)) {
             return InteractionResult.CONSUME;
         }
-        boolean up = lift.toggle();
+        boolean up = !player.isShiftKeyDown();
+        int before = lift.getStop();
+        int stop = lift.step(up);
         world.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.4F, up ? 1.1F : 0.8F);
-        player.displayClientMessage(Component.translatable(up ? "message.car.lift_up" : "message.car.lift_down"), true);
+        Component where = Component.translatable("message.car.lift_stop_" + stop);
+        player.displayClientMessage(stop == before
+                ? Component.translatable(up ? "message.car.lift_at_top" : "message.car.lift_at_bottom", where)
+                : Component.translatable("message.car.lift_stop", where), true);
         return InteractionResult.CONSUME;
     }
 
@@ -168,7 +160,8 @@ public class VehicleLiftBlock extends ModelEntityBlock {
         for (BlockPos pos : BlockPos.betweenClosed(
                 at.offset(-REACH, -3, -REACH), at.offset(REACH, 0, REACH))) {
             BlockState state = world.getBlockState(pos);
-            if (state.is(ModBlocks.VEHICLE_LIFT) && VehicleLiftBlockEntity.holdsUp(state, pos, vehicle)) {
+            if ((state.is(ModBlocks.VEHICLE_LIFT) || state.is(ModBlocks.MOTORCYCLE_LIFT))
+                    && VehicleLiftBlockEntity.holdsUp(state, pos, vehicle)) {
                 return true;
             }
         }
@@ -180,6 +173,7 @@ public class VehicleLiftBlock extends ModelEntityBlock {
         return Component.translatable(switch (vehicle.chassis()) {
             case BOAT -> "message.car.needs_cradle";
             case PLANE -> "message.car.needs_jack";
+            case MOTORCYCLE -> "message.car.needs_bike_lift";
             default -> "message.car.needs_lift";
         });
     }

@@ -19,13 +19,10 @@ import net.minecraft.world.item.ItemStack;
  */
 public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkbenchScreenHandler> {
 
-    private static final int PANEL = 0xFFC6C6C6;
     private static final int PANEL_LIGHT = 0xFFFFFFFF;
-    private static final int PANEL_SHADOW = 0xFF555555;
     private static final int SLOT_BODY = 0xFF8B8B8B;
     private static final int SLOT_DARK = 0xFF373737;
     private static final int SELECTED = 0xFF4A90D9;
-    private static final int TEXT = 0xFF404040;
     private static final int COUNT_OK = 0xFFFFFFFF;
     private static final int COUNT_MISSING = 0xFFFF5555;
 
@@ -202,31 +199,16 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
     protected void renderBg(GuiGraphics context, float deltaTicks, int mouseX, int mouseY) {
         int left = this.leftPos;
         int top = this.topPos;
-        int right = left + this.imageWidth;
-        int bottom = top + this.imageHeight;
-
-        context.fill(left, top, right, bottom, PANEL);
-        context.fill(left, top, right, top + 1, PANEL_LIGHT);
-        context.fill(left, top, left + 1, bottom, PANEL_LIGHT);
-        context.fill(left, bottom - 1, right, bottom, PANEL_SHADOW);
-        context.fill(right - 1, top, right, bottom, PANEL_SHADOW);
+        GuiStyle.frame(context, left, top, this.imageWidth, this.imageHeight);
 
         // Every slot the handler declared, drawn one pixel out from the 16x16
         // item area so the recess frames it the way vanilla's does.
         for (net.minecraft.world.inventory.Slot slot : this.menu.slots) {
-            drawSlot(context, left + slot.x - 1, top + slot.y - 1);
+            GuiStyle.slot(context, left + slot.x - 1, top + slot.y - 1);
         }
 
         this.drawRecipeList(context);
         this.drawMaterials(context);
-    }
-
-    private static void drawSlot(GuiGraphics context, int x, int y) {
-        context.fill(x, y, x + 18, y + 18, SLOT_BODY);
-        context.fill(x, y, x + 18, y + 1, SLOT_DARK);
-        context.fill(x, y, x + 1, y + 18, SLOT_DARK);
-        context.fill(x + 17, y + 1, x + 18, y + 18, PANEL_LIGHT);
-        context.fill(x + 1, y + 17, x + 18, y + 18, PANEL_LIGHT);
     }
 
     private void drawRecipeList(GuiGraphics context) {
@@ -241,7 +223,7 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
             int entryX = at[0];
             int entryY = at[1];
 
-            drawSlot(context, entryX, entryY);
+            GuiStyle.slot(context, entryX, entryY);
             if (index == selected) {
                 // A ring rather than a fill, so the item underneath stays readable.
                 context.fill(entryX, entryY, entryX + 18, entryY + 2, SELECTED);
@@ -300,14 +282,22 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
         }
     }
 
-    private void drawMaterials(GuiGraphics context) {
-        // Right-aligned: the window title sits on this same line and in some
-        // languages it runs most of the way across.
+    /**
+     * The title on the left of the header and "Materials" on the right, over
+     * the column it heads; the title is cut short before it rather than run
+     * into it, as it would in a language with a long word for the bench.
+     */
+    @Override
+    protected void renderLabels(GuiGraphics context, int mouseX, int mouseY) {
         Component heading = Component.translatable("gui.car.materials");
-        context.drawString(this.font, heading,
-                this.leftPos + this.imageWidth - 8 - this.font.width(heading),
-                this.topPos + 8, TEXT, false);
+        int headingX = this.imageWidth - 7 - this.font.width(heading);
+        context.drawString(this.font, heading, headingX, GuiStyle.TITLE_Y, GuiStyle.TITLE_SOFT, false);
+        GuiStyle.title(context, this.font, this.title, 7, headingX - 13);
+        context.drawString(this.font, this.playerInventoryTitle,
+                this.inventoryLabelX, this.inventoryLabelY, GuiStyle.TEXT, false);
+    }
 
+    private void drawMaterials(GuiGraphics context) {
         java.util.List<VehicleRecipe.Material> materials = this.menu.getMaterials();
         for (int index = 0; index < materials.size(); index++) {
             VehicleRecipe.Material material = materials.get(index);

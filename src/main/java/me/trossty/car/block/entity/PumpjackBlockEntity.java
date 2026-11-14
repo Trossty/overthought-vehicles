@@ -147,8 +147,7 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
             BlockPos at = MultiblockBlock.cellPos(pos, facing, cell);
             for (Direction side : Direction.values()) {
                 BlockPos next = at.relative(side);
-                if (world.getBlockState(next).is(state.getBlock())
-                        || world.getBlockState(next).getBlock() instanceof me.trossty.car.block.FuelPipeBlock) {
+                if (world.getBlockState(next).is(state.getBlock())) {
                     continue;
                 }
                 var other = world.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,

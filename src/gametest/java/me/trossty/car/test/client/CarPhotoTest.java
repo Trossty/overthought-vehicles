@@ -78,6 +78,7 @@ public class CarPhotoTest {
             scenes.put("roadsAndCharging", this::roadsAndCharging);
             scenes.put("paintedRoads", this::paintedRoads);
             scenes.put("markingMenuAndTablet", this::markingMenuAndTablet);
+            scenes.put("menus", this::menus);
             scenes.put("servicingOnLift", this::servicingOnLift);
             scenes.put("blockGallery", this::blockGallery);
             scenes.put("pumpAndLift", this::pumpAndLift);
@@ -126,7 +127,8 @@ public class CarPhotoTest {
             // The road scenes leave asphalt a layer up, which would bury the lift.
             server.runCommand("fill -6 %d -6 6 %d 6 minecraft:air".formatted(Y, Y + 8));
             server.runCommand("fill -6 %d -6 6 %d 6 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-            server.runCommand("setblock 0 %d 0 car:vehicle_lift[level=4]{WantUp:1b}".formatted(Y - 1));
+            server.runCommand("setblock 0 %d 0 car:%s[level=4]{Stop:2}".formatted(Y,
+                    vehicle[0].equals("car:motorcycle") ? "motorcycle_lift" : "vehicle_lift"));
             server.runCommand("summon %s 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"%s\",Color:14,Tags:[\"lift\"]}"
                     .formatted(vehicle[0], Y, vehicle[1]));
             context.waitTicks(5);
@@ -156,6 +158,29 @@ public class CarPhotoTest {
             shot(context, server, "lift_" + name + "_corner", -3.0, Y + 0.4, 5.5, -145, 22);
             shot(context, server, "lift_" + name + "_side", -4.5, Y + 0.2, 0.5, -90, 15);
             shot(context, server, "lift_" + name + "_under", -2.6, Y - 0.2, 0.5, -90, -22);
+            // Lying under it looking up, to see the drivetrain joined up; and
+            // down into the open bay, to see the boxes sit on what they mark.
+            shot(context, server, "lift_" + name + "_belly", -1.2, Y, 0.5, -90, -38);
+            shot(context, server, "lift_" + name + "_belly_rear", 0.5, Y, -1.6, 0, -40);
+            // Over the battery, looking down into the bay at it: its box has
+            // to sit on the battery drawn there.
+            net.minecraft.world.phys.Vec3 battery = context.computeOnClient(client -> {
+                var car = client.level.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                        new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
+                return me.trossty.car.client.render.CarServiceOverlay.boxOf(
+                        car, me.trossty.car.entity.CarPart.BATTERY, 1.0F).getCenter();
+            });
+            System.out.println("car photo lift " + name + " battery box at " + battery);
+            // Up in the air over the bay: flying, or the camera drops to the floor.
+            server.runCommand("gamemode creative @a");
+            server.runOnServer(minecraft -> {
+                var player = minecraft.getPlayerList().getPlayers().get(0);
+                player.getAbilities().flying = true;
+                player.onUpdateAbilities();
+            });
+            server.runCommand("tp @a %.2f %.2f %.2f -90 40".formatted(battery.x - 1.6, battery.y + 1.3 - 1.62, battery.z));
+            context.waitTicks(12);
+            context.takeScreenshot("lift_" + name + "_bay");
             // Aimed at the bare hub: its box lights and the box by the crosshair speaks.
             net.minecraft.world.phys.Vec3 wheel = context.computeOnClient(client -> {
                 var car = client.level.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
@@ -193,6 +218,58 @@ public class CarPhotoTest {
      * the OBD tablet as a solid thing: on display, dropped, held at an angle
      * and in third person.
      */
+    /** Every machine's window, one after another, opened as a click on the block would. */
+    private void menus(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -44 %d -2 64 %d 8 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("clear @a");
+        server.runCommand("give @a minecraft:coal 12");
+        server.runCommand("give @a car:engine 1");
+        String[][] machines = {
+                {"car:vehicle_workbench", "workbench"}, {"car:vehicle_workstation", "workstation"},
+                {"car:fuel_refinery", "refinery"}, {"car:hydrotreater", "hydrotreater"},
+                {"car:pumpjack", "pumpjack"}, {"car:generator", "generator"},
+                {"car:diesel_generator", "diesel_generator"}, {"car:battery_bank", "battery_bank"},
+                {"car:charging_post", "charging_post"}, {"car:toolbox", "toolbox"}};
+        for (int i = 0; i < machines.length; i++) {
+            int x = i * 8 - 40;
+            // Not every one of them turns: a plain setblock stands if the facing one is refused.
+            server.runCommand("setblock %d %d 4 %s".formatted(x, Y, machines[i][0]));
+            place(server, machines[i][0], x, 4);
+            server.runCommand("tp @a %d.5 %d 1.5 0 20".formatted(x, Y));
+            context.waitTicks(10);
+            int at = x;
+            server.runOnServer(minecraft -> {
+                var player = minecraft.getPlayerList().getPlayers().get(0);
+                var world = minecraft.overworld();
+                var pos = at(at, 4);
+                var state = world.getBlockState(pos);
+                // The charging post opens its window to a crouching click.
+                player.setShiftKeyDown(true);
+                state.useWithoutItem(world, player, new net.minecraft.world.phys.BlockHitResult(
+                        net.minecraft.world.phys.Vec3.atCenterOf(pos), net.minecraft.core.Direction.NORTH, pos, false));
+                player.setShiftKeyDown(false);
+            });
+            context.waitTicks(10);
+            context.takeScreenshot("menu_" + machines[i][1]);
+            context.runOnClient(client -> client.setScreen(null));
+        }
+        server.runCommand("summon car:car 60.5 %d 4.5 {Rotation:[0f,0f],Tags:[\"menus\"]}".formatted(Y));
+        server.runCommand("tp @a 60.5 %d 1.5 0 20".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var car = minecraft.overworld().getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                    player.getBoundingBox().inflate(8)).get(0);
+            player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                    (syncId, inventory, opener) -> new me.trossty.car.service.CarServiceScreenHandler(syncId, inventory, car.getId()),
+                    car.getDisplayName()));
+        });
+        context.waitTicks(10);
+        context.takeScreenshot("menu_service");
+        context.runOnClient(client -> client.setScreen(null));
+    }
+
     private void markingMenuAndTablet(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -4 %d 0 4 %d 8 car:asphalt".formatted(Y, Y));
@@ -1395,11 +1472,13 @@ public class CarPhotoTest {
         server.runCommand("setblock -3 %d 4 car:fuel_pump[half=upper,facing=south,nozzle=true]".formatted(Y + 1));
         server.runCommand("setblock -1 %d 4 car:fuel_pump[half=lower,facing=east,nozzle=false]".formatted(Y));
         server.runCommand("setblock -1 %d 4 car:fuel_pump[half=upper,facing=east,nozzle=false]".formatted(Y + 1));
-        for (int level = 0; level <= 4; level++) {
-            server.runCommand("setblock %d %d 4 car:vehicle_lift[level=%d,facing=north]{WantUp:%s}"
-                    .formatted(2 + level * 3, Y - 1, level, level > 0 ? "1b" : "0b"));
+        // The three stops: on the floor, a little way up, right up.
+        int[] stops = {0, 1, 4};
+        for (int stop = 0; stop < stops.length; stop++) {
+            server.runCommand("setblock %d %d 4 car:vehicle_lift[level=%d,facing=north]{Stop:%d}"
+                    .formatted(2 + stop * 4, Y, stops[stop], stop));
         }
-        server.runCommand("setblock 4 %d 13 car:vehicle_lift[level=4,facing=east]{WantUp:1b}".formatted(Y - 1));
+        server.runCommand("setblock 4 %d 13 car:vehicle_lift[level=4,facing=east]{Stop:2}".formatted(Y));
         server.runCommand("summon car:car 4.5 %d 13.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:14}"
                 .formatted(Y + 1));
         context.waitTicks(20);
@@ -1453,7 +1532,7 @@ public class CarPhotoTest {
             fillTank(world, new BlockPos(-2, Y, 10), net.minecraft.world.level.material.Fluids.WATER, 64000);
             fillTank(world, new BlockPos(2, Y, 10), me.trossty.car.registry.ModFluids.MILK, 30000);
         });
-        server.runCommand("setblock 14 %d 4 car:vehicle_lift[level=3]{WantUp:1b}".formatted(Y));
+        server.runCommand("setblock 14 %d 4 car:vehicle_lift[level=3]{Stop:2}".formatted(Y));
         context.waitTicks(10);
         shot(context, server, "blocks_row", -0.5, Y + 2.2, 10.0, 180, 22);
         shot(context, server, "blocks_row_left", -7.5, Y + 1.0, 7.5, 180, 15);

@@ -78,6 +78,20 @@ public class CarMachineTests {
         }
     }
 
+    /** Joins up pipe already laid at these spots, as placing each by hand would. */
+    private static void joinPipes(GameTestHelper context, BlockPos... run) {
+        ServerLevel world = context.getLevel();
+        for (BlockPos at : run) {
+            BlockPos pos = context.absolutePos(at);
+            BlockState state = world.getBlockState(pos);
+            for (Direction side : Direction.values()) {
+                state = state.updateShape(side, world.getBlockState(pos.relative(side)), world, pos,
+                        pos.relative(side));
+            }
+            world.setBlock(pos, state, Block.UPDATE_CLIENTS);
+        }
+    }
+
     private static GeneratorBlockEntity coalGenerator(GameTestHelper context, BlockPos at, int coal) {
         context.setBlock(at, ModBlocks.GENERATOR);
         GeneratorBlockEntity generator = context.<GeneratorBlockEntity>getBlockEntity(at);
@@ -301,6 +315,7 @@ public class CarMachineTests {
         context.setBlock(p1, ModBlocks.FUEL_PIPE);
         context.setBlock(p2, ModBlocks.FUEL_PIPE);
         context.setBlock(tankAt, ModBlocks.FUEL_TANK);
+        joinPipes(context, p1, p2);
         context.runAtTickTime(140, () -> {
             FuelTankBlockEntity tank = context.<FuelTankBlockEntity>getBlockEntity(tankAt);
             int inPipes = context.<FuelPipeBlockEntity>getBlockEntity(p1).getPetrol()
@@ -308,6 +323,79 @@ public class CarMachineTests {
             int total = plant.getOutput().getUnits() + inPipes + tank.getPetrol();
             context.assertTrue(tank.getPetrol() > 0, "no petrol reached the tank");
             context.assertTrue(total == 400, "petrol is not conserved: " + total + " of 400");
+            context.succeed();
+        });
+    }
+
+    // ---- pipes carry any liquid ----
+
+    /** A pumpjack, two pipes and a yard tank: crude reaches the tank. */
+    private static FuelTankBlockEntity crudeLine(GameTestHelper context, boolean valve) {
+        for (int x = 2; x <= 4; x++) {
+            for (int z = 2; z <= 4; z++) {
+                context.setBlock(new BlockPos(x, 0, z), ModBlocks.OIL_DEPOSIT);
+            }
+        }
+        BlockPos at = new BlockPos(3, 1, 4);
+        machine(context, ModBlocks.PUMPJACK, at);
+        context.<PumpjackBlockEntity>getBlockEntity(at).setEnergy(PumpjackBlockEntity.ENERGY_CAPACITY);
+        BlockPos p1 = new BlockPos(3, 1, 5);
+        BlockPos middle = new BlockPos(3, 1, 6);
+        BlockPos p2 = new BlockPos(3, 1, 7);
+        context.setBlock(p1, ModBlocks.FUEL_PIPE);
+        if (valve) {
+            context.setBlock(middle, ModBlocks.FUEL_VALVE.defaultBlockState()
+                    .setValue(me.trossty.car.block.FuelValveBlock.FACING, Direction.SOUTH)
+                    .setValue(me.trossty.car.block.FuelValveBlock.OPEN, false));
+        } else {
+            context.setBlock(middle, ModBlocks.FUEL_PIPE);
+        }
+        context.setBlock(p2, ModBlocks.FUEL_PIPE);
+        context.setBlock(new BlockPos(3, 1, 8), ModBlocks.FUEL_TANK);
+        joinPipes(context, valve ? new BlockPos[] {p1, p2} : new BlockPos[] {p1, middle, p2});
+        return context.<FuelTankBlockEntity>getBlockEntity(new BlockPos(3, 1, 8));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void pipesCarryCrudeFromAPumpjack(GameTestHelper context) {
+        FuelTankBlockEntity tank = crudeLine(context, false);
+        context.runAtTickTime(180, () -> {
+            context.assertTrue(tank.getFluid() == ModFluids.CRUDE_OIL && tank.getAmount() > 0,
+                    "no crude reached the tank: " + tank.getFluid() + " " + tank.getAmount());
+            context.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 260)
+    public static void aClosedValveHoldsTheLineAndAnOpenOneRunsIt(GameTestHelper context) {
+        FuelTankBlockEntity tank = crudeLine(context, true);
+        BlockPos valveAt = new BlockPos(3, 1, 6);
+        context.runAtTickTime(100, () -> {
+            context.assertTrue(tank.getAmount() == 0, "crude got past a closed valve: " + tank.getAmount());
+            BlockPos pos = context.absolutePos(valveAt);
+            BlockState state = context.getLevel().getBlockState(pos);
+            context.getLevel().setBlock(pos, state.setValue(me.trossty.car.block.FuelValveBlock.OPEN, true), Block.UPDATE_ALL);
+        });
+        context.runAtTickTime(240, () -> {
+            context.assertTrue(tank.getFluid() == ModFluids.CRUDE_OIL && tank.getAmount() > 0,
+                    "an open valve passed nothing: " + tank.getAmount());
+            context.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void pipesKeepLiquidsApart(GameTestHelper context) {
+        BlockPos a = new BlockPos(2, 1, 2);
+        BlockPos b = new BlockPos(3, 1, 2);
+        context.setBlock(a, ModBlocks.FUEL_PIPE);
+        context.setBlock(b, ModBlocks.FUEL_PIPE);
+        joinPipes(context, a, b);
+        context.<FuelPipeBlockEntity>getBlockEntity(a).getTank().set(ModFluids.CRUDE_OIL, 800);
+        context.<FuelPipeBlockEntity>getBlockEntity(b).getTank().set(ModFluids.DIESEL, 100);
+        context.runAtTickTime(20, () -> {
+            context.assertTrue(context.<FuelPipeBlockEntity>getBlockEntity(a).getAmount() == 800
+                    && context.<FuelPipeBlockEntity>getBlockEntity(b).getFluid() == ModFluids.DIESEL,
+                    "two liquids mixed in the pipes");
             context.succeed();
         });
     }
@@ -387,6 +475,7 @@ public class CarMachineTests {
         ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(at);
         post.setEnergy(ChargingPostBlockEntity.CAPACITY);
         CarEntity car = car(context, new BlockPos(3, 1, 5), true);
+        context.runAtTickTime(2, () -> context.assertTrue(post.plugInto(car, null), "the plug would not go in"));
         context.runAtTickTime(20, () -> {
             context.assertTrue(car.isElectric(), "the test car is not electric");
             context.assertTrue(car.getFuel() > 0.0F, "the electric car was not charged");
@@ -400,12 +489,26 @@ public class CarMachineTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
+    public static void chargingPostLeavesAnUnpluggedCarAlone(GameTestHelper context) {
+        BlockPos at = new BlockPos(3, 1, 3);
+        context.setBlock(at, ModBlocks.CHARGING_POST);
+        ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(at);
+        post.setEnergy(ChargingPostBlockEntity.CAPACITY);
+        CarEntity car = car(context, new BlockPos(3, 1, 5), true);
+        context.runAtTickTime(20, () -> {
+            context.assertTrue(car.getFuel() == 0.0F, "a car took charge without the plug in: " + car.getFuel());
+            context.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void chargingPostIgnoresAPetrolCar(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         context.setBlock(at, ModBlocks.CHARGING_POST);
         ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(at);
         post.setEnergy(ChargingPostBlockEntity.CAPACITY);
         CarEntity car = car(context, new BlockPos(3, 1, 5), false);
+        context.runAtTickTime(2, () -> context.assertFalse(post.plugInto(car, null), "the plug went into a petrol car"));
         context.runAtTickTime(20, () -> {
             context.assertTrue(car.getFuel() == 0.0F, "a petrol car took charge: " + car.getFuel());
             context.assertTrue(post.getEnergy() == ChargingPostBlockEntity.CAPACITY, "the post spent energy on nothing");
@@ -735,6 +838,83 @@ public class CarMachineTests {
         context.assertTrue(player.getMainHandItem().isEmpty(), "fitting it did not use the spare up");
         car.discard();
         context.succeed();
+    }
+
+    /** A car left roughly beside a lift is fetched square on to it when the lift goes up. */
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void liftFetchesANearbyCarOnToItself(GameTestHelper context) {
+        BlockPos lift = new BlockPos(3, 1, 3);
+        context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                .setValue(me.trossty.car.block.VehicleLiftBlock.FACING, Direction.SOUTH));
+        CarEntity car = context.spawn(ModEntities.CAR, new net.minecraft.world.phys.Vec3(5.2, 1.0, 4.4));
+        car.setYRot(200.0F);
+        context.<me.trossty.car.block.entity.VehicleLiftBlockEntity>getBlockEntity(lift).step(true);
+        context.runAtTickTime(40, () -> {
+            BlockPos at = context.absolutePos(lift);
+            context.assertTrue(Math.abs(car.getX() - (at.getX() + 0.5)) < 0.01
+                    && Math.abs(car.getZ() - (at.getZ() + 0.5)) < 0.01, "the car was not set in the middle of the lift");
+            context.assertTrue(Math.abs(net.minecraft.util.Mth.wrapDegrees(car.getYRot() - 180.0F)) < 0.5F,
+                    "the car was not turned to run along the lift: " + car.getYRot());
+            context.assertTrue(me.trossty.car.block.VehicleLiftBlock.isServicing(context.getLevel(), car),
+                    "the fetched car is not up for servicing");
+            car.discard();
+            context.succeed();
+        });
+    }
+
+    /** The lift stops on the floor, a little way up and right up; nothing is worked on while it is down. */
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void liftStopsAtThreeHeights(GameTestHelper context) {
+        BlockPos lift = new BlockPos(3, 1, 3);
+        context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState());
+        CarEntity car = context.spawn(ModEntities.CAR, lift.above());
+        var ram = context.<me.trossty.car.block.entity.VehicleLiftBlockEntity>getBlockEntity(lift);
+        java.util.function.IntSupplier level = () -> context.getBlockState(lift).getValue(me.trossty.car.block.VehicleLiftBlock.LEVEL);
+        context.runAtTickTime(2, () -> {
+            context.assertFalse(me.trossty.car.block.VehicleLiftBlock.isServicing(context.getLevel(), car),
+                    "a car on a lowered lift counted as up for servicing");
+            ram.step(true);
+        });
+        context.runAtTickTime(20, () -> {
+            context.assertTrue(level.getAsInt() == 1, "the first stop is not a little way up: " + level.getAsInt());
+            context.assertTrue(me.trossty.car.block.VehicleLiftBlock.isServicing(context.getLevel(), car),
+                    "a car a little way up was not up for servicing");
+            ram.step(true);
+            context.assertTrue(ram.step(true) == 2, "the lift went past its top stop");
+        });
+        context.runAtTickTime(50, () -> {
+            context.assertTrue(level.getAsInt() == me.trossty.car.block.entity.VehicleLiftBlockEntity.MAX_LEVEL,
+                    "the top stop is not right up: " + level.getAsInt());
+            ram.step(false);
+            ram.step(false);
+        });
+        context.runAtTickTime(90, () -> {
+            context.assertTrue(level.getAsInt() == 0, "the lift did not come back down: " + level.getAsInt());
+            car.discard();
+            context.succeed();
+        });
+    }
+
+    /** A motorbike goes up on the motorbike lift; the car lift's arms leave it alone. */
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void bikesGoOnTheBikeLift(GameTestHelper context) {
+        BlockPos carLift = new BlockPos(1, 1, 2);
+        BlockPos bikeLift = new BlockPos(6, 1, 2);
+        context.setBlock(carLift, ModBlocks.VEHICLE_LIFT.defaultBlockState());
+        context.setBlock(bikeLift, ModBlocks.MOTORCYCLE_LIFT.defaultBlockState());
+        CarEntity onCarLift = context.spawn(ModEntities.MOTORCYCLE, carLift.above());
+        CarEntity onBikeLift = context.spawn(ModEntities.MOTORCYCLE, bikeLift.above());
+        context.<me.trossty.car.block.entity.VehicleLiftBlockEntity>getBlockEntity(carLift).step(true);
+        context.<me.trossty.car.block.entity.VehicleLiftBlockEntity>getBlockEntity(bikeLift).step(true);
+        context.runAtTickTime(40, () -> {
+            context.assertTrue(me.trossty.car.block.VehicleLiftBlock.isServicing(context.getLevel(), onBikeLift),
+                    "a bike on the raised bike lift is not up for servicing");
+            context.assertFalse(me.trossty.car.block.VehicleLiftBlock.isServicing(context.getLevel(), onCarLift),
+                    "the car lift took a bike");
+            onCarLift.discard();
+            onBikeLift.discard();
+            context.succeed();
+        });
     }
 
     /** A car parked beside a raised lift is not on it; one over its platform is. */

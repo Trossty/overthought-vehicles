@@ -37,8 +37,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * six connection flags are only the look and the hitbox; what actually moves is
  * decided tick by tick in {@link FuelPipeBlockEntity}.
  *
- * <p>Right-clicking one says how much petrol is standing in that segment, which
- * is the only way to see a line working from the outside.
+ * <p>Sneak and right-click one to see what is standing in it; right-click an
+ * arm with a wrench to cut it or join it again.
  */
 public class FuelPipeBlock extends ModelEntityBlock {
 
@@ -86,26 +86,36 @@ public class FuelPipeBlock extends ModelEntityBlock {
     // ---- joining up ----
 
     /**
-     * What a pipe will reach out to. Anything that holds petrol: its own kind,
-     * the refinery that makes it and the pump that hands it out. Notably not
+     * What a pipe will reach out to: anything that holds a liquid, unless a
+     * wrench has cut that arm. Notably not
      * solid blocks — a pipe through a wall should look like a pipe through a
      * wall, not like it has latched onto the stone.
      */
     private static boolean connectsTo(LevelReader world, BlockPos pos, Direction side) {
-        BlockState state = world.getBlockState(pos);
+        if (world.getBlockEntity(pos) instanceof FuelPipeBlockEntity self && self.isBlocked(side)) {
+            return false;
+        }
+        BlockPos next = pos.relative(side);
+        BlockState state = world.getBlockState(next);
+        if (world.getBlockEntity(next) instanceof FuelPipeBlockEntity other && other.isBlocked(side.getOpposite())) {
+            return false;
+        }
+        if (state.getBlock() instanceof FuelValveBlock) {
+            // A valve only has two ends: in at the back, out at the front.
+            return state.getValue(FuelValveBlock.FACING).getAxis() == side.getAxis();
+        }
         if (me.trossty.car.fluid.ForeignFluids.isOurs(state.getBlock())) {
             return true;
         }
-        // Anything from another mod with a fluid door on this face: its pipes,
-        // its tanks, its machines.
-        return me.trossty.car.fluid.ForeignFluids.connects(world, pos, side);
+        // Anything with a fluid door on this face: the mod's machines, and
+        // other mods' pipes, tanks and machines.
+        return me.trossty.car.fluid.ForeignFluids.connects(world, next, side);
     }
 
-    private static BlockState connect(BlockState state, LevelReader world, BlockPos pos) {
+    static BlockState connect(BlockState state, LevelReader world, BlockPos pos) {
         BlockState joined = state;
         for (Direction side : Direction.values()) {
-            joined = joined.setValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side),
-                    connectsTo(world, pos.relative(side), side));
+            joined = joined.setValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side), connectsTo(world, pos, side));
         }
         return withFitting(joined);
     }
@@ -137,7 +147,7 @@ public class FuelPipeBlock extends ModelEntityBlock {
     protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
                                      net.minecraft.world.level.LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
         return withFitting(state.setValue(PipeBlock.PROPERTY_BY_DIRECTION.get(direction),
-                connectsTo(world, neighborPos, direction)));
+                connectsTo(world, pos, direction)));
     }
 
     // ---- the hitbox follows the arms ----
@@ -210,16 +220,68 @@ public class FuelPipeBlock extends ModelEntityBlock {
         return createTickerHelper(type, ModBlockEntities.FUEL_PIPE, FuelPipeBlockEntity::tick);
     }
 
-    /** A pipe has no window; knocking on it says what is standing inside. */
+    /**
+     * A wrench cuts the arm you click, or joins it again — the way to keep two
+     * lines carrying different liquids apart where they run side by side.
+     */
+    @Override
+    protected net.minecraft.world.ItemInteractionResult useItemOn(net.minecraft.world.item.ItemStack held, BlockState state,
+            Level world, BlockPos pos, Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
+        if (!held.is(me.trossty.car.registry.ModItems.WRENCH)) {
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (world.isClientSide()) {
+            return net.minecraft.world.ItemInteractionResult.SUCCESS;
+        }
+        if (!(world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe)) {
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        Direction side = clickedArm(pos, hit);
+        boolean cut;
+        if (pipe.isBlocked(side)) {
+            pipe.setBlocked(side, false);
+            cut = false;
+        } else if (state.getValue(PipeBlock.PROPERTY_BY_DIRECTION.get(side))) {
+            pipe.setBlocked(side, true);
+            cut = true;
+        } else {
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
+        }
+        BlockState joined = connect(state, world, pos);
+        world.setBlock(pos, joined, Block.UPDATE_ALL);
+        world.sendBlockUpdated(pos, state, joined, Block.UPDATE_ALL);
+        BlockPos next = pos.relative(side);
+        BlockState there = world.getBlockState(next);
+        if (there.getBlock() instanceof FuelPipeBlock) {
+            world.setBlock(next, connect(there, world, next), Block.UPDATE_ALL);
+        }
+        world.playSound(null, pos, net.minecraft.sounds.SoundEvents.IRON_TRAPDOOR_CLOSE,
+                net.minecraft.sounds.SoundSource.BLOCKS, 0.5F, cut ? 1.4F : 1.8F);
+        player.displayClientMessage(Component.translatable(cut ? "message.car.pipe_cut" : "message.car.pipe_joined"), true);
+        return net.minecraft.world.ItemInteractionResult.CONSUME;
+    }
+
+    /** The arm under the cursor: whichever way the hit point lies furthest from the middle. */
+    private static Direction clickedArm(BlockPos pos, BlockHitResult hit) {
+        net.minecraft.world.phys.Vec3 at = hit.getLocation().subtract(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+        return Direction.getNearest(at.x, at.y, at.z);
+    }
+
+    /** Sneaking and knocking on a pipe says what is standing inside. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
                                  Player player, BlockHitResult hit) {
+        if (!player.isShiftKeyDown()) {
+            return InteractionResult.PASS;
+        }
         if (world.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
         if (world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) {
-            player.displayClientMessage(Component.translatable("message.car.pipe_level",
-                    pipe.getPetrol(), pipe.getCapacity()), true);
+            player.displayClientMessage(pipe.getAmount() <= 0
+                    ? Component.translatable("message.car.pipe_empty")
+                    : Component.translatable("message.car.pipe_level",
+                            me.trossty.car.fluid.Liquids.name(pipe.getFluid()), pipe.getAmount(), pipe.getCapacity()), true);
         }
         return InteractionResult.CONSUME;
     }
@@ -233,9 +295,9 @@ public class FuelPipeBlock extends ModelEntityBlock {
 
     @Override
     protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
-        if (!(world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) || pipe.getPetrol() <= 0) {
+        if (!(world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) || pipe.getAmount() <= 0) {
             return 0;
         }
-        return Mth.clamp(1 + pipe.getPetrol() * 14 / pipe.getCapacity(), 1, 15);
+        return Mth.clamp(1 + pipe.getAmount() * 14 / pipe.getCapacity(), 1, 15);
     }
 }

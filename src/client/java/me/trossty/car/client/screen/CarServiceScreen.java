@@ -26,7 +26,6 @@ import java.util.List;
  */
 public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHandler> {
 
-    private static final int PANEL = 0xFFC6C6C6;
     private static final int PANEL_LIGHT = 0xFFFFFFFF;
     private static final int PANEL_SHADOW = 0xFF555555;
     private static final int WELL = 0xFF373737;
@@ -91,7 +90,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         super.init();
         // There is no player inventory in this window, so neither title belongs
         // where HandledScreen would put them.
-        this.titleLabelY = 7;
+        this.titleLabelY = GuiStyle.TITLE_Y;
         this.inventoryLabelY = -1000;
         this.removeButton = Button.builder(
                         Component.translatable("gui.car.remove"), button -> this.send(CarServiceScreenHandler.REMOVE_BUTTON))
@@ -173,19 +172,17 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
     protected void renderBg(GuiGraphics context, float deltaTicks, int mouseX, int mouseY) {
         int left = this.leftPos;
         int top = this.topPos;
-        int right = left + this.imageWidth;
-        int bottom = top + this.imageHeight;
-
-        context.fill(left, top, right, bottom, PANEL);
-        context.fill(left, top, right, top + 1, PANEL_LIGHT);
-        context.fill(left, top, left + 1, bottom, PANEL_LIGHT);
-        context.fill(left, bottom - 1, right, bottom, PANEL_SHADOW);
-        context.fill(right - 1, top, right, bottom, PANEL_SHADOW);
+        GuiStyle.frame(context, left, top, this.imageWidth, this.imageHeight);
 
         CarEntity car = this.menu.car();
         this.drawList(context, car);
         this.drawDetail(context, car);
         this.drawFooter(context, car);
+    }
+
+    @Override
+    protected void renderLabels(GuiGraphics context, int mouseX, int mouseY) {
+        GuiStyle.title(context, this.font, this.title, 7, this.imageWidth - 14);
     }
 
     /** A recessed well, the way vanilla frames anything you read out of. */
@@ -244,10 +241,12 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
                 context.fill(listLeft + 1, rowY, listLeft + 2, rowY + ROW_HEIGHT - 1, SELECTED);
             }
 
-            context.drawString(this.font, Component.translatable("part.car." + part.key()),
+            String reading = fitted ? Math.round(fraction * 100.0F) + "%" : "—";
+            // The name stops short of the reading rather than running under it.
+            int nameRoom = LIST_WIDTH - 5 - this.font.width(reading) - 4 - indent;
+            context.drawString(this.font, GuiStyle.fit(this.font, Component.translatable("part.car." + part.key()), nameRoom),
                     listLeft + indent, rowY + 1, fitted ? TEXT_ON_WELL : ABSENT, false);
 
-            String reading = fitted ? Math.round(fraction * 100.0F) + "%" : "—";
             context.drawString(this.font, reading,
                     listLeft + LIST_WIDTH - 5 - this.font.width(reading), rowY + 1,
                     conditionColour(fraction, fitted), false);

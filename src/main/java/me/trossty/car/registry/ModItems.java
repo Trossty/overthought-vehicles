@@ -67,6 +67,10 @@ public final class ModItems {
     public static final Item FUEL_NOZZLE = register(
             "fuel_nozzle", me.trossty.car.item.FuelNozzleItem::new, new Item.Properties().stacksTo(1));
 
+    /** A charging post's plug, on the end of its lead: taken off the post and put back the same way. */
+    public static final Item CHARGING_PLUG = register(
+            "charging_plug", me.trossty.car.item.ChargingPlugItem::new, new Item.Properties().stacksTo(1));
+
     /**
      * The parts a car is made of. Each is built at the vehicle workbench and is
      * useless on its own: only the lift turns a set of them into a car.
@@ -318,7 +322,7 @@ public final class ModItems {
 
     /** The garage, then oil from the ground to the pump, then power, then road building. */
     private static void machines(Entries entries) {
-        entries.add(ModBlocks.VEHICLE_WORKSTATION, ModBlocks.VEHICLE_WORKBENCH, ModBlocks.VEHICLE_LIFT,
+        entries.add(ModBlocks.VEHICLE_WORKSTATION, ModBlocks.VEHICLE_WORKBENCH, ModBlocks.VEHICLE_LIFT, ModBlocks.MOTORCYCLE_LIFT,
                 ModBlocks.ENGINE_STAND, ModBlocks.ENGINE_HOIST, ModBlocks.DRAIN_PAN, ModBlocks.DYNO,
                 ModBlocks.TOOLBOX, ModBlocks.BOAT_CRADLE, ModBlocks.AIRCRAFT_JACK);
         entries.add(ModBlocks.OIL_DEPOSIT, ModBlocks.OIL_SEEP, ModBlocks.PUMPJACK, ModBlocks.FUEL_REFINERY,

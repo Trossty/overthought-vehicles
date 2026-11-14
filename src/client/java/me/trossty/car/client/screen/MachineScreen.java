@@ -21,20 +21,12 @@ import net.minecraft.world.inventory.Slot;
  */
 public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler> {
 
-    private static final int PANEL = 0xFFC6C6C6;
-    private static final int PANEL_LIGHT = 0xFFFFFFFF;
-    private static final int PANEL_SHADOW = 0xFF555555;
-    private static final int SLOT_BODY = 0xFF8B8B8B;
-    private static final int SLOT_DARK = 0xFF373737;
-    private static final int TEXT = 0xFF404040;
     private static final int TANK_WALL = 0xFF3A3A3A;
     private static final int TANK_EMPTY = 0xFF2A2A2A;
     private static final int ARROW = 0xFF6E6E6E;
     private static final int ARROW_LIT = 0xFF4A90D9;
     private static final int POWER = 0xFFD43C2E;
     private static final int POWER_LIGHT = 0xFFF2705F;
-    private static final int LAMP_ON = 0xFF3FC24A;
-    private static final int LAMP_OFF = 0xFF6E1F1F;
     private static final int FLAME = 0xFFE8861B;
     private static final int FLAME_TIP = 0xFFF8D040;
 
@@ -50,6 +42,8 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
     };
 
     private static final int TANK_TOP = 17;
+    /** The read-out row, between the gauges and the inventory. */
+    private static final int READOUT_Y = 70;
     private static final int TANK_HEIGHT = 50;
     private static final int TANK_WIDTH = 14;
     private static final int TANK_A_X = 52;
@@ -80,15 +74,9 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
     protected void renderBg(GuiGraphics context, float deltaTicks, int mouseX, int mouseY) {
         int left = this.leftPos;
         int top = this.topPos;
-        int right = left + this.imageWidth;
-        int bottom = top + this.imageHeight;
-        context.fill(left, top, right, bottom, PANEL);
-        context.fill(left, top, right, top + 1, PANEL_LIGHT);
-        context.fill(left, top, left + 1, bottom, PANEL_LIGHT);
-        context.fill(left, bottom - 1, right, bottom, PANEL_SHADOW);
-        context.fill(right - 1, top, right, bottom, PANEL_SHADOW);
+        GuiStyle.frame(context, left, top, this.imageWidth, this.imageHeight);
         for (Slot slot : this.menu.slots) {
-            drawSlot(context, left + slot.x - 1, top + slot.y - 1);
+            GuiStyle.slot(context, left + slot.x - 1, top + slot.y - 1);
         }
 
         int kind = this.menu.kind();
@@ -190,31 +178,19 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
         }
     }
 
-    private static void drawSlot(GuiGraphics context, int x, int y) {
-        context.fill(x, y, x + 18, y + 18, SLOT_BODY);
-        context.fill(x, y, x + 18, y + 1, SLOT_DARK);
-        context.fill(x, y, x + 1, y + 18, SLOT_DARK);
-        context.fill(x + 17, y + 1, x + 18, y + 18, PANEL_LIGHT);
-        context.fill(x + 1, y + 17, x + 18, y + 18, PANEL_LIGHT);
-    }
-
     @Override
     protected void renderLabels(GuiGraphics context, int mouseX, int mouseY) {
-        context.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, TEXT, false);
-        context.drawString(this.font, this.playerInventoryTitle,
-                this.inventoryLabelX, this.inventoryLabelY, TEXT, false);
+        int lamp = GuiStyle.lamp(context, this.font, this.menu.working(), this.imageWidth - 7);
+        GuiStyle.title(context, this.font, this.title, 7, lamp - 11);
 
-        boolean on = this.menu.working();
-        Component state = Component.translatable(on ? "gui.car.machine.running" : "gui.car.machine.idle");
-        int stateWidth = this.font.width(state);
-        int stateX = this.imageWidth - 8 - stateWidth;
-        context.fill(stateX - 7, this.titleLabelY + 1, stateX - 2, this.titleLabelY + 6, on ? LAMP_ON : LAMP_OFF);
-        context.drawString(this.font, state, stateX, this.titleLabelY, TEXT, false);
-
+        // The machine's figures get the whole row above the inventory, in a
+        // read-out of their own, rather than sharing it with a label.
         Component info = this.infoLine();
         if (info != null) {
-            context.drawString(this.font, info,
-                    this.imageWidth - 8 - this.font.width(info), this.inventoryLabelY, TEXT, false);
+            GuiStyle.readout(context, this.font, info, 8, READOUT_Y, this.imageWidth - 16);
+        } else {
+            context.drawString(this.font, this.playerInventoryTitle,
+                    this.inventoryLabelX, this.inventoryLabelY, GuiStyle.TEXT, false);
         }
     }
 

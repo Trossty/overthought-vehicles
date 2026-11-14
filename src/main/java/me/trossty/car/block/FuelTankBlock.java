@@ -158,6 +158,10 @@ public class FuelTankBlock extends ModelEntityBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
                                  Player player, BlockHitResult hit) {
+        // Only a sneaking click reads the gauge, so working around a tank does not keep printing it.
+        if (!player.isShiftKeyDown()) {
+            return InteractionResult.PASS;
+        }
         if (world.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
@@ -177,7 +181,6 @@ public class FuelTankBlock extends ModelEntityBlock {
             return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (LiquidStores.useWith(world, pos, player, hand, held, tank.getFluidStorage())) {
-            report(player, tank);
             return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
         return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;   // falls through to onUse, which reads the gauge

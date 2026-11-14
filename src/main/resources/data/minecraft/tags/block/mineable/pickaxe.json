@@ -3,6 +3,7 @@
   "values": [
     "car:vehicle_workbench",
     "car:vehicle_lift",
+    "car:motorcycle_lift",
     "car:fuel_refinery",
     "car:generator",
     "car:fuel_pump",

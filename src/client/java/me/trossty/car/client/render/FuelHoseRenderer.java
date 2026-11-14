@@ -25,8 +25,9 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The two things you see while filling up: the pump's hose, hanging from the
- * pump to whoever has its nozzle, and a ring on the filler cap of the car in
+ * The things you see while filling up: the pump's hose, hanging from the
+ * pump to whoever has its nozzle, a charging post's lead, to the hand that has
+ * its plug or the car it is in, and a ring on the filler cap of the car in
  * front of you while there is a can or a nozzle in your hand, so you know
  * where to point it.
  */
@@ -66,8 +67,26 @@ public final class FuelHoseRenderer {
                 BlockPos pump = held.is(ModItems.FUEL_NOZZLE) ? held.get(ModComponents.PUMP) : null;
                 Vec3 outlet = pump == null ? null : FuelPumpBlock.hoseOutlet(client.level, pump);
                 if (outlet != null) {
-                    drawHose(matrices, consumers.getBuffer(HOSE), camera, outlet, handOf(client, player, hand, delta), pump.getY());
+                    drawHose(matrices, consumers.getBuffer(HOSE), camera, outlet, handOf(client, player, hand, delta),
+                            pump.getY(), FuelPumpBlockEntity.HOSE_LENGTH);
                 }
+                if (held.is(ModItems.CHARGING_PLUG)
+                        && me.trossty.car.item.ChargingPlugItem.postOf(client.level, held) instanceof
+                                me.trossty.car.block.entity.ChargingPostBlockEntity post) {
+                    drawHose(matrices, consumers.getBuffer(HOSE), camera, post.holster(), handOf(client, player, hand, delta),
+                            post.getBlockPos().getY(), me.trossty.car.block.entity.ChargingPostBlockEntity.REACH);
+                }
+            }
+        }
+
+        // ...and every charging lead plugged into a car.
+        for (me.trossty.car.block.entity.ChargingPostBlockEntity post
+                : me.trossty.car.block.entity.ChargingPostBlockEntity.CLIENT_LOADED) {
+            CarEntity car = post.isRemoved() ? null : post.pluggedCar();
+            Vec3 port = car == null ? null : car.fillerPos();
+            if (port != null && port.distanceToSqr(camera) < 64 * 64) {
+                drawHose(matrices, consumers.getBuffer(HOSE), camera, post.holster(), port,
+                        post.getBlockPos().getY(), me.trossty.car.block.entity.ChargingPostBlockEntity.REACH);
             }
         }
 
@@ -90,7 +109,7 @@ public final class FuelHoseRenderer {
     }
 
     private static boolean holdsFiller(ItemStack stack) {
-        return stack.is(ModItems.JERRY_CAN) || stack.is(ModItems.FUEL_NOZZLE);
+        return stack.is(ModItems.JERRY_CAN) || stack.is(ModItems.FUEL_NOZZLE) || stack.is(ModItems.CHARGING_PLUG);
     }
 
     /**
@@ -124,7 +143,7 @@ public final class FuelHoseRenderer {
      * reddens as it nears the end of its reach.
      */
     private static void drawHose(PoseStack matrices, VertexConsumer tube, Vec3 camera,
-                                 Vec3 from, Vec3 to, int groundY) {
+                                 Vec3 from, Vec3 to, int groundY, double reach) {
         Minecraft client = Minecraft.getInstance();
         double length = from.distanceTo(to);
         double pull = Math.max(1.0, length * 1.4);
@@ -138,7 +157,7 @@ public final class FuelHoseRenderer {
             Vec3 p = hermite(from, leave, to, arrive, t);
             at[i] = new Vec3(p.x, Math.max(p.y, floor), p.z);
         }
-        float strain = (float) Math.pow(Math.min(1.0, length / FuelPumpBlockEntity.HOSE_LENGTH), 6.0);
+        float strain = (float) Math.pow(Math.min(1.0, length / reach), 6.0);
         int colour = FastColor.ARGB32.lerp(strain, HOSE_COLOUR, HOSE_STRAINED);
 
         PoseStack.Pose pose = matrices.last();

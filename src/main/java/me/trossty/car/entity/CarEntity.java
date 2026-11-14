@@ -701,6 +701,7 @@ public class CarEntity extends VehicleEntity {
     private java.util.Map<CarPart, CarPart.Anchor> layout;
     private java.util.Map<CarPart, java.util.List<CarPart.Anchor>> everywhere;
     private float roof;
+    private float sill;
 
     /** Where this part sits on this vehicle: its own wheel, its own engine bay. */
     public CarPart.Anchor anchorOf(CarPart part) {
@@ -712,6 +713,26 @@ public class CarEntity extends VehicleEntity {
     public java.util.List<CarPart.Anchor> anchorsOf(CarPart part) {
         this.refreshLayout();
         return this.everywhere.getOrDefault(part, java.util.List.of());
+    }
+
+    /**
+     * The car is drawn far past the square it collides with — the nose, the
+     * boot, a lorry's whole length — so it is culled by all of that. Culled
+     * by the square alone, it vanished when you stood over the engine bay
+     * looking down into it, with its middle out of view.
+     */
+    @Override
+    public net.minecraft.world.phys.AABB getBoundingBoxForCulling() {
+        return this.getBoundingBox().inflate(3.0, 0.5, 3.0).expandTowards(0.0, this.roofHeight(), 0.0);
+    }
+
+    /**
+     * How far the bottom of the bodywork is above the ground, in blocks:
+     * where a lift's arms meet the car.
+     */
+    public float sillHeight() {
+        this.refreshLayout();
+        return this.sill;
     }
 
     /** How tall this vehicle stands, in blocks. */
@@ -727,6 +748,7 @@ public class CarEntity extends VehicleEntity {
             this.layout = PartLayout.of(definition);
             this.everywhere = PartLayout.everywhere(definition, this.layout);
             this.roof = PartLayout.roof(definition);
+            this.sill = PartLayout.sill(definition);
         }
     }
 
@@ -4487,7 +4509,7 @@ public class CarEntity extends VehicleEntity {
         // keeping the button down, which is the item's business, not the
         // car's: PASS hands the click on to it (JerryCanItem, FuelNozzleItem).
         // Anywhere else on the car they are just something in your hand.
-        if ((held.is(ModItems.JERRY_CAN) || held.is(ModItems.FUEL_NOZZLE))
+        if ((held.is(ModItems.JERRY_CAN) || held.is(ModItems.FUEL_NOZZLE) || held.is(ModItems.CHARGING_PLUG))
                 && this.isFillerInSight(player)) {
             return InteractionResult.PASS;
         }

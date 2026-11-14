@@ -32,13 +32,10 @@ import java.util.Map;
  */
 public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWorkstationScreenHandler> {
 
-    private static final int PANEL = 0xFFC6C6C6;
     private static final int PANEL_LIGHT = 0xFFFFFFFF;
-    private static final int PANEL_SHADOW = 0xFF555555;
     private static final int SLOT_BODY = 0xFF8B8B8B;
     private static final int SLOT_DARK = 0xFF373737;
     private static final int SELECTED = 0xFF4A90D9;
-    private static final int TEXT = 0xFF404040;
     private static final int STAND_TOP = 0xFF2B3A4E;
     private static final int STAND_BOTTOM = 0xFF151C26;
 
@@ -47,10 +44,8 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
     private static final int LIST_WIDTH = 80;
     private static final int ROW = 12;
     private static final int ROWS = 8;
-    /** Two lines of a name have to share one row: no bigger than this. */
-    private static final float TWO_LINE_SCALE = 0.7F;
-    /** From one line of a two-line name to the next: a glyph and its shadow, no more. */
-    private static final int TWO_LINE_STEP = 8;
+    /** A long name is set no smaller than this before it is cut short. */
+    private static final float MIN_NAME_SCALE = 0.8F;
 
     private static final int PREVIEW_X = 92;
     private static final int PREVIEW_Y = 18;
@@ -195,37 +190,23 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
 
     @Override
     protected void renderLabels(GuiGraphics context, int mouseX, int mouseY) {
-        context.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, TEXT, false);
+        GuiStyle.title(context, this.font, this.title, 7, this.imageWidth - 14);
         context.drawString(this.font, this.playerInventoryTitle,
-                this.inventoryLabelX, this.inventoryLabelY, TEXT, false);
+                this.inventoryLabelX, this.inventoryLabelY, GuiStyle.TEXT, false);
     }
 
     @Override
     protected void renderBg(GuiGraphics context, float deltaTicks, int mouseX, int mouseY) {
         int left = this.leftPos;
         int top = this.topPos;
-        int right = left + this.imageWidth;
-        int bottom = top + this.imageHeight;
-        context.fill(left, top, right, bottom, PANEL);
-        context.fill(left, top, right, top + 1, PANEL_LIGHT);
-        context.fill(left, top, left + 1, bottom, PANEL_LIGHT);
-        context.fill(left, bottom - 1, right, bottom, PANEL_SHADOW);
-        context.fill(right - 1, top, right, bottom, PANEL_SHADOW);
+        GuiStyle.frame(context, left, top, this.imageWidth, this.imageHeight);
         for (net.minecraft.world.inventory.Slot slot : this.menu.slots) {
-            drawSlot(context, left + slot.x - 1, top + slot.y - 1);
+            GuiStyle.slot(context, left + slot.x - 1, top + slot.y - 1);
         }
         this.drawList(context, mouseX, mouseY);
         this.drawStand(context);
         this.drawSwatches(context);
         this.drawMaterials(context);
-    }
-
-    private static void drawSlot(GuiGraphics context, int x, int y) {
-        context.fill(x, y, x + 18, y + 18, SLOT_BODY);
-        context.fill(x, y, x + 18, y + 1, SLOT_DARK);
-        context.fill(x, y, x + 1, y + 18, SLOT_DARK);
-        context.fill(x + 17, y + 1, x + 18, y + 18, PANEL_LIGHT);
-        context.fill(x + 1, y + 17, x + 18, y + 18, PANEL_LIGHT);
     }
 
     private static void inset(GuiGraphics context, int x, int y, int width, int height, int fill) {
@@ -249,36 +230,15 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
             } else if (index == hovered) {
                 context.fill(left, rowTop, left + LIST_WIDTH, rowTop + ROW, 0xFF9C9C9C);
             }
-            String name = VehicleDefinition.nameOf(vehicles.get(index)).getString();
-            // A long name is drawn smaller to fit rather than cut off, and one
-            // too long even then goes over two lines, split at the space that
-            // halves it best: "Mercedes-Benz / Atego Tanker".
+            // A long name is set a little smaller, and cut with an ellipsis
+            // if even that does not fit; the stand beside the list names it in full.
+            Component name = VehicleDefinition.nameOf(vehicles.get(index));
             int room = LIST_WIDTH - 8;
-            String[] lines = {name};
-            float scale = Math.min(1.0F, (float) room / this.font.width(name));
-            if (scale < 0.7F && name.indexOf(' ') > 0) {
-                int best = -1;
-                for (int at = name.indexOf(' '); at >= 0; at = name.indexOf(' ', at + 1)) {
-                    if (best < 0 || Math.abs(this.font.width(name.substring(0, at)) - this.font.width(name.substring(at + 1)))
-                            < Math.abs(this.font.width(name.substring(0, best)) - this.font.width(name.substring(best + 1)))) {
-                        best = at;
-                    }
-                }
-                lines = new String[] {name.substring(0, best), name.substring(best + 1)};
-                int widest = Math.max(this.font.width(lines[0]), this.font.width(lines[1]));
-                scale = Math.min(TWO_LINE_SCALE, (float) room / widest);
-            }
-            scale = Math.max(0.5F, scale);
+            float scale = Mth.clamp((float) room / this.font.width(name), MIN_NAME_SCALE, 1.0F);
             context.pose().pushPose();
-            // Two lines are set closer than the font's own spacing, so they can be bigger in the row.
-            int step = lines.length > 1 ? TWO_LINE_STEP : this.font.lineHeight;
-            float height = ((lines.length - 1) * step + this.font.lineHeight - 1) * scale;
-            context.pose().translate(left + 3.0F, rowTop + (ROW - height) / 2.0F + 0.5F, 0.0F);
+            context.pose().translate(left + 3.0F, rowTop + (ROW - (this.font.lineHeight - 1) * scale) / 2.0F + 0.5F, 0.0F);
             context.pose().scale(scale, scale, 1.0F);
-            for (int line = 0; line < lines.length; line++) {
-                context.drawString(this.font, this.font.plainSubstrByWidth(lines[line], (int) (room / scale)),
-                        0, line * step, 0xFFFFFFFF, true);
-            }
+            context.drawString(this.font, GuiStyle.fit(this.font, name, (int) (room / scale)), 0, 0, 0xFFFFFFFF, true);
             context.pose().popPose();
         }
         if (this.maxScroll() > 0) {
@@ -399,7 +359,7 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
         for (int index = 0; index < materials.size() && index < MATERIALS_COLUMNS * 2; index++) {
             VehicleRecipe.Material material = materials.get(index);
             int[] at = this.materialAt(index);
-            drawSlot(context, at[0] - 1, at[1] - 1);
+            GuiStyle.slot(context, at[0] - 1, at[1] - 1);
             context.renderItem(new ItemStack(material.item(), material.count()), at[0], at[1]);
             boolean enough = this.menu.have(material.item()) >= material.count();
             boolean optional = VehicleWorkstationScreenHandler.isOptional(material.item());

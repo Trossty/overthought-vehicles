@@ -83,6 +83,11 @@ public final class ModBlockEntities {
             CarMain.id("vehicle_lift"),
             BlockEntityType.Builder.of(VehicleLiftBlockEntity::new, ModBlocks.VEHICLE_LIFT).build(null));
 
+    public static final BlockEntityType<VehicleLiftBlockEntity> MOTORCYCLE_LIFT = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            CarMain.id("motorcycle_lift"),
+            BlockEntityType.Builder.of(VehicleLiftBlockEntity::new, ModBlocks.MOTORCYCLE_LIFT).build(null));
+
     public static final BlockEntityType<me.trossty.car.block.entity.GeneratorBlockEntity> GENERATOR =
             Registry.register(
                     BuiltInRegistries.BLOCK_ENTITY_TYPE,
