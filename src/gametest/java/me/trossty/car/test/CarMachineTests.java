@@ -154,6 +154,29 @@ public class CarMachineTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void aFullGeneratorBanksItsFire(GameTestHelper context) {
+        BlockPos at = new BlockPos(3, 1, 3);
+        GeneratorBlockEntity generator = coalGenerator(context, at, 4);
+        int[] banked = new int[1];
+        context.runAtTickTime(10, () -> generator.setEnergy(GeneratorBlockEntity.CAPACITY));
+        context.runAtTickTime(12, () -> banked[0] = generator.getBurnTime());
+        context.runAtTickTime(40, () -> {
+            context.assertTrue(banked[0] > 0 && generator.getBurnTime() == banked[0],
+                    "a full generator burnt its coal down from " + banked[0] + " to " + generator.getBurnTime());
+            context.assertTrue(generator.getItem(0).getCount() == 3, "a full generator lit more coal");
+            context.assertTrue(!generator.isBurning()
+                    && !context.getBlockState(at).getValue(me.trossty.car.block.GeneratorBlock.LIT),
+                    "a banked generator still shows lit");
+            generator.setEnergy(0);
+        });
+        context.runAtTickTime(45, () -> {
+            context.assertTrue(generator.isBurning() && generator.getBurnTime() < banked[0],
+                    "the banked fire did not pick up again");
+            context.succeed();
+        });
+    }
+
     @GameTest(template = "empty", timeoutTicks = 30)
     public static void emptyGeneratorStaysCold(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);

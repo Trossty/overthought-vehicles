@@ -84,6 +84,8 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
     private ItemStack fuel = ItemStack.EMPTY;
     private int burnTime;
     private int burnTimeTotal;
+    /** Lit but waiting for room in the buffer; worked out afresh every tick. */
+    private boolean banked;
 
     private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, 0, MAX_TRANSFER) {
         @Override
@@ -121,8 +123,9 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
         this.energy.amount = Math.max(0, Math.min(CAPACITY, amount));
     }
 
+    /** Burning, as opposed to idle or banked because the buffer is full. */
     public boolean isBurning() {
-        return this.burnTime > 0;
+        return this.burnTime > 0 && !this.banked;
     }
 
     public int getBurnTime() {
@@ -142,22 +145,23 @@ public class GeneratorBlockEntity extends BlockEntity implements Container, me.t
         boolean dirty = false;
 
         int output = (int) Math.round(generator.kind.output * me.trossty.car.CarConfig.get().generatorOutput);
-        if (generator.burnTime > 0) {
+        // A full generator idles: a lit piece waits, banked, until something draws
+        // power off, and the next piece is lit only once there is room for it.
+        boolean room = generator.energy.amount + output <= CAPACITY;
+        generator.banked = !room;
+        if (generator.burnTime > 0 && room) {
             generator.burnTime--;
-            generator.energy.amount = Math.min(CAPACITY, generator.energy.amount + output);
+            generator.energy.amount += output;
             dirty = true;
         }
 
-        // Light the next piece only if there is room for what it would make:
-        // a full generator idles rather than burning coal into nothing.
         if (generator.kind.burnsLiquid()) {
-            if (generator.burnTime == 0 && generator.energy.amount + output <= CAPACITY
-                    && generator.tank.drain(1) > 0) {
+            if (generator.burnTime == 0 && room && generator.tank.drain(1) > 0) {
                 generator.burnTime = generator.kind.ticksPerUnit;
                 generator.burnTimeTotal = generator.kind.ticksPerUnit;
                 dirty = true;
             }
-        } else if (generator.burnTime == 0 && generator.energy.amount + output <= CAPACITY) {
+        } else if (generator.burnTime == 0 && room) {
             int ticks = burnTicks(generator.fuel, world);
             if (ticks > 0) {
                 generator.burnTime = ticks;
