@@ -643,6 +643,33 @@ public class CarMachineTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void batteryFeedsAMachineDownACable(GameTestHelper context) {
+        BatteryBankBlockEntity bank = battery(context, new BlockPos(3, 1, 1), Direction.SOUTH, 50_000);
+        cable(context, new BlockPos(3, 1, 2), new BlockPos(3, 1, 3));
+        context.setBlock(new BlockPos(3, 1, 4), ModBlocks.CHARGING_POST);
+        ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(new BlockPos(3, 1, 4));
+        post.setEnergy(0);
+        context.runAtTickTime(20, () -> {
+            context.assertTrue(post.getEnergy() > 0, "the post got nothing from the battery's front");
+            context.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void batteryOnTheSideOfARunStillFeedsIt(GameTestHelper context) {
+        // The bank sits beside the run, front turned away; the run feeds a post.
+        BatteryBankBlockEntity bank = battery(context, new BlockPos(2, 1, 2), Direction.WEST, 50_000);
+        cable(context, new BlockPos(3, 1, 2), new BlockPos(3, 1, 3));
+        context.setBlock(new BlockPos(3, 1, 4), ModBlocks.CHARGING_POST);
+        ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(new BlockPos(3, 1, 4));
+        post.setEnergy(0);
+        context.runAtTickTime(20, () -> {
+            context.assertTrue(post.getEnergy() > 0, "a bank on the run's side gave nothing: " + bank.getEnergy());
+            context.succeed();
+        });
+    }
+
     @GameTest(template = "empty", timeoutTicks = 120)
     public static void batteryFillsFromAGenerator(GameTestHelper context) {
         coalGenerator(context, new BlockPos(3, 1, 1), 4);
