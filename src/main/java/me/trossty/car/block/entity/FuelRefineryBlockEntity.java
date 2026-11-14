@@ -65,6 +65,13 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
     /** Heat ticks one piece of organic matter needs, and what it yields. */
     public static final int DISTILL_TIME = 120;
     public static final int BIOMASS_PER_ITEM = 100;
+    /** An oilseed is mostly oil, and cooks down to far more than leaves and stalks. */
+    public static final int BIOMASS_PER_OILSEED = 3 * BIOMASS_PER_ITEM;
+
+    /** What one piece of this organic matter cooks down to. */
+    public static int biomassOf(ItemStack stack) {
+        return stack.is(me.trossty.car.registry.ModItems.RAPESEED) ? BIOMASS_PER_OILSEED : BIOMASS_PER_ITEM;
+    }
 
     /** One catalyst turns this much feed into this much product. */
     public static final int REFINE_TIME = 100;
@@ -438,15 +445,15 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
         ItemStack organic = refinery.inventory.get(ORGANIC_SLOT);
         boolean canDistill = !organic.isEmpty()
                 && (refinery.biomass == 0 || refinery.feed == FEED_BIOMASS)
-                && refinery.biomass + BIOMASS_PER_ITEM <= BIOMASS_CAPACITY;
+                && refinery.biomass + biomassOf(organic) <= BIOMASS_CAPACITY;
 
         if (canDistill && refinery.draw(DISTILL_POWER)) {
             worked = true;
             refinery.distillProgress++;
             if (refinery.distillProgress >= DISTILL_TIME) {
                 refinery.distillProgress = 0;
+                refinery.biomass += biomassOf(organic);
                 organic.shrink(1);
-                refinery.biomass += BIOMASS_PER_ITEM;
                 refinery.feed = FEED_BIOMASS;
                 dirty = true;
             }

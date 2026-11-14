@@ -108,6 +108,7 @@ public class CarMainClient {
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.ASPHALT, RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.FUEL_DRUM, RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.OIL_SEEP, RenderType.cutout());
+            ItemBlockRenderTypes.setRenderLayer(ModBlocks.RAPESEED_CROP, RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.FUEL_TANK, RenderType.translucent());
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.FUEL_PUMP, RenderType.translucent());
             ItemLooks.registerProperties();

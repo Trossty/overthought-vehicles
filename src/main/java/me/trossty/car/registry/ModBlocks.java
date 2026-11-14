@@ -280,6 +280,12 @@ public final class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.STONE));
 
+    /** Rapeseed in the ground; its item is the seed, {@link ModItems#RAPESEED}. */
+    public static final Block RAPESEED_CROP = registerWithoutItem(
+            "rapeseed_crop",
+            me.trossty.car.block.RapeseedCropBlock::new,
+            BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.WHEAT));
+
     /** Whether this is laid road. */
     public static boolean isAsphalt(net.minecraft.world.level.block.state.BlockState state) {
         return state.is(ASPHALT);
@@ -300,6 +306,14 @@ public final class ModBlocks {
         Registry.register(BuiltInRegistries.ITEM, itemKey,
                 new BlockItem(block, new Item.Properties()));
         return block;
+    }
+
+    /** A block whose item is something else: a crop, planted from its seed. */
+    private static Block registerWithoutItem(String name,
+                                             java.util.function.Function<BlockBehaviour.Properties, Block> factory,
+                                             BlockBehaviour.Properties settings) {
+        return Registry.register(BuiltInRegistries.BLOCK,
+                ResourceKey.create(Registries.BLOCK, CarMain.id(name)), factory.apply(settings));
     }
 
     /** Forces class loading so the static fields above are registered. */

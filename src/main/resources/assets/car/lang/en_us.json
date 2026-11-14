@@ -600,5 +600,7 @@
   "direction.car.north_east": "north-east",
   "direction.car.south_east": "south-east",
   "direction.car.south_west": "south-west",
-  "direction.car.north_west": "north-west"
+  "direction.car.north_west": "north-west",
+  "item.car.rapeseed": "Rapeseed",
+  "block.car.rapeseed_crop": "Rapeseed"
 }

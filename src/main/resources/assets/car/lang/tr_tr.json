@@ -600,5 +600,7 @@
   "direction.car.north_east": "kuzeydoğu",
   "direction.car.south_east": "güneydoğu",
   "direction.car.south_west": "güneybatı",
-  "direction.car.north_west": "kuzeybatı"
+  "direction.car.north_west": "kuzeybatı",
+  "item.car.rapeseed": "Kolza Tohumu",
+  "block.car.rapeseed_crop": "Kolza"
 }

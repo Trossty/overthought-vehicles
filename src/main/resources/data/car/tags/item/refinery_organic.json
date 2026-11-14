@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    "car:rapeseed",
     "minecraft:kelp",
     "minecraft:dried_kelp",
     "minecraft:sugar_cane",

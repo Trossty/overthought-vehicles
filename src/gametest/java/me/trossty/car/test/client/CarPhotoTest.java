@@ -56,6 +56,7 @@ public class CarPhotoTest {
             scenes.put("hoist", this::hoist);
             scenes.put("garageTools", this::garageTools);
             scenes.put("garageParts", this::garageParts);
+            scenes.put("rapeseed", this::rapeseed);
             scenes.put("roadLife", this::roadLife);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
@@ -2201,6 +2202,25 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
         shot(context, server, "garage_obd_front", 0.5, Y + 2.2, 5.0, 180, 25);
         shot(context, server, "garage_obd_rear", 3.5, Y + 1.4, -4.0, 40, 15);
+    }
+
+    /** A rapeseed field at each stage of growth, sprout to ripe pods, with the seed beside it. */
+    private void rapeseed(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -12 12 %d 12 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -4 %d -3 3 %d 3 minecraft:farmland[moisture=7]".formatted(Y - 1, Y - 1));
+        int[] ages = {0, 2, 4, 5, 6, 7, 7, 7};
+        for (int x = -4; x <= 3; x++) {
+            server.runCommand("fill %d %d -3 %d %d 3 car:rapeseed_crop[age=%d]".formatted(x, Y, x, Y, ages[x + 4]));
+        }
+        server.runCommand(("summon item_display -5.5 %.2f 0.5 {item:{id:\"car:rapeseed\",count:1},"
+                + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(Y + 0.45));
+        server.runCommand("time set noon");
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(20);
+        shot(context, server, "rapeseed_field", 0.0, Y + 2.6, 7.5, 180, 25);
+        context.runOnClient(client -> client.options.hideGui = false);
     }
 
     /**

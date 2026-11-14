@@ -154,6 +154,31 @@ public class CarMachineTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void rapeseedGrowsAndFeedsTheRefinery(GameTestHelper context) {
+        BlockPos soil = new BlockPos(2, 1, 2);
+        context.setBlock(soil, net.minecraft.world.level.block.Blocks.FARMLAND);
+        BlockPos at = soil.above();
+        var crop = (net.minecraft.world.level.block.CropBlock) ModBlocks.RAPESEED_CROP;
+        context.setBlock(at, crop.getStateForAge(0));
+        context.assertTrue(context.getBlockState(at).canSurvive(context.getLevel(), context.absolutePos(at)),
+                "rapeseed will not stand on farmland");
+        var ripe = crop.getStateForAge(crop.getMaxAge());
+        int seeds = 0;
+        for (ItemStack drop : net.minecraft.world.level.block.Block.getDrops(ripe, context.getLevel(),
+                context.absolutePos(at), null)) {
+            context.assertTrue(drop.is(me.trossty.car.registry.ModItems.RAPESEED), "a rapeseed crop dropped " + drop);
+            seeds += drop.getCount();
+        }
+        context.assertTrue(seeds >= 2, "a ripe crop gave only " + seeds + " seed");
+        ItemStack seed = new ItemStack(me.trossty.car.registry.ModItems.RAPESEED);
+        context.assertTrue(seed.is(me.trossty.car.registry.ModTags.REFINERY_ORGANIC), "the refinery will not take rapeseed");
+        context.assertTrue(me.trossty.car.block.entity.FuelRefineryBlockEntity.biomassOf(seed)
+                == 3 * me.trossty.car.block.entity.FuelRefineryBlockEntity.biomassOf(new ItemStack(Items.WHEAT)),
+                "rapeseed is not worth three of wheat");
+        context.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 260)
     public static void theStarterDrawsOnTheBattery(GameTestHelper context) {
         CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));

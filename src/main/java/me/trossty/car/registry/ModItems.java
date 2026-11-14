@@ -116,6 +116,15 @@ public final class ModItems {
      * A handheld code reader: plugged into a car (or used from the driver's
      * seat) it reads out the fault codes, worst first, and the mileage.
      */
+    /**
+     * Rapeseed: planted, it grows into {@link ModBlocks#RAPESEED_CROP}; in the
+     * refinery's boiler it is worth three of anything else organic.
+     */
+    public static final Item RAPESEED = register(
+            "rapeseed",
+            settings -> new net.minecraft.world.item.ItemNameBlockItem(ModBlocks.RAPESEED_CROP, settings),
+            new Item.Properties());
+
     /** The heavy end of crude oil, left in the refinery's column: what roads are bound with. */
     public static final Item TAR = register("tar", Item::new, new Item.Properties());
 
@@ -342,7 +351,7 @@ public final class ModItems {
         charged.set(ModComponents.STORED_ENERGY, me.trossty.car.block.entity.BatteryBankBlockEntity.CAPACITY);
         entries.add(charged);
         entries.add(ModBlocks.ENERGY_CABLE, ModBlocks.CHARGING_POST);
-        entries.add(TAR, ModBlocks.ASPHALT, WHITE_ROAD_PAINT, YELLOW_ROAD_PAINT, RED_ROAD_PAINT, BLUE_ROAD_PAINT);
+        entries.add(RAPESEED, TAR, ModBlocks.ASPHALT, WHITE_ROAD_PAINT, YELLOW_ROAD_PAINT, RED_ROAD_PAINT, BLUE_ROAD_PAINT);
     }
 
     /** A jerry can of one fuel (0 petrol, 1 diesel, 2 biofuel) holding this much. */
