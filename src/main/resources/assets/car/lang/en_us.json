@@ -581,5 +581,15 @@
   "message.car.lift_stop_1": "a little way up",
   "message.car.lift_stop_2": "right up",
   "block.car.motorcycle_lift": "Motorcycle Lift",
-  "message.car.needs_bike_lift": "A motorbike has to be raised on a motorcycle lift to be worked on. Right-click the lift to raise it."
+  "message.car.needs_bike_lift": "A motorbike has to be raised on a motorcycle lift to be worked on. Right-click the lift to raise it.",
+  "item.car.compression_tester": "Compression Tester",
+  "message.car.compression_header": "Compression, %s (healthy: %s bar)",
+  "message.car.compression_good": "Good: every cylinder holds its compression.",
+  "message.car.compression_worn": "Low all round: the rings are worn. Rebuild the engine on a stand.",
+  "message.car.compression_gasket": "Two side by side are low: the head gasket between them has blown.",
+  "message.car.compression_bent": "Next to nothing: the belt snapped and bent the valves.",
+  "message.car.compression_no_engine": "There is no engine here to test.",
+  "message.car.compression_running": "Switch the engine off first.",
+  "message.car.compression_plugs_in": "Take the spark plugs out first: the tester screws into a plug hole.",
+  "message.car.compression_flat": "The engine has to turn over on the starter, and the battery is flat."
 }

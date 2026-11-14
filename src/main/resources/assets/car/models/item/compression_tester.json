@@ -1,0 +1,529 @@
+{
+ "textures": {
+  "dial": "minecraft:block/white_concrete",
+  "rim": "minecraft:block/black_concrete",
+  "hose": "minecraft:block/black_concrete",
+  "needle": "minecraft:block/red_concrete",
+  "fitting": "minecraft:block/iron_block",
+  "particle": "minecraft:block/white_concrete"
+ },
+ "elements": [
+  {
+   "from": [
+    4,
+    7.5,
+    7
+   ],
+   "to": [
+    12,
+    12.5,
+    9
+   ],
+   "faces": {
+    "north": {
+     "texture": "#rim"
+    },
+    "south": {
+     "texture": "#rim"
+    },
+    "east": {
+     "texture": "#rim"
+    },
+    "west": {
+     "texture": "#rim"
+    },
+    "up": {
+     "texture": "#rim"
+    },
+    "down": {
+     "texture": "#rim"
+    }
+   }
+  },
+  {
+   "from": [
+    5.5,
+    6,
+    7
+   ],
+   "to": [
+    10.5,
+    14,
+    9
+   ],
+   "faces": {
+    "north": {
+     "texture": "#rim"
+    },
+    "south": {
+     "texture": "#rim"
+    },
+    "east": {
+     "texture": "#rim"
+    },
+    "west": {
+     "texture": "#rim"
+    },
+    "up": {
+     "texture": "#rim"
+    },
+    "down": {
+     "texture": "#rim"
+    }
+   }
+  },
+  {
+   "from": [
+    4.5,
+    8,
+    6.6
+   ],
+   "to": [
+    11.5,
+    12,
+    7
+   ],
+   "faces": {
+    "north": {
+     "texture": "#dial"
+    },
+    "south": {
+     "texture": "#dial"
+    },
+    "east": {
+     "texture": "#dial"
+    },
+    "west": {
+     "texture": "#dial"
+    },
+    "up": {
+     "texture": "#dial"
+    },
+    "down": {
+     "texture": "#dial"
+    }
+   }
+  },
+  {
+   "from": [
+    6,
+    6.5,
+    6.6
+   ],
+   "to": [
+    10,
+    13.5,
+    7
+   ],
+   "faces": {
+    "north": {
+     "texture": "#dial"
+    },
+    "south": {
+     "texture": "#dial"
+    },
+    "east": {
+     "texture": "#dial"
+    },
+    "west": {
+     "texture": "#dial"
+    },
+    "up": {
+     "texture": "#dial"
+    },
+    "down": {
+     "texture": "#dial"
+    }
+   }
+  },
+  {
+   "from": [
+    4.5,
+    8,
+    9
+   ],
+   "to": [
+    11.5,
+    12,
+    9.4
+   ],
+   "faces": {
+    "north": {
+     "texture": "#dial"
+    },
+    "south": {
+     "texture": "#dial"
+    },
+    "east": {
+     "texture": "#dial"
+    },
+    "west": {
+     "texture": "#dial"
+    },
+    "up": {
+     "texture": "#dial"
+    },
+    "down": {
+     "texture": "#dial"
+    }
+   }
+  },
+  {
+   "from": [
+    6,
+    6.5,
+    9
+   ],
+   "to": [
+    10,
+    13.5,
+    9.4
+   ],
+   "faces": {
+    "north": {
+     "texture": "#dial"
+    },
+    "south": {
+     "texture": "#dial"
+    },
+    "east": {
+     "texture": "#dial"
+    },
+    "west": {
+     "texture": "#dial"
+    },
+    "up": {
+     "texture": "#dial"
+    },
+    "down": {
+     "texture": "#dial"
+    }
+   }
+  },
+  {
+   "from": [
+    7.6,
+    10,
+    6.4
+   ],
+   "to": [
+    8.4,
+    13,
+    6.6
+   ],
+   "faces": {
+    "north": {
+     "texture": "#needle"
+    },
+    "south": {
+     "texture": "#needle"
+    },
+    "east": {
+     "texture": "#needle"
+    },
+    "west": {
+     "texture": "#needle"
+    },
+    "up": {
+     "texture": "#needle"
+    },
+    "down": {
+     "texture": "#needle"
+    }
+   }
+  },
+  {
+   "from": [
+    7.6,
+    10,
+    9.4
+   ],
+   "to": [
+    8.4,
+    13,
+    9.6
+   ],
+   "faces": {
+    "north": {
+     "texture": "#needle"
+    },
+    "south": {
+     "texture": "#needle"
+    },
+    "east": {
+     "texture": "#needle"
+    },
+    "west": {
+     "texture": "#needle"
+    },
+    "up": {
+     "texture": "#needle"
+    },
+    "down": {
+     "texture": "#needle"
+    }
+   }
+  },
+  {
+   "from": [
+    7.5,
+    2,
+    7.5
+   ],
+   "to": [
+    8.5,
+    6,
+    8.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#hose"
+    },
+    "south": {
+     "texture": "#hose"
+    },
+    "east": {
+     "texture": "#hose"
+    },
+    "west": {
+     "texture": "#hose"
+    },
+    "up": {
+     "texture": "#hose"
+    },
+    "down": {
+     "texture": "#hose"
+    }
+   }
+  },
+  {
+   "from": [
+    7.5,
+    1,
+    7.5
+   ],
+   "to": [
+    12,
+    2,
+    8.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#hose"
+    },
+    "south": {
+     "texture": "#hose"
+    },
+    "east": {
+     "texture": "#hose"
+    },
+    "west": {
+     "texture": "#hose"
+    },
+    "up": {
+     "texture": "#hose"
+    },
+    "down": {
+     "texture": "#hose"
+    }
+   }
+  },
+  {
+   "from": [
+    11,
+    0,
+    7.5
+   ],
+   "to": [
+    12,
+    1,
+    8.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#hose"
+    },
+    "south": {
+     "texture": "#hose"
+    },
+    "east": {
+     "texture": "#hose"
+    },
+    "west": {
+     "texture": "#hose"
+    },
+    "up": {
+     "texture": "#hose"
+    },
+    "down": {
+     "texture": "#hose"
+    }
+   }
+  },
+  {
+   "from": [
+    11,
+    0,
+    7
+   ],
+   "to": [
+    13,
+    1,
+    9
+   ],
+   "faces": {
+    "north": {
+     "texture": "#fitting"
+    },
+    "south": {
+     "texture": "#fitting"
+    },
+    "east": {
+     "texture": "#fitting"
+    },
+    "west": {
+     "texture": "#fitting"
+    },
+    "up": {
+     "texture": "#fitting"
+    },
+    "down": {
+     "texture": "#fitting"
+    }
+   }
+  },
+  {
+   "from": [
+    11.5,
+    -1,
+    7.5
+   ],
+   "to": [
+    12.5,
+    0,
+    8.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#fitting"
+    },
+    "south": {
+     "texture": "#fitting"
+    },
+    "east": {
+     "texture": "#fitting"
+    },
+    "west": {
+     "texture": "#fitting"
+    },
+    "up": {
+     "texture": "#fitting"
+    },
+    "down": {
+     "texture": "#fitting"
+    }
+   }
+  }
+ ],
+ "display": {
+  "gui": {
+   "rotation": [
+    30,
+    225,
+    0
+   ],
+   "scale": [
+    0.9,
+    0.9,
+    0.9
+   ]
+  },
+  "ground": {
+   "translation": [
+    0,
+    3,
+    0
+   ],
+   "scale": [
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  "fixed": {
+   "scale": [
+    0.8,
+    0.8,
+    0.8
+   ]
+  },
+  "thirdperson_righthand": {
+   "rotation": [
+    75,
+    45,
+    0
+   ],
+   "translation": [
+    0,
+    2.5,
+    0
+   ],
+   "scale": [
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  "firstperson_righthand": {
+   "rotation": [
+    0,
+    45,
+    0
+   ],
+   "translation": [
+    0,
+    2,
+    0
+   ],
+   "scale": [
+    0.6,
+    0.6,
+    0.6
+   ]
+  },
+  "firstperson_lefthand": {
+   "rotation": [
+    0,
+    225,
+    0
+   ],
+   "translation": [
+    0,
+    2,
+    0
+   ],
+   "scale": [
+    0.6,
+    0.6,
+    0.6
+   ]
+  },
+  "thirdperson_lefthand": {
+   "rotation": [
+    75,
+    45,
+    0
+   ],
+   "translation": [
+    0,
+    2.5,
+    0
+   ],
+   "scale": [
+    0.5,
+    0.5,
+    0.5
+   ]
+  }
+ }
+}

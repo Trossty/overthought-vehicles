@@ -1094,6 +1094,54 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** The compression tester tells a healthy engine from worn rings, a blown gasket and bent valves. */
+    @GameTest(template = "empty")
+    public static void compressionTesterReadsTheEngine(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));
+        var good = me.trossty.car.item.CompressionTesterItem.read(car);
+        context.assertTrue(good.verdict() == me.trossty.car.item.CompressionTesterItem.Verdict.GOOD,
+                "a new engine did not read good: " + good.verdict());
+        context.assertTrue(good.cylinders().length == car.getLayout().cylinders(), "not one reading per cylinder");
+        for (float bar : good.cylinders()) {
+            context.assertTrue(bar >= good.spec() * 0.9F, "a new cylinder read only " + bar);
+        }
+        context.assertTrue(java.util.Arrays.equals(good.cylinders(), me.trossty.car.item.CompressionTesterItem.read(car).cylinders()),
+                "a second test read different numbers");
+
+        car.setCondition(CarPart.ENGINE, 40.0F);
+        context.assertTrue(me.trossty.car.item.CompressionTesterItem.read(car).verdict()
+                == me.trossty.car.item.CompressionTesterItem.Verdict.WORN, "a tired engine did not read worn");
+
+        car.setCondition(CarPart.ENGINE, 10.0F);
+        var gasket = me.trossty.car.item.CompressionTesterItem.read(car);
+        context.assertTrue(gasket.verdict() == me.trossty.car.item.CompressionTesterItem.Verdict.GASKET,
+                "a blown gasket did not show");
+        int low = -1;
+        for (int i = 0; i + 1 < gasket.cylinders().length; i++) {
+            if (gasket.cylinders()[i] < gasket.spec() * 0.4F && gasket.cylinders()[i + 1] < gasket.spec() * 0.4F) {
+                low = i;
+            }
+        }
+        context.assertTrue(low >= 0, "no two cylinders side by side read low for the gasket");
+
+        car.setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION);
+        car.setBeltWear(1.0F);
+        context.assertTrue(me.trossty.car.item.CompressionTesterItem.read(car).verdict()
+                == me.trossty.car.item.CompressionTesterItem.Verdict.BENT_VALVES, "a snapped belt did not show bent valves");
+
+        // Used for real: it wants the bonnet up and the plugs out, and does not get used up.
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.COMPRESSION_TESTER));
+        car.setLidOpen(CarEntity.BONNET_BIT, true);
+        car.setCondition(CarPart.SPARK_PLUGS, 0.0F);
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(player.getMainHandItem().is(me.trossty.car.registry.ModItems.COMPRESSION_TESTER),
+                "the tester was used up");
+        car.discard();
+        context.succeed();
+    }
+
     /** A worn-out belt stops the engine and says so; a new one under the open bonnet sets it going. */
     @GameTest(template = "empty")
     public static void timingBelt(GameTestHelper context) {

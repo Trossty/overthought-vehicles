@@ -581,5 +581,15 @@
   "message.car.lift_stop_1": "hafif yukarıda",
   "message.car.lift_stop_2": "tam yukarıda",
   "block.car.motorcycle_lift": "Motosiklet Lifti",
-  "message.car.needs_bike_lift": "Motosiklete çalışmak için motosiklet liftinde kaldırılmış olması gerekiyor. Lifti kaldırmak için sağ tıkla."
+  "message.car.needs_bike_lift": "Motosiklete çalışmak için motosiklet liftinde kaldırılmış olması gerekiyor. Lifti kaldırmak için sağ tıkla.",
+  "item.car.compression_tester": "Kompresyon Test Cihazı",
+  "message.car.compression_header": "Kompresyon, %s (sağlıklı: %s bar)",
+  "message.car.compression_good": "İyi: her silindir basıncını tutuyor.",
+  "message.car.compression_worn": "Hepsi düşük: segmanlar aşınmış. Motoru sehpada yenile.",
+  "message.car.compression_gasket": "Yan yana iki silindir düşük: aralarındaki silindir kapak contası yanmış.",
+  "message.car.compression_bent": "Neredeyse sıfır: triger kayışı kopmuş, supaplar eğilmiş.",
+  "message.car.compression_no_engine": "Burada ölçülecek bir motor yok.",
+  "message.car.compression_running": "Önce motoru durdur.",
+  "message.car.compression_plugs_in": "Önce bujileri sök: cihaz buji deliğine vidalanır.",
+  "message.car.compression_flat": "Motorun marşla dönmesi gerek, akü bitik."
 }

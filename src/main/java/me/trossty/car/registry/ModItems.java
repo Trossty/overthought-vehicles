@@ -173,6 +173,10 @@ public final class ModItems {
             register("catalytic_converter", Item::new, new Item.Properties().stacksTo(16));
 
     /** A foot pump: a stroke of air into every tyre. */
+    /** A gauge on a hose that screws into a plug hole: reads each cylinder. */
+    public static final Item COMPRESSION_TESTER =
+            register("compression_tester", Item::new, new Item.Properties().stacksTo(1));
+
     public static final Item TYRE_PUMP =
             register("tyre_pump", Item::new, new Item.Properties().stacksTo(1));
 
@@ -295,7 +299,7 @@ public final class ModItems {
 
     /** Tools first, then every part in teardown order, each with its other kinds beside it. */
     private static void parts(Entries entries) {
-        entries.add(OBD_SCANNER, DIAGNOSTIC_SHEET, CAR_KEY);
+        entries.add(OBD_SCANNER, COMPRESSION_TESTER, DIAGNOSTIC_SHEET, CAR_KEY);
         for (int kind = 0; kind < 3; kind++) {
             entries.add(jerryCan(kind, me.trossty.car.item.JerryCans.CAPACITY));
         }

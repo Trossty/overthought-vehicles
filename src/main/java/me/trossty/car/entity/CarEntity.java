@@ -4530,6 +4530,9 @@ public class CarEntity extends VehicleEntity {
             me.trossty.car.item.ObdScannerItem.pair(held, this, player);
             return InteractionResult.SUCCESS;
         }
+        if (held.is(ModItems.COMPRESSION_TESTER)) {
+            return me.trossty.car.item.CompressionTesterItem.test(this, player);
+        }
         if (held.is(ModItems.TURBO)) {
             return this.fitTurbo(player, held);
         }
