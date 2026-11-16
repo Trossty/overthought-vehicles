@@ -59,6 +59,8 @@ public class CarPhotoTest {
             scenes.put("rapeseed", this::rapeseed);
             scenes.put("itemGrid", this::itemGrid);
             scenes.put("pumpjackLook", this::pumpjackLook);
+            scenes.put("hydroCables", this::hydroCables);
+            scenes.put("overlayLook", this::overlayLook);
             scenes.put("glassWater", this::glassWater);
             scenes.put("roadLife", this::roadLife);
             scenes.put("leaning", this::leaning);
@@ -1286,6 +1288,69 @@ public class CarPhotoTest {
         shot(context, server, "pumpjack_side", 6.5, Y + 1.6, -1.0, 90, 8);
         shot(context, server, "pumpjack_front", 0.5, Y + 1.6, 6.0, 180, 8);
         shot(context, server, "pumpjack_quarter", 5.0, Y + 2.6, 4.5, 135, 16);
+    }
+
+    /** A hydrotreater with a cable on every side it takes power from, to see each plate meet its body. */
+    private void hydroCables(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -4 %d -4 4 %d 4 minecraft:air".formatted(Y, Y + 4));
+        place(server, "car:hydrotreater", 0, 0);
+        // none of them touch each other, so every one ends in a plate on the machine
+        int[][] cables = {{0, 0, -1}, {1, 0, 0}, {0, 1, 1}, {-1, 1, 0}, {0, 2, 0}};
+        for (int[] c : cables) {
+            server.runCommand("setblock %d %d %d car:energy_cable".formatted(c[0], Y + c[1], c[2]));
+        }
+        context.waitTicks(3);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            for (int[] c : cables) {
+                var pos = new net.minecraft.core.BlockPos(c[0], Y + c[1], c[2]);
+                var state = world.getBlockState(pos);
+                for (var side : net.minecraft.core.Direction.values()) {
+                    state = state.updateShape(side, world.getBlockState(pos.relative(side)), world, pos,
+                            pos.relative(side));
+                }
+                world.setBlock(pos, state, 2);
+            }
+        });
+        context.waitTicks(20);
+        shot(context, server, "hydro_cables_ne", 3.2, Y + 0.6, -2.2, 45, 18);
+        shot(context, server, "hydro_cables_sw", -2.2, Y + 1.4, 3.2, 225, 14);
+        shot(context, server, "hydro_cables_north", 0.5, Y, -1.9, 0, 30);
+        shot(context, server, "hydro_cables_east", 2.9, Y, 0.5, 90, 30);
+        shot(context, server, "hydro_cables_south", 0.5, Y + 0.8, 2.9, 180, 26);
+        shot(context, server, "hydro_cables_west", -1.9, Y + 0.8, 0.5, 270, 26);
+        shot(context, server, "hydro_cables_top", 0.5, Y + 3.0, -1.6, 0, 50);
+    }
+
+    /**
+     * What Jade or WTHIT shows over a worn car and a working machine; run with
+     * -Pcar.jade=true or -Pcar.wthit=true to have one of them there.
+     */
+    private void overlayLook(ClientGameTestContext context, TestServerContext server) {
+        String overlay = net.neoforged.fml.ModList.get().isLoaded("wthit") ? "wthit" : "jade";
+        clear(server);
+        server.runCommand("fill -6 %d -6 6 %d 6 minecraft:air".formatted(Y, Y + 4));
+        place(server, "car:hydrotreater", 3, 0);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var wreck = wreck(world);
+            wreck.moveTo(-2.0, Y, 0.5, 90.0F, 0.0F);
+            world.addFreshEntity(wreck);
+            if (world.getBlockEntity(at(3, 0)) instanceof me.trossty.car.block.entity.HydrotreaterBlockEntity h) {
+                h.setEnergy(me.trossty.car.block.entity.HydrotreaterBlockEntity.ENERGY_CAPACITY / 2);
+            }
+        });
+        context.waitTicks(20);
+        shot(context, server, overlay + "_car", -2.0, Y, 5.0, 180, 12);
+        // the overlay asks the server for a machine's tanks and charge and
+        // draws them when the answer comes, so give it a moment on each half
+        server.runCommand("tp @a 3.5 %d 3.0 180 22".formatted(Y));
+        context.waitTicks(40);
+        shot(context, server, overlay + "_machine_low", 3.5, Y, 3.0, 180, 22);
+        server.runCommand("tp @a 3.5 %d 3.0 180 -4".formatted(Y));
+        context.waitTicks(40);
+        shot(context, server, overlay + "_machine_high", 3.5, Y, 3.0, 180, -4);
     }
 
     private void place(TestServerContext server, String block, int x, int z) {

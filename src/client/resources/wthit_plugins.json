@@ -1,0 +1,9 @@
+{
+  "car:wthit": {
+    "entrypoints": {
+      "client": "me.trossty.car.client.compat.WthitCarPlugin"
+    },
+    "side": "client",
+    "required": []
+  }
+}

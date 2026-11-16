@@ -1,31 +1,50 @@
 package me.trossty.car.client.compat;
 
 import me.trossty.car.CarMain;
+import me.trossty.car.block.MultiblockBlock;
 import me.trossty.car.entity.CarEntity;
-import me.trossty.car.entity.CarPart;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.EntityAccessor;
 import snownee.jade.api.IEntityComponentProvider;
 import snownee.jade.api.ITooltip;
 import snownee.jade.api.IWailaClientRegistration;
 import snownee.jade.api.IWailaPlugin;
+import snownee.jade.api.WailaPlugin;
 import snownee.jade.api.config.IPluginConfig;
 
 /**
- * What Jade shows when you look at a car: fuel or charge, the body, the part
- * in the worst shape, and how far it has been. Everything here is already
- * tracked on the client, so no server side is needed.
+ * What Jade shows when you look at a car: the {@link CarLookLines}.
  *
- * <p>Loaded only by Jade, through the {@code jade} entrypoint: without Jade
- * this class is never touched and the mod runs the same.
+ * <p>Machines need nothing of their own: Jade reads their tanks and charge
+ * through the same capabilities pipes and cables use. It only asks a block
+ * that has a block entity, though, and of a machine's cells only the
+ * controller has one, so a look at any other cell is turned into a look at
+ * the controller.
+ *
+ * <p>Jade finds this class by its {@link WailaPlugin} annotation and is the
+ * only thing that ever loads it: without Jade it is never touched and the mod
+ * runs the same.
  */
+@WailaPlugin
 public class JadeCarPlugin implements IWailaPlugin {
 
     @Override
     public void registerClient(IWailaClientRegistration registration) {
         registration.registerEntityComponent(CarInfo.INSTANCE, CarEntity.class);
+        registration.addRayTraceCallback((hit, accessor, original) -> {
+            if (accessor instanceof BlockAccessor block && block.getBlockEntity() == null
+                    && block.getBlock() instanceof MultiblockBlock
+                    && MultiblockBlock.controllerEntity(block.getLevel(), block.getPosition()) instanceof BlockEntity controller) {
+                return registration.blockAccessor().from(block)
+                        .hit(block.getHitResult().withPosition(controller.getBlockPos()))
+                        .blockState(controller.getBlockState())
+                        .blockEntity(controller)
+                        .build();
+            }
+            return accessor;
+        });
     }
 
     enum CarInfo implements IEntityComponentProvider {
@@ -40,38 +59,9 @@ public class JadeCarPlugin implements IWailaPlugin {
 
         @Override
         public void appendTooltip(ITooltip tooltip, EntityAccessor accessor, IPluginConfig config) {
-            if (!(accessor.getEntity() instanceof CarEntity car)) {
-                return;
+            if (accessor.getEntity() instanceof CarEntity car) {
+                CarLookLines.of(car).forEach(tooltip::add);
             }
-            int tank = Math.round(100.0F * car.getFuel() / Math.max(1.0F, car.getMaxFuel()));
-            if (car.isElectric()) {
-                tooltip.add(Component.translatable("jade.car.charge", tank).withStyle(ChatFormatting.AQUA));
-            } else {
-                tooltip.add(Component.translatable("jade.car.fuel", tank,
-                        Component.translatable("fuel.car." + car.getTankFuel().key())).withStyle(ChatFormatting.GOLD));
-                if (car.hasFuel() && car.getDirtyFuel() >= 0.25F) {
-                    tooltip.add(Component.translatable("obd.car.dirty_fuel").withStyle(ChatFormatting.RED));
-                }
-            }
-            tooltip.add(Component.translatable("jade.car.body", Math.round(100.0F * car.getHealthFraction())));
-            CarPart worst = null;
-            for (CarPart part : CarPart.values()) {
-                if (!car.hasPart(part)) {
-                    continue;
-                }
-                if (worst == null || car.getConditionFraction(part) < car.getConditionFraction(worst)) {
-                    worst = part;
-                }
-            }
-            if (worst != null && car.getConditionFraction(worst) < 0.5F) {
-                Component name = Component.translatable("part.car." + worst.key());
-                tooltip.add(car.isFitted(worst)
-                        ? Component.translatable("jade.car.worst", name, Math.round(100.0F * car.getConditionFraction(worst)))
-                                .withStyle(ChatFormatting.YELLOW)
-                        : Component.translatable("jade.car.missing", name).withStyle(ChatFormatting.RED));
-            }
-            tooltip.add(Component.translatable("jade.car.odometer", CarEntity.formatOdometer(car.getOdometer()))
-                    .withStyle(ChatFormatting.GRAY));
         }
     }
 }

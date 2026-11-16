@@ -177,7 +177,7 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of()
                     .strength(0.8F)
                     .noOcclusion()
-                    .sound(SoundType.WOOL));
+                    .sound(SoundType.COPPER));
 
     /** Where petrol waits: the buffer between a refinery and a station. */
     public static final Block FUEL_TANK = register(
