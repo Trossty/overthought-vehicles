@@ -22,6 +22,7 @@ import me.trossty.car.client.screen.CarServiceScreen;
 import me.trossty.car.client.screen.FuelRefineryScreen;
 import me.trossty.car.client.screen.MachineScreen;
 import me.trossty.car.client.screen.RoadMarkingScreen;
+import me.trossty.car.client.screen.ToolboxScreen;
 import me.trossty.car.client.screen.VehicleWorkbenchScreen;
 import me.trossty.car.client.screen.VehicleWorkstationScreen;
 import me.trossty.car.client.sound.CarEngineSoundInstance;
@@ -157,6 +158,7 @@ public class CarMainClient {
             event.register(ModScreenHandlers.FUELLED_MACHINE, MachineScreen::new);
             event.register(ModScreenHandlers.VEHICLE_WORKSTATION, VehicleWorkstationScreen::new);
             event.register(ModScreenHandlers.CAR_SERVICE, CarServiceScreen::new);
+            event.register(ModScreenHandlers.TOOLBOX, ToolboxScreen::new);
         });
         modBus.addListener((RegisterGuiLayersEvent event) -> {
             event.registerAbove(VanillaGuiLayers.HOTBAR, CarMain.id("dashboard"), new DashboardHud());

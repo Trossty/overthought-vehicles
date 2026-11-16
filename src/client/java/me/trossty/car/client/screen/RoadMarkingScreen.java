@@ -5,7 +5,6 @@ import me.trossty.car.block.AsphaltBlock.Marking;
 import me.trossty.car.item.RoadPaintItem;
 import me.trossty.car.network.RoadMarkingC2SPayload;
 import net.neoforged.neoforge.network.PacketDistributor;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -29,13 +28,16 @@ public class RoadMarkingScreen extends Screen {
     private static final int TILE = 32;
     private static final int CELL = 38;
     private static final int PAD = 10;
-    private static final int HEADER = 24;
-    private static final int FOOTER = 34;
+    /** The nameplate and the gap under it, down to the first row of tiles. */
+    private static final int HEADER = 22;
+    /** The LCD with the marking's name, the paint gauge, the hint and the margin under them. */
+    private static final int FOOTER = 54;
+    private static final int GAUGE_WIDTH = 49;
 
-    private static final int PANEL = 0xE0181C20;
-    private static final int EDGE = 0xFF3A4048;
     private static final int HOVER = 0xFFB8C0C8;
     private static final int ERASE = 0xFFE0473B;
+    private static final int ERASE_TEXT = 0xFFFF7A64;
+    private static final int HINT = 0xFF6A6F75;
 
     private final InteractionHand hand;
     private int cursor;
@@ -56,14 +58,21 @@ public class RoadMarkingScreen extends Screen {
         return (Marking.values().length + COLUMNS - 1) / COLUMNS;
     }
 
+    private static int gridWidth() {
+        return COLUMNS * CELL - (CELL - TILE);
+    }
+
+    private static int gridHeight() {
+        return rows() * CELL - (CELL - TILE);
+    }
+
     /** Wide enough for the grid, or for the hint line under it if that is wider. */
     private int panelWidth() {
-        int grid = COLUMNS * CELL + PAD * 2 - (CELL - TILE);
-        return Math.max(grid, this.font.width(Component.translatable("screen.car.road_paint.hint")) + PAD * 2);
+        return Math.max(gridWidth(), this.font.width(Component.translatable("screen.car.road_paint.hint"))) + PAD * 2;
     }
 
     private int panelHeight() {
-        return HEADER + rows() * CELL - (CELL - TILE) + FOOTER + PAD;
+        return HEADER + gridHeight() + FOOTER;
     }
 
     @Override
@@ -114,55 +123,94 @@ public class RoadMarkingScreen extends Screen {
         int paint = 0xFF000000 | item.paint.rgb;
         int w = this.panelWidth();
         int h = this.panelHeight();
-        context.fill(this.left - 1, this.top - 1, this.left + w + 1, this.top + h + 1, EDGE);
-        context.fill(this.left, this.top, this.left + w, this.top + h, PANEL);
-        // A stripe of the tin's paint along the top, like the label on the tin.
-        context.fill(this.left, this.top, this.left + w, this.top + 2, paint);
+        // The workshop's own window, its nameplate underlined in the tin's paint
+        // the way the label goes round a tin.
+        GuiStyle.frame(context, this.left, this.top, w, h, paint);
+        context.pose().pushPose();
+        context.pose().translate(this.left, this.top, 0.0F);
+        GuiStyle.title(context, this.font, tin.getHoverName(), w - GuiStyle.TITLE_X - 10);
+        context.pose().popPose();
 
-        context.drawCenteredString(this.font, tin.getHoverName(), this.left + w / 2, this.top + 9, paint);
+        // The squares of road lie in a dark tray.
+        int gridLeft = this.left + (w - gridWidth()) / 2;
+        int gridTop = this.top + HEADER;
+        GuiStyle.well(context, gridLeft - 4, gridTop - 4, gridWidth() + 8, gridHeight() + 8);
 
         int hovered = this.cellAt(mouseX, mouseY);
         int current = RoadPaintItem.selected(tin).ordinal();
         boolean empty = RoadPaintItem.isEmpty(tin);
         for (int i = 0; i < Marking.values().length; i++) {
-            Marking marking = Marking.values()[i];
-            int x = this.cellX(i);
-            int y = this.cellY(i);
-            int ring = i == current ? paint : i == hovered || i == this.cursor ? HOVER : 0;
-            if (ring != 0) {
-                context.fill(x - 2, y - 2, x + TILE + 2, y + TILE + 2, ring);
-            }
-            context.blit(ASPHALT, x, y, TILE, TILE, 0, 0, 16, 16, 16, 16);
-            if (marking == Marking.NONE) {
-                this.cross(context, x, y);
-            } else {
-                // An empty tin shows what it would paint, faded.
-                int colour = empty ? 0x60000000 | item.paint.rgb : paint;
-                context.setColor(((colour >> 16) & 0xFF) / 255.0F, ((colour >> 8) & 0xFF) / 255.0F,
-                        (colour & 0xFF) / 255.0F, (colour >>> 24) / 255.0F);
-                context.blit(CarMain.id("textures/block/marking/" + marking.getSerializedName() + ".png"), x, y, TILE, TILE, 0, 0, 16, 16, 16, 16);
-                context.setColor(1.0F, 1.0F, 1.0F, 1.0F);
-            }
-            if (i < 9) {
-                context.drawString(this.font, Component.literal(String.valueOf(i + 1)), x + 2, y + 2, 0xC0FFFFFF, true);
-            }
+            this.tile(context, Marking.values()[i], i, paint, item.paint.rgb, empty,
+                    i == current, i == hovered || i == this.cursor);
         }
 
+        // The marking under the mouse (or the arrow keys' cursor) by name, on the LCD.
         int shown = hovered >= 0 ? hovered : this.cursor;
         Marking name = Marking.values()[shown];
         Component label = Component.translatable(name.translationKey());
         if (name == Marking.NONE) {
-            label = label.copy().append(Component.literal(" · ").withStyle(ChatFormatting.DARK_GRAY))
-                    .append(Component.translatable("screen.car.road_paint.erase_note").withStyle(ChatFormatting.GRAY));
+            label = label.copy().append(Component.literal(" · "))
+                    .append(Component.translatable("screen.car.road_paint.erase_note"));
         }
-        int footer = this.top + h - FOOTER - PAD + 6;
-        context.drawCenteredString(this.font, label, this.left + w / 2, footer, 0xFFFFFFFF);
-        int left = tin.getMaxDamage() - tin.getDamageValue();
-        context.drawCenteredString(this.font,
-                Component.translatable("screen.car.road_paint.left", left, tin.getMaxDamage()),
-                this.left + w / 2, footer + 12, empty ? ERASE : 0xFFA0A8B0);
+        int footer = gridTop + gridHeight() + 10;
+        GuiStyle.readout(context, this.font, label, gridLeft - 4, footer, gridWidth() + 8,
+                name == Marking.NONE ? ERASE_TEXT : GuiStyle.READOUT_TEXT);
+
+        int lineY = footer + GuiStyle.READOUT_HEIGHT + 6;
+        this.paintLeft(context, tin, paint, empty, lineY);
         context.drawCenteredString(this.font, Component.translatable("screen.car.road_paint.hint"),
-                this.left + w / 2, footer + 24, 0xFF707880);
+                this.left + w / 2, lineY + 14, HINT);
+    }
+
+    /** One square of road with its marking painted on, in its ring. */
+    private void tile(GuiGraphics context, Marking marking, int i, int paint, int rgb, boolean empty,
+                      boolean current, boolean lit) {
+        int x = this.cellX(i);
+        int y = this.cellY(i);
+        int ring = current ? paint : lit ? HOVER : GuiStyle.OUTLINE;
+        context.fill(x - 2, y - 2, x + TILE + 2, y + TILE + 2, ring);
+        if (current) {
+            context.fill(x - 1, y - 1, x + TILE + 1, y + TILE + 1, GuiStyle.darker(paint));
+        }
+        context.blit(ASPHALT, x, y, TILE, TILE, 0, 0, 16, 16, 16, 16);
+        if (marking == Marking.NONE) {
+            this.cross(context, x, y);
+        } else {
+            // An empty tin shows what it would paint, faded.
+            int colour = empty ? 0x60000000 | rgb : paint;
+            context.setColor(((colour >> 16) & 0xFF) / 255.0F, ((colour >> 8) & 0xFF) / 255.0F,
+                    (colour & 0xFF) / 255.0F, (colour >>> 24) / 255.0F);
+            context.blit(CarMain.id("textures/block/marking/" + marking.getSerializedName() + ".png"),
+                    x, y, TILE, TILE, 0, 0, 16, 16, 16, 16);
+            context.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+        }
+        // Daylight falling across the road from above.
+        context.fillGradient(x, y, x + TILE, y + TILE / 2, 0x18FFFFFF, 0x00FFFFFF);
+        if (i < 9) {
+            // The number key that picks it, on a little keycap in the corner.
+            context.fill(x + 1, y + 1, x + 9, y + 11, 0xC0101419);
+            context.fill(x + 1, y + 1, x + 9, y + 2, 0x40FFFFFF);
+            context.drawString(this.font, String.valueOf(i + 1), x + 3, y + 2, 0xFFFFFFFF, false);
+        }
+    }
+
+    /** How much paint is left, in words and as a row of LEDs in the paint's colour. */
+    private void paintLeft(GuiGraphics context, ItemStack tin, int paint, boolean empty, int y) {
+        int left = tin.getMaxDamage() - tin.getDamageValue();
+        Component words = Component.translatable("screen.car.road_paint.left", left, tin.getMaxDamage());
+        int textWidth = this.font.width(words);
+        int x = this.left + (this.panelWidth() - textWidth - 5 - GAUGE_WIDTH) / 2;
+        context.drawString(this.font, words, x, y, empty ? ERASE : GuiStyle.TEXT, false);
+
+        int gauge = x + textWidth + 5;
+        context.fill(gauge - 1, y - 1, gauge + GAUGE_WIDTH + 1, y + 8, GuiStyle.OUTLINE);
+        context.fill(gauge, y, gauge + GAUGE_WIDTH, y + 7, 0xFF101316);
+        int segments = (GAUGE_WIDTH - 1) / 4;
+        int lit = left <= 0 ? 0 : Math.max(1, Math.round(segments * (float) left / tin.getMaxDamage()));
+        for (int segment = 0; segment < segments; segment++) {
+            int sx = gauge + 1 + segment * 4;
+            context.fill(sx, y + 1, sx + 3, y + 6, segment < lit ? paint : GuiStyle.LED_OFF);
+        }
     }
 
     /** "Erase": a red cross over bare road. */

@@ -9,7 +9,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -40,7 +39,7 @@ public class ToolboxBlockEntity extends BaseContainerBlockEntity {
 
     @Override
     protected AbstractContainerMenu createMenu(int id, Inventory inventory) {
-        return ChestMenu.threeRows(id, inventory, this);
+        return new ToolboxMenu(id, inventory, this);
     }
 
     @Override

@@ -54,11 +54,12 @@ public class MachineScreenHandler extends AbstractContainerMenu {
     public static final List<Fluid> FLUIDS = List.of(Fluids.EMPTY, ModFluids.CRUDE_OIL, ModFluids.RAW_PETROL,
             ModFluids.RAW_DIESEL, ModFluids.PETROL, ModFluids.DIESEL, ModFluids.BIOFUEL);
 
-    public static final int FUEL_SLOT_X = 26;
-    public static final int FUEL_SLOT_Y = 35;
+    /** The firebox slot, under the fire window on the window's faceplate. */
+    public static final int FUEL_SLOT_X = 22;
+    public static final int FUEL_SLOT_Y = 47;
 
-    private static final int PLAYER_INVENTORY_TOP = 84;
-    private static final int HOTBAR_TOP = 142;
+    private static final int PLAYER_INVENTORY_TOP = 103;
+    private static final int HOTBAR_TOP = 161;
     private static final int HALF = 1 << 15;
 
     private final ContainerData properties;

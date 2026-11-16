@@ -37,6 +37,10 @@ public final class ModScreenHandlers {
     public static final MenuType<me.trossty.car.machine.MachineScreenHandler> FUELLED_MACHINE =
             register("fuelled_machine", me.trossty.car.machine.MachineScreenHandler::fuelled);
 
+    /** The toolbox: a chest's worth of room in the cabinet's three drawers. */
+    public static final MenuType<me.trossty.car.block.entity.ToolboxMenu> TOOLBOX =
+            register("toolbox", me.trossty.car.block.entity.ToolboxMenu::new);
+
     private ModScreenHandlers() {
     }
 

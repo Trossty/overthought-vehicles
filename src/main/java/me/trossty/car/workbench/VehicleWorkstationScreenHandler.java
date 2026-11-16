@@ -50,8 +50,8 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
     public static final int BUILD_ID = 1000;
 
     public static final int PLAYER_INVENTORY_LEFT = 48;
-    public static final int PLAYER_INVENTORY_TOP = 146;
-    public static final int HOTBAR_TOP = 204;
+    public static final int PLAYER_INVENTORY_TOP = 149;
+    public static final int HOTBAR_TOP = 207;
 
     private final ContainerLevelAccess context;
     private final Player player;

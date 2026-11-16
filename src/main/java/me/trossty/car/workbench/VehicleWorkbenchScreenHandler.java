@@ -47,12 +47,12 @@ public class VehicleWorkbenchScreenHandler extends AbstractContainerMenu {
      * a recipe instead of putting anything down, so the only way to load the
      * bench was to shift-click. A client-test screenshot is what showed it.
      */
-    private static final int INPUT_LEFT = 7;
-    private static final int INPUT_TOP = 90;
+    private static final int INPUT_LEFT = 8;
+    public static final int INPUT_TOP = 103;
     // Far enough down that the "Inventory" heading has a line of its own
     // between the tray and the player's own slots.
-    private static final int PLAYER_INVENTORY_TOP = 122;
-    private static final int HOTBAR_TOP = 180;
+    public static final int PLAYER_INVENTORY_TOP = 133;
+    private static final int HOTBAR_TOP = 191;
 
     private final Container input = new SimpleContainer(INPUT_SIZE) {
         @Override
