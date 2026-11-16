@@ -270,7 +270,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         float deep = (float) (bay.maxY - bay.minY) / 16.0F * 0.92F;
         java.util.List<me.trossty.car.entity.PartLayout.BaySpot> spots = new java.util.ArrayList<>(me.trossty.car.entity.PartLayout.BAY);
         if (car.hasTurbo()) {
-            spots.add(new me.trossty.car.entity.PartLayout.BaySpot(null, -0.3F, 0.3F, 0.18F, 2.7F, 13.4F, 0.0F));
+            spots.add(new me.trossty.car.entity.PartLayout.BaySpot(null, -0.3F, 0.3F, 0.18F, 3.5F, 12.5F, 0.0F));
         }
         int seed = 0;
         for (me.trossty.car.entity.PartLayout.BaySpot spot : spots) {
@@ -412,10 +412,10 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         }
         // Gearbox: behind the engine, up in the tunnel.
         if (gearbox) {
-            float size = tall / 12.8F * 16.0F;
+            float size = tall / 12.15F * 16.0F;
             underItem(car, me.trossty.car.entity.CarPart.TRANSMISSION, matrices, buffers, light,
                     0.0F, floor - tall, front - (front - rear) * 0.3F, size / 16.0F, size / 16.0F, size / 16.0F,
-                    1.6F, 0.0F);
+                    1.93F, 0.0F);
         }
         // Prop shaft: down the middle from the gearbox to the rear axle.
         if (car.isFitted(me.trossty.car.entity.CarPart.DRIVESHAFT)) {
@@ -429,14 +429,14 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         if (car.isFitted(me.trossty.car.entity.CarPart.EXHAUST)) {
             float from = tail + 1.0F;
             float to = front - (front - rear) * 0.2F;
-            float thick = Math.min(tall * 0.6F, 1.8F) / 6.4F;
+            float thick = Math.min(tall * 0.6F, 1.8F) / 6.28F;
             underItem(car, me.trossty.car.entity.CarPart.EXHAUST, matrices, buffers, light,
                     -track * 0.45F, floor - tall * 0.75F, (from + to) / 2.0F, (to - from) / 17.6F, thick, thick,
-                    4.8F, 90.0F);
+                    4.86F, 90.0F);
             // Down from the manifold at the engine, and the tail pipe out
             // past the bumper.
             float x = -track * 0.45F;
-            float y = floor - tall * 0.75F + thick * 3.2F;
+            float y = floor - tall * 0.75F + thick * 3.14F;
             float bore = thick * 16.0F * 0.45F;
             if (engine) {
                 rod(matrices, buffers, light, METAL, x, y, to - 0.5F, -track * 0.15F, engineY, engineZ - 1.0F, bore);

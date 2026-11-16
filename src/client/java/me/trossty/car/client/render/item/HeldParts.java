@@ -58,6 +58,7 @@ public final class HeldParts {
             pose.scale(0.36F, 0.36F, 0.36F);
         } else {
             pose.scale(0.3F, 0.3F, 0.3F);
+            faceYou(pose);
         }
         part(pose, buffers, light, stack);
         pose.popPose();
@@ -81,6 +82,7 @@ public final class HeldParts {
         }
         pose.translate(0.0F, -0.27F, -0.8F);
         pose.scale(0.52F, 0.52F, 0.52F);
+        faceYou(pose);
         part(pose, buffers, light, stack);
         pose.popPose();
     }
@@ -108,6 +110,11 @@ public final class HeldParts {
     /** How far each fist comes in from where an empty hand hangs, and up. */
     private static final float INWARD = 0.24F;
     private static final float RAISE = 0.16F;
+
+    /** A wheel or disc is drawn with its face to the north, as its icon shows it: turned round, that face is towards you. */
+    private static void faceYou(PoseStack pose) {
+        pose.mulPose(Axis.YP.rotationDegrees(180.0F));
+    }
 
     private static void part(PoseStack pose, MultiBufferSource buffers, int light, ItemStack stack) {
         Minecraft client = Minecraft.getInstance();

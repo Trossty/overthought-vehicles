@@ -160,13 +160,13 @@ public final class PartLayout {
      * flanks, the plugs along its back.
      */
     public static final List<BaySpot> BAY = List.of(
-            new BaySpot(CarPart.ENGINE, 0.0F, 0.48F, 0.40F, 2.5F, 13.5F, 0.0F),
-            new BaySpot(CarPart.RADIATOR, 0.0F, 0.92F, 0.62F, 2.1F, 13.9F, 0.0F),
-            new BaySpot(CarPart.BATTERY, -0.7F, 0.2F, 0.24F, 3.5F, 12.5F, 90.0F),
-            new BaySpot(CarPart.AIR_FILTER, 0.7F, 0.22F, 0.24F, 4.9F, 11.1F, 0.0F),
+            new BaySpot(CarPart.ENGINE, 0.0F, 0.48F, 0.40F, 2.2F, 13.8F, 0.0F),
+            new BaySpot(CarPart.RADIATOR, 0.0F, 0.92F, 0.62F, 1.4F, 14.6F, 0.0F),
+            new BaySpot(CarPart.BATTERY, -0.7F, 0.2F, 0.24F, 3.25F, 12.75F, 90.0F),
+            new BaySpot(CarPart.AIR_FILTER, 0.7F, 0.22F, 0.24F, 5.3F, 10.7F, 0.0F),
             new BaySpot(CarPart.ALTERNATOR, 0.5F, 0.66F, 0.18F, 1.8F, 14.2F, 0.0F),
-            new BaySpot(CarPart.OIL_FILTER, -0.5F, 0.66F, 0.14F, 3.6F, 12.4F, 0.0F),
-            new BaySpot(CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.4F, 12.6F, 0.0F));
+            new BaySpot(CarPart.OIL_FILTER, -0.5F, 0.66F, 0.14F, 3.95F, 12.05F, 0.0F),
+            new BaySpot(CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.5F, 12.5F, 0.0F));
 
     /** A tyre, and the brakes and strut behind it: one at every wheel, not only the first. */
     private static boolean atEveryCorner(CarPart part) {

@@ -19,6 +19,12 @@
  * by 22.5 or 45 degrees, and nothing may reach further than a block past
  * the block it belongs to. The kit refuses what the game would.
  *
+ * A script in tools/items/ draws items the same way: its models go to
+ * models/item/, are stood round the middle of their block (o.centre false
+ * leaves them where drawn), keep the overrides the file already has and get
+ * the hand, floor and inventory sizes worked out from what was drawn
+ * (o.gui the inventory's angle; o.display 'keep' keeps what the file has).
+ *
  * Load it from Blockbench's console, or through the MCP:
  *   CAR_REPO = '/path/to/car'; eval(require('fs').readFileSync(CAR_REPO + '/tools/blocks/kit.js', 'utf8'));
  *   BlockKit.run('toolbox');
@@ -27,8 +33,10 @@
     const fs = require('fs');
     const REPO = window.CAR_REPO;
     const DIR = REPO + '/tools/blocks/';
+    const ITEMS = REPO + '/tools/items/';
     const ASSETS = REPO + '/src/main/resources/assets/car/';
     const MODELS = ASSETS + 'models/block/';
+    const ITEM_MODELS = ASSETS + 'models/item/';
     const PALETTE_FILE = ASSETS + 'textures/block/palette.png';
     const PALETTE_LIST = DIR + 'palette.json';
     const PALETTE = 16;
@@ -86,6 +94,85 @@
         return canvas;
     }
 
+    /** p turned about the origin by degrees round one axis, the way the game turns a box or an item. */
+    function turn(p, axis, degrees) {
+        const c = Math.cos(degrees * DEG), s = Math.sin(degrees * DEG);
+        return axis === 'x' ? [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]
+            : axis === 'y' ? [p[0] * c + p[2] * s, p[1], -p[0] * s + p[2] * c]
+                : [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]];
+    }
+
+    /** Every corner of every box, after the box's own turn. */
+    function corners(boxes) {
+        const out = [];
+        for (const b of boxes) {
+            for (let i = 0; i < 8; i++) {
+                let p = [i & 1 ? b.to[0] : b.from[0], i & 2 ? b.to[1] : b.from[1], i & 4 ? b.to[2] : b.from[2]];
+                if (b.rot) {
+                    const o = b.rot.origin;
+                    p = turn(p.map((v, k) => v - o[k]), b.rot.axis, b.rot.angle).map((v, k) => v + o[k]);
+                }
+                out.push(p);
+            }
+        }
+        return out;
+    }
+
+    /** The lowest and highest point of a drawing on each axis. */
+    function extent(boxes) {
+        const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+        for (const p of corners(boxes)) {
+            for (let a = 0; a < 3; a++) {
+                min[a] = Math.min(min[a], p[a]);
+                max[a] = Math.max(max[a], p[a]);
+            }
+        }
+        return {min: min, max: max};
+    }
+
+    /** The drawing moved, whole, so that its middle is the middle of the block. */
+    function centred(boxes) {
+        const e = extent(boxes);
+        const shift = e.min.map((v, a) => 8 - (v + e.max[a]) / 2);
+        const move = p => p.map((v, a) => v + shift[a]);
+        return boxes.map(b => Object.assign({}, b, {
+            from: move(b.from), to: move(b.to),
+            rot: b.rot ? Object.assign({}, b.rot, {origin: move(b.rot.origin)}) : null
+        }));
+    }
+
+    /**
+     * An item's sizes: in the inventory as big as fits the slot at the angle
+     * gui, and in a hand or on the floor about as big as a block is there,
+     * smaller again in your own hand, whatever size it was drawn at.
+     */
+    function itemDisplay(boxes, gui) {
+        const e = extent(boxes);
+        const largest = Math.max(...e.max.map((v, a) => v - e.min[a]));
+        const lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
+        for (const p of corners(boxes)) {
+            const v = turn(turn(turn(p.map(x => x - 8), 'z', gui[2]), 'y', gui[1]), 'x', gui[0]);
+            for (let a = 0; a < 2; a++) {
+                lo[a] = Math.min(lo[a], v[a]);
+                hi[a] = Math.max(hi[a], v[a]);
+            }
+        }
+        const fit = Math.min(1.6, 15 / Math.max(hi[0] - lo[0], hi[1] - lo[1]));
+        const held = Math.max(0.35, Math.min(0.75, 6.5 / largest));
+        const framed = Math.min(1, held * 2), third = held * 0.9, first = held * 0.6;
+        const s = v => [r3(v), r3(v), r3(v)];
+        return {
+            gui: {rotation: gui, translation: [r3(-(lo[0] + hi[0]) / 2 * fit), r3(-(lo[1] + hi[1]) / 2 * fit), 0], scale: s(fit)},
+            ground: {translation: [0, 3, 0], scale: s(held)},
+            fixed: {scale: s(framed)},
+            head: {scale: s(framed)},
+            thirdperson_righthand: {rotation: [75, 45, 0], translation: [0, 2.5, 0], scale: s(third)},
+            thirdperson_lefthand: {rotation: [75, 45, 0], translation: [0, 2.5, 0], scale: s(third)},
+            firstperson_righthand: {rotation: [0, 45, 0], translation: [0, 3.5, 0], scale: s(first)},
+            firstperson_lefthand: {rotation: [0, 225, 0], translation: [0, 3.5, 0], scale: s(first)}
+        };
+    }
+
     /** Where a face falls on a texture when nobody says: by where it sits in the block, folded back onto the texture. */
     function autoUv(from, to, side) {
         const [fx, fy, fz] = from, [tx, ty, tz] = to;
@@ -129,8 +216,9 @@
          * size in sixteenths: the whole drawing shrunk to it, for the item
          * of a machine bigger than a block), file (where it goes, relative
          * to models/block/, when not <name>), preview (true: drawn to look
-         * at, never written). What o leaves unsaid is kept from the model
-         * already there.
+         * at, never written). An item's: gui (its angle in the inventory),
+         * centre false, display 'keep', overrides. What o leaves unsaid is
+         * kept from the model already there.
          */
         model(name, o, draw) {
             this.boxes = [];
@@ -234,6 +322,20 @@
                         Object.assign({}, o, {faces: faces, rot: turn ? [axis, turn, c] : null}));
                 }
             }
+        }
+
+        /**
+         * A box set round the z axis through (8, 8) at a multiple of 22.5
+         * degrees, the way a spoke, a knob or a caliper sits on a wheel: drawn
+         * as if it stood at the top, u across and w out from the middle,
+         * z1..z2 deep. Quarter turns swap its sides, the rest is the box's turn.
+         */
+        spin(a, u1, w1, z1, u2, w2, z2, paint, o) {
+            const quarter = Math.round(a / 90), rest = a - quarter * 90;
+            const at = (u, w) => [[u, w], [-w, u], [-u, -w], [w, -u]][((quarter % 4) + 4) % 4];
+            const [x1, y1] = at(u1, w1), [x2, y2] = at(u2, w2);
+            return this.box(8 + x1, 8 + y1, z1, 8 + x2, 8 + y2, z2, paint,
+                Object.assign({}, o, rest ? {rot: ['z', rest, [8, 8, (z1 + z2) / 2]]} : {}));
         }
 
         // ---- checking ----------------------------------------------------------
@@ -400,12 +502,26 @@
         /** Runs the drawing script for a block and writes its models. o.write false only draws. */
         run(name, o) {
             o = o || {};
+            const dir = fs.existsSync(DIR + name + '.js') ? DIR : ITEMS;
             const k = new Kit(name);
-            new Function('k', 'C', fs.readFileSync(DIR + name + '.js', 'utf8'))(k, C);
+            new Function('k', 'C', fs.readFileSync(dir + name + '.js', 'utf8'))(k, C);
             const palette = loadPalette();
             const written = [];
             for (const m of k.models) {
+                m.item = dir === ITEMS;
+                if (m.item && m.o.centre !== false) {
+                    m.boxes = centred(m.boxes);
+                }
                 if (m.o.preview) {
+                    continue;
+                }
+                if (m.item) {
+                    const text = BlockKit.json(m, Kit.cell(m.boxes, null), palette, '');
+                    if (o.write !== false) {
+                        fs.writeFileSync(BlockKit.file(m, ''), text);
+                    }
+                    const e = extent(m.boxes), span = a => r3(e.min[a]) + '..' + r3(e.max[a]);
+                    written.push(m.name + ' ' + m.boxes.length + ' x ' + span(0) + ' y ' + span(1) + ' z ' + span(2));
                     continue;
                 }
                 const cells = m.o.cells || {'': null};
@@ -430,7 +546,7 @@
             }
             const shown = k.models.find(m => m.name === o.show) || k.models[0];
             BlockKit.show(name, shown, palette);
-            const path = DIR + name + '.bbmodel';
+            const path = dir + name + '.bbmodel';
             fs.writeFileSync(path, Codecs.project.compile());
             Project.save_path = path;
             Project.saved = true;
@@ -438,7 +554,7 @@
         },
 
         file(m, suffix) {
-            return MODELS + (m.o.file || m.name) + suffix + '.json';
+            return (m.item ? ITEM_MODELS : MODELS) + (m.o.file || m.name) + suffix + '.json';
         },
 
         /** One model's file, a box to a line. */
@@ -489,7 +605,7 @@
                     face.texture = '#' + keyOf(paint);
                     const axis = FACING.findIndex(f => f.includes(side));
                     const edge = FACING[axis][0] === side ? Math.abs(b.from[axis]) < 1e-6 : Math.abs(b.to[axis] - 16) < 1e-6;
-                    if (edge && !b.rot) {
+                    if (edge && !b.rot && !m.item) {
                         face.cullface = side;
                     }
                     if (b.tint !== undefined) {
@@ -502,7 +618,11 @@
                 }
             }
             const particle = m.o.particle || (was.textures && was.textures.particle) || 'car:block/shop_steel';
-            const head = {parent: m.o.parent || was.parent || 'minecraft:block/block'};
+            const head = {};
+            const parent = m.o.parent || was.parent || (m.item ? null : 'minecraft:block/block');
+            if (parent) {
+                head.parent = parent;
+            }
             const ao = m.o.ao !== undefined ? m.o.ao : was.ambientocclusion;
             if (ao === false) {
                 head.ambientocclusion = false;
@@ -511,11 +631,23 @@
                 head.render_type = m.o.render_type || was.render_type;
             }
             head.textures = Object.assign({particle: particle}, textures);
-            const display = m.o.display || was.display;
             let text = '{\n' + Object.keys(head).map(key => '  "' + key + '": ' + one(head[key])).join(',\n')
                 + ',\n  "elements": [\n' + lines.join(',\n') + '\n  ]';
-            if (display) {
-                text += ',\n  "display": ' + one(display);
+            if (!m.item) {
+                const display = m.o.display || was.display;
+                if (display) {
+                    text += ',\n  "display": ' + one(display);
+                }
+                return text + '\n}\n';
+            }
+            // An item's sizes and its other looks, a line each.
+            const display = (m.o.display === 'keep' && was.display)
+                || (typeof m.o.display === 'object' && m.o.display) || itemDisplay(boxes, m.o.gui || [30, 225, 0]);
+            const listed = (open, items, close) => open + '\n' + items.map(v => '    ' + v).join(',\n') + '\n  ' + close;
+            text += ',\n  "display": ' + listed('{', Object.keys(display).map(key => '"' + key + '": ' + one(display[key])), '}');
+            const overrides = m.o.overrides || was.overrides;
+            if (overrides) {
+                text += ',\n  "overrides": ' + listed('[', overrides.map(one), ']');
             }
             return text + '\n}\n';
         },

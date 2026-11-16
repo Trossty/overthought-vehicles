@@ -11,6 +11,11 @@ import java.util.Locale;
 /**
  * Builds the items as things rather than as pictures of things.
  *
+ * <p><b>Superseded for the parts and tools:</b> the engines, engine parts,
+ * chassis parts, wheels and tools are now drawn in Blockbench by
+ * {@code tools/items/*.js} (see {@code tools/blocks/kit.js}). Running this
+ * would overwrite those models with the old box versions.
+ *
  * <p>Every part, the jerry can, the clipboard and the three vehicles get a
  * model made of boxes, so that an engine in the hand is an engine and not a
  * card with an engine printed on it. Run from the project root:
