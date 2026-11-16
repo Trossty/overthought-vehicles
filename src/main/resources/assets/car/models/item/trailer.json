@@ -29,13 +29,13 @@
       "predicate": {
         "car:vehicle": 16
       },
-      "model": "car:item/vehicle_tow_dolly"
+      "model": "car:item/vehicle_wheel_lift"
     },
     {
       "predicate": {
         "car:vehicle": 17
       },
-      "model": "car:item/vehicle_box_trailer"
+      "model": "car:item/vehicle_caravan"
     }
   ]
 }

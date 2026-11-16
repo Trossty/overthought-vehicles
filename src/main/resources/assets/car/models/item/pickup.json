@@ -11,7 +11,7 @@
       "predicate": {
         "car:vehicle": 15
       },
-      "model": "car:item/vehicle_toyota_hilux"
+      "model": "car:item/vehicle_hilux_tow"
     }
   ]
 }

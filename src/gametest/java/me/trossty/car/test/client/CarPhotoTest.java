@@ -1664,28 +1664,42 @@ public class CarPhotoTest {
      */
     private void icons(ClientGameTestContext context, TestServerContext server) {
         clear(server);
+        server.runCommand("time set noon");
         String[][] items = {
                 {"car:car", "car:toyota_corolla"},
+                {"car:car", "car:tofas_sahin"},
                 {"car:car", "car:jeep_wrangler"},
                 {"car:car", "car:ford_mustang"},
                 {"car:pickup", "car:toyota_hilux"},
+                {"car:pickup", "car:hilux_tow"},
                 {"car:fuel_tanker", "car:mercedes_atego"},
+                {"car:motorcycle", "car:vespa_primavera"},
+                {"car:motorcycle", "car:honda_cbr600rr"},
                 {"car:motorboat", "car:bayliner_bowrider"},
                 {"car:airplane", "car:cessna_172"},
+                {"car:trailer", "car:box_trailer"},
+                {"car:trailer", "car:flatbed_trailer"},
+                {"car:trailer", "car:caravan"},
+                {"car:trailer", "car:tow_dolly"},
+                {"car:trailer", "car:plane_tow_dolly"},
+                {"car:trailer", "car:wheel_lift"},
         };
+        // Nine to a line, and under each line the same nine dyed.
+        int perLine = 9;
         for (int i = 0; i < items.length; i++) {
-            double x = -7.0 + i * 2.0;
+            double x = -8.0 + (i % perLine) * 2.0;
             for (int row = 0; row < 2; row++) {
                 String color = row == 0 ? "" : ",\"car:color\":14";
                 server.runCommand(("summon minecraft:item_display %.1f %.1f 12.5 {item_display:\"gui\","
                         + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
                         + "translation:[0f,0f,0f],scale:[1.6f,1.6f,1.6f]},"
                         + "item:{id:\"%s\",count:1,components:{\"car:vehicle\":\"%s\"%s}}}")
-                        .formatted(x, Y + 2.8 - row * 1.9, items[i][0], items[i][1], color));
+                        .formatted(x, Y + 6.6 - (i / perLine * 2 + row) * 1.9, items[i][0], items[i][1], color));
             }
         }
         context.runOnClient(client -> client.options.hideGui = true);
-        shot(context, server, "icons", 0.0, Y + 0.3, 20.0, 180, 0);
+        // An item display shows its face to the north.
+        shot(context, server, "icons", 0.0, Y + 2.0, 2.0, 0, 0);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 

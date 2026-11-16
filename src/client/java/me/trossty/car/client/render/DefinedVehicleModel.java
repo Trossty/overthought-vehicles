@@ -531,10 +531,15 @@ public class DefinedVehicleModel extends VehicleModel {
             float offX = hinge != null ? hinge[0] : spins ? propX : turns ? hubX : 0.0F;
             float offY = hinge != null ? hinge[1] : spins ? propY : turns ? -hubY : 0.0F;
             float offZ = hinge != null ? hinge[2] : spins ? propZ : turns ? -hubZ : 0.0F;
-            parent.addOrReplaceChild("box" + count++,
-                    CubeListBuilder.create().texOffs(at[0], at[1])
-                            .addBox(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ,
-                                    new net.minecraft.client.model.geom.builders.CubeDeformation(lift[index])),
+            CubeListBuilder cube = CubeListBuilder.create().texOffs(at[0], at[1]);
+            java.util.Set<net.minecraft.core.Direction> pane = glass ? paneFaces(sizeX, sizeY, sizeZ) : null;
+            if (pane != null) {
+                cube.addBox(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ, pane);
+            } else {
+                cube.addBox(-sizeX / 2.0F, -sizeY / 2.0F, -sizeZ / 2.0F, sizeX, sizeY, sizeZ,
+                        new net.minecraft.client.model.geom.builders.CubeDeformation(lift[index]));
+            }
+            parent.addOrReplaceChild("box" + count++, cube,
                     PartPose.offsetAndRotation(x + sizeX / 2.0F - offX,
                             -(y + sizeY / 2.0F) - offY,
                             -(z + sizeZ / 2.0F) - offZ,
@@ -542,6 +547,30 @@ public class DefinedVehicleModel extends VehicleModel {
         }
 
         return LayerDefinition.create(data, PALETTE * CELL, PALETTE * CELL).bakeRoot();
+    }
+
+    /** Glass this thin is a pane: a sheet with two faces and no edges. */
+    private static final float PANE = 0.1F;
+
+    /**
+     * A window that is not a rectangle is cut from several thin pieces of
+     * glass lying edge to edge in one plane. Drawn as boxes, the edges where
+     * they meet show through the glass as lines and the window looks
+     * layered; drawn as their two big faces only, they are one pane.
+     * Null for glass with real thickness, which keeps all six faces.
+     */
+    private static java.util.Set<net.minecraft.core.Direction> paneFaces(float sizeX, float sizeY, float sizeZ) {
+        float thin = Math.min(sizeX, Math.min(sizeY, sizeZ));
+        if (thin > PANE) {
+            return null;
+        }
+        if (thin == sizeX) {
+            return java.util.EnumSet.of(net.minecraft.core.Direction.WEST, net.minecraft.core.Direction.EAST);
+        }
+        if (thin == sizeY) {
+            return java.util.EnumSet.of(net.minecraft.core.Direction.DOWN, net.minecraft.core.Direction.UP);
+        }
+        return java.util.EnumSet.of(net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH);
     }
 
     /** How far a box is lifted off a bigger one it shares a face with: well under a pixel. */
