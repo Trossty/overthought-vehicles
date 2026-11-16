@@ -13,7 +13,11 @@
  * ("car:block/shop_hazard"). Colours live on one shared texture,
  * block/palette.png, a cell each; palette.json beside this file keeps their
  * order, and a new colour is only ever added to the end, so models written
- * earlier stay right.
+ * earlier stay right. A cell is 16 texels square, drawn in the grain of what
+ * the colour is made of (brushed or cast metal, chrome, rubber, plastic,
+ * paint, wood, concrete, cloth, or flat for lights, glass and paper; see
+ * MATERIAL), and a face takes the part of the cell where it sits in the
+ * block, the way it would a texture of its own.
  *
  * A block model is poorer than a drawing: a box turns about one axis only,
  * by 22.5 or 45 degrees, and nothing may reach further than a block past
@@ -77,18 +81,126 @@
         return fs.existsSync(PALETTE_LIST) ? JSON.parse(fs.readFileSync(PALETTE_LIST, 'utf8')) : ['#FFFFFF'];
     }
 
+    /**
+     * What a colour is made of, where its name alone would guess wrong. Any
+     * other colour goes by the rule in material(): near black is rubber,
+     * grey is metal (bright grey worked, darker grey cast), anything with
+     * colour in it is paint.
+     */
+    const MATERIAL = {
+        // flat: lights, screens, glass (one pane, no grain), paper, dials, holes, oil
+        '#FFFFFF': 'flat', '#0E1512': 'flat', '#56E06A': 'flat', '#F0483A': 'flat', '#F2B03A': 'flat',
+        '#4FC3F0': 'flat', '#2E3432': 'flat', '#E6E1CF': 'flat', '#D8402C': 'flat', '#6F94A8': 'flat',
+        '#F1EEE6': 'flat', '#F2F2EE': 'flat', '#2A2C30': 'flat', '#2A2D31': 'flat', '#1A1410': 'flat',
+        '#3A2E1E': 'flat',
+        chrome: ['#C6CACE'],
+        brushed: ['#A9AEB4', '#5B6168', '#BFC3C7', '#BF6A51', '#C9A23F', '#B8933F', '#94742F', '#7F858B'],
+        cast: ['#7C8288', '#3A3F45', '#3E4349', '#4E5258', '#5D6167', '#9EA3A9', '#A3281F', '#7A6450', '#2B2522'],
+        plastic: ['#1B1B1D', '#2A2A2C', '#222225', '#1E1E20', '#26282C', '#E8731C', '#E8E6DC', '#E3B32A'],
+        paint: ['#E4E6E8', '#F2F2F2', '#DADADA', '#C4C4C4', '#8D939A', '#62676E', '#A7ADB3', '#2E3135'],
+        wood: ['#96683E', '#6E4A2A', '#8A6A48'],
+        concrete: ['#8E9094', '#A4A6A9', '#7D7F82', '#D2CCBA'],
+        cloth: ['#5E6A75', '#4A545E']
+    };
+    for (const kind of Object.keys(MATERIAL)) {
+        if (Array.isArray(MATERIAL[kind])) {
+            MATERIAL[kind].forEach(hex => MATERIAL[hex] = kind);
+            delete MATERIAL[kind];
+        }
+    }
+
+    function rgb(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return [n >> 16 & 255, n >> 8 & 255, n & 255];
+    }
+
+    function material(hex) {
+        if (MATERIAL[hex]) {
+            return MATERIAL[hex];
+        }
+        const c = rgb(hex), hi = Math.max(...c), lo = Math.min(...c);
+        const sat = hi ? (hi - lo) / hi : 0, light = (hi + lo) / 2;
+        return light < 40 ? 'rubber' : sat < 0.12 ? (light > 150 ? 'brushed' : 'cast') : 'paint';
+    }
+
+    /**
+     * A colour's cell, PALETTE texels square, in its material's grain: each
+     * texel as [how much brighter, how much light added]. The grain is drawn
+     * from the colour itself, so a cell looks the same wherever it lands.
+     */
+    /** How strongly every grain is drawn, over what the patterns below say. */
+    const BOLD = 1.2;
+
+    function grain(kind, hex) {
+        let s =(parseInt(hex.slice(1), 16) * 7919 + 13) >>> 0 || 1;
+        const r = () => {
+            s ^= s << 13;
+            s >>>= 0;
+            s ^= s >> 17;
+            s ^= s << 5;
+            s >>>= 0;
+            return s / 4294967296;
+        };
+        const rows = [...Array(PALETTE)].map(r), out = [];
+        for (let y = 0; y < PALETTE; y++) {
+            // a soft band of light across the cell, brightest near the top, the way a shine sits on metal
+            const sheen = Math.sin((y + 2) / PALETTE * Math.PI * 2);
+            for (let x = 0; x < PALETTE; x++) {
+                let f = 1, a = 0;
+                const n = r() - 0.5;
+                if (kind === 'paint') {
+                    f = 1.02 - y * 0.0025 + n * 0.03 - (r() < 0.03 ? 0.04 : 0);
+                } else if (kind === 'brushed') {
+                    f = 1 + (rows[y] - 0.5) * 0.17 + n * 0.05 + sheen * 0.07;
+                } else if (kind === 'chrome') {
+                    f = 1 + sheen * 0.16 + n * 0.03 + (y === 3 || y === 4 ? 0.22 : 0);
+                } else if (kind === 'cast') {
+                    f = 1 + n * 0.10 - (r() < 0.04 ? 0.10 : 0);
+                } else if (kind === 'rubber') {
+                    // matte, with fine lines like a moulded tread
+                    a = n * 5 + (y % 3 === 0 ? -4 : 2);
+                } else if (kind === 'plastic') {
+                    a = n * 4;
+                } else if (kind === 'wood') {
+                    const ring = Math.sin(y * 2.1 + Math.sin(x * 0.45 + rows[0] * 6) * 1.6);
+                    f = 1 + 0.12 * ring - (ring < -0.7 ? 0.06 : 0) + n * 0.04;
+                } else if (kind === 'concrete') {
+                    // light and dark patches a few texels across, sand and stones in them, the odd pore
+                    const patch = rows[(Math.floor(x / 4) + 4 * Math.floor(y / 4)) % PALETTE] - 0.5;
+                    const stone = r();
+                    f = 1 + patch * 0.10 + n * 0.16 + (stone < 0.08 ? -0.16 : stone > 0.93 ? 0.10 : 0);
+                } else if (kind === 'cloth') {
+                    f = 1 + n * 0.10 + ((x + y) % 2 ? 0.04 : -0.04);
+                }
+                if (kind !== 'flat') {
+                    f = 1 + (f - 1) * BOLD;
+                    a *= BOLD;
+                }
+                out.push([f, a]);
+            }
+        }
+        return out;
+    }
+
+    /** The shared texture: a cell for each colour, PALETTE cells to a row, each in its material's grain. */
     function paletteCanvas(colours) {
+        const size = PALETTE * PALETTE;
         const canvas = document.createElement('canvas');
-        canvas.width = PALETTE;
-        canvas.height = PALETTE;
+        canvas.width = size;
+        canvas.height = size;
         const ctx = canvas.getContext('2d');
-        const image = ctx.createImageData(PALETTE, PALETTE);
+        const image = ctx.createImageData(size, size);
         for (let i = 0; i < PALETTE * PALETTE; i++) {
-            const n = parseInt((colours[i] || colours[colours.length - 1]).slice(1), 16);
-            image.data[i * 4] = n >> 16 & 255;
-            image.data[i * 4 + 1] = n >> 8 & 255;
-            image.data[i * 4 + 2] = n & 255;
-            image.data[i * 4 + 3] = 255;
+            const hex = (colours[i] || colours[colours.length - 1]).toUpperCase();
+            const base = rgb(hex), cell = grain(material(hex), hex);
+            const u0 = (i % PALETTE) * PALETTE, v0 = Math.floor(i / PALETTE) * PALETTE;
+            cell.forEach(([f, a], t) => {
+                const o = ((v0 + Math.floor(t / PALETTE)) * size + u0 + t % PALETTE) * 4;
+                for (let ch = 0; ch < 3; ch++) {
+                    image.data[o + ch] = Math.max(0, Math.min(255, Math.round(base[ch] * f + a)));
+                }
+                image.data[o + 3] = 255;
+            });
         }
         ctx.putImageData(image, 0, 0);
         return canvas;
@@ -192,6 +304,17 @@
         };
         const [u1, u2] = fold(uv[0], uv[2]), [v1, v2] = fold(uv[1], uv[3]);
         return [r3(u1), r3(v1), r3(u2), r3(v2)];
+    }
+
+    /**
+     * Where a face painted with the colour in cell i falls: inside that cell,
+     * by where the face sits in the block, so the grain of one colour runs on
+     * from box to box.
+     */
+    function cellUv(i, b, side) {
+        const u = i % PALETTE, v = Math.floor(i / PALETTE), r = autoUv(b.from, b.to, side);
+        const at = (cell, t) => Math.round((cell + t / 16) * 10000) / 10000;
+        return [at(u, r[0]), at(v, r[1]), at(u, r[2]), at(v, r[3])];
     }
 
     class Kit {
@@ -597,8 +720,7 @@
                         if (i < 0) {
                             i = palette.push(paint.toUpperCase()) - 1;
                         }
-                        const u = i % PALETTE, v = Math.floor(i / PALETTE);
-                        face.uv = [u + 0.25, v + 0.25, u + 0.75, v + 0.75];
+                        face.uv = cellUv(i, b, side);
                     } else {
                         face.uv = b.uv[side] || autoUv(b.from, b.to, side);
                     }
@@ -716,9 +838,7 @@
                     }
                     let uv;
                     if (isColour(paint)) {
-                        const i = palette.indexOf(paint.toUpperCase());
-                        const u = i % PALETTE, v = Math.floor(i / PALETTE);
-                        uv = [u + 0.25, v + 0.25, u + 0.75, v + 0.75];
+                        uv = cellUv(palette.indexOf(paint.toUpperCase()), b, side);
                     } else {
                         uv = b.uv[side] || autoUv(b.from, b.to, side);
                     }
