@@ -23,19 +23,19 @@ public final class ModBlocks {
     public static final Block VEHICLE_WORKBENCH = register(
             "vehicle_workbench",
             VehicleWorkbenchBlock::new,
-            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().sound(SoundType.METAL));
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion().sound(SoundType.METAL));
 
     /** The ramp cars are assembled on, and the only place they can be repaired. */
     public static final Block VEHICLE_LIFT = register(
             "vehicle_lift",
             VehicleLiftBlock::new,
-            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().sound(SoundType.METAL));
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion().sound(SoundType.METAL));
 
     /** The narrow table a motorbike is wheeled on to and raised on. */
     public static final Block MOTORCYCLE_LIFT = register(
             "motorcycle_lift",
             me.trossty.car.block.MotorcycleLiftBlock::new,
-            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().sound(SoundType.METAL));
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion().sound(SoundType.METAL));
 
     /** The plant that cracks biomass and crude. Its boiler house glows while it works. */
     public static final Block FUEL_REFINERY = register(
