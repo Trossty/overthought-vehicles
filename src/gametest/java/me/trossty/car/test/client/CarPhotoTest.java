@@ -61,6 +61,7 @@ public class CarPhotoTest {
             scenes.put("pumpjackLook", this::pumpjackLook);
             scenes.put("hydroCables", this::hydroCables);
             scenes.put("overlayLook", this::overlayLook);
+            scenes.put("liftHitboxes", this::liftHitboxes);
             scenes.put("glassWater", this::glassWater);
             scenes.put("roadLife", this::roadLife);
             scenes.put("leaning", this::leaning);
@@ -1351,6 +1352,49 @@ public class CarPhotoTest {
         server.runCommand("tp @a 3.5 %d 3.0 180 -4".formatted(Y));
         context.waitTicks(40);
         shot(context, server, overlay + "_machine_high", 3.5, Y, 3.0, 180, -4);
+    }
+
+    /** The outline the cursor draws on each part of the two lifts: a column, the power unit, the bike deck and vise. */
+    private void liftHitboxes(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -4 %d -4 14 %d 4 minecraft:air".formatted(Y, Y + 4));
+        // x, z and how many stops up: the top for one bike lift, the first for the other
+        int[][] lifts = {{0, 0, 0}, {6, 0, 2}, {10, 0, 1}};
+        server.runCommand("setblock 0 %d 0 car:vehicle_lift[facing=north]".formatted(Y));
+        server.runCommand("setblock 6 %d 0 car:motorcycle_lift[facing=north]".formatted(Y));
+        server.runCommand("setblock 10 %d 0 car:motorcycle_lift[facing=north]".formatted(Y));
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            for (int[] l : lifts) {
+                var pos = at(l[0], l[1]);
+                var state = world.getBlockState(pos);
+                var lift = (me.trossty.car.block.VehicleLiftBlock) state.getBlock();
+                lift.placeParts(world, pos, state);
+                if (world.getBlockEntity(pos) instanceof me.trossty.car.block.entity.VehicleLiftBlockEntity be) {
+                    for (int i = 0; i < l[2]; i++) {
+                        be.step(true);
+                    }
+                }
+            }
+        });
+        context.waitTicks(60);
+        aimedShot(context, server, "lift_hit_column", -3.5, 3.0, -0.8, Y + 1.5, 0.5);
+        aimedShot(context, server, "lift_hit_power", 3.5, 3.2, 1.82, Y + 1.3, 0.8);
+        aimedShot(context, server, "lift_hit_plate", 0.5, 3.5, 0.5, Y + 0.1, 0.5);
+        aimedShot(context, server, "bike_hit_front", 6.5, -3.0, 6.5, Y + 1.06, -0.3);
+        aimedShot(context, server, "bike_hit_vise", 8.5, 3.5, 6.5, Y + 1.3, 1.35);
+        aimedShot(context, server, "bike_hit_legs", 8.0, 3.0, 10.5, Y + 0.3, 0.6);
+    }
+
+    /** A shot from where a player stands at x, z, looking at a point. */
+    private void aimedShot(ClientGameTestContext context, TestServerContext server, String name,
+                           double x, double z, double tx, double ty, double tz) {
+        double dx = tx - x;
+        double dy = ty - (Y + 1.62);
+        double dz = tz - z;
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) Math.toDegrees(Math.atan2(-dy, Math.sqrt(dx * dx + dz * dz)));
+        shot(context, server, name, x, Y, z, yaw, pitch);
     }
 
     private void place(TestServerContext server, String block, int x, int z) {

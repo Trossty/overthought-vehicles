@@ -608,21 +608,99 @@ public class CarMachineTests {
     public static void liftPostsAreSolid(GameTestHelper context) {
         BlockPos at = new BlockPos(3, 1, 3);
         for (Direction facing : Direction.Plane.HORIZONTAL) {
-            context.setBlock(at, ModBlocks.VEHICLE_LIFT.defaultBlockState()
-                    .setValue(me.trossty.car.block.VehicleLiftBlock.FACING, facing));
-            var shape = context.getBlockState(at).getCollisionShape(context.getLevel(), context.absolutePos(at));
-            // the posts stand a block either side, across the way a car drives on
+            BlockState lift = ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                    .setValue(me.trossty.car.block.VehicleLiftBlock.FACING, facing);
+            context.setBlock(at, lift);
+            ((MultiblockBlock) lift.getBlock()).placeParts(context.getLevel(), context.absolutePos(at), lift);
+            // the posts stand a block either side, across the way a car drives on, two blocks high
             Direction side = facing.getClockWise();
             for (Direction out : new Direction[] {side, side.getOpposite()}) {
-                double px = 0.5 + out.getStepX() * 1.3;
-                double pz = 0.5 + out.getStepZ() * 1.3;
-                boolean hit = shape.toAabbs().stream().anyMatch(box -> box.contains(px, 1.5, pz));
-                context.assertTrue(hit, "no post " + out + " of a lift facing " + facing);
+                double px = 0.5 + out.getStepX() * 0.3;
+                double pz = 0.5 + out.getStepZ() * 0.3;
+                for (BlockPos post : new BlockPos[] {at.relative(out), at.relative(out).above()}) {
+                    var shape = context.getBlockState(post).getCollisionShape(context.getLevel(), context.absolutePos(post));
+                    context.assertTrue(shape.toAabbs().stream().anyMatch(box -> box.contains(px, 0.5, pz)),
+                            "no post " + out + " of a lift facing " + facing + " at " + post);
+                }
             }
-            context.assertTrue(shape.toAabbs().stream().noneMatch(box -> box.contains(0.5, 1.0, 0.5)),
+            var plate = context.getBlockState(at).getCollisionShape(context.getLevel(), context.absolutePos(at));
+            context.assertTrue(plate.toAabbs().stream().noneMatch(box -> box.contains(0.5, 1.0, 0.5)),
                     "the middle of a lift facing " + facing + " is not clear to stand in");
+            context.setBlock(at, net.minecraft.world.level.block.Blocks.AIR);
+            context.assertBlockNotPresent(ModBlocks.VEHICLE_LIFT, at.relative(side).above());
         }
         context.succeed();
+    }
+
+    /** Looking at a column finds the lift, and a click on it works the lift like one on the plate. */
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void liftColumnsAreTheLift(GameTestHelper context) {
+        BlockPos at = new BlockPos(3, 1, 3);
+        BlockState lift = ModBlocks.VEHICLE_LIFT.defaultBlockState();
+        context.setBlock(at, lift);
+        ((MultiblockBlock) lift.getBlock()).placeParts(context.getLevel(), context.absolutePos(at), lift);
+        // facing north the columns are east and west; look at the top of the west one from the south
+        BlockPos post = context.absolutePos(at.west().above());
+        var eye = new net.minecraft.world.phys.Vec3(post.getX() + 0.2, post.getY() + 0.4, post.getZ() + 3.5);
+        var hit = clip(context, eye, eye.add(0, 0, -4));
+        context.assertTrue(hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getBlockPos().equals(post),
+                "looking at the column's top found " + hit.getBlockPos() + ", not the column");
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        context.getLevel().getBlockState(post).useWithoutItem(context.getLevel(), player, hit);
+        context.assertTrue(context.<me.trossty.car.block.entity.VehicleLiftBlockEntity>getBlockEntity(at).getStop() == 1,
+                "a click on the column did not send the lift up a stop");
+        context.succeed();
+    }
+
+    /** The bike lift's deck is where it is drawn at every height, from one end to the other. */
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void bikeLiftDeckIsWhereItIsDrawn(GameTestHelper context) {
+        BlockPos at = new BlockPos(3, 1, 3);
+        BlockState lift = ModBlocks.MOTORCYCLE_LIFT.defaultBlockState();
+        var block = (me.trossty.car.block.VehicleLiftBlock) lift.getBlock();
+        context.setBlock(at, lift);
+        block.placeParts(context.getLevel(), context.absolutePos(at), lift);
+        // facing north the deck runs from half a block out north to half a block out south
+        BlockPos[] cells = {at.north(), at, at.south()};
+        double[] along = {0.75, 0.5, 0.1};
+        for (int level = 0; level <= me.trossty.car.block.entity.VehicleLiftBlockEntity.MAX_LEVEL; level++) {
+            block.setLevel(context.getLevel(), context.absolutePos(at), context.getBlockState(at), level);
+            double top = (2.0 + 3.75 * level) / 16.0;
+            for (int i = 0; i < cells.length; i++) {
+                double z = along[i];
+                for (double y : new double[] {top - 0.02, top + 0.1}) {
+                    // a deck risen out of its block is in the one above
+                    BlockPos cell = y >= 1.0 ? cells[i].above() : cells[i];
+                    double local = y >= 1.0 ? y - 1.0 : y;
+                    var outline = context.getBlockState(cell).getShape(context.getLevel(), context.absolutePos(cell));
+                    boolean found = outline.toAabbs().stream().anyMatch(box -> box.contains(0.5, local, z));
+                    context.assertTrue(found == (y < top), (y < top ? "no deck in " : "something over the deck in ")
+                            + cell + " at level " + level);
+                }
+            }
+            // from straight above, the deck's end is found where it is
+            BlockPos front = context.absolutePos(at.north());
+            var eye = new net.minecraft.world.phys.Vec3(front.getX() + 0.5, front.getY() + 3, front.getZ() + 0.75);
+            var hit = clip(context, eye, eye.add(0, -4, 0));
+            context.assertTrue(Math.abs(hit.getLocation().y - front.getY() - top) < 1.0E-4
+                            && context.getLevel().getBlockState(hit.getBlockPos()).is(ModBlocks.MOTORCYCLE_LIFT),
+                    "looking down on the deck's end at level " + level + " found " + hit.getLocation());
+            // and from the side, level with it, so is the wheel vise on the back end
+            BlockPos back = context.absolutePos(at.south());
+            var side = new net.minecraft.world.phys.Vec3(back.getX() + 3.5, back.getY() + top + 0.2, back.getZ() + 0.35);
+            hit = clip(context, side, side.add(-4, 0, 0));
+            context.assertTrue(hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                            && context.getLevel().getBlockState(hit.getBlockPos()).is(ModBlocks.MOTORCYCLE_LIFT),
+                    "looking across at the vise at level " + level + " found " + hit.getBlockPos());
+        }
+        context.succeed();
+    }
+
+    private static net.minecraft.world.phys.BlockHitResult clip(GameTestHelper context, net.minecraft.world.phys.Vec3 from,
+                                                               net.minecraft.world.phys.Vec3 to) {
+        return context.getLevel().clip(new net.minecraft.world.level.ClipContext(from, to,
+                net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE,
+                net.minecraft.world.phys.shapes.CollisionContext.empty()));
     }
 
     // ---- battery bank and charging post ----

@@ -7,7 +7,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import me.trossty.car.util.ValueInput;
@@ -112,6 +111,11 @@ public class VehicleLiftBlockEntity extends BlockEntity {
     }
 
     public static void tick(Level world, BlockPos pos, BlockState state, VehicleLiftBlockEntity lift) {
+        VehicleLiftBlock block = (VehicleLiftBlock) state.getBlock();
+        // a lift set down by a command, or from before its columns were blocks, grows them
+        if (world.getGameTime() % 20 == (pos.asLong() & 15)) {
+            block.placeParts(world, pos, state);
+        }
         int level = state.getValue(VehicleLiftBlock.LEVEL);
         int target = world.hasNeighborSignal(pos) ? MAX_LEVEL : STOPS[lift.stop];
 
@@ -124,7 +128,7 @@ public class VehicleLiftBlockEntity extends BlockEntity {
                 lift.stepTimer = 0;
                 int way = Integer.signum(target - level);
                 level += way;
-                world.setBlock(pos, state.setValue(VehicleLiftBlock.LEVEL, level), Block.UPDATE_ALL);
+                block.setLevel(world, pos, state, level);
                 world.playSound(null, pos,
                         way > 0 ? SoundEvents.PISTON_EXTEND : SoundEvents.PISTON_CONTRACT,
                         SoundSource.BLOCKS, 0.3F, 0.6F);
