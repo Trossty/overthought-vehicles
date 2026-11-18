@@ -195,12 +195,13 @@ public final class ModItems {
 
     /** The insides of an engine, as they come out of one opened up on its stand. */
     public static final Item PISTONS = part("pistons");
+    public static final Item VALVES = part("valves");
     public static final Item HEAD_GASKET = part("head_gasket");
     public static final Item CRANKSHAFT = part("crankshaft");
 
     /** The insides of an engine in the order the stand keeps them. */
     public static Item[] engineInternals() {
-        return new Item[] {PISTONS, HEAD_GASKET, CRANKSHAFT};
+        return new Item[] {PISTONS, VALVES, HEAD_GASKET, CRANKSHAFT};
     }
 
     /** Car paint in a can, any colour the dyes mixed into it make. */
@@ -333,7 +334,7 @@ public final class ModItems {
                 entries.add(stack);
             }
         }
-        entries.add(TURBO, MOTOR_OIL, BRAKE_FLUID, WRENCH, JUMPER_CABLES, TIMING_BELT, CATALYTIC_CONVERTER, TYRE_PUMP, PISTONS, HEAD_GASKET, CRANKSHAFT,
+        entries.add(TURBO, MOTOR_OIL, BRAKE_FLUID, WRENCH, JUMPER_CABLES, TIMING_BELT, CATALYTIC_CONVERTER, TYRE_PUMP, PISTONS, VALVES, HEAD_GASKET, CRANKSHAFT,
                 TANKER_BARREL, PICKUP_BED);
     }
 

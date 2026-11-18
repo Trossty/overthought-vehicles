@@ -1,6 +1,8 @@
 package me.trossty.car.entity;
 
+import me.trossty.car.block.EngineHoistBlock;
 import me.trossty.car.block.VehicleLiftBlock;
+import me.trossty.car.block.entity.EngineHoistBlockEntity;
 import me.trossty.car.registry.ModComponents;
 import me.trossty.car.registry.ModItems;
 import net.minecraft.network.chat.Component;
@@ -175,19 +177,26 @@ public final class Workshop {
 
     /**
      * Whether a part can be worked on where the car is now: an under-bonnet
-     * part with the bonnet up, the engine itself only with a hoist beside the
-     * car as well, anything else on a raised lift. A lift reaches the engine
-     * from below too.
+     * part with the bonnet up, the engine itself only with a hoist's hook over
+     * the open bay as well, anything else on a raised lift.
      */
     public boolean isWorkable(CarPart part) {
-        boolean lifted = VehicleLiftBlock.isServicing(this.car.level(), this.car);
         if (!this.underBonnet(part)) {
-            return lifted;
+            return VehicleLiftBlock.isServicing(this.car.level(), this.car);
         }
-        if (part == CarPart.ENGINE) {
-            return lifted || this.car.isLidOpen(CarEntity.BONNET_BIT) && me.trossty.car.block.EngineHoistBlock.isNear(this.car.level(), this.car);
+        if (this.onTheHoist(part)) {
+            return this.car.isLidOpen(CarEntity.BONNET_BIT) && EngineHoistBlock.isNear(this.car.level(), this.car);
         }
         return this.car.isLidOpen(CarEntity.BONNET_BIT);
+    }
+
+    /**
+     * Whether this part comes out and goes in on a hoist's hook rather than
+     * by hand: the engine of a car with a bonnet, which is lifted out of the
+     * top. Without a bonnet — a motorcycle, a boat — it comes off the lift by hand.
+     */
+    public boolean onTheHoist(CarPart part) {
+        return part == CarPart.ENGINE && this.underBonnet(part);
     }
 
     /** Whether any part at all can be worked on where the car is now. */
@@ -212,6 +221,11 @@ public final class Workshop {
         return Component.translatable("message.car.needs_hoist");
     }
 
+    /** What is inside the engine, to go with it off the car; null for any other part, or none in. */
+    private EngineInternals.@Nullable Snapshot insideOf(CarPart part) {
+        return part == CarPart.ENGINE && this.car.parts().isFitted(part) ? this.car.parts().engine().snapshot() : null;
+    }
+
     /** The stack a part in the given condition comes off as: {@code count} of it, a set or one. */
     private static ItemStack asStack(CarPart part, float condition, CarPart.Quality quality,
                                      int variant, int count) {
@@ -234,6 +248,15 @@ public final class Workshop {
      * makes the part behind it reachable.
      */
     public InteractionResult removePart(Player player, CarPart part) {
+        return this.removePart(player, part, null);
+    }
+
+    /**
+     * Takes a part off; an engine that comes out on a hoist goes onto the
+     * hook of the one given, or of the nearest with an empty hook over the bay
+     * when none is, never into the player's pockets.
+     */
+    public InteractionResult removePart(Player player, CarPart part, @Nullable EngineHoistBlockEntity hoist) {
         if (!this.car.hasPart(part)) {
             // Not a part this vehicle has: a trailer has no engine to fit.
             return InteractionResult.PASS;
@@ -264,9 +287,21 @@ public final class Workshop {
         if (part == CarPart.WHEELS) {
             return this.removeTyre(player);
         }
+        boolean hooked = this.onTheHoist(part);
+        if (hooked) {
+            if (hoist == null) {
+                hoist = EngineHoistBlock.hoistOver(this.car.level(), this.car, true);
+            }
+            if (hoist == null || hoist.isHolding()) {
+                // Every hook over the bay has an engine on it already.
+                player.displayClientMessage(Component.translatable("message.car.hoist_full"), true);
+                return InteractionResult.CONSUME;
+            }
+        }
 
         float condition = this.car.parts().getCondition(part);
         CarPart.Quality quality = this.car.parts().getQuality(part);
+        EngineInternals.Snapshot inside = this.insideOf(part);
         this.car.parts().setCondition(part, 0.0F);
         // An empty slot has no quality to speak of, so it goes back to the
         // yardstick rather than keeping the last part's grade.
@@ -274,15 +309,24 @@ public final class Workshop {
         int variant = this.car.getVariant(part);
         boolean turbo = part == CarPart.ENGINE && CarSetup.turbo(this.car.getSetup());
         this.car.setVariant(part, 0);
-        this.handAside(player, asStack(part, condition, quality, variant, this.car.parts().countOf(part)));
+        ItemStack out = asStack(part, condition, quality, variant, this.car.parts().countOf(part));
+        if (inside != null) {
+            inside.stamp(out);
+        }
+        if (hooked) {
+            hoist.setEngine(out);
+        } else {
+            this.handAside(player, out);
+        }
         if (turbo) {
             // The turbo is bolted to the engine, so it comes away with it.
             this.car.setTurbo(false);
             this.handAside(player, new ItemStack(ModItems.TURBO));
         }
         this.playWrench();
-        player.displayClientMessage(Component.translatable("message.car.part_removed", name,
-                Math.round(condition / CarPart.MAX_CONDITION * 100.0F)), true);
+        int percent = Math.round(condition / CarPart.MAX_CONDITION * 100.0F);
+        player.displayClientMessage(hooked ? Component.translatable("message.car.engine_lifted", percent)
+                : Component.translatable("message.car.part_removed", name, percent), true);
         return InteractionResult.CONSUME;
     }
 
@@ -330,6 +374,16 @@ public final class Workshop {
      * refit it later if you are the sort who keeps a shed.
      */
     public InteractionResult fitPart(Player player, ItemStack spares, CarPart part) {
+        return this.fitPart(player, spares, part, null);
+    }
+
+    /**
+     * Fits a part; an engine that goes in on a hoist goes in only off the
+     * hook of the one given, whose engine {@code spares} is, and only into an
+     * empty bay — the old one comes out on a hook first.
+     */
+    public InteractionResult fitPart(Player player, ItemStack spares, CarPart part,
+                                     @Nullable EngineHoistBlockEntity hoist) {
         if (!this.car.hasPart(part)) {
             // Not a part this vehicle has: a trailer has no engine to fit.
             return InteractionResult.PASS;
@@ -372,6 +426,17 @@ public final class Workshop {
         if (part == CarPart.WHEELS) {
             return this.fitTyre(player, spares);
         }
+        if (this.onTheHoist(part)) {
+            if (hoist == null) {
+                // Too heavy to hold up and bolt in: it goes in on the hook.
+                player.displayClientMessage(Component.translatable("message.car.engine_by_hoist"), true);
+                return InteractionResult.CONSUME;
+            }
+            if (this.car.parts().isFitted(part)) {
+                player.displayClientMessage(Component.translatable("message.car.engine_bay_full"), true);
+                return InteractionResult.CONSUME;
+            }
+        }
         if (spares.getCount() < this.car.parts().countOf(part)) {
             player.displayClientMessage(
                     Component.translatable("message.car.part_needs", this.car.parts().countOf(part), name), true);
@@ -380,6 +445,7 @@ public final class Workshop {
 
         float removed = this.car.parts().getCondition(part);
         CarPart.Quality removedQuality = this.car.parts().getQuality(part);
+        EngineInternals.Snapshot removedInside = this.insideOf(part);
         float fitting = conditionOf(spares);
         CarPart.Quality fittingQuality = qualityOf(spares);
         int removedVariant = this.car.getVariant(part);
@@ -399,7 +465,15 @@ public final class Workshop {
         this.car.parts().setCondition(part, fitting);
         this.car.parts().setQuality(part, fittingQuality);
         this.car.setVariant(part, fittingVariant);
-        if (!player.isCreative()) {
+        if (part == CarPart.ENGINE) {
+            // Read before the hook lets go of it: the engine is what it was inside.
+            this.car.parts().engine().set(EngineInternals.Snapshot.of(spares));
+            fitting = this.car.parts().getCondition(part);
+        }
+        if (hoist != null) {
+            // Off the hook and into the bay, creative or not: it is the same engine.
+            hoist.takeEngine();
+        } else if (!player.isCreative()) {
             spares.shrink(this.car.parts().countOf(part));
         }
 
@@ -412,7 +486,11 @@ public final class Workshop {
             return InteractionResult.CONSUME;
         }
         // The old one goes into your pockets rather than on the floor.
-        this.handAside(player, asStack(part, removed, removedQuality, removedVariant, this.car.parts().countOf(part)));
+        ItemStack old = asStack(part, removed, removedQuality, removedVariant, this.car.parts().countOf(part));
+        if (removedInside != null) {
+            removedInside.stamp(old);
+        }
+        this.handAside(player, old);
         this.playWrench();
         player.displayClientMessage(Component.translatable("message.car.part_fitted", name,
                 fittedNow, fittedPercent), true);

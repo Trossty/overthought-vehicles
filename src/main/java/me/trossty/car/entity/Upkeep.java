@@ -85,9 +85,6 @@ public final class Upkeep {
     /** Past this much of its life a belt is due, and the scanner says so. */
     public static final float BELT_DUE = 0.8F;
 
-    /** What a snapped belt leaves of the engine: the valves meet the pistons. */
-    private static final float SNAPPED_ENGINE = 0.12F;
-
     /** A clean-running engine takes about fifteen hours to choke its converter. */
     private static final float CAT_CLOGGING = 1.0F / 1080000.0F;
 
@@ -176,12 +173,11 @@ public final class Upkeep {
         }
     }
 
-    /** The belt lets go: the engine stops dead and the valves are bent. */
-    private void snapBelt() {
+    /** The belt lets go: the engine stops dead and the valves it caught open are bent. */
+    public void snapBelt() {
         this.setBeltWear(1.0F);
         if (this.car.parts().isFitted(CarPart.ENGINE)) {
-            this.car.parts().setCondition(CarPart.ENGINE, Math.min(this.car.parts().getCondition(CarPart.ENGINE),
-                    CarPart.MAX_CONDITION * SNAPPED_ENGINE));
+            this.car.parts().engine().bendValves();
         }
         this.car.flyDist *= 0.5F;
         this.car.playSound(SoundEvents.ITEM_BREAK, 1.2F, 0.6F);
@@ -325,16 +321,26 @@ public final class Upkeep {
                 || this.car.level().getBlockState(at.below()).is(me.trossty.car.registry.ModBlocks.DYNO);
     }
 
-    /** A worn engine gets oil past its rings and burns it: blue smoke. */
+    /** Worn rings in any one cylinder let the oil past, and it burns: blue smoke. */
     public boolean isBurningOil() {
-        return this.car.hasPart(CarPart.ENGINE) && this.car.parts().isFitted(CarPart.ENGINE)
-                && this.car.parts().getConditionFraction(CarPart.ENGINE) <= FaultCodes.WARNING;
+        return this.engineIn()
+                && this.car.parts().engine().worstRing() / CarPart.MAX_CONDITION <= FaultCodes.WARNING;
     }
 
-    /** A worn-out engine has blown its head gasket: coolant in the cylinders, white smoke. */
+    /** A cooked head gasket has blown: coolant in the cylinders, white smoke. */
     public boolean isGasketBlown() {
-        return this.car.hasPart(CarPart.ENGINE) && this.car.parts().isFitted(CarPart.ENGINE)
-                && this.car.parts().getConditionFraction(CarPart.ENGINE) <= FaultCodes.CRITICAL;
+        return this.engineIn()
+                && this.car.parts().engine().gasket() / CarPart.MAX_CONDITION <= FaultCodes.CRITICAL;
+    }
+
+    /** Worn crank bearings rattle in their shells, oil or no oil. */
+    public boolean areBearingsWorn() {
+        return this.engineIn()
+                && this.car.parts().engine().bearings() / CarPart.MAX_CONDITION <= FaultCodes.CRITICAL;
+    }
+
+    private boolean engineIn() {
+        return this.car.hasPart(CarPart.ENGINE) && this.car.parts().isFitted(CarPart.ENGINE);
     }
 
     /** Oil dripping out: no filter screwed on, or one rusted through. */
@@ -351,9 +357,9 @@ public final class Upkeep {
                 && this.car.parts().getConditionFraction(CarPart.SPARK_PLUGS) <= FaultCodes.WARNING;
     }
 
-    /** An engine short of oil, or worn to nothing, knocks. */
+    /** An engine short of oil knocks, and so does one whose bearings are gone. */
     public boolean isKnocking() {
-        return this.hasOil() && this.getOilLevel() < OIL_STARVED || this.isGasketBlown();
+        return this.hasOil() && this.getOilLevel() < OIL_STARVED || this.areBearingsWorn();
     }
 
     public float getOilAge() {

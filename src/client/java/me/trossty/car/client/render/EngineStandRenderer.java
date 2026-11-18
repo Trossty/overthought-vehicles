@@ -40,13 +40,14 @@ public class EngineStandRenderer implements BlockEntityRenderer<EngineStandBlock
         Minecraft client = Minecraft.getInstance();
         if (stand.isStripped()) {
             // Opened up: the insides laid out in a row on top of the block.
-            for (int slot = 0; slot < 3; slot++) {
+            int count = stand.getInternals().size();
+            for (int slot = 0; slot < count; slot++) {
                 ItemStack inside = stand.getInternals().get(slot);
                 if (inside.isEmpty()) {
                     continue;
                 }
                 pose.pushPose();
-                pose.translate((slot - 1) * 0.3F, 0.42F, 0.0F);
+                pose.translate((slot - (count - 1) / 2.0F) * 0.26F, 0.42F, 0.0F);
                 pose.scale(0.32F, 0.32F, 0.32F);
                 client.getItemRenderer().renderStatic(inside, ItemDisplayContext.FIXED, light,
                         OverlayTexture.NO_OVERLAY, pose, buffers, stand.getLevel(), slot + 1);

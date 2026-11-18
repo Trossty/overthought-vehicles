@@ -443,6 +443,61 @@ ulaşmak için şaft ve şanzıman. Oyun hangisinin yolu kapattığını söylü
 **en dıştakini** söylüyor — şaft hâlâ takılıyken "debriyajı sök" demenin anlamı
 yok.
 
+### Motor vinçle çıkıyor, sehpaya oturuyor
+
+Kaputlu bir arabanın motoru elle sökülmüyor, elle takılmıyor, lift de onu
+serbest bırakmıyor: üstten, **motor vinciyle** çıkıyor.
+
+1. Kaputu aç, hava filtresiyle bujileri sök.
+2. Vinci arabanın burnuna koy. Koyarken arabaya bakıyorsan bom kaputun üstüne
+   gelir; kanca bölmenin ortasından en çok 1,5 blok uzakta olmalı.
+3. Vince **boş elle** tıkla (ya da motora, ya da servis ekranındaki **Sök**'e):
+   motor kancaya çıkıyor. Cebe hiç girmiyor. Turbo varsa motorla birlikte
+   sökülüp sana geliyor.
+4. **Çömelip** tıklamak bomu saat yönünde çeyrek tur döndürüyor; motor kancada
+   onunla dönüyor.
+5. Kanca bir **motor sehpasının** üstüne gelince tıkla: motor sehpaya oturuyor.
+   Oradan anahtarla açılıyor, iç parçaları tek tek çıkıyor.
+
+Geri takmak aynı yolun tersi: toplanmış motoru sehpadan kancaya al (açık
+motor kaldırılmıyor), bomu bölmeye çevir, tıkla. Motor yalnızca **boş
+bölmeye** iniyor; içeride motor varsa önce o çıkıyor. Dükkândan alınmış bir
+motor elde vince tıklanınca boş kancaya asılıyor. Vinç kırılırsa kancadaki
+motor yere düşüyor.
+
+Kaputu olmayan araçlarda (motosiklet, tekne, uçak) motor eskisi gibi liftten
+elle sökülüyor.
+
+### Motorun içi
+
+Motorun tek bir yüzdesi yok; o yüzde içindekilerin ortalaması:
+
+| İç parça | Ne aşındırır | Bitince |
+|----------|--------------|---------|
+| Segmanlar (silindir başına) | Kilometre, kirli yağ, kirli yakıt | O silindirin kompresyonu düşer; en kötüsü yağ yakar (mavi duman) |
+| Supaplar (silindir başına) | Kirli yakıt; kopan triger kayışı **eğer** | Eğik supaplı silindir neredeyse hiç sıkıştırmaz, teklemeyle güç kaybı |
+| Silindir kapak contası | Hararet (motor kaynarken çok hızlı) | Conta yanar: iki komşu silindir düşer, su eksilir, beyaz duman |
+| Krank yatakları | Az ya da kirli yağ | Vuruntu, yağ dolu olsa bile |
+
+Silindirler birbirinin aynısı aşınmıyor; her aracın kendine göre zayıf bir
+silindiri olur. Kopan kayış her zaman ilk silindirin ve aşağı yukarı yarısının
+supaplarını eğer; yeni kayış motoru çalıştırır ama eğik supaplar eğik kalır,
+o silindirler güç vermez. Kompresyon ölçer her silindiri kendi segmanından,
+supabından ve contasından okur.
+
+Motor söküldüğünde içindekiler **motor eşyasında** kalır. Sehpada anahtarla
+açınca dört parça çıkar: **pistonlar**, **supaplar**, **conta** ve **krank mili**.
+Piston ve supap takımı her silindirin değerini taşır; ipucunda
+`Silindir silindir: 1: %90 2: %30 …` diye görünür, eğik supap %0'dır. Aynı
+parçaları geri takmak aynı motoru verir; kötüsünü yenisiyle değiştirmek yalnızca
+o kısmı düzeltir. Supaplar demirden yapılır:
+
+```
+N N
+N N      N = demir parçası, I = demir külçe
+I I
+```
+
 ### Servis ekranı
 
 Arabaya **çömelip sağ tıklamak** (ya da **Teşhis Panosu** ile tıklamak) servis
@@ -2118,8 +2173,8 @@ Bazı kodlar parçayı değil belirtiyi gösterir; tablet altına "Olası: …" 
 | C0045 | Fren titremesi (köşe) | Disk, balata |
 
 C0040/C0750/C0690 en kötü köşeyi adıyla söyler. Ayırmak oyuncunun işi:
-bujileri sökünce kompresyon ölçer contanın iki silindirini gösterir; tek
-silindirde düşük buji ise bujidir.
+bujileri sökünce kompresyon ölçer contanın iki silindirini, eğik supaplı ya da
+segmanı bitmiş silindiri gösterir; kompresyonu tamam ama teklerse bujidir.
 
 #### Sökmeden görünmeyen aşınma
 

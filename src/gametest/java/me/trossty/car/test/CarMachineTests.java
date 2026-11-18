@@ -3,6 +3,8 @@ package me.trossty.car.test;
 import me.trossty.car.block.BatteryBankBlock;
 import me.trossty.car.block.ChargingPostBlock;
 import me.trossty.car.block.EnergyCableBlock;
+import me.trossty.car.block.EngineHoistBlock;
+import me.trossty.car.block.entity.EngineHoistBlockEntity;
 import me.trossty.car.block.entity.BatteryBankBlockEntity;
 import me.trossty.car.block.entity.ChargingPostBlockEntity;
 import me.trossty.car.entity.BodyZone;
@@ -10,6 +12,7 @@ import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.entity.CarParts;
 import me.trossty.car.entity.CarSetup;
+import me.trossty.car.entity.EngineInternals.Snapshot;
 import me.trossty.car.entity.FaultCodes;
 import me.trossty.car.entity.Workshop;
 import me.trossty.car.registry.ModEntities;
@@ -1520,8 +1523,7 @@ public class CarMachineTests {
         context.assertFalse(car.parts().isFitted(CarPart.AIR_FILTER), "the air filter did not come out with the bonnet up");
         context.assertFalse(car.workshop().isWorkable(CarPart.ENGINE), "the engine came free without a lift or a hoist");
         context.assertFalse(car.workshop().isWorkable(CarPart.WHEELS), "the wheels came off a car on the ground");
-        BlockPos hoist = BlockPos.containing(car.bonnetCentre()).atY(car.blockPosition().getY());
-        context.getLevel().setBlockAndUpdate(hoist, ModBlocks.ENGINE_HOIST.defaultBlockState());
+        hoistAtNose(context, car);
         context.assertTrue(car.workshop().isWorkable(CarPart.ENGINE), "a hoist beside the open bonnet did not reach the engine");
         car.setLidOpen(CarEntity.BONNET_BIT, false);
         context.assertFalse(car.workshop().isWorkable(CarPart.ENGINE), "the hoist reached the engine through a shut bonnet");
@@ -1623,9 +1625,10 @@ public class CarMachineTests {
         context.assertTrue(low >= 0, "no two cylinders side by side read low for the gasket");
 
         car.parts().setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION);
-        car.upkeep().setBeltWear(1.0F);
-        context.assertTrue(me.trossty.car.item.CompressionTesterItem.read(car).verdict()
-                == me.trossty.car.item.CompressionTesterItem.Verdict.BENT_VALVES, "a snapped belt did not show bent valves");
+        car.upkeep().snapBelt();
+        var bent = me.trossty.car.item.CompressionTesterItem.read(car);
+        context.assertTrue(bent.verdict() == me.trossty.car.item.CompressionTesterItem.Verdict.BENT_VALVES
+                && bent.cylinders()[0] < bent.spec() * 0.2F, "a snapped belt did not show bent valves");
 
         // Used for real: it wants the bonnet up and the plugs out, and does not get used up.
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
@@ -1781,19 +1784,236 @@ public class CarMachineTests {
         BlockPos at = new BlockPos(2, 1, 2);
         context.setBlock(at, ModBlocks.ENGINE_STAND.defaultBlockState());
         var stand = (me.trossty.car.block.entity.EngineStandBlockEntity) context.getBlockEntity(at);
-        ItemStack engine = new ItemStack(me.trossty.car.registry.ModItems.ENGINE);
-        engine.set(me.trossty.car.registry.ModComponents.PART_CONDITION, 40);
-        stand.setEngine(engine);
-        stand.strip(context.getLevel().getRandom());
-        float sum = 0.0F;
+
+        // An engine alike all through comes apart alike all through, and goes back the same.
+        ItemStack plain = new ItemStack(me.trossty.car.registry.ModItems.ENGINE);
+        plain.set(me.trossty.car.registry.ModComponents.PART_CONDITION, 40);
+        stand.setEngine(plain);
+        stand.strip();
+        context.assertTrue(stand.getInternals().size() == 4, "the stand does not keep four insides");
         for (ItemStack inside : stand.getInternals()) {
-            sum += Workshop.conditionOf(inside);
+            context.assertTrue(Math.round(Workshop.conditionOf(inside)) == 40
+                    && !inside.has(me.trossty.car.registry.ModComponents.PART_CYLINDERS),
+                    "an even engine came apart uneven: " + inside);
         }
-        context.assertTrue(Math.abs(sum / 3.0F - 40.0F) < 1.0F, "the insides did not average to the engine");
-        ItemStack fresh = new ItemStack(me.trossty.car.registry.ModItems.PISTONS);
-        stand.setInternal(0, fresh);
         stand.rebuild();
-        context.assertTrue(Workshop.conditionOf(stand.getEngine()) > 40.0F, "new pistons did not freshen the engine");
+        context.assertTrue(Math.round(Workshop.conditionOf(stand.getEngine())) == 40
+                && !stand.getEngine().has(me.trossty.car.registry.ModComponents.ENGINE_INTERNALS),
+                "an even engine put back as it was came out different");
+
+        // One worn unevenly comes apart cylinder by cylinder, bent valves and all.
+        Snapshot worn = new Snapshot(java.util.List.of(90, 30, 85, 80), java.util.List.of(0, 100, 0, 95), 70, 50);
+        ItemStack engine = new ItemStack(me.trossty.car.registry.ModItems.ENGINE);
+        engine.set(me.trossty.car.registry.ModComponents.PART_CONDITION, Math.round(worn.condition()));
+        worn.stamp(engine);
+        stand.setEngine(engine);
+        stand.strip();
+        var internals = stand.getInternals();
+        context.assertTrue(worn.rings().equals(internals.get(0).get(me.trossty.car.registry.ModComponents.PART_CYLINDERS)),
+                "the pistons did not keep each cylinder's rings");
+        context.assertTrue(worn.valves().equals(internals.get(1).get(me.trossty.car.registry.ModComponents.PART_CYLINDERS)),
+                "the valves did not keep each cylinder's wear");
+        context.assertTrue(Math.round(Workshop.conditionOf(internals.get(2))) == 70
+                && Math.round(Workshop.conditionOf(internals.get(3))) == 50, "the gasket or the bearings came out wrong");
+        stand.rebuild();
+        context.assertTrue(Snapshot.of(stand.getEngine()).equals(worn), "a worn engine put back as it was came out different");
+
+        // New valves in place of the bent ones make a better engine, and nothing else changes.
+        stand.strip();
+        stand.setInternal(1, new ItemStack(me.trossty.car.registry.ModItems.VALVES));
+        stand.rebuild();
+        Snapshot fixed = Snapshot.of(stand.getEngine());
+        context.assertTrue(fixed.rings().equals(worn.rings()) && fixed.valves().stream().allMatch(v -> v == 100)
+                && fixed.gasket() == 70 && fixed.bearings() == 50, "new valves did not go in on their own: " + fixed);
+        context.assertTrue(Workshop.conditionOf(stand.getEngine()) > worn.condition(), "new valves did not freshen the engine");
+        context.succeed();
+    }
+
+    /**
+     * What is inside the engine is the engine's own and stays with it: up on
+     * the hook, onto the stand, apart and back together, and into the car
+     * again. Each fault comes from its own part of it: a worn set of rings
+     * burns oil, bent valves leave their cylinders with nothing, and worn
+     * bearings knock however much oil there is.
+     */
+    @GameTest(template = "empty")
+    public static void engineKeepsItsInsidesThroughTheGarage(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        car.setLidOpen(CarEntity.BONNET_BIT, true);
+        for (CarPart above : CarPart.ENGINE.blockedBy()) {
+            car.parts().setCondition(above, 0.0F);
+        }
+        var engine = car.parts().engine();
+        int cylinders = engine.cylinders();
+        java.util.List<Integer> rings = new java.util.ArrayList<>(java.util.Collections.nCopies(cylinders, 90));
+        rings.set(1, 30);
+        engine.set(new Snapshot(rings, java.util.Collections.nCopies(cylinders, 100), 70, 50));
+        context.assertTrue(car.upkeep().isBurningOil() && !car.upkeep().isGasketBlown() && !car.upkeep().isKnocking(),
+                "one worn set of rings did not burn oil on its own");
+        float ringMean = (90.0F * (cylinders - 1) + 30.0F) / cylinders;
+        context.assertTrue(Math.abs(car.parts().getCondition(CarPart.ENGINE) - (ringMean + 100.0F + 70.0F + 50.0F) / 4.0F) < 0.01F,
+                "the engine's condition is not the average of its insides: " + car.parts().getCondition(CarPart.ENGINE));
+
+        // A snapped belt bends the first cylinder's valves, and a new belt does not straighten them.
+        car.upkeep().snapBelt();
+        car.upkeep().setBeltWear(0.0F);
+        context.assertTrue(engine.isBent(0) && car.parts().firing() < 1.0F, "the snapped belt bent no valves");
+        var reading = me.trossty.car.item.CompressionTesterItem.read(car);
+        context.assertTrue(reading.verdict() == me.trossty.car.item.CompressionTesterItem.Verdict.BENT_VALVES
+                && reading.cylinders()[0] < reading.spec() * 0.2F, "the tester did not find the bent valves");
+        Snapshot before = engine.snapshot();
+
+        BlockPos at = hoistAtNose(context, car);
+        var hoist = (EngineHoistBlockEntity) context.getLevel().getBlockEntity(at);
+        clickHoist(context, at, player, false);
+        context.assertTrue(Snapshot.of(hoist.getEngine()).equals(before), "the engine left its insides in the car");
+
+        BlockPos standAt = context.absolutePos(new BlockPos(0, 1, 0));
+        context.getLevel().setBlockAndUpdate(standAt, ModBlocks.ENGINE_STAND.defaultBlockState());
+        var stand = (me.trossty.car.block.entity.EngineStandBlockEntity) context.getLevel().getBlockEntity(standAt);
+        stand.setEngine(hoist.takeEngine());
+        stand.strip();
+        stand.setInternal(1, new ItemStack(me.trossty.car.registry.ModItems.VALVES));
+        stand.rebuild();
+        hoist.setEngine(stand.getEngine());
+        stand.setEngine(ItemStack.EMPTY);
+        clickHoist(context, at, player, false);
+        context.assertTrue(car.parts().isFitted(CarPart.ENGINE), "the rebuilt engine did not go back in");
+        Snapshot after = engine.snapshot();
+        context.assertTrue(after.rings().equals(before.rings()) && after.gasket() == 70 && after.bearings() == 50
+                && after.valves().stream().allMatch(v -> v == 100), "the engine went back in different: " + after);
+        context.assertTrue(!engine.isBent(0) && car.parts().firing() == 1.0F, "new valves did not cure the bent ones");
+        context.assertTrue(me.trossty.car.item.CompressionTesterItem.read(car).verdict()
+                == me.trossty.car.item.CompressionTesterItem.Verdict.WORN, "the worn rings did not read worn");
+
+        // Bearings worn through knock with the sump full.
+        engine.set(new Snapshot(rings, java.util.Collections.nCopies(cylinders, 100), 70, 10));
+        context.assertTrue(car.upkeep().isKnocking() && !car.upkeep().isGasketBlown(), "worn bearings did not knock");
+        car.discard();
+        context.succeed();
+    }
+
+    /**
+     * A hoist at the car's nose with its boom over the bonnet, the way a
+     * player standing in front of the car puts one down. Its world position.
+     */
+    private static BlockPos hoistAtNose(GameTestHelper context, CarEntity car) {
+        Direction ahead = Direction.fromYRot(car.getYRot());
+        net.minecraft.world.phys.Vec3 nose = car.bonnetCentre().add(
+                ahead.getStepX() * EngineHoistBlock.HOOK_OUT, 0.0, ahead.getStepZ() * EngineHoistBlock.HOOK_OUT);
+        BlockPos at = BlockPos.containing(nose).atY(car.blockPosition().getY());
+        context.getLevel().setBlockAndUpdate(at, ModBlocks.ENGINE_HOIST.defaultBlockState()
+                .setValue(EngineHoistBlock.FACING, ahead.getOpposite()));
+        return at;
+    }
+
+    /** An empty-handed click on a hoist, sneaking or not. */
+    private static void clickHoist(GameTestHelper context, BlockPos at, net.minecraft.world.entity.player.Player player,
+                                   boolean sneaking) {
+        player.setShiftKeyDown(sneaking);
+        context.getLevel().getBlockState(at).useWithoutItem(context.getLevel(), player,
+                new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(at), Direction.UP, at, false));
+        player.setShiftKeyDown(false);
+    }
+
+    /**
+     * The engine of a car with a bonnet comes out the way it does in a
+     * garage: up onto the hoist's hook, never into the pockets. The boom
+     * swings round over a stand and sets it down there; the same the other
+     * way puts it back in. A hand gets it neither out nor in.
+     */
+    @GameTest(template = "empty")
+    public static void engineGoesOutOnTheHoistAndOntoTheStand(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        car.setLidOpen(CarEntity.BONNET_BIT, true);
+        for (CarPart above : CarPart.ENGINE.blockedBy()) {
+            car.parts().setCondition(above, 0.0F);
+        }
+        car.parts().setCondition(CarPart.ENGINE, 60.0F);
+        car.workshop().serviceByHand(player, CarPart.ENGINE);
+        context.assertTrue(car.parts().isFitted(CarPart.ENGINE), "the engine came out with no hoist");
+
+        BlockPos at = hoistAtNose(context, car);
+        var hoist = (EngineHoistBlockEntity) context.getLevel().getBlockEntity(at);
+        clickHoist(context, at, player, false);
+        context.assertFalse(car.parts().isFitted(CarPart.ENGINE), "clicking the hoist did not lift the engine out");
+        context.assertTrue(hoist.getEngine().is(me.trossty.car.registry.ModItems.ENGINE)
+                && Math.round(Workshop.conditionOf(hoist.getEngine())) == 60, "the engine is not on the hook as it was");
+        context.assertTrue(player.getInventory().countItem(me.trossty.car.registry.ModItems.ENGINE) == 0,
+                "the engine went into the pockets");
+
+        // A quarter turn clockwise from over the bay, and the hook hangs over a stand.
+        Direction boom = context.getLevel().getBlockState(at).getValue(EngineHoistBlock.FACING);
+        BlockPos standAt = at.relative(boom.getClockWise());
+        context.getLevel().setBlockAndUpdate(standAt, ModBlocks.ENGINE_STAND.defaultBlockState());
+        var stand = (me.trossty.car.block.entity.EngineStandBlockEntity) context.getLevel().getBlockEntity(standAt);
+        clickHoist(context, at, player, true);
+        context.assertTrue(context.getLevel().getBlockState(at).getValue(EngineHoistBlock.FACING) == boom.getClockWise(),
+                "sneaking did not swing the boom");
+        context.assertTrue(context.getLevel().getBlockEntity(at) == hoist && hoist.isHolding(),
+                "the engine fell off the hook in the swing");
+        clickHoist(context, at, player, false);
+        context.assertFalse(hoist.isHolding(), "the engine stayed on the hook over the stand");
+        context.assertTrue(Math.round(Workshop.conditionOf(stand.getEngine())) == 60,
+                "the stand did not get the engine as it was");
+
+        // An engine held up to the empty bay does not go in by hand.
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.ENGINE));
+        car.workshop().serviceByHand(player, CarPart.ENGINE);
+        context.assertFalse(car.parts().isFitted(CarPart.ENGINE), "an engine went in by hand");
+        context.assertTrue(player.getMainHandItem().is(me.trossty.car.registry.ModItems.ENGINE),
+                "the engine in hand was used up");
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+
+        // And back: off the stand, round over the bay, and down into it.
+        clickHoist(context, at, player, false);
+        context.assertTrue(hoist.isHolding() && stand.getEngine().isEmpty(), "the hook did not take the engine off the stand");
+        for (int turn = 0; turn < 3; turn++) {
+            clickHoist(context, at, player, true);
+        }
+        clickHoist(context, at, player, false);
+        context.assertTrue(car.parts().isFitted(CarPart.ENGINE) && Math.round(car.parts().getCondition(CarPart.ENGINE)) == 60,
+                "the engine did not go back in off the hook");
+        context.assertFalse(hoist.isHolding(), "the engine stayed on the hook as well");
+        car.discard();
+        context.succeed();
+    }
+
+    /** What hangs on the hook is kept with the hoist, and falls when the hoist is knocked down. */
+    @GameTest(template = "empty")
+    public static void hoistKeepsAndDropsItsEngine(GameTestHelper context) {
+        BlockPos at = context.absolutePos(new BlockPos(2, 1, 2));
+        context.getLevel().setBlockAndUpdate(at, ModBlocks.ENGINE_HOIST.defaultBlockState());
+        var hoist = (EngineHoistBlockEntity) context.getLevel().getBlockEntity(at);
+        ItemStack engine = new ItemStack(me.trossty.car.registry.ModItems.ENGINE);
+        engine.set(me.trossty.car.registry.ModComponents.PART_CONDITION, 35);
+        hoist.setEngine(engine);
+        var registries = context.getLevel().registryAccess();
+        var copy = new EngineHoistBlockEntity(at, hoist.getBlockState());
+        copy.loadWithComponents(hoist.saveWithoutMetadata(registries), registries);
+        context.assertTrue(Math.round(Workshop.conditionOf(copy.getEngine())) == 35, "the hook forgot its engine");
+        context.getLevel().removeBlock(at, false);
+        context.assertTrue(!context.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(at).inflate(2.0), e -> e.getItem().is(me.trossty.car.registry.ModItems.ENGINE)).isEmpty(),
+                "the engine vanished with the hoist");
+        context.succeed();
+    }
+
+    /** A lift reaches everything under a car, but the engine of one with a bonnet comes out of the top. */
+    @GameTest(template = "empty")
+    public static void aLiftDoesNotFreeTheEngine(GameTestHelper context) {
+        BlockPos lift = new BlockPos(3, 1, 3);
+        context.setBlock(lift, ModBlocks.VEHICLE_LIFT.defaultBlockState()
+                .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
+        CarEntity car = context.spawn(ModEntities.CAR, lift.above());
+        car.moveTo(car.getX(), car.getY(), car.getZ(), 0.0F, 0.0F);
+        car.setLidOpen(CarEntity.BONNET_BIT, true);
+        context.assertTrue(car.workshop().isWorkable(CarPart.WHEELS), "the raised lift did not reach the wheels");
+        context.assertFalse(car.workshop().isWorkable(CarPart.ENGINE), "the lift freed the engine without a hoist");
+        car.discard();
         context.succeed();
     }
 

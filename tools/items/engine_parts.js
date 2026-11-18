@@ -332,6 +332,25 @@ k.model('pistons', {}, () => {
     }
 });
 
+// ---- valves ---------------------------------------------------------------------
+// tools/items/valves_json.py writes the same model without Blockbench; keep the two alike.
+
+k.model('valves', {}, () => {
+    // a set of four standing on their heads, each with its spring and retainer
+    for (const x of [3.4, 6.5, 9.5, 12.6]) {
+        k.g('valve');
+        k.round('y', x, 2.6, 8, 1.3, 0.5, C.STEEL);
+        k.round('y', x, 3.05, 8, 0.75, 0.4, C.STEEL);
+        k.round('y', x, 7.75, 8, 0.28, 9.5, C.CHROME);
+        k.g('spring');
+        k.round('y', x, 9.9, 8, 0.8, 3.2, C.DARK_STEEL);
+        for (const y of [8.7, 9.5, 10.3, 11.1]) {
+            k.round('y', x, y, 8, 0.92, 0.3, C.IRON);
+        }
+        k.round('y', x, 11.7, 8, 0.75, 0.4, C.ALU);
+    }
+});
+
 // ---- clutch ---------------------------------------------------------------------
 
 k.model('clutch', {gui: [18, 203, 0]}, () => {

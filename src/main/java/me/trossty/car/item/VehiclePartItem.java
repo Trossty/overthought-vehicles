@@ -81,6 +81,19 @@ public class VehiclePartItem extends Item {
                         .withStyle(ChatFormatting.DARK_AQUA));
             }
         }
+        java.util.List<Integer> cylinders = stack.get(me.trossty.car.registry.ModComponents.PART_CYLINDERS);
+        if (cylinders != null) {
+            // Pistons and valves out of an engine: each cylinder's own, a bent one at nothing.
+            net.minecraft.network.chat.MutableComponent line = Component.translatable("tooltip.car.cylinders");
+            for (int i = 0; i < cylinders.size(); i++) {
+                int condition = cylinders.get(i);
+                line.append(" ").append(Component.translatable("tooltip.car.cylinder", i + 1, condition)
+                        .withStyle(condition / CarPart.MAX_CONDITION <= me.trossty.car.entity.FaultCodes.CRITICAL
+                                ? ChatFormatting.RED : condition / CarPart.MAX_CONDITION <= me.trossty.car.entity.FaultCodes.WARNING
+                                ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+            }
+            tooltip.accept(line.withStyle(ChatFormatting.GRAY));
+        }
         CarPart.Quality quality = Workshop.qualityOf(stack);
         tooltip.accept(Component.translatable("tooltip.car.part_quality",
                         Component.translatable("quality.car." + quality.key()))

@@ -3,6 +3,7 @@ package me.trossty.car.item;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.entity.CarSetup;
+import me.trossty.car.entity.EngineInternals;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -17,8 +18,9 @@ import java.util.Locale;
  * The compression tester: a gauge on a hose that screws into a plug hole.
  * The engine is turned over on the starter and each cylinder reads what it
  * squeezes. It shows what the tablet cannot see, the inside of the engine:
- * low all round is worn rings, two side by side is the head gasket between
- * them, next to nothing is valves bent by a snapped belt.
+ * a low one has worn rings, two side by side is the head gasket between
+ * them, next to nothing is valves bent by a snapped belt. Each reading is
+ * that cylinder's own, from {@link me.trossty.car.entity.EngineInternals}.
  *
  * <p>The readings come from the car as it is, the same every time it is
  * tested, so a second go confirms the first rather than rolling new numbers.
@@ -64,31 +66,29 @@ public final class CompressionTesterItem {
     /** What each cylinder of this car's engine reads. */
     public static Reading read(CarEntity car) {
         float spec = spec(car);
-        int count = car.getLayout().cylinders();
+        EngineInternals engine = car.parts().engine();
+        int count = engine.cylinders();
         float[] bar = new float[count];
         long seed = car.getUUID().getLeastSignificantBits() ^ car.getUUID().getMostSignificantBits();
-        float health = 0.45F + 0.55F * car.parts().getConditionFraction(CarPart.ENGINE);
+        int gasket = gasketCylinder(car);
+        boolean bent = false;
+        boolean worn = false;
         for (int i = 0; i < count; i++) {
-            // No two cylinders read quite the same: a few per cent either way.
-            bar[i] = spec * health * (1.0F + 0.04F * jitter(seed, i));
-        }
-        Verdict verdict;
-        if (car.upkeep().isBeltSnapped()) {
-            for (int i = 0; i < count; i++) {
-                // Most valves are bent; the odd one escapes.
-                if (i == 0 || jitter(seed, i + 31) < 0.5F) {
-                    bar[i] = spec * BENT * (1.0F + 0.5F * jitter(seed, i + 7));
-                }
+            if (engine.isBent(i)) {
+                bar[i] = spec * BENT * (1.0F + 0.5F * jitter(seed, i + 7));
+                bent = true;
+            } else if (gasket >= 0 && (i == gasket || i == gasket + 1)) {
+                bar[i] = spec * GASKET * (1.0F + 0.1F * jitter(seed, 50 + i));
+            } else {
+                // The rings decide what a sound cylinder holds, and no two
+                // read quite the same: a few per cent either way.
+                float health = 0.45F + 0.55F * engine.ring(i) / CarPart.MAX_CONDITION;
+                bar[i] = spec * health * (1.0F + 0.04F * jitter(seed, i));
+                worn |= health < LOW;
             }
-            verdict = Verdict.BENT_VALVES;
-        } else if (car.upkeep().isGasketBlown()) {
-            int first = gasketCylinder(car);
-            bar[first] = spec * GASKET * (1.0F + 0.1F * jitter(seed, 50));
-            bar[first + 1] = spec * GASKET * (1.0F + 0.1F * jitter(seed, 51));
-            verdict = Verdict.GASKET;
-        } else {
-            verdict = health < LOW ? Verdict.WORN : Verdict.GOOD;
         }
+        Verdict verdict = bent ? Verdict.BENT_VALVES : gasket >= 0 ? Verdict.GASKET
+                : worn ? Verdict.WORN : Verdict.GOOD;
         return new Reading(spec, bar, verdict);
     }
 
@@ -100,16 +100,19 @@ public final class CompressionTesterItem {
         if (!car.upkeep().isGasketBlown()) {
             return -1;
         }
-        int count = car.getLayout().cylinders();
+        int count = car.parts().engine().cylinders();
         long seed = car.getUUID().getLeastSignificantBits() ^ car.getUUID().getMostSignificantBits();
         return (int) Math.floorMod(seed, (long) (count - 1));
     }
 
     /**
      * How much of its squeeze this cylinder has lost, 0 for a sound one: what
-     * makes it misfire however good its plug.
+     * makes it misfire however good its plug, and push for nothing.
      */
     public static float compressionLoss(CarEntity car, int cylinder) {
+        if (car.parts().engine().isBent(cylinder)) {
+            return 1.0F - BENT;
+        }
         int gasket = gasketCylinder(car);
         return gasket >= 0 && (cylinder == gasket || cylinder == gasket + 1) ? 1.0F - GASKET : 0.0F;
     }

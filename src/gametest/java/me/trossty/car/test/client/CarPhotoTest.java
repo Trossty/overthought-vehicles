@@ -56,6 +56,7 @@ public class CarPhotoTest {
             scenes.put("hoist", this::hoist);
             scenes.put("garageTools", this::garageTools);
             scenes.put("garageParts", this::garageParts);
+            scenes.put("engineInternals", this::engineInternals);
             scenes.put("rapeseed", this::rapeseed);
             scenes.put("itemGrid", this::itemGrid);
             scenes.put("pumpjackLook", this::pumpjackLook);
@@ -2308,7 +2309,7 @@ public class CarPhotoTest {
             var pos = new net.minecraft.core.BlockPos(3, Y, -2);
             if (world.getBlockEntity(pos) instanceof me.trossty.car.block.entity.EngineStandBlockEntity stand) {
                 stand.setEngine(new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE));
-                stand.strip(world.getRandom());
+                stand.strip();
             }
         });
         context.runOnClient(client -> client.options.hideGui = true);
@@ -2316,6 +2317,111 @@ public class CarPhotoTest {
         shot(context, server, "garage_tools", 7.5, Y + 2.2, 0.5, 90, 18);
         shot(context, server, "garage_tools_close", 5.5, Y + 1.4, -1.5, 70, 25);
         context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /**
+     * The engine's insides in game: a worn engine opened up on its stand, its
+     * four insides out, the valves up close and in the hand, the cylinder by
+     * cylinder tooltip, and a compression test on a car whose belt has
+     * snapped, read off in chat.
+     */
+    private void engineInternals(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("clear @a");
+        server.runCommand("setblock 0 %d 4 car:engine_stand[facing=south]".formatted(Y));
+        String[] parts = {"pistons", "valves", "head_gasket", "crankshaft"};
+        for (int i = 0; i < parts.length; i++) {
+            server.runCommand(("summon item_display %.2f %.2f 4.5 {item:{id:\"car:%s\",count:1},"
+                    + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                    + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(2.6 + i * 0.85, Y + 0.45, parts[i]));
+        }
+        server.runCommand("summon car:car 0.5 %d -3.0 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            if (world.getBlockEntity(new BlockPos(0, Y, 4)) instanceof me.trossty.car.block.entity.EngineStandBlockEntity stand) {
+                // Worn unevenly: cylinder 2's rings tired, 1 and 3's valves bent by a belt.
+                var engine = new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE);
+                var inside = new me.trossty.car.entity.EngineInternals.Snapshot(
+                        List.of(80, 35, 75, 70), List.of(0, 90, 0, 85), 60, 45);
+                engine.set(me.trossty.car.registry.ModComponents.PART_CONDITION, Math.round(inside.condition()));
+                inside.stamp(engine);
+                stand.setEngine(engine);
+                stand.strip();
+                for (int i = 0; i < stand.getInternals().size(); i++) {
+                    player.getInventory().setItem(i, stand.getInternals().get(i).copy());
+                }
+            }
+            player.getInventory().setItem(4, new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.COMPRESSION_TESTER));
+
+            var car = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                    new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
+            float speed = car.getMaxSpeed();
+            car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
+            car.upkeep().snapBelt();
+            car.parts().setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F);
+            var reading = me.trossty.car.item.CompressionTesterItem.read(car);
+            System.out.println("car photo internals: verdict=" + reading.verdict()
+                    + " spec=" + reading.spec() + " bar=" + java.util.Arrays.toString(reading.cylinders())
+                    + " firing=" + car.parts().firing() + " maxSpeed " + speed + " -> " + car.getMaxSpeed()
+                    + " engine=" + car.parts().getCondition(me.trossty.car.entity.CarPart.ENGINE)
+                    + " burningOil=" + car.upkeep().isBurningOil() + " gasket=" + car.upkeep().isGasketBlown()
+                    + " knocking=" + car.upkeep().isKnocking());
+            me.trossty.car.item.CompressionTesterItem.test(car, player);
+        });
+        context.waitTicks(5);
+        // What the player would read on each of the insides; the valves in hand
+        // (the slot held is the client's to pick).
+        context.runOnClient(client -> {
+            client.player.getInventory().selected = 1;
+            for (int i = 0; i < 4; i++) {
+                var stack = client.player.getInventory().getItem(i);
+                var lines = stack.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(client.level),
+                        client.player, net.minecraft.world.item.TooltipFlag.NORMAL);
+                System.out.println("car photo internals tooltip " + i + ": "
+                        + lines.stream().map(net.minecraft.network.chat.Component::getString)
+                        .collect(java.util.stream.Collectors.joining(" | ")));
+            }
+        });
+        // The chat first, before it fades: the test was read off just now.
+        shot(context, server, "internals_compression", 3.5, Y + 2.0, 0.5, 140, 25);
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "internals_stand", 0.5, Y + 1.5, 6.6, 180, 25);
+        shot(context, server, "internals_parts", 3.85, Y + 1.15, 6.0, 180, 30);
+        context.runOnClient(client -> client.options.hideGui = false);
+        shot(context, server, "internals_hand", 6.0, Y + 1.0, 8.0, 135, 10);
+        // Each set's tooltip, the pointer held over it in the inventory: the
+        // survival one, as creative swaps in its own.
+        server.runCommand("gamemode survival @a");
+        context.waitTicks(3);
+        context.runOnClient(client -> client.setScreen(
+                new net.minecraft.client.gui.screens.inventory.InventoryScreen(client.player)));
+        context.waitTicks(3);
+        for (int i = 0; i < 2; i++) {
+            int slot = i;
+            context.runOnClient(client -> {
+                var screen = (net.minecraft.client.gui.screens.inventory.InventoryScreen) client.screen;
+                var window = client.getWindow();
+                double x = (screen.getGuiLeft() + 8 + slot * 18 + 8) * (double) window.getScreenWidth() / window.getGuiScaledWidth();
+                double y = (screen.getGuiTop() + 142 + 8) * (double) window.getScreenHeight() / window.getGuiScaledHeight();
+                try {
+                    for (String[] axis : new String[][]{{"xpos", String.valueOf(x)}, {"ypos", String.valueOf(y)}}) {
+                        net.neoforged.fml.util.ObfuscationReflectionHelper.findField(
+                                net.minecraft.client.MouseHandler.class, axis[0])
+                                .setDouble(client.mouseHandler, Double.parseDouble(axis[1]));
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+            context.waitTicks(4);
+            context.takeScreenshot("internals_tooltip_" + parts[i]);
+        }
+        context.runOnClient(client -> client.setScreen(null));
+        server.runCommand("gamemode creative @a");
     }
 
     /**

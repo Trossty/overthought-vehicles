@@ -102,7 +102,7 @@ public class EngineStandBlock extends ModelEntityBlock {
         if (held.is(ModItems.WRENCH) && !stand.getEngine().isEmpty()) {
             if (!world.isClientSide()) {
                 if (!stand.isStripped()) {
-                    stand.strip(world.getRandom());
+                    stand.strip();
                     world.playSound(null, pos, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.0F, 0.8F);
                     player.displayClientMessage(Component.translatable("message.car.engine_stripped"), true);
                 } else if (stand.isComplete()) {
@@ -138,7 +138,7 @@ public class EngineStandBlock extends ModelEntityBlock {
             if (stand.isStripped()) {
                 // Opened up: an empty hand takes the insides out one at a
                 // time, and says how worn each one is.
-                for (int slot = 0; slot < 3; slot++) {
+                for (int slot = 0; slot < stand.getInternals().size(); slot++) {
                     ItemStack inside = stand.getInternals().get(slot);
                     if (!inside.isEmpty()) {
                         stand.setInternal(slot, ItemStack.EMPTY);
@@ -168,6 +168,7 @@ public class EngineStandBlock extends ModelEntityBlock {
             if (stand.isStripped()) {
                 // An engine block with its insides out is a shell, not an engine.
                 stand.getEngine().set(me.trossty.car.registry.ModComponents.PART_CONDITION, 1);
+                stand.getEngine().remove(me.trossty.car.registry.ModComponents.ENGINE_INTERNALS);
             }
             Containers.dropItemStack(world, pos.getX(), pos.getY() + 0.5, pos.getZ(), stand.getEngine());
             for (ItemStack inside : stand.getInternals()) {

@@ -151,6 +151,8 @@ public class CarMainClient {
                     me.trossty.car.client.render.DynoRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.ENGINE_STAND,
                     me.trossty.car.client.render.EngineStandRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.ENGINE_HOIST,
+                    me.trossty.car.client.render.EngineHoistRenderer::new);
         });
         modBus.addListener((RegisterMenuScreensEvent event) -> {
             event.register(ModScreenHandlers.VEHICLE_WORKBENCH, VehicleWorkbenchScreen::new);

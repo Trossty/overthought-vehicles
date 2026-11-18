@@ -23,8 +23,16 @@ public final class CarParts {
 
     private final CarEntity car;
 
+    /** What is inside the engine, which its condition is the average of. */
+    private final EngineInternals engine;
+
     CarParts(CarEntity car) {
         this.car = car;
+        this.engine = new EngineInternals(car);
+    }
+
+    public EngineInternals engine() {
+        return this.engine;
     }
 
     /** Chance per tick of a stumble, with plugs at nothing. */
@@ -52,6 +60,9 @@ public final class CarParts {
 
     /** At a tank of pure raw fuel the engine wears this many times again as fast... */
     public static final float DIRTY_ENGINE_WEAR = 2.0F;
+
+    /** How much faster an engine boiling over cooks its head gasket. */
+    private static final float OVERHEAT_GASKET_WEAR = 12.0F;
 
     /** ...and the plugs foul faster still. */
     public static final float DIRTY_PLUG_WEAR = 3.0F;
@@ -125,6 +136,9 @@ public final class CarParts {
     public void setCondition(CarPart part, float condition) {
         float clamped = Mth.clamp(condition, 0.0F, CarPart.MAX_CONDITION);
         this.car.getEntityData().set(CarEntity.PART_CONDITION.get(part.ordinal()), clamped);
+        if (part == CarPart.ENGINE) {
+            this.engine.fill(clamped);
+        }
         int slot = PartPositions.slot(part);
         if (slot >= 0) {
             java.util.Arrays.fill(this.places[slot], clamped);
@@ -386,6 +400,11 @@ public final class CarParts {
             return;
         }
         float scale = amount * this.getQuality(part).wearFactor() * (float) me.trossty.car.CarConfig.get().partWear;
+        if (part == CarPart.ENGINE) {
+            // Wear with no cause of its own, a drowning or a knock, takes from all of the engine alike.
+            this.engine.wear(scale, scale, scale, scale);
+            return;
+        }
         int slot = PartPositions.slot(part);
         if (slot < 0) {
             this.setCondition(part, Math.max(CarPart.WORN_OUT, this.getCondition(part) - scale * this.ageFactor(part)));
@@ -500,7 +519,7 @@ public final class CarParts {
         return this.ageFactor(this.getConditionFraction(part));
     }
 
-    private float ageFactor(float fraction) {
+    float ageFactor(float fraction) {
         return mileageFactor(this.getOdometer()) * (1.0F + TIRED_WEAR * (1.0F - fraction));
     }
 
@@ -624,8 +643,13 @@ public final class CarParts {
             float hardLife = (this.car.hasTurbo() ? CarSetup.TURBO_ENGINE_WEAR : 1.0F)
                     * (this.car.hasOpenFilter() ? CarSetup.OPEN_FILTER_ENGINE_WEAR : 1.0F);
             float dirty = this.car.getDirtyFuel();
-            this.wear(CarPart.ENGINE, CarPart.ENGINE.wearPerTick() * running * oil * hardLife * this.car.upkeep().lowOilWear()
-                    * (1.0F + DIRTY_ENGINE_WEAR * dirty));
+            float base = CarPart.ENGINE.wearPerTick() * running * hardLife;
+            float fuel = 1.0F + DIRTY_ENGINE_WEAR * dirty;
+            float lube = oil * this.car.upkeep().lowOilWear();
+            // Grit in the oil scores the bores and the bearings, dirty fuel cokes
+            // the rings and the valves, and an engine boiling over lifts its gasket.
+            this.wearEngine(base * lube * fuel, base * fuel,
+                    base * (this.car.isOverheating() ? OVERHEAT_GASKET_WEAR : 1.0F), base * lube);
             if (this.car.getEngineFuel().needsSpark()) {
                 this.wear(CarPart.SPARK_PLUGS, CarPart.SPARK_PLUGS.wearPerTick() * running
                         * (1.0F + DIRTY_PLUG_WEAR * dirty));
@@ -657,6 +681,15 @@ public final class CarParts {
                 this.wear(CarPart.STEERING_RACK, CarPart.STEERING_RACK.wearPerTick() * load * road);
             }
         }
+    }
+
+    /** The engine's running wear, each of its insides by what it minds: see {@link EngineInternals}. */
+    private void wearEngine(float rings, float valves, float gasket, float bearings) {
+        if (!this.car.hasPart(CarPart.ENGINE) || !this.isFitted(CarPart.ENGINE)) {
+            return;
+        }
+        float scale = this.getQuality(CarPart.ENGINE).wearFactor() * (float) me.trossty.car.CarConfig.get().partWear;
+        this.engine.wear(rings * scale, valves * scale, gasket * scale, bearings * scale);
     }
 
     /**
@@ -744,6 +777,23 @@ public final class CarParts {
     }
 
     /**
+     * How much of the engine's squeeze there is to push with, 0 to 1: a
+     * cylinder with bent valves, or with a blown gasket beside it, adds next
+     * to nothing. A motor has no cylinders to lose.
+     */
+    public float firing() {
+        if (this.car.isElectric() || !this.car.hasPart(CarPart.ENGINE) || !this.isFitted(CarPart.ENGINE)) {
+            return 1.0F;
+        }
+        int count = this.engine.cylinders();
+        float lost = 0.0F;
+        for (int cylinder = 0; cylinder < count; cylinder++) {
+            lost += me.trossty.car.item.CompressionTesterItem.compressionLoss(this.car, cylinder);
+        }
+        return 1.0F - lost / count;
+    }
+
+    /**
      * Reads back what {@link #save} wrote. A car saved before each wheel and
      * cylinder kept its own gets the whole set alike, and one saved before
      * parts were iron, gold, diamond and netherite has its old grades turned
@@ -763,6 +813,7 @@ public final class CarParts {
                 this.settlePlaces(part);
             }
         }
+        this.engine.load(view);
         int tiers = view.getIntOr("PartQuality", CarEntity.defaultQualityBits());
         if (view.getIntOr("PartTiers", 0) == 0) {
             int converted = 0;
@@ -789,6 +840,7 @@ public final class CarParts {
             }
             view.tag().putIntArray("Places" + PartPositions.part(slot).key(), bits);
         }
+        this.engine.save(view);
         view.putInt("PartQuality", this.getQualityBits());
         view.putInt("PartTiers", 1);
         view.putFloat("Odometer", this.getOdometer());

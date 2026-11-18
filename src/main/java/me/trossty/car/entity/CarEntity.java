@@ -390,6 +390,14 @@ public class CarEntity extends VehicleEntity {
     /** How far through its life the timing belt is, 0 new to 1 snapped. */
     static final EntityDataAccessor<Float> BELT_WEAR =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    /** Each cylinder's rings, and each cylinder's valves, packed the way {@link #PART_PLACES} are: see {@link EngineInternals}. */
+    static final EntityDataAccessor<Long> ENGINE_RINGS =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.LONG);
+    static final EntityDataAccessor<Long> ENGINE_VALVES =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.LONG);
+    /** The head gasket and the crank's bearings, packed the same way. */
+    static final EntityDataAccessor<Long> ENGINE_HEAD =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.LONG);
     /** How far soot and oil have choked the catalytic converter, 0 clean to 1 blocked. */
     static final EntityDataAccessor<Float> CAT_CLOG =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
@@ -582,6 +590,9 @@ public class CarEntity extends VehicleEntity {
         builder.define(BRAKE_FLUID, 1.0F);
         builder.define(ALIGNMENT, 0.0F);
         builder.define(BELT_WEAR, 0.0F);
+        builder.define(ENGINE_RINGS, PartPositions.ALL_NEW);
+        builder.define(ENGINE_VALVES, PartPositions.ALL_NEW);
+        builder.define(ENGINE_HEAD, EngineInternals.newHead());
         builder.define(CAT_CLOG, 0.0F);
         builder.define(TYRE_PRESSURE, 1.0F);
         builder.define(DIRT, 0.0F);
@@ -2893,6 +2904,7 @@ public class CarEntity extends VehicleEntity {
                 * this.parts.partFactor(CarPart.CLUTCH, WORN_CLUTCH_DRIVE)
                 * this.parts.partFactor(CarPart.DRIVESHAFT, WORN_SHAFT_DRIVE)
                 * this.parts.partFactor(CarPart.ENGINE, 0.8F)
+                * this.parts.firing()
                 * this.parts.grade(CarPart.ENGINE)
                 * this.parts.grade(CarPart.TRANSMISSION)
                 * this.parts.grade(CarPart.CLUTCH)
@@ -3701,6 +3713,7 @@ public class CarEntity extends VehicleEntity {
         return (0.5F + 0.5F * this.towRatio())
                 * this.tuning().speed() * Mth.lerp(this.damage.getHealthFraction(), MAX_SPEED * WRECKED_SPEED_FACTOR, MAX_SPEED)
                 * this.parts.partFactor(CarPart.ENGINE, WORN_ENGINE_SPEED)
+                * this.parts.firing()
                 * this.parts.partFactor(CarPart.AIR_FILTER, WORN_FILTER_SPEED, MISSING_FILTER_SPEED)
                 * this.parts.partFactor(CarPart.EXHAUST, WORN_EXHAUST_SPEED, MISSING_EXHAUST_SPEED)
                 * this.parts.grade(CarPart.ENGINE)
