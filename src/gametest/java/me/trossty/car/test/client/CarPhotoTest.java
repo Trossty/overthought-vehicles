@@ -41,6 +41,7 @@ public class CarPhotoTest {
             scenes.put("tyres", this::tyres);
             scenes.put("station", this::station);
             scenes.put("driving", this::driving);
+            scenes.put("batteryGauge", this::batteryGauge);
             scenes.put("rideAndLeave", this::rideAndLeave);
             scenes.put("twoWheelsAndTrailer", this::twoWheelsAndTrailer);
             scenes.put("workstation", this::workstation);
@@ -1920,6 +1921,69 @@ public class CarPhotoTest {
         context.waitTicks(25);
         context.takeScreenshot("dash_faster");
         context.getInput().releaseKey(options -> options.keyUp);
+    }
+
+    /**
+     * An electric car's battery gauge in the fuel dial's place: full, over
+     * half, low (amber), nearly flat (red), and on charge, with the bolt lit.
+     * The last one again in Turkish, where the per cent sign comes first.
+     */
+    private void batteryGauge(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:gravel".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:3,Tags:[\"photo\"]}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> photoCar(minecraft).setSetup(me.trossty.car.entity.CarSetup.withVariant(
+                me.trossty.car.entity.CarSetup.DEFAULT, me.trossty.car.entity.CarPart.ENGINE,
+                me.trossty.car.entity.CarSetup.ELECTRIC_MOTOR)));
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(5);
+        context.runOnClient(client -> {
+            client.player.setYRot(0);
+            client.player.setXRot(20);
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+        });
+        float[] levels = {1.0F, 0.64F, 0.18F, 0.07F};
+        String[] names = {"full", "64", "low", "flat"};
+        for (int i = 0; i < levels.length; i++) {
+            float level = levels[i];
+            server.runOnServer(minecraft -> {
+                var car = photoCar(minecraft);
+                car.setFuel(car.getMaxFuel() * level);
+            });
+            context.waitTicks(30);
+            context.takeScreenshot("battery_" + names[i]);
+        }
+        // A post's worth of charge each tick, with the car standing still.
+        server.runOnServer(minecraft -> {
+            var car = photoCar(minecraft);
+            car.setFuel(car.getMaxFuel() * 0.45F);
+        });
+        for (int i = 0; i < 30; i++) {
+            server.runOnServer(minecraft -> photoCar(minecraft).charge(0.02F));
+            context.waitTicks(1);
+        }
+        context.takeScreenshot("battery_charging");
+        context.runOnClient(client -> {
+            client.getLanguageManager().setSelected("tr_tr");
+            client.reloadResourcePacks();
+        });
+        for (int i = 0; i < 80; i++) {
+            server.runOnServer(minecraft -> photoCar(minecraft).charge(0.02F));
+            context.waitTicks(1);
+        }
+        context.takeScreenshot("battery_charging_tr");
+        context.runOnClient(client -> {
+            client.getLanguageManager().setSelected("en_us");
+            client.reloadResourcePacks();
+        });
+        context.waitTicks(60);
+    }
+
+    private static me.trossty.car.entity.CarEntity photoCar(net.minecraft.server.MinecraftServer minecraft) {
+        var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 50);
+        return minecraft.overworld().getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                e -> e.getTags().contains("photo")).get(0);
     }
     /**
      * Driving across a flat field and getting out: the car has to stay on the
