@@ -257,7 +257,8 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         }
 
         static Voice of(CarEntity car) {
-            if (car.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE) {
+            if (car.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE
+                    || car.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.HELICOPTER) {
                 return PROPELLER;
             }
             if (car.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.BOAT) {

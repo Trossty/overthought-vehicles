@@ -111,12 +111,14 @@ public final class PartLayout {
             put(map, CarPart.OIL_FILTER, side, bay, engineZ, 1.5F * scale);
         }
 
-        // Under the floor, between the axles.
+        // Under the floor, between the axles — and still under the body where
+        // there is only the one axle, as on a short trailer.
         float under = Math.max(1.8F, Math.min(bottom, axleY) - 1.5F);
+        float tail = rear + 1.0F;
         put(map, CarPart.STEERING_RACK, 0.0F, under, frontAxle, 2.2F * scale);
-        put(map, CarPart.CLUTCH, 0.0F, under, frontAxle - 0.15F * wheelbase, 2.4F * scale);
-        put(map, CarPart.TRANSMISSION, 0.0F, under, frontAxle - 0.3F * wheelbase, 2.8F * scale);
-        put(map, CarPart.DRIVESHAFT, 0.0F, under, frontAxle - 0.6F * wheelbase, 2.4F * scale);
+        put(map, CarPart.CLUTCH, 0.0F, under, Math.max(tail, frontAxle - 0.15F * wheelbase), 2.4F * scale);
+        put(map, CarPart.TRANSMISSION, 0.0F, under, Math.max(tail, frontAxle - 0.3F * wheelbase), 2.8F * scale);
+        put(map, CarPart.DRIVESHAFT, 0.0F, under, Math.max(tail, frontAxle - 0.6F * wheelbase), 2.4F * scale);
         put(map, CarPart.EXHAUST, 0.3F * halfWidth, under, rear + 3.0F, 2.0F * scale);
 
         corner(map, wheel);
@@ -222,8 +224,11 @@ public final class PartLayout {
         // Towards the middle of the car; a wheel on the middle line has its
         // brakes on the right.
         float inward = x < -0.5F ? 1.0F : x > 0.5F ? -1.0F : 1.0F;
-        float inboard = x + inward * (wheel.width() / 2.0F + 2.2F);
-        put(map, CarPart.WHEELS, x, y, z, Math.min(radius, 7.0F) * 0.85F);
+        float tyre = Math.min(radius, 7.0F) * 0.85F;
+        // Clear of the tyre's box too, which on a tall, narrow tyre reaches
+        // further in than the tyre does.
+        float inboard = x + inward * Math.max(wheel.width() / 2.0F + 2.2F, tyre - 1.0F);
+        put(map, CarPart.WHEELS, x, y, z, tyre);
         put(map, CarPart.BRAKE_PADS, inboard, y + 0.4F * radius, z, 1.6F);
         put(map, CarPart.BRAKE_DISCS, inboard, y - 0.4F * radius, z, 1.6F);
         put(map, CarPart.SUSPENSION, inboard, y + radius + 2.0F, z, 1.8F);

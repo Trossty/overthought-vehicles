@@ -50,6 +50,12 @@ public final class ModItems {
             settings -> new CarItem(settings, ModEntities.AIRPLANE),
             new Item.Properties().stacksTo(1));
 
+    /** ...and the air with nowhere to land but a field. */
+    public static final Item HELICOPTER = register(
+            "helicopter",
+            settings -> new CarItem(settings, ModEntities.HELICOPTER),
+            new Item.Properties().stacksTo(1));
+
     /**
      * Portable fuel. Durability is the fuel gauge, read backwards, in tank
      * units — see {@link me.trossty.car.item.JerryCans}. The can itself is
@@ -166,7 +172,10 @@ public final class ModItems {
     public static final Item BRAKE_FLUID =
             register("brake_fluid", Item::new, new Item.Properties().stacksTo(16));
 
-    /** A spanner: sets the tracking of a car on the lift straight, and opens an engine on its stand. */
+    /**
+     * A spanner: sets the tracking of a car on the lift straight, opens an
+     * engine on its stand, and prises the lid off a vehicle crate.
+     */
     public static final Item WRENCH = register("wrench", Item::new, new Item.Properties().stacksTo(1));
 
     /** Jump leads: from a car with a good battery to one with a flat. */
@@ -292,7 +301,8 @@ public final class ModItems {
     /**
      * Every vehicle the loaded data packs describe, as it leaves the factory,
      * kind by kind — cars, pickups, tankers, trailers, motorbikes, boats,
-     * aircraft — then the key and full cans to get going with.
+     * aircraft — then the crate one ships in, the key and full cans to get
+     * going with.
      */
     private static void vehicles(net.minecraft.world.item.CreativeModeTab.ItemDisplayParameters context,
                                  Entries entries) {
@@ -305,7 +315,7 @@ public final class ModItems {
                                 .thenComparing(entry -> entry.key().location().getPath()))
                         .forEach(entry -> entries.add(me.trossty.car.item.CarItem.stackOf(
                                 entry.key().location(), entry.value()))));
-        entries.add(CAR_KEY);
+        entries.add(ModBlocks.VEHICLE_CRATE, CAR_KEY);
         for (int kind = 0; kind < 3; kind++) {
             entries.add(jerryCan(kind, me.trossty.car.item.JerryCans.CAPACITY));
         }

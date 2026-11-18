@@ -44,6 +44,10 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **Römork** — tek akslı kasalı römork; aracın arkasına bağlanır, 27 slotluk yük taşır, yük çekeni yavaşlatır
 - **İki tekerliler** — Vespa scooter ve Honda CBR spor motor; virajda yatıyorlar
 - **Gerçek araçlar** — Toyota Corolla, Tofaş Şahin, Jeep Wrangler, Ford Mustang (yarış arabası), Toyota Hilux, Mercedes-Benz Atego tanker, Vespa Primavera, Honda CBR600RR ve kasalı römork; eski deneme arabası yok
+- **Araç Kasası ve İngiliz anahtarı** — Araç İstasyonu aracı tahta bir kasada verir; kasayı koy, İngiliz anahtarıyla dört kez sağ tıkla, kapak kalkar, yanlar düşer, araç çıkar
+- **Helikopter** — Robinson R44; zıplama tuşuyla dikine kalkar, ileri/geri burnu eğer, sağ/sol kuyruk rotoruyla yerinde döner, bırakınca yavaşça iner; motor havada durursa otorotasyonla iner
+- **Tarım** — Massey Ferguson 240 traktör, arkasına takılan ekim makinesi (yükündeki tohumu sürülmüş toprağa eker) ve gübre serpme makinesi (yükündeki kemik tozunu ekinlere serper); John Deere X350 çim biçme traktörü üstünden geçtiği otu ve çiçeği biçip çektiği römorka doldurur
+- **Küçük araçlar** — Honda FourTrax Rancher ATV, Tony Kart Racer 401 go-kart, Meyers Manx plaj arabası, Club Car Precedent golf arabası (elektrikli) ve Yamaha WaveRunner VX jet ski; ATV'de ve jet skide direksiyon değil gidon var
 - **3B istasyon blokları** — pompa, rafineri, arıtıcı, pumpjack, jeneratörler ve depo küp değil, kaideli/kolonlu/bacalı modeller
 - **Makine ekranları** — jeneratör, arıtıcı, pompa kulesi, akü ve şarj direği: depo, enerji, akış ve çalışıyor/boşta lambası
 - **Akü bankası ve şarj direği** — 200 000 E'lik depo (önünden verir, öbür yüzlerinden alır), yanındaki elektrikli aracı şarj eden direk
@@ -1593,6 +1597,9 @@ kuruluyor, boyası araç boyandıkça yeniden üretiliyor.
 - `seats`: binenin **kalçasının** yeri; ilk koltuk sürücü. En çok 16 koltuk.
 - `wheels`: yuvarlak (16 kenarlı) teker ve jant kendiliğinden çiziliyor;
   `steers` olanlar direksiyonla dönüyor.
+- `steering_wheel_rise` (isteğe bağlı): direksiyonun ortası kalçadan kaç
+  piksel yukarıda. Yazılmazsa torpidoya göre kendisi bulur (en az 9). Çim
+  biçme traktöründe 6: orada direksiyon karın hizasında.
 - `shape`: gövde kutuları (en çok 512). `color` ya `paint` / `paint_dark` /
   `paint_light` (aracın boyasını izler), sabit `#RRGGBB` ya da yarı saydam
   `#AARRGGBB` (cam böyle yapılıyor: içerisi arkasından görünür). `tilt` kutuyu
@@ -2337,6 +2344,72 @@ Her dosyanın tek bir sahibi var: hangi üreticiyi çalıştırırsan çalışt�
 - [`tools/GenTablet.java`](tools/GenTablet.java) — OBD tabletinin çerçeve/ekran ve arka yüz dokuları, eşya simgesi ve 3B eşya modeli
 - [`tools/LangCheck.java`](tools/LangCheck.java) — iki dil dosyasının anahtar kümesini, yer tutucu sayılarını ve koddaki `translatable` anahtarlarını karşılaştırır (`java tools/LangCheck.java`)
 
+## MrCrayfish seti
+
+MrCrayfish'in araç modundaki kasa, helikopter, tarım araçları ve küçük
+araçlar. Minibüs bilerek eklenmedi.
+
+### Araç Kasası
+
+Araç İstasyonu'nda üretilen araç artık eşya olarak değil, içinde o araç
+olan bir **Araç Kasası** olarak çıkar. Kasanın ipucu içindekini söyler
+("Honda FourTrax Rancher (Kasada)"). Yere koyulan kasa ancak **İngiliz
+anahtarıyla** açılır (atölyenin rot ayarı ve motor sehpası için kullandığı
+aynı anahtar; dört demir külçeden, çalışma masasında yapılır):
+
+- her sağ tık kapağı biraz daha kaldırır, dördüncüsünde kapak gider;
+- yanlar bir buçuk saniyede yere yatar ve araç, kasanın yerinde durur;
+- aracın çıkacağı yer doluysa kasa daha ilk tıkta "yer yok" der, açılmaz.
+
+Kasayı kırınca içindeki araçla birlikte düşer, araç kaybolmaz.
+
+### Helikopter
+
+Robinson R44'ün kendi biçimi var: burundan tavana tek eğimde çıkan, ortadaki
+dikmede sivri birleşen iki parça ön camlı balon kabin, kabinin arkasında
+rotor direğinin yuvarlak kaportası ve oradan daralıp ince bir kuyruk
+konisine inen gövde. Kuyruk rotoru solda. Kabin, oturan oyuncunun kafası
+tavana değmeyecek kadar yüksek.
+
+Kızakları üstünde durur, yerde gitmez. **Zıplama** kolektifi
+çeker ve dikine kalkar; havada **ileri/geri** rotoru eğer, o yöne uçar,
+**sağ/sol** kuyruk rotoruyla olduğu yerde döner. Bırakınca yavaşça alçalır,
+altındaki neyse üstüne konacak kadar yumuşak. Hızlanınca burnu düşer,
+dönüşe yatar; bunu her taraf aynı görsün diye sürat ve dönüşten hesaplar.
+
+Motor havada durursa rotor alttan gelen rüzgârla döner: daha hızlı ama
+kontrollü iner, düz yere otorotasyon sadece kızakları biraz büker. Çok sert
+ya da hızlı inmek her araçtaki gibi kazadır.
+
+### Tarım
+
+Tarım aracının ne yaptığı tanımındaki `implement` alanından gelir
+(`seeder`, `fertilizer`, `mower`). Araç her yeni bloğa geçtiğinde o bloğun
+sırasında, aracın genişliği kadar blok boyunca iş yapar:
+
+| Araç | Ne yapar | Şartı |
+|---|---|---|
+| Ekim makinesi | Yükündeki ilk uygun tohumu (buğday, havuç, patates, pancar, kabak/karpuz çekirdeği...) boş sürülmüş toprağa eker | Bir traktöre takılı olmalı |
+| Gübre serpme makinesi | Yükündeki kemik tozunu büyüyen ekinlere serper; kendinden bir blok geniş serper | Bir traktöre takılı olmalı |
+| Çim biçme traktörü | Ot, eğrelti, çiçek, kuru çalı ve iki bloklu bitkileri biçer, düşeni çektiği römorkun yüküne koyar (yer yoksa yere bırakır) | Motoru çalışıyor olmalı |
+
+Ekim makinesi ve gübre serpme makinesi römork gibi takılır: traktörün
+arkasına koy ve boş elle tıkla. Yüklerini doldurmak için eğilip tıkla.
+
+### Gidonlu araçlar
+
+ATV ve jet ski tanımlarında `handlebars: true` var. Bunlarda kendiliğinden
+direksiyon çizilmez, sürücü motorsikletteki gibi elleri gidonda, dizleri
+içeride oturur, gidon da ön tekerlerin ortası (jet skide kendi ortası)
+etrafında döner.
+
+### Oturanlar araca bakar
+
+Bir araçta oturanın gövdesi artık hep aracın baktığı yöne bakar, kafası
+iki yana 105°'ye kadar döner (vanilya teknesindeki gibi). Önceden gövde,
+binerken nereye bakıyorsan orada kalıyordu; dar araçlarda (çim biçme
+traktörü, go-kart) bacak kaportanın yanından dışarı çıkıyordu.
+
 ## Sırada ne var
 
 Henüz yapılmadı, MrCrayfish'te olan katmanlar:
@@ -2344,6 +2417,8 @@ Henüz yapılmadı, MrCrayfish'te olan katmanlar:
 - **Daha fazla araç tipi** — yarış arabası (Mustang)
   eklendi; yeni bir araç artık `tools/GenVehicles.java`'da bir yöntem ve bir
   tarif dosyası demek
+- **MrCrayfish'ten kalanlar** — hız rampaları (boost pad); minibüs bilerek
+  yok
 - **Ertelenenler** ([GELISTIRME.md](GELISTIRME.md)'de nedenleriyle):
   arıtıcının 2×2 yapılması, iki istemcili çok oyunculu test, EMI/REI tarif
   gösterimi, WTHIT ve Create uyumunun oyun içinde denenmesi

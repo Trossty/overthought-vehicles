@@ -507,6 +507,7 @@ public class CarEntity extends VehicleEntity {
     /** The trailer behind this, while it keeps saying so; see {@link #towedBy}. */
     private @Nullable TrailerEntity towed;
     private int towingTicks;
+    private final FarmWork farmWork = new FarmWork();
     private int hornCooldown;
     int crashCooldown;
 
@@ -974,6 +975,7 @@ public class CarEntity extends VehicleEntity {
             // Burned on the server, which owns the tank, from the distance actually
             // covered: while somebody drives, the throttle only exists on their client.
             this.burnFuel(travelled);
+            this.farmWork.tick(this);
         } else {
             if (this.damage.getHealthFraction() < DAMAGE_WARNING_FRACTION && this.random.nextInt(4) == 0) {
                 this.effects.emitDamageSmoke();
@@ -1107,6 +1109,11 @@ public class CarEntity extends VehicleEntity {
         this.towingTicks = 3;
     }
 
+    /** The trailer hitched behind this, if one still is. */
+    @Nullable TrailerEntity towed() {
+        return this.isTowing(null) ? this.towed : null;
+    }
+
     /** True when something other than {@code other} is hitched behind this. */
     public boolean isTowing(@Nullable TrailerEntity other) {
         return this.towed != null && this.towed != other && this.towingTicks > 0 && !this.towed.isRemoved();
@@ -1134,7 +1141,13 @@ public class CarEntity extends VehicleEntity {
         }
         float front = 0.0F;
         float rear = 0.0F;
+        float roof = this.getBbHeight() * 16.0F;
         for (me.trossty.car.vehicle.VehicleDefinition.Box box : defined.shape()) {
+            // Rotor blades and propellers sweep past the ends, and anything
+            // wholly above the hitbox clears what the ends are checked for.
+            if (box.spins() || Math.min(box.from().y(), box.to().y()) >= roof) {
+                continue;
+            }
             front = Math.max(front, Math.max(box.from().z(), box.to().z()));
             rear = Math.min(rear, Math.min(box.from().z(), box.to().z()));
         }
@@ -2329,6 +2342,29 @@ public class CarEntity extends VehicleEntity {
         } else {
             super.positionRider(passenger, (rider, x, y, z) -> callback.accept(rider, x, y + lift, z));
         }
+        this.faceForward(passenger);
+    }
+
+    @Override
+    public void onPassengerTurned(Entity passenger) {
+        this.faceForward(passenger);
+    }
+
+    /** How far round a rider can look from the way the vehicle points, either side. */
+    private static final float LOOK_ROUND = 105.0F;
+
+    /**
+     * Sat in a seat, a rider's body faces the way the vehicle does, as in a
+     * boat, so their legs stay in the footwell whichever way they look; the
+     * head turns, but not round past the shoulder.
+     */
+    private void faceForward(Entity passenger) {
+        passenger.setYBodyRot(this.getYRot());
+        float turned = Mth.wrapDegrees(passenger.getYRot() - this.getYRot());
+        float allowed = Mth.clamp(turned, -LOOK_ROUND, LOOK_ROUND);
+        passenger.yRotO += allowed - turned;
+        passenger.setYRot(passenger.getYRot() + allowed - turned);
+        passenger.setYHeadRot(passenger.getYRot());
     }
 
     @Override

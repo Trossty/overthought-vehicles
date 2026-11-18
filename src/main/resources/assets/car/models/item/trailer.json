@@ -36,6 +36,18 @@
         "car:vehicle": 17
       },
       "model": "car:item/vehicle_caravan"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 20
+      },
+      "model": "car:item/vehicle_seed_drill"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 21
+      },
+      "model": "car:item/vehicle_fertilizer_spreader"
     }
   ]
 }

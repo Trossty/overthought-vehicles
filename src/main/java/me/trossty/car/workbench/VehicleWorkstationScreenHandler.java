@@ -185,8 +185,10 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
                 if (built.isEmpty()) {
                     return;
                 }
-                if (!player.getInventory().add(built)) {
-                    player.drop(built, false);
+                // It leaves the shop crated: a wrench gets it out where it is wanted.
+                ItemStack crate = me.trossty.car.block.entity.VehicleCrateBlockEntity.crateOf(built);
+                if (!player.getInventory().add(crate)) {
+                    player.drop(crate, false);
                 }
                 world.playSound(null, pos, SoundEvents.ANVIL_USE, SoundSource.BLOCKS, 0.7F, 1.2F);
                 world.playSound(null, pos, SoundEvents.SMITHING_TABLE_USE, SoundSource.BLOCKS, 1.0F, 1.0F);

@@ -199,6 +199,16 @@ public final class ModBlocks {
                     .noOcclusion()
                     .sound(SoundType.METAL));
 
+    /** A new vehicle, crated: a wrench gets it out. Carried off whole when broken. */
+    public static final Block VEHICLE_CRATE = register(
+            "vehicle_crate",
+            me.trossty.car.block.VehicleCrateBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(2.0F, 3.0F)
+                    .noOcclusion()
+                    .sound(SoundType.WOOD),
+            block -> new me.trossty.car.item.VehicleCrateItem(block, new Item.Properties().stacksTo(1)));
+
     /** One-way, and faster than levelling: how a line is given a destination. */
     public static final Block FUEL_VALVE = register(
             "fuel_valve",
@@ -297,14 +307,20 @@ public final class ModBlocks {
     private static Block register(String name,
                                   java.util.function.Function<BlockBehaviour.Properties, Block> factory,
                                   BlockBehaviour.Properties settings) {
+        return register(name, factory, settings, block -> new BlockItem(block, new Item.Properties()));
+    }
+
+    private static Block register(String name,
+                                  java.util.function.Function<BlockBehaviour.Properties, Block> factory,
+                                  BlockBehaviour.Properties settings,
+                                  java.util.function.Function<Block, Item> item) {
         ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, CarMain.id(name));
         Block block = Registry.register(
                 BuiltInRegistries.BLOCK, blockKey, factory.apply(settings));
 
         // Every block here is meant to be carried, so it always gets an item.
         ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, CarMain.id(name));
-        Registry.register(BuiltInRegistries.ITEM, itemKey,
-                new BlockItem(block, new Item.Properties()));
+        Registry.register(BuiltInRegistries.ITEM, itemKey, item.apply(block));
         return block;
     }
 

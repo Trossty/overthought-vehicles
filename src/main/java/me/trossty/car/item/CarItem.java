@@ -104,15 +104,35 @@ public class CarItem extends Item {
     private InteractionResult placeAt(ServerLevel serverWorld, ItemStack stack,
                                       net.minecraft.world.entity.player.Player player,
                                       double x, double y, double z, float yaw) {
-        CarEntity car = this.type.create(serverWorld);
+        CarEntity car = vehicleFrom(serverWorld, stack, new net.minecraft.world.phys.Vec3(x, y, z), yaw,
+                placed -> serverWorld.noCollision(placed, placed.getBoundingBox()));
         if (car == null) {
             return InteractionResult.PASS;
         }
-        car.moveTo(x, y, z, yaw, 0.0F);
+        serverWorld.addFreshEntity(car);
 
-        if (!serverWorld.noCollision(car, car.getBoundingBox())) {
-            return InteractionResult.PASS;
+        if (player == null || !player.hasInfiniteMaterials()) {
+            stack.shrink(1);
         }
+        return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * The vehicle a vehicle stack holds, stood at this spot facing this way and
+     * ready to be added to the world: or null if the stack is not a vehicle or
+     * the vehicle does not fit there. Shared by the item and the crate.
+     */
+    public static @org.jetbrains.annotations.Nullable CarEntity vehicleFrom(
+            ServerLevel serverWorld, ItemStack stack, net.minecraft.world.phys.Vec3 at, float yaw,
+            java.util.function.Predicate<CarEntity> fits) {
+        if (!(stack.getItem() instanceof CarItem item)) {
+            return null;
+        }
+        CarEntity car = item.type.create(serverWorld);
+        if (car == null) {
+            return null;
+        }
+        car.moveTo(at.x, at.y, at.z, yaw, 0.0F);
 
         // Paint travels on the item, so a car you picked up comes back the
         // colour you painted it rather than reverting to the default.
@@ -126,11 +146,11 @@ public class CarItem extends Item {
                 car.setSetup(defined.factory().setup());
                 defined.color().ifPresent(car::setColor);
                 car.refreshDimensions();
-                car.moveTo(x, y, z, yaw, 0.0F);
-                if (!serverWorld.noCollision(car, car.getBoundingBox())) {
-                    return InteractionResult.PASS;
-                }
+                car.moveTo(at.x, at.y, at.z, yaw, 0.0F);
             }
+        }
+        if (!fits.test(car)) {
+            return null;
         }
 
         // The body's own colour, unless the item says it was repainted.
@@ -180,12 +200,7 @@ public class CarItem extends Item {
             tanker.loadFrom(stack);
         }
 
-        serverWorld.addFreshEntity(car);
-
-        if (player == null || !player.hasInfiniteMaterials()) {
-            stack.shrink(1);
-        }
-        return InteractionResult.SUCCESS;
+        return car;
     }
 
     /**
@@ -224,6 +239,7 @@ public class CarItem extends Item {
             case MOTORCYCLE -> me.trossty.car.registry.ModItems.MOTORCYCLE;
             case BOAT -> me.trossty.car.registry.ModItems.MOTORBOAT;
             case PLANE -> me.trossty.car.registry.ModItems.AIRPLANE;
+            case HELICOPTER -> me.trossty.car.registry.ModItems.HELICOPTER;
             case CAR -> me.trossty.car.registry.ModItems.CAR;
         };
     }

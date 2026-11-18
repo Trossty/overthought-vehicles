@@ -54,6 +54,11 @@ public class DefinedVehicleModel extends VehicleModel {
 
     private static final String STEERING_WHEEL = "steering_wheel";
     private static final String PROPELLER = "propeller";
+
+    /** The part a spinner hangs from: the plain name for a propeller, as it always was. */
+    private static String spinnerName(net.minecraft.core.Direction.Axis axis) {
+        return axis == net.minecraft.core.Direction.Axis.Z ? PROPELLER : PROPELLER + "_" + axis.getName();
+    }
     /** A running propeller's turn, radians a tick: a blur, not a count. */
     private static final float PROP_SPEED = 1.9F;
     private static final String STEERING_WHEEL_COLOUR = "#1E1E21";
@@ -108,8 +113,9 @@ public class DefinedVehicleModel extends VehicleModel {
     private final ModelPart steerTurn;
     /** The steering wheel in the cabin, turned with the road wheels; null if there is none. */
     private final ModelPart steeringWheel;
-    /** The propeller, turned while the engine runs; null if nothing spins. */
-    private final ModelPart propeller;
+    /** What spins while the engine runs, by the axis it spins about: a propeller, a rotor. */
+    private final Map<net.minecraft.core.Direction.Axis, ModelPart> spinners =
+            new java.util.EnumMap<>(net.minecraft.core.Direction.Axis.class);
     private final List<ModelPart> wheels = new ArrayList<>();
     private final List<ModelPart> steered = new ArrayList<>();
     /** Each wheel's size as {width, radius} scales, put back every frame. */
@@ -143,15 +149,17 @@ public class DefinedVehicleModel extends VehicleModel {
         this.steeringWheel = this.chassis != null && this.chassis.getChild("frame").hasChild(STEERING_WHEEL)
                 ? this.chassis.getChild("frame").getChild(STEERING_WHEEL).getChild("turn")
                 : null;
-        this.propeller = this.chassis != null && this.chassis.getChild("frame").hasChild(PROPELLER)
-                ? this.chassis.getChild("frame").getChild(PROPELLER)
-                : null;
         this.bonnet = this.chassis != null && this.chassis.getChild("frame").hasChild(VehicleDefinition.Box.BONNET)
                 ? this.chassis.getChild("frame").getChild(VehicleDefinition.Box.BONNET)
                 : null;
         this.boot = this.chassis != null && this.chassis.getChild("frame").hasChild(VehicleDefinition.Box.BOOT)
                 ? this.chassis.getChild("frame").getChild(VehicleDefinition.Box.BOOT)
                 : null;
+        for (net.minecraft.core.Direction.Axis axis : net.minecraft.core.Direction.Axis.values()) {
+            if (this.chassis != null && this.chassis.getChild("frame").hasChild(spinnerName(axis))) {
+                this.spinners.put(axis, this.chassis.getChild("frame").getChild(spinnerName(axis)));
+            }
+        }
         for (int index = 0; this.chassis == null && index < definition.wheels().size(); index++) {
             ModelPart wheel = root.getChild("wheel" + index);
             VehicleDefinition.Wheel drawn = definition.wheels().get(index);
@@ -344,11 +352,15 @@ public class DefinedVehicleModel extends VehicleModel {
     }
 
     /**
-     * How far above the driver's hips the middle of the wheel goes: the usual
-     * rise, or more where the dashboard stands taller than that, so the top of
-     * the rim still shows over it from the seat. A lorry's dash is high.
+     * How far above the driver's hips the middle of the wheel goes: where the
+     * vehicle says, or else the usual rise, or more where the dashboard
+     * stands taller than that, so the top of the rim still shows over it from
+     * the seat. A lorry's dash is high.
      */
     private static float wheelRise(VehicleDefinition definition, net.minecraft.world.phys.Vec3 seat) {
+        if (definition.steeringWheelRise().isPresent()) {
+            return definition.steeringWheelRise().get();
+        }
         float span = WHEEL_RIM + 1.0F;
         float dash = Float.NEGATIVE_INFINITY;
         for (VehicleDefinition.Box box : definition.shape()) {
@@ -388,14 +400,19 @@ public class DefinedVehicleModel extends VehicleModel {
         // from the front wheel's hub up through the highest of them, raked
         // back as the fork is. Three parts so the turn happens about that
         // line: tip onto it, turn, tip back.
+        // On anything with a pair of steered wheels, the line runs up the
+        // middle between them.
         PartDefinition steerTurn = null;
         float hubX = 0.0F;
         float hubY = 0.0F;
         float hubZ = 0.0F;
-        VehicleDefinition.Wheel front = null;
+        int steered = 0;
         for (VehicleDefinition.Wheel wheel : definition.wheels()) {
-            if (wheel.steers() && front == null) {
-                front = wheel;
+            if (wheel.steers()) {
+                hubX += wheel.at().x();
+                hubY += wheel.at().y();
+                hubZ += wheel.at().z();
+                steered++;
             }
         }
         VehicleDefinition.Box top = null;
@@ -406,10 +423,17 @@ public class DefinedVehicleModel extends VehicleModel {
             }
         }
         PartDefinition steerHead = null;
-        if (front != null && top != null) {
-            hubX = front.at().x();
-            hubY = front.at().y();
-            hubZ = front.at().z();
+        if (top != null) {
+            if (steered > 0) {
+                hubX /= steered;
+                hubY /= steered;
+                hubZ /= steered;
+            } else {
+                // No wheel to steer, as on a jet ski: the bars turn about an
+                // upright line through the middle of them.
+                hubX = (top.from().x() + top.to().x()) / 2.0F;
+                hubZ = (top.from().z() + top.to().z()) / 2.0F;
+            }
             float rise = (top.from().y() + top.to().y()) / 2.0F - hubY;
             float back = (top.from().z() + top.to().z()) / 2.0F - hubZ;
             float rake = (float) Math.atan2(back, Math.max(rise, 0.1F));
@@ -424,9 +448,10 @@ public class DefinedVehicleModel extends VehicleModel {
         // where their hands reach: the seat is where the hips go, so the rim
         // sits a little above it and a forearm and a half forward. A plane
         // flies on the yokes its own boxes draw.
-        if (!glass && only == null && !definition.seats().isEmpty()
+        if (!glass && only == null && !definition.seats().isEmpty() && !definition.handlebars()
                 && definition.chassis() != VehicleDefinition.Chassis.MOTORCYCLE
                 && definition.chassis() != VehicleDefinition.Chassis.PLANE
+                && definition.chassis() != VehicleDefinition.Chassis.HELICOPTER
                 && definition.chassis() != VehicleDefinition.Chassis.TRAILER) {
             net.minecraft.world.phys.Vec3 seat = definition.seats().get(0);
             int[] rim = uv(colours, STEERING_WHEEL_COLOUR);
@@ -468,20 +493,21 @@ public class DefinedVehicleModel extends VehicleModel {
                     PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 45.0F * DEGREES));
         }
 
-        // A propeller turns about the middle of its first box: the spinner.
-        PartDefinition prop = null;
-        float propX = 0.0F;
-        float propY = 0.0F;
-        float propZ = 0.0F;
+        // A propeller or a rotor turns about the middle of the first box that
+        // spins about its axis: the spinner, or the hub.
+        Map<net.minecraft.core.Direction.Axis, PartDefinition> props =
+                new java.util.EnumMap<>(net.minecraft.core.Direction.Axis.class);
+        Map<net.minecraft.core.Direction.Axis, float[]> pivots =
+                new java.util.EnumMap<>(net.minecraft.core.Direction.Axis.class);
         if (!glass && only == null) {
             for (VehicleDefinition.Box box : definition.shape()) {
-                if (box.spins()) {
-                    propX = (box.from().x() + box.to().x()) / 2.0F;
-                    propY = -(box.from().y() + box.to().y()) / 2.0F;
-                    propZ = -(box.from().z() + box.to().z()) / 2.0F;
-                    prop = frame.addOrReplaceChild(PROPELLER, CubeListBuilder.create(),
-                            PartPose.offset(propX, propY, propZ));
-                    break;
+                if (box.spins() && !props.containsKey(box.spinAxis())) {
+                    float[] pivot = {(box.from().x() + box.to().x()) / 2.0F,
+                            -(box.from().y() + box.to().y()) / 2.0F,
+                            -(box.from().z() + box.to().z()) / 2.0F};
+                    pivots.put(box.spinAxis(), pivot);
+                    props.put(box.spinAxis(), frame.addOrReplaceChild(spinnerName(box.spinAxis()),
+                            CubeListBuilder.create(), PartPose.offset(pivot[0], pivot[1], pivot[2])));
                 }
             }
         }
@@ -524,13 +550,14 @@ public class DefinedVehicleModel extends VehicleModel {
             int[] at = uv(colours, box.color());
             // Written about its own middle, so that a tilt turns it in place.
             boolean turns = box.steers() && steerHead != null;
-            boolean spins = box.spins() && prop != null;
+            boolean spins = box.spins() && props.containsKey(box.spinAxis());
+            float[] pivot = spins ? pivots.get(box.spinAxis()) : null;
             float[] hinge = hinges.get(box.opens());
             PartDefinition parent = hinge != null ? frame.getChild(box.opens())
-                    : spins ? prop : turns ? steerHead : frame;
-            float offX = hinge != null ? hinge[0] : spins ? propX : turns ? hubX : 0.0F;
-            float offY = hinge != null ? hinge[1] : spins ? propY : turns ? -hubY : 0.0F;
-            float offZ = hinge != null ? hinge[2] : spins ? propZ : turns ? -hubZ : 0.0F;
+                    : spins ? props.get(box.spinAxis()) : turns ? steerHead : frame;
+            float offX = hinge != null ? hinge[0] : spins ? pivot[0] : turns ? hubX : 0.0F;
+            float offY = hinge != null ? hinge[1] : spins ? pivot[1] : turns ? -hubY : 0.0F;
+            float offZ = hinge != null ? hinge[2] : spins ? pivot[2] : turns ? -hubZ : 0.0F;
             CubeListBuilder cube = CubeListBuilder.create().texOffs(at[0], at[1]);
             java.util.Set<net.minecraft.core.Direction> pane = glass ? paneFaces(sizeX, sizeY, sizeZ) : null;
             if (pane != null) {
@@ -737,9 +764,14 @@ public class DefinedVehicleModel extends VehicleModel {
         if (this.boot != null) {
             this.boot.xRot = CarEntityRenderer.ease(state.bootOpen) * me.trossty.car.entity.CarEntity.BOOT_SWING_DEGREES * DEGREES;
         }
-        if (this.propeller != null) {
-            this.propeller.zRot = state.engineRunning ? state.ageInTicks * PROP_SPEED % Mth.TWO_PI : 0.0F;
-        }
+        float spin = state.engineRunning ? state.ageInTicks * PROP_SPEED % Mth.TWO_PI : 0.0F;
+        this.spinners.forEach((axis, part) -> {
+            switch (axis) {
+                case X -> part.xRot = spin;
+                case Y -> part.yRot = spin;
+                case Z -> part.zRot = spin;
+            }
+        });
         if (this.steeringWheel != null) {
             // Turning right swings the top of the rim to the right, which is
             // the model's minus x.

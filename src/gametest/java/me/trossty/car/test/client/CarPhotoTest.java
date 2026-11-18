@@ -104,6 +104,10 @@ public class CarPhotoTest {
             scenes.put("stall", Playtest::stall);
             scenes.put("airturn", Playtest::airturn);
             scenes.put("planecrash", Playtest::planeCrash);
+            scenes.put("newVehicles", this::newVehicles);
+            scenes.put("newRiders", this::newRiders);
+            scenes.put("farmWork", this::farmWork);
+            scenes.put("crateAndIcons", this::crateAndIcons);
             String only = System.getProperty("car.photo.scenes", "");
             List<String> wanted = Boolean.getBoolean("car.photo.all") ? List.copyOf(scenes.keySet())
                     : only.isBlank() ? List.of() : List.of(only.split(","));
@@ -1859,6 +1863,180 @@ public class CarPhotoTest {
             client.options.setCameraType(CameraType.FIRST_PERSON);
             client.options.hideGui = false;
         });
+    }
+
+    /**
+     * The entity, model and factory paint (a dye id: a summon does not apply
+     * it the way placing the item does) of each vehicle added with the
+     * MrCrayfish set.
+     */
+    private static final String[][] NEW_VEHICLES = {
+            {"car:car", "car:massey_ferguson_240", "14"},
+            {"car:trailer", "car:seed_drill", "11"},
+            {"car:trailer", "car:fertilizer_spreader", "1"},
+            {"car:car", "car:john_deere_x350", "13"},
+            {"car:car", "car:honda_fourtrax_rancher", "14"},
+            {"car:car", "car:tony_kart_racer_401", "5"},
+            {"car:car", "car:meyers_manx", "1"},
+            {"car:car", "car:club_car_precedent", "0"},
+            {"car:motorboat", "car:yamaha_waverunner_vx", "11"},
+            {"car:helicopter", "car:robinson_r44", "14"},
+    };
+
+    /** The NBT that summons {@code model} in its factory paint, from {@link #NEW_VEHICLES}. */
+    private static String newVehicle(String model) {
+        for (String[] vehicle : NEW_VEHICLES) {
+            if (vehicle[1].equals(model)) {
+                return "Rotation:[0f,0f],Model:\"%s\",Color:%s".formatted(model, vehicle[2]);
+            }
+        }
+        throw new IllegalArgumentException(model);
+    }
+
+    /** A front three-quarter, a rear three-quarter and a side shot of each new vehicle, alone. */
+    private void newVehicles(ClientGameTestContext context, TestServerContext server) {
+        context.runOnClient(client -> client.options.hideGui = true);
+        for (String[] vehicle : NEW_VEHICLES) {
+            boolean boat = vehicle[0].equals("car:motorboat");
+            clear(server);
+            server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
+            if (boat) {
+                server.runCommand("fill -8 %d 2 8 %d 19 minecraft:water".formatted(Y - 1, Y - 1));
+            }
+            server.runCommand("summon %s 0.5 %d 10.5 {%s}".formatted(vehicle[0], Y, newVehicle(vehicle[1])));
+            String name = vehicle[1].substring(4);
+            double back = vehicle[0].equals("car:helicopter") ? 7.5 : name.equals("massey_ferguson_240") ? 4.5 : 3.6;
+            double up = back > 5 ? 2.2 : 1.0;
+            shot(context, server, "new_" + name + "_front34", 0.5 + back * 0.55, Y + up, 10.5 + back, 151, 12);
+            shot(context, server, "new_" + name + "_rear34", 0.5 - back * 0.55, Y + up, 10.5 - back, -29, 12);
+            shot(context, server, "new_" + name + "_side", 0.5 + back, Y + up * 0.6, 10.5, 90, 6);
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+    }
+
+    /**
+     * Sat on each new vehicle from behind and from the front: hands on the
+     * bars of the quad and the jet ski, on a wheel in the rest.
+     */
+    private void newRiders(ClientGameTestContext context, TestServerContext server) {
+        String[] riders = {"car:honda_fourtrax_rancher", "car:tony_kart_racer_401", "car:meyers_manx",
+                "car:club_car_precedent", "car:john_deere_x350", "car:massey_ferguson_240",
+                "car:yamaha_waverunner_vx", "car:robinson_r44"};
+        for (String model : riders) {
+            String type = model.equals("car:yamaha_waverunner_vx") ? "car:motorboat"
+                    : model.equals("car:robinson_r44") ? "car:helicopter" : "car:car";
+            clear(server);
+            server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
+            if (type.equals("car:motorboat")) {
+                server.runCommand("fill -8 %d 2 8 %d 19 minecraft:water".formatted(Y - 1, Y - 1));
+            }
+            server.runCommand("summon %s 0.5 %d 10.5 {%s,Tags:[\"ride\"]}".formatted(type, Y, newVehicle(model)));
+            server.runCommand("tp @a 3.5 %d 10.5".formatted(Y));
+            context.waitTicks(10);
+            server.runCommand("ride @p mount @e[tag=ride,limit=1]");
+            context.waitTicks(10);
+            context.runOnClient(client -> {
+                client.player.setYRot(0);
+                client.player.setXRot(18);
+                client.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+                client.options.hideGui = true;
+            });
+            context.waitTicks(5);
+            String name = model.substring(4);
+            context.takeScreenshot("rider_" + name + "_back");
+            context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+            context.waitTicks(3);
+            context.takeScreenshot("rider_" + name + "_front");
+            server.runCommand("ride @p dismount");
+            context.waitTicks(5);
+        }
+        context.runOnClient(client -> {
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+            client.options.hideGui = false;
+        });
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+    }
+
+    /** The tractor pulling the seed drill up a strip of farmland, wheat coming up behind it. */
+    private void farmWork(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -2 %d 0 3 %d 24 minecraft:farmland".formatted(Y - 1, Y - 1));
+        String[][] sets = {{"seed_drill", "minecraft:wheat_seeds"}, {"fertilizer_spreader", "minecraft:bone_meal"}};
+        context.runOnClient(client -> client.options.hideGui = true);
+        for (String[] set : sets) {
+            server.runCommand("kill @e[type=!player]");
+            server.runCommand("summon car:car 0.5 %d 6.5 {%s,Tags:[\"tractor\"]}"
+                    .formatted(Y, newVehicle("car:massey_ferguson_240")));
+            server.runCommand("summon car:trailer 0.5 %d 2.5 {%s,Tags:[\"implement\"]}"
+                    .formatted(Y, newVehicle("car:" + set[0])));
+            context.waitTicks(5);
+            server.runOnServer(minecraft -> {
+                var box = new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 30);
+                var world = minecraft.overworld();
+                var tractor = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                        e -> e.getTags().contains("tractor")).get(0);
+                var implement = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box,
+                        e -> e.getTags().contains("implement")).get(0);
+                implement.hitch(tractor);
+                implement.getLoad().setItem(0, new net.minecraft.world.item.ItemStack(
+                        net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
+                                net.minecraft.resources.ResourceLocation.parse(set[1])), 64));
+            });
+            for (int step = 0; step < 40; step++) {
+                server.runCommand("execute as @e[tag=tractor] at @s run tp @s ~ ~ ~0.25");
+                context.waitTicks(1);
+            }
+            context.waitTicks(5);
+            shot(context, server, "farm_" + set[0] + "_front34", 5.0, Y + 2.4, 21.5, 145, 18);
+            shot(context, server, "farm_" + set[0] + "_rear34", -4.5, Y + 2.8, 2.5, -30, 24);
+            shot(context, server, "farm_" + set[0] + "_side", 7.5, Y + 1.4, 13.0, 90, 10);
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+    }
+
+    /**
+     * A shut crate, one half prised open and one open with the car out, then
+     * the new items as the inventory draws them.
+     */
+    private void crateAndIcons(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        String inside = "{id:\"car:car\",count:1,components:{\"car:vehicle\":\"car:honda_fourtrax_rancher\"}}";
+        server.runCommand("setblock -3 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s}".formatted(Y, inside));
+        server.runCommand("setblock 0 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s,Pries:2}".formatted(Y, inside));
+        server.runCommand("setblock 3 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s,Pries:3,Opening:15}"
+                .formatted(Y, inside));
+        context.runOnClient(client -> client.options.hideGui = true);
+        shot(context, server, "crates_front34", 4.5, Y + 2.6, 16.5, 155, 20);
+        shot(context, server, "crates_front", 0.5, Y + 1.6, 16.5, 180, 10);
+        clear(server);
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
+        String[][] items = new String[NEW_VEHICLES.length + 2][];
+        for (int i = 0; i < NEW_VEHICLES.length; i++) {
+            items[i] = new String[] {NEW_VEHICLES[i][0], ",components:{\"car:vehicle\":\"" + NEW_VEHICLES[i][1] + "\"}"};
+        }
+        items[NEW_VEHICLES.length] = new String[] {"car:vehicle_crate",
+                ",components:{\"minecraft:block_entity_data\":{id:\"car:vehicle_crate\",Vehicle:" + inside + "}}"};
+        items[NEW_VEHICLES.length + 1] = new String[] {"car:wrench", ""};
+        for (int i = 0; i < items.length; i++) {
+            double x = -5.0 + (i % 6) * 2.0;
+            double y = Y + 2.8 - (i / 6) * 1.9;
+            server.runCommand(("summon minecraft:item_display %.1f %.1f 12.5 {item_display:\"gui\","
+                    + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                    + "translation:[0f,0f,0f],scale:[1.6f,1.6f,1.6f]},"
+                    + "item:{id:\"%s\",count:1%s}}").formatted(x, y, items[i][0], items[i][1]));
+        }
+        shot(context, server, "new_icons", 0.0, Y + 1.9, 20.0, 180, 0);
+        context.runOnClient(client -> client.options.hideGui = false);
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
     }
 
     private void tyres(ClientGameTestContext context, TestServerContext server) {

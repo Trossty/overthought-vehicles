@@ -6,6 +6,12 @@
         "car:vehicle": 10
       },
       "model": "car:item/vehicle_bayliner_bowrider"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 27
+      },
+      "model": "car:item/vehicle_yamaha_waverunner_vx"
     }
   ]
 }

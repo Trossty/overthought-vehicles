@@ -1,0 +1,158 @@
+{
+  "textures": {
+    "particle": "minecraft:block/spruce_planks",
+    "planks": "minecraft:block/spruce_planks",
+    "batten": "minecraft:block/stripped_spruce_log",
+    "deck": "minecraft:block/dark_oak_planks",
+    "runner": "minecraft:block/stripped_dark_oak_log"
+  },
+  "elements": [
+    {
+      "name": "lid",
+      "from": [
+        0,
+        15,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#planks"
+        },
+        "south": {
+          "texture": "#planks"
+        },
+        "east": {
+          "texture": "#planks"
+        },
+        "west": {
+          "texture": "#planks"
+        },
+        "up": {
+          "texture": "#planks"
+        },
+        "down": {
+          "texture": "#planks"
+        }
+      }
+    },
+    {
+      "name": "lid_batten_back",
+      "from": [
+        1,
+        16,
+        2
+      ],
+      "to": [
+        15,
+        16.5,
+        3.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#batten",
+          "uv": [
+            1,
+            15.5,
+            15,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#batten",
+          "uv": [
+            1,
+            15.5,
+            15,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#batten",
+          "uv": [
+            12.5,
+            15.5,
+            14,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#batten",
+          "uv": [
+            2,
+            15.5,
+            3.5,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#batten"
+        },
+        "down": {
+          "texture": "#batten"
+        }
+      }
+    },
+    {
+      "name": "lid_batten_front",
+      "from": [
+        1,
+        16,
+        12.5
+      ],
+      "to": [
+        15,
+        16.5,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#batten",
+          "uv": [
+            1,
+            15.5,
+            15,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#batten",
+          "uv": [
+            1,
+            15.5,
+            15,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#batten",
+          "uv": [
+            2,
+            15.5,
+            3.5,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#batten",
+          "uv": [
+            12.5,
+            15.5,
+            14,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#batten"
+        },
+        "down": {
+          "texture": "#batten"
+        }
+      }
+    }
+  ]
+}

@@ -556,6 +556,11 @@ public class TrailerEntity extends CarEntity {
     private void hitchTo(@Nullable CarEntity tractor) {
         this.entityData.set(TRACTOR, tractor == null ? -1 : tractor.getId());
         this.tractorUuid = tractor == null ? null : tractor.getUUID();
+        if (tractor != null) {
+            // Tell the tractor now, not on our next tick: what it does this
+            // tick (a mower loading cuttings) already has somewhere to go.
+            tractor.towedBy(this);
+        }
     }
 
     /** Hitches straight on, wherever the two stand: for commands and tests. */

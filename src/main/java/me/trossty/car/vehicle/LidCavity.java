@@ -138,7 +138,7 @@ public final class LidCavity {
     private static VehicleDefinition.Box tub(float x0, float y0, float z0, float x1, float y1, float z1,
                                              String colour) {
         return new VehicleDefinition.Box(new Vector3f(x0, y0, z0), new Vector3f(x1, y1, z1),
-                colour, 0.0F, false, 0.0F, false, 0.0F, "");
+                colour, 0.0F, false, 0.0F, false, 0.0F, "", net.minecraft.core.Direction.Axis.Z);
     }
 
     /**
@@ -240,7 +240,7 @@ public final class LidCavity {
         if (x1 - x0 > 1.0E-3 && y1 - y0 > 1.0E-3 && z1 - z0 > 1.0E-3) {
             into.add(new VehicleDefinition.Box(new Vector3f((float) x0, (float) y0, (float) z0),
                     new Vector3f((float) x1, (float) y1, (float) z1),
-                    like.color(), 0.0F, false, 0.0F, false, 0.0F, ""));
+                    like.color(), 0.0F, false, 0.0F, false, 0.0F, "", net.minecraft.core.Direction.Axis.Z));
         }
     }
 }

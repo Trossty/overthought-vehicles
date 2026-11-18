@@ -144,8 +144,11 @@ public class CarMainClient {
             event.registerEntityRenderer(ModEntities.MOTORCYCLE, CarEntityRenderer::new);
             event.registerEntityRenderer(ModEntities.MOTORBOAT, CarEntityRenderer::new);
             event.registerEntityRenderer(ModEntities.AIRPLANE, CarEntityRenderer::new);
+            event.registerEntityRenderer(ModEntities.HELICOPTER, CarEntityRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.FUEL_TANK, FuelTankRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.PUMPJACK, PumpjackRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.VEHICLE_CRATE,
+                    me.trossty.car.client.render.VehicleCrateRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.FUEL_PUMP, FuelPumpRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.DYNO,
                     me.trossty.car.client.render.DynoRenderer::new);
@@ -234,6 +237,7 @@ public class CarMainClient {
             if (viewer != null && viewer.getVehicle() instanceof me.trossty.car.entity.CarEntity vehicle) {
                 float back = switch (vehicle.chassis()) {
                     case PLANE -> 11.0F;
+                    case HELICOPTER -> 9.0F;
                     case BOAT -> 7.0F;
                     default -> 0.0F;
                 };

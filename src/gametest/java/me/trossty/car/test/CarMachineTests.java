@@ -37,6 +37,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.Mth;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -1853,6 +1854,200 @@ public class CarMachineTests {
         });
     }
 
+    /**
+     * A helicopter with nobody at the controls drops onto its skids like
+     * anything else, and stays put there. It has the rotor drive a real one
+     * has and none of a car's running gear, and it is built that way.
+     */
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void helicopterSitsOnItsSkids(GameTestHelper context) {
+        me.trossty.car.entity.HelicopterEntity heli = context.spawn(
+                me.trossty.car.registry.ModEntities.HELICOPTER, new net.minecraft.world.phys.Vec3(3.5, 4.0, 3.5));
+        context.assertTrue(heli.getDefinition() != null
+                        && heli.getDefinition().chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.HELICOPTER
+                        && heli.getDefinition().seats().size() == 4,
+                "a helicopter is not drawn as the four-seat R44");
+        for (CarPart part : new CarPart[]{CarPart.WHEELS, CarPart.BRAKE_PADS, CarPart.BRAKE_DISCS,
+                CarPart.SUSPENSION, CarPart.RADIATOR, CarPart.STEERING_RACK}) {
+            context.assertTrue(!heli.hasPart(part), "a helicopter has " + part);
+        }
+        context.assertTrue(heli.hasPart(CarPart.TRANSMISSION) && heli.hasPart(CarPart.DRIVESHAFT)
+                && !heli.hasGearbox(), "a helicopter lost its rotor drive, or shifts gear");
+        context.assertTrue(me.trossty.car.workbench.ModVehicleRecipes.chassisParts(
+                        me.trossty.car.vehicle.VehicleDefinition.Chassis.HELICOPTER).stream()
+                        .noneMatch(m -> m.item() == me.trossty.car.registry.ModItems.WHEEL),
+                "a helicopter is built with wheels");
+        context.assertTrue(me.trossty.car.item.CarItem.itemFor(me.trossty.car.vehicle.VehicleDefinition.Chassis.HELICOPTER)
+                == me.trossty.car.registry.ModItems.HELICOPTER, "a helicopter drops as something else");
+        context.runAtTickTime(60, () -> {
+            // The empty template's floor is under its bottom layer.
+            double ground = context.absolutePos(new BlockPos(0, 0, 0)).getY();
+            context.assertTrue(heli.onGround() && Math.abs(heli.getY() - ground) < 0.05,
+                    "an empty helicopter hangs at %.2f above the ground".formatted(heli.getY() - ground));
+            context.assertTrue(heli.getEngineSpeed() == 0.0F, "an empty helicopter slides along its skids");
+            context.succeed();
+        });
+    }
+
+    /**
+     * A tractor and what it pulls, heading south: the tractor is moved two
+     * blocks, a little each tick, and the trailer comes along on its hitch,
+     * over the blocks a row to three rows in. All of it stays inside the
+     * nine-block template, clear of the tests around it.
+     */
+    private static me.trossty.car.entity.TrailerEntity tow(GameTestHelper context, String tractorModel,
+                                                           String trailerModel, double groundY) {
+        CarEntity tractor = context.spawn(ModEntities.CAR, new net.minecraft.world.phys.Vec3(3.5, groundY, 5.0));
+        tractor.setModel(CarMain.id(tractorModel));
+        tractor.setYRot(0.0F);
+        me.trossty.car.entity.TrailerEntity trailer = context.spawn(ModEntities.TRAILER,
+                new net.minecraft.world.phys.Vec3(3.5, groundY, 1.5));
+        trailer.setModel(CarMain.id(trailerModel));
+        trailer.setYRot(0.0F);
+        trailer.hitch(tractor);
+        BlockPos origin = context.absolutePos(BlockPos.ZERO);
+        context.onEachTick(() -> {
+            double z = tractor.getZ() - origin.getZ();
+            // Quarter blocks add up exactly, so it ends on the block it should.
+            if (z < 7.25) {
+                tractor.setPos(tractor.getX(), tractor.getY(), tractor.getZ() + 0.25);
+            }
+        });
+        return trailer;
+    }
+
+    /** A seed drill sows the farmland it is pulled over from the seeds in its load, and nothing unhitched. */
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void seedDrillSowsFarmland(GameTestHelper context) {
+        for (int x = 2; x <= 4; x++) {
+            for (int z = 0; z <= 8; z++) {
+                context.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.FARMLAND);
+            }
+        }
+        me.trossty.car.entity.TrailerEntity drill = tow(context, "massey_ferguson_240", "seed_drill", 0.9375);
+        drill.getLoad().setItem(0, new ItemStack(Items.WHEAT_SEEDS, 64));
+        context.assertTrue(drill.getDefinition() != null && drill.getDefinition().implement()
+                == me.trossty.car.vehicle.VehicleDefinition.Implement.SEEDER, "the seed drill does not sow");
+        context.runAtTickTime(100, () -> {
+            int sown = 0;
+            for (int x = 2; x <= 4; x++) {
+                for (int z = 1; z <= 3; z++) {
+                    if (context.getBlockState(new BlockPos(x, 1, z)).is(net.minecraft.world.level.block.Blocks.WHEAT)) {
+                        sown++;
+                    }
+                }
+            }
+            context.assertTrue(sown == 9, "the drill sowed " + sown + " of the 9 blocks it went over");
+            context.assertTrue(drill.getLoad().getItem(0).getCount() == 64 - sown,
+                    "the drill planted " + sown + " seeds but spent " + (64 - drill.getLoad().getItem(0).getCount()));
+            context.succeed();
+        });
+    }
+
+    /** A spreader pulled over growing wheat feeds it the bone meal it carries. */
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void spreaderFeedsTheCrop(GameTestHelper context) {
+        for (int x = 1; x <= 6; x++) {
+            for (int z = 0; z <= 8; z++) {
+                context.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.FARMLAND);
+                context.setBlock(new BlockPos(x, 1, z), net.minecraft.world.level.block.Blocks.WHEAT);
+            }
+        }
+        me.trossty.car.entity.TrailerEntity spreader = tow(context, "massey_ferguson_240", "fertilizer_spreader",
+                0.9375);
+        spreader.getLoad().setItem(0, new ItemStack(Items.BONE_MEAL, 64));
+        context.runAtTickTime(100, () -> {
+            int fed = 0;
+            for (int x = 2; x <= 5; x++) {
+                for (int z = 1; z <= 3; z++) {
+                    BlockState crop = context.getBlockState(new BlockPos(x, 1, z));
+                    if (crop.is(net.minecraft.world.level.block.Blocks.WHEAT)
+                            && crop.getValue(net.minecraft.world.level.block.CropBlock.AGE) > 0) {
+                        fed++;
+                    }
+                }
+            }
+            context.assertTrue(fed == 12, "the spreader fed " + fed + " of the 12 blocks of wheat it went over");
+            context.assertTrue(spreader.getLoad().getItem(0).getCount() < 64, "the spreader spent no bone meal");
+            context.succeed();
+        });
+    }
+
+    /** A ride-on mower with its engine running cuts the flowers it drives over into the trailer it tows. */
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void mowerCutsIntoItsTrailer(GameTestHelper context) {
+        for (int z = 0; z <= 8; z++) {
+            context.setBlock(new BlockPos(3, 0, z), net.minecraft.world.level.block.Blocks.GRASS_BLOCK);
+            context.setBlock(new BlockPos(3, 1, z), net.minecraft.world.level.block.Blocks.DANDELION);
+        }
+        me.trossty.car.entity.TrailerEntity trailer = tow(context, "john_deere_x350", "box_trailer", 1.0);
+        CarEntity mower = trailer.getTractor();
+        var driver = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        driver.startRiding(mower, true);
+        mower.setFuel(5.0F);
+        context.runAtTickTime(100, () -> {
+            context.assertTrue(mower.isEngineRunning(), "the mower's engine is not running");
+            int cut = 0;
+            for (int z = 5; z <= 7; z++) {
+                if (context.getBlockState(new BlockPos(3, 1, z)).isAir()) {
+                    cut++;
+                }
+            }
+            context.assertTrue(cut == 3, "the mower cut " + cut + " of the 3 flowers it drove over");
+            context.assertTrue(context.getBlockState(new BlockPos(3, 1, 1)).is(net.minecraft.world.level.block.Blocks.DANDELION),
+                    "the mower cut flowers it never reached");
+            int loaded = 0;
+            for (int slot = 0; slot < trailer.getLoad().getContainerSize(); slot++) {
+                if (trailer.getLoad().getItem(slot).is(Items.DANDELION)) {
+                    loaded += trailer.getLoad().getItem(slot).getCount();
+                }
+            }
+            context.assertTrue(loaded >= 3, "only " + loaded + " cut flowers went into the trailer");
+            context.succeed();
+        });
+    }
+
+    /** The farm set and the small vehicles all load, on the machine they are meant to be. */
+    @GameTest(template = "empty")
+    public static void newVehiclesAreDefined(GameTestHelper context) {
+        var registry = context.getLevel().registryAccess()
+                .registryOrThrow(me.trossty.car.vehicle.VehicleDefinition.KEY);
+        Object[][] expected = {
+                {"massey_ferguson_240", "CAR", false, "NONE"},
+                {"seed_drill", "TRAILER", false, "SEEDER"},
+                {"fertilizer_spreader", "TRAILER", false, "FERTILIZER"},
+                {"john_deere_x350", "CAR", false, "MOWER"},
+                {"honda_fourtrax_rancher", "CAR", true, "NONE"},
+                {"tony_kart_racer_401", "CAR", false, "NONE"},
+                {"meyers_manx", "CAR", false, "NONE"},
+                {"club_car_precedent", "CAR", false, "NONE"},
+                {"yamaha_waverunner_vx", "BOAT", true, "NONE"},
+        };
+        for (Object[] row : expected) {
+            var definition = registry.get(CarMain.id((String) row[0]));
+            context.assertTrue(definition != null, row[0] + " did not load");
+            context.assertTrue(definition.chassis().name().equals(row[1]), row[0] + " is a " + definition.chassis());
+            context.assertTrue(definition.handlebars() == (Boolean) row[2], row[0] + " has the wrong controls");
+            context.assertTrue(definition.implement().name().equals(row[3]), row[0] + " does " + definition.implement());
+        }
+        context.assertTrue("electric".equals(registry.get(CarMain.id("club_car_precedent")).factory().fuel()),
+                "the golf cart is not electric");
+        context.succeed();
+    }
+
+    /** The clipboard reads nothing off a car standing on its wheels: no lift, no service window. */
+    @GameTest(template = "empty")
+    public static void clipboardNeedsALift(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.DIAGNOSTIC_SHEET));
+        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+        context.assertTrue(player.containerMenu == player.inventoryMenu,
+                "the clipboard opened a service window off the lift");
+        context.succeed();
+    }
+
     /** A locked car keeps its parts, however the request to take one arrives. */
     @GameTest(template = "empty")
     public static void lockedCarRefusesService(GameTestHelper context) {
@@ -2174,5 +2369,65 @@ public class CarMachineTests {
         context.assertTrue(again.getAmount() == poured && again.getFluid().isSame(ModFluids.PETROL),
                 "put down again, the drum holds " + again.getAmount() + " of " + poured);
         context.succeed();
+    }
+
+    /**
+     * A crate keeps its vehicle when broken, will not open where the vehicle
+     * would not fit, and opened with a wrench leaves that very vehicle — paint
+     * and all — standing where it was, facing the way the crate did.
+     */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void crateUnpacksWithAWrench(GameTestHelper context) {
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                new ItemStack(me.trossty.car.registry.ModItems.WRENCH));
+        ItemStack vehicle = new ItemStack(me.trossty.car.registry.ModItems.CAR);
+        vehicle.set(me.trossty.car.registry.ModComponents.CAR_COLOR, net.minecraft.world.item.DyeColor.BLUE.getId());
+        BlockState south = ModBlocks.VEHICLE_CRATE.defaultBlockState()
+                .setValue(me.trossty.car.block.VehicleCrateBlock.FACING, Direction.SOUTH);
+
+        // Broken, it is carried off with the vehicle in it.
+        BlockPos spare = new BlockPos(1, 1, 1);
+        context.setBlock(spare, south);
+        context.<me.trossty.car.block.entity.VehicleCrateBlockEntity>getBlockEntity(spare).setVehicle(vehicle);
+        context.getLevel().destroyBlock(context.absolutePos(spare), true);
+        var drops = context.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(context.absolutePos(spare)).inflate(2.0),
+                drop -> drop.getItem().is(ModBlocks.VEHICLE_CRATE.asItem()));
+        context.assertTrue(drops.size() == 1, "breaking the crate dropped " + drops.size() + " crates");
+        ItemStack carried = me.trossty.car.block.entity.VehicleCrateBlockEntity.vehicleIn(drops.get(0).getItem());
+        drops.get(0).discard();
+        context.assertTrue(carried.is(me.trossty.car.registry.ModItems.CAR)
+                        && carried.get(me.trossty.car.registry.ModComponents.CAR_COLOR) != null,
+                "the crate item does not carry the car");
+
+        BlockPos at = new BlockPos(4, 1, 4);
+        context.setBlock(at, south);
+        var crate = context.<me.trossty.car.block.entity.VehicleCrateBlockEntity>getBlockEntity(at);
+        crate.setVehicle(carried);
+
+        // A wall where the bonnet would be: the lid stays on.
+        BlockPos wall = new BlockPos(4, 1, 5);
+        context.setBlock(wall, net.minecraft.world.level.block.Blocks.STONE);
+        clickDrum(context, player, at);
+        context.assertTrue(crate.getPries() == 0, "the crate began to open with no room for the car");
+        context.setBlock(wall, net.minecraft.world.level.block.Blocks.AIR);
+
+        for (int turn = 0; turn < me.trossty.car.block.entity.VehicleCrateBlockEntity.PRIES; turn++) {
+            clickDrum(context, player, at);
+        }
+        context.assertTrue(crate.getOpening() >= 0, "the wrench did not get the lid off");
+        context.runAfterDelay(me.trossty.car.block.entity.VehicleCrateBlockEntity.OPEN_TICKS + 2, () -> {
+            context.assertBlockNotPresent(ModBlocks.VEHICLE_CRATE, at);
+            var cars = context.getLevel().getEntitiesOfClass(CarEntity.class,
+                    new net.minecraft.world.phys.AABB(context.absolutePos(at)).inflate(4.0));
+            context.assertTrue(cars.size() == 1, "the crate left " + cars.size() + " cars");
+            CarEntity car = cars.get(0);
+            context.assertTrue(car.getColor() == net.minecraft.world.item.DyeColor.BLUE,
+                    "the car came out " + car.getColor() + ", not the blue it went in");
+            context.assertTrue(Math.abs(Mth.wrapDegrees(car.getYRot() - Direction.SOUTH.toYRot())) < 1.0F,
+                    "the car faces " + car.getYRot() + ", not the way the crate did");
+            context.succeed();
+        });
     }
 }
