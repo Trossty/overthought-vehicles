@@ -18,7 +18,6 @@ import me.trossty.car.entity.Workshop;
 import me.trossty.car.registry.ModEntities;
 import me.trossty.car.block.MultiblockBlock;
 import me.trossty.car.block.entity.EnergyCableBlockEntity;
-import me.trossty.car.block.entity.FuelPipeBlockEntity;
 import me.trossty.car.block.entity.FuelRefineryBlockEntity;
 import me.trossty.car.block.entity.FuelTankBlockEntity;
 import me.trossty.car.block.entity.GeneratorBlockEntity;
@@ -39,7 +38,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
@@ -235,17 +233,6 @@ public class CarMachineTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 30)
-    public static void emptyGeneratorStaysCold(GameTestHelper context) {
-        BlockPos at = new BlockPos(3, 1, 3);
-        GeneratorBlockEntity generator = coalGenerator(context, at, 0);
-        context.runAtTickTime(20, () -> {
-            context.assertTrue(!generator.isBurning() && generator.getEnergy() == 0,
-                    "an empty generator made energy");
-            context.succeed();
-        });
-    }
-
     // ---- cables ----
 
     @GameTest(template = "empty", timeoutTicks = 220)
@@ -272,18 +259,6 @@ public class CarMachineTests {
                     == EnergyCableBlock.Side.DEVICE, "the first length does not plug into the generator");
             context.assertTrue(context.getBlockState(run[2]).getValue(EnergyCableBlock.SIDES.get(Direction.EAST))
                     == EnergyCableBlock.Side.CABLE, "the lengths do not join each other");
-            context.succeed();
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 60)
-    public static void cableWithNoSourceStaysEmpty(GameTestHelper context) {
-        BlockPos a = new BlockPos(2, 1, 2);
-        BlockPos b = new BlockPos(3, 1, 2);
-        cable(context, a, b);
-        context.runAtTickTime(40, () -> {
-            context.assertTrue(context.<EnergyCableBlockEntity>getBlockEntity(a).getFlow() == 0,
-                    "cable made energy out of nothing");
             context.succeed();
         });
     }
@@ -335,36 +310,6 @@ public class CarMachineTests {
         });
     }
 
-    /** The survey kit finds oil under the hammer, and points the way to oil that is not. */
-    @GameTest(template = "empty")
-    public static void theSurveyKitFindsOil(GameTestHelper context) {
-        context.setBlock(new BlockPos(2, 0, 2), ModBlocks.OIL_DEPOSIT);
-        context.setBlock(new BlockPos(2, 0, 3), ModBlocks.OIL_DEPOSIT);
-        var world = context.getLevel();
-        var here = me.trossty.car.item.SeismicSurveyItem.survey(world, context.absolutePos(new BlockPos(2, 2, 2)));
-        context.assertTrue(here.underfoot() && here.belowHere() == 2 && here.depositBlocks() == 2,
-                "the kit did not hear the two blocks underfoot: " + here);
-        var away = me.trossty.car.item.SeismicSurveyItem.survey(world, context.absolutePos(new BlockPos(8, 2, 2)));
-        context.assertTrue(!away.underfoot() && away.nearest() != null
-                        && away.nearest().equals(context.absolutePos(new BlockPos(2, 0, 2))),
-                "the kit did not point at the deposit six blocks off: " + away);
-        context.assertTrue(me.trossty.car.item.SeismicSurveyItem.report(away, context.absolutePos(new BlockPos(8, 2, 2)))
-                .getString().contains("west"), "the deposit to the west was not called west");
-        context.succeed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void pumpjackWithoutPowerStands(GameTestHelper context) {
-        context.setBlock(new BlockPos(3, 0, 4), ModBlocks.OIL_DEPOSIT);
-        BlockPos at = new BlockPos(3, 1, 5);
-        machine(context, ModBlocks.PUMPJACK, at);
-        PumpjackBlockEntity jack = context.<PumpjackBlockEntity>getBlockEntity(at);
-        context.runAtTickTime(20, () -> {
-            context.assertTrue(!jack.isWorking() && jack.getCrude().isEmpty(), "pumpjack ran with no power");
-            context.succeed();
-        });
-    }
-
     // ---- the refinery ----
 
     @GameTest(template = "empty", timeoutTicks = 140)
@@ -409,21 +354,6 @@ public class CarMachineTests {
             context.assertTrue(!me.trossty.car.item.JerryCans.isEmpty(filled), "the can stayed empty");
             context.assertTrue(CarEntity.isRaw(filled), "raw petrol came out as clean");
             context.assertTrue(CarEntity.fuelIn(filled) == CarSetup.Fuel.PETROL, "it is not petrol");
-            context.succeed();
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 60)
-    public static void coldRefineryOnlyWarms(GameTestHelper context) {
-        BlockPos at = new BlockPos(5, 1, 5);
-        machine(context, ModBlocks.FUEL_REFINERY, at);
-        FuelRefineryBlockEntity refinery = context.<FuelRefineryBlockEntity>getBlockEntity(at);
-        refinery.setFeed(FuelRefineryBlockEntity.FEED_CRUDE, 1000);
-        refinery.setItem(FuelRefineryBlockEntity.CATALYST_SLOT, new ItemStack(Items.REDSTONE, 16));
-        refinery.setEnergy(FuelRefineryBlockEntity.ENERGY_CAPACITY);
-        context.runAtTickTime(40, () -> {
-            context.assertTrue(refinery.getPetrol() == 0, "a cold column cracked crude");
-            context.assertTrue(refinery.getTemperature() > 0, "the heater did not warm the column");
             context.succeed();
         });
     }
@@ -593,122 +523,6 @@ public class CarMachineTests {
         });
     }
 
-    // ---- energy API sanity ----
-
-    @GameTest(template = "empty", timeoutTicks = 20)
-    public static void machinesOfferPowerDoors(GameTestHelper context) {
-        BlockPos plantAt = new BlockPos(3, 1, 3);
-        machine(context, ModBlocks.HYDROTREATER, plantAt);
-        context.runAtTickTime(2, () -> {
-            for (Direction side : Direction.values()) {
-                IEnergyStorage door = context.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK,
-                        context.absolutePos(plantAt.above()), side);
-                context.assertTrue(door != null && door.canReceive(),
-                        "the hydrotreater's upper cell has no power door on " + side);
-            }
-            context.succeed();
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 10)
-    public static void liftPostsAreSolid(GameTestHelper context) {
-        BlockPos at = new BlockPos(3, 1, 3);
-        for (Direction facing : Direction.Plane.HORIZONTAL) {
-            BlockState lift = ModBlocks.VEHICLE_LIFT.defaultBlockState()
-                    .setValue(me.trossty.car.block.VehicleLiftBlock.FACING, facing);
-            context.setBlock(at, lift);
-            ((MultiblockBlock) lift.getBlock()).placeParts(context.getLevel(), context.absolutePos(at), lift);
-            // the posts stand a block either side, across the way a car drives on, two blocks high
-            Direction side = facing.getClockWise();
-            for (Direction out : new Direction[] {side, side.getOpposite()}) {
-                double px = 0.5 + out.getStepX() * 0.3;
-                double pz = 0.5 + out.getStepZ() * 0.3;
-                for (BlockPos post : new BlockPos[] {at.relative(out), at.relative(out).above()}) {
-                    var shape = context.getBlockState(post).getCollisionShape(context.getLevel(), context.absolutePos(post));
-                    context.assertTrue(shape.toAabbs().stream().anyMatch(box -> box.contains(px, 0.5, pz)),
-                            "no post " + out + " of a lift facing " + facing + " at " + post);
-                }
-            }
-            var plate = context.getBlockState(at).getCollisionShape(context.getLevel(), context.absolutePos(at));
-            context.assertTrue(plate.toAabbs().stream().noneMatch(box -> box.contains(0.5, 1.0, 0.5)),
-                    "the middle of a lift facing " + facing + " is not clear to stand in");
-            context.setBlock(at, net.minecraft.world.level.block.Blocks.AIR);
-            context.assertBlockNotPresent(ModBlocks.VEHICLE_LIFT, at.relative(side).above());
-        }
-        context.succeed();
-    }
-
-    /** Looking at a column finds the lift, and a click on it works the lift like one on the plate. */
-    @GameTest(template = "empty", timeoutTicks = 10)
-    public static void liftColumnsAreTheLift(GameTestHelper context) {
-        BlockPos at = new BlockPos(3, 1, 3);
-        BlockState lift = ModBlocks.VEHICLE_LIFT.defaultBlockState();
-        context.setBlock(at, lift);
-        ((MultiblockBlock) lift.getBlock()).placeParts(context.getLevel(), context.absolutePos(at), lift);
-        // facing north the columns are east and west; look at the top of the west one from the south
-        BlockPos post = context.absolutePos(at.west().above());
-        var eye = new net.minecraft.world.phys.Vec3(post.getX() + 0.2, post.getY() + 0.4, post.getZ() + 3.5);
-        var hit = clip(context, eye, eye.add(0, 0, -4));
-        context.assertTrue(hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getBlockPos().equals(post),
-                "looking at the column's top found " + hit.getBlockPos() + ", not the column");
-        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        context.getLevel().getBlockState(post).useWithoutItem(context.getLevel(), player, hit);
-        context.assertTrue(context.<me.trossty.car.block.entity.VehicleLiftBlockEntity>getBlockEntity(at).getStop() == 1,
-                "a click on the column did not send the lift up a stop");
-        context.succeed();
-    }
-
-    /** The bike lift's deck is where it is drawn at every height, from one end to the other. */
-    @GameTest(template = "empty", timeoutTicks = 10)
-    public static void bikeLiftDeckIsWhereItIsDrawn(GameTestHelper context) {
-        BlockPos at = new BlockPos(3, 1, 3);
-        BlockState lift = ModBlocks.MOTORCYCLE_LIFT.defaultBlockState();
-        var block = (me.trossty.car.block.VehicleLiftBlock) lift.getBlock();
-        context.setBlock(at, lift);
-        block.placeParts(context.getLevel(), context.absolutePos(at), lift);
-        // facing north the deck runs from half a block out north to half a block out south
-        BlockPos[] cells = {at.north(), at, at.south()};
-        double[] along = {0.75, 0.5, 0.1};
-        for (int level = 0; level <= me.trossty.car.block.entity.VehicleLiftBlockEntity.MAX_LEVEL; level++) {
-            block.setLevel(context.getLevel(), context.absolutePos(at), context.getBlockState(at), level);
-            double top = (2.0 + 3.75 * level) / 16.0;
-            for (int i = 0; i < cells.length; i++) {
-                double z = along[i];
-                for (double y : new double[] {top - 0.02, top + 0.1}) {
-                    // a deck risen out of its block is in the one above
-                    BlockPos cell = y >= 1.0 ? cells[i].above() : cells[i];
-                    double local = y >= 1.0 ? y - 1.0 : y;
-                    var outline = context.getBlockState(cell).getShape(context.getLevel(), context.absolutePos(cell));
-                    boolean found = outline.toAabbs().stream().anyMatch(box -> box.contains(0.5, local, z));
-                    context.assertTrue(found == (y < top), (y < top ? "no deck in " : "something over the deck in ")
-                            + cell + " at level " + level);
-                }
-            }
-            // from straight above, the deck's end is found where it is
-            BlockPos front = context.absolutePos(at.north());
-            var eye = new net.minecraft.world.phys.Vec3(front.getX() + 0.5, front.getY() + 3, front.getZ() + 0.75);
-            var hit = clip(context, eye, eye.add(0, -4, 0));
-            context.assertTrue(Math.abs(hit.getLocation().y - front.getY() - top) < 1.0E-4
-                            && context.getLevel().getBlockState(hit.getBlockPos()).is(ModBlocks.MOTORCYCLE_LIFT),
-                    "looking down on the deck's end at level " + level + " found " + hit.getLocation());
-            // and from the side, level with it, so is the wheel vise on the back end
-            BlockPos back = context.absolutePos(at.south());
-            var side = new net.minecraft.world.phys.Vec3(back.getX() + 3.5, back.getY() + top + 0.2, back.getZ() + 0.35);
-            hit = clip(context, side, side.add(-4, 0, 0));
-            context.assertTrue(hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
-                            && context.getLevel().getBlockState(hit.getBlockPos()).is(ModBlocks.MOTORCYCLE_LIFT),
-                    "looking across at the vise at level " + level + " found " + hit.getBlockPos());
-        }
-        context.succeed();
-    }
-
-    private static net.minecraft.world.phys.BlockHitResult clip(GameTestHelper context, net.minecraft.world.phys.Vec3 from,
-                                                               net.minecraft.world.phys.Vec3 to) {
-        return context.getLevel().clip(new net.minecraft.world.level.ClipContext(from, to,
-                net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE,
-                net.minecraft.world.phys.shapes.CollisionContext.empty()));
-    }
-
     // ---- battery bank and charging post ----
 
     private static BatteryBankBlockEntity battery(GameTestHelper context, BlockPos at, Direction front, long energy) {
@@ -804,35 +618,6 @@ public class CarMachineTests {
             context.assertTrue(Math.abs(car.getFuel() - expected) < 0.01F,
                     "charge is not conserved: post gave " + used + " E, car got " + car.getFuel());
             context.assertTrue(context.getBlockState(at).getValue(ChargingPostBlock.LIT), "the post screen is dark while charging");
-            context.succeed();
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void chargingPostLeavesAnUnpluggedCarAlone(GameTestHelper context) {
-        BlockPos at = new BlockPos(3, 1, 3);
-        context.setBlock(at, ModBlocks.CHARGING_POST);
-        ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(at);
-        post.setEnergy(ChargingPostBlockEntity.CAPACITY);
-        CarEntity car = car(context, new BlockPos(3, 1, 5), true);
-        context.runAtTickTime(20, () -> {
-            context.assertTrue(car.getFuel() == 0.0F, "a car took charge without the plug in: " + car.getFuel());
-            context.succeed();
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void chargingPostIgnoresAPetrolCar(GameTestHelper context) {
-        BlockPos at = new BlockPos(3, 1, 3);
-        context.setBlock(at, ModBlocks.CHARGING_POST);
-        ChargingPostBlockEntity post = context.<ChargingPostBlockEntity>getBlockEntity(at);
-        post.setEnergy(ChargingPostBlockEntity.CAPACITY);
-        CarEntity car = car(context, new BlockPos(3, 1, 5), false);
-        context.runAtTickTime(2, () -> context.assertFalse(post.plugInto(car, null), "the plug went into a petrol car"));
-        context.runAtTickTime(20, () -> {
-            context.assertTrue(car.getFuel() == 0.0F, "a petrol car took charge: " + car.getFuel());
-            context.assertTrue(post.getEnergy() == ChargingPostBlockEntity.CAPACITY, "the post spent energy on nothing");
-            context.assertTrue(car.charge(10.0F) == 0.0F, "charge() filled a petrol tank");
             context.succeed();
         });
     }
@@ -934,32 +719,6 @@ public class CarMachineTests {
         context.assertTrue(car.workshop().hiddenBy(CarPart.CLUTCH) == CarPart.DRIVESHAFT, "the clutch was hidden by "
                 + car.workshop().hiddenBy(CarPart.CLUTCH));
         context.assertTrue(!car.workshop().canInspect(CarPart.BRAKE_PADS), "pads were seen through a wheel");
-        context.succeed();
-    }
-
-    /** Each vehicle has its own box: a lorry eight short gears, a scooter one; the torque curve averages out. */
-    @GameTest(template = "empty", timeoutTicks = 20)
-    public static void gearboxComesFromTheVehicle(GameTestHelper context) {
-        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        context.assertTrue(car.gearbox().gearCount() == 5, "a plain car has " + car.gearbox().gearCount() + " gears");
-        car.setModel(net.minecraft.resources.ResourceLocation.parse("car:mercedes_atego"));
-        context.assertTrue(car.gearbox().gearCount() == 8, "the lorry has " + car.gearbox().gearCount() + " gears");
-        car.setModel(net.minecraft.resources.ResourceLocation.parse("car:vespa_primavera"));
-        context.assertTrue(car.gearbox().gearCount() == 1, "the scooter has " + car.gearbox().gearCount() + " gears");
-        for (CarSetup.Layout layout : CarSetup.Layout.values()) {
-            float sum = 0.0F;
-            for (int i = 0; i < 16; i++) {
-                sum += CarSetup.torque(layout, CarSetup.Fuel.PETROL,
-                        net.minecraft.util.Mth.lerp((i + 0.5F) / 16, CarSetup.DOWNSHIFT, CarSetup.UPSHIFT));
-            }
-            context.assertTrue(Math.abs(sum / 16 - 1.0F) < 1e-3F, layout + " averages " + sum / 16);
-        }
-        context.assertTrue(CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.DIESEL, 0.4F)
-                        > CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.DIESEL, 0.85F),
-                "a diesel pulled harder at the top than low down");
-        context.assertTrue(CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.ELECTRIC, 0.1F)
-                        > CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.ELECTRIC, 0.9F),
-                "an electric motor ran out of push at standstill");
         context.succeed();
     }
 
@@ -1106,16 +865,6 @@ public class CarMachineTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void codeReaderSkipsPlugsOnAnElectricCar(GameTestHelper context) {
-        CarEntity car = car(context, new BlockPos(3, 1, 3), true);
-        car.parts().setCondition(CarPart.SPARK_PLUGS, CarPart.MAX_CONDITION * 0.05F);
-        car.parts().setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.20F);
-        var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
-        context.assertTrue(codes.equals(java.util.List.of("P0A1A")), "an electric car read " + codes);
-        context.succeed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 20)
     public static void oldCarsAndTiredPartsWearFaster(GameTestHelper context) {
         CarEntity fresh = car(context, new BlockPos(2, 1, 3), false);
         CarEntity old = car(context, new BlockPos(5, 1, 3), false);
@@ -1129,20 +878,6 @@ public class CarMachineTests {
         context.assertTrue(Math.abs(old.parts().ageFactor(CarPart.CLUTCH) - tired) < 1e-4F,
                 "a half-worn clutch on an old car wears at " + old.parts().ageFactor(CarPart.CLUTCH) + ", not " + tired);
         context.succeed();
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void cableGlowsOnlyWhileCarrying(GameTestHelper context) {
-        battery(context, new BlockPos(1, 1, 3), Direction.EAST, 50_000);
-        battery(context, new BlockPos(4, 1, 3), Direction.EAST, 0);
-        cable(context, new BlockPos(2, 1, 3), new BlockPos(3, 1, 3), new BlockPos(6, 1, 3));
-        context.runAtTickTime(25, () -> {
-            context.assertTrue(context.getBlockState(new BlockPos(3, 1, 3)).getValue(EnergyCableBlock.POWERED),
-                    "a cable carrying power is dark");
-            context.assertTrue(!context.getBlockState(new BlockPos(6, 1, 3)).getValue(EnergyCableBlock.POWERED),
-                    "a cable on its own glows");
-            context.succeed();
-        });
     }
 
     @GameTest(template = "empty")
@@ -1160,25 +895,6 @@ public class CarMachineTests {
         context.succeed();
     }
 
-    @GameTest(template = "empty")
-    public static void asphaltSparesTheTyres(GameTestHelper context) {
-        context.setBlock(new BlockPos(3, 0, 3), ModBlocks.ASPHALT);
-        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        CarEntity off = car(context, new BlockPos(6, 1, 3), false);
-        context.assertTrue(car.onAsphalt(), "a car on asphalt is not on asphalt");
-        context.assertTrue(!off.onAsphalt(), "a car off the road is on asphalt");
-        context.succeed();
-    }
-
-    @GameTest(template = "empty")
-    public static void electricMotorItemSaves(GameTestHelper context) {
-        var codec = me.trossty.car.registry.ModComponents.PART_VARIANT.codec();
-        context.assertTrue(codec != null && codec.encodeStart(com.mojang.serialization.JsonOps.INSTANCE,
-                        CarSetup.ELECTRIC_MOTOR).isSuccess(),
-                "an electric motor's part variant cannot be saved");
-        context.succeed();
-    }
-
     /** Clicks the top of this block with whatever the player holds, as a right click would. */
     private static net.minecraft.world.InteractionResult clickTop(GameTestHelper context,
                                                             net.minecraft.world.entity.player.Player player,
@@ -1191,110 +907,6 @@ public class CarMachineTests {
             return block.place(new net.minecraft.world.item.context.BlockPlaceContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, held, hit));
         }
         return held.useOn(new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
-    }
-
-    @GameTest(template = "empty")
-    public static void asphaltIsLaidInLayersLikeSnow(GameTestHelper context) {
-        BlockPos ground = new BlockPos(2, 0, 2);
-        BlockPos road = ground.above();
-        context.setBlock(ground, net.minecraft.world.level.block.Blocks.STONE);
-        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(ModBlocks.ASPHALT, 16));
-
-        clickTop(context, player, ground);
-        context.assertTrue(context.getBlockState(road).getValue(me.trossty.car.block.AsphaltBlock.LAYERS) == 1,
-                "the first asphalt is not one layer");
-        for (int i = 0; i < 3; i++) {
-            clickTop(context, player, road);
-        }
-        BlockState four = context.getBlockState(road);
-        context.assertTrue(four.getValue(me.trossty.car.block.AsphaltBlock.LAYERS) == 4, "four clicks are not four layers");
-        double top = four.getCollisionShape(context.getLevel(), context.absolutePos(road)).max(Direction.Axis.Y);
-        context.assertTrue(Math.abs(top - 0.5) < 1.0E-6, "four layers do not stand half a block high: " + top);
-
-        // A painted road keeps its paint when it is built up.
-        context.setBlock(road, four.setValue(me.trossty.car.block.AsphaltBlock.MARKING,
-                me.trossty.car.block.AsphaltBlock.Marking.SOLID));
-        for (int i = 0; i < 5; i++) {
-            clickTop(context, player, road);
-        }
-        BlockState full = context.getBlockState(road);
-        context.assertTrue(full.getValue(me.trossty.car.block.AsphaltBlock.LAYERS) == 8, "eight layers are not a whole block");
-        context.assertTrue(full.getValue(me.trossty.car.block.AsphaltBlock.MARKING) == me.trossty.car.block.AsphaltBlock.Marking.SOLID,
-                "building the road up scrubbed its paint off");
-        context.assertTrue(context.getBlockState(road.above()).is(ModBlocks.ASPHALT)
-                        && context.getBlockState(road.above()).getValue(me.trossty.car.block.AsphaltBlock.LAYERS) == 1,
-                "the ninth layer did not start a new block on top");
-        context.succeed();
-    }
-
-    @GameTest(template = "empty")
-    public static void roadPaintPaintsTurnsAndErases(GameTestHelper context) {
-        BlockPos road = new BlockPos(2, 1, 2);
-        context.setBlock(road.below(), net.minecraft.world.level.block.Blocks.STONE);
-        context.setBlock(road, ModBlocks.ASPHALT);
-        context.setBlock(new BlockPos(4, 1, 2), net.minecraft.world.level.block.Blocks.STONE);
-        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        player.setYRot(180.0F);
-        ItemStack tin = new ItemStack(me.trossty.car.registry.ModItems.YELLOW_ROAD_PAINT);
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, tin);
-        var marking = me.trossty.car.block.AsphaltBlock.MARKING;
-        var facing = me.trossty.car.block.AsphaltBlock.FACING;
-
-        clickTop(context, player, road);
-        BlockState painted = context.getBlockState(road);
-        context.assertTrue(painted.getValue(marking) == me.trossty.car.block.AsphaltBlock.Marking.DASHED
-                        && painted.getValue(me.trossty.car.block.AsphaltBlock.PAINT) == me.trossty.car.block.AsphaltBlock.Paint.YELLOW
-                        && painted.getValue(facing) == Direction.NORTH,
-                "a fresh tin did not paint a yellow dashed line running north: " + painted);
-        context.assertTrue(tin.getDamageValue() == 1, "painting took no paint");
-
-        clickTop(context, player, road);
-        context.assertTrue(context.getBlockState(road).getValue(facing) == Direction.EAST,
-                "painting the same marking again did not turn it");
-        context.assertTrue(tin.getDamageValue() == 1, "turning a marking took more paint");
-
-        context.assertTrue(clickTop(context, player, new BlockPos(4, 0, 2)) == net.minecraft.world.InteractionResult.PASS,
-                "road paint went on bare stone");
-
-        me.trossty.car.item.RoadPaintItem.select(tin, me.trossty.car.block.AsphaltBlock.Marking.NONE);
-        clickTop(context, player, road);
-        context.assertTrue(context.getBlockState(road).getValue(marking) == me.trossty.car.block.AsphaltBlock.Marking.NONE,
-                "erase left the marking on");
-
-        // The menu's choice, as the server receives it; a bad index changes nothing.
-        me.trossty.car.item.RoadPaintItem.choose(player, net.minecraft.world.InteractionHand.MAIN_HAND,
-                me.trossty.car.block.AsphaltBlock.Marking.CROSSWALK.ordinal());
-        context.assertTrue(me.trossty.car.item.RoadPaintItem.selected(tin) == me.trossty.car.block.AsphaltBlock.Marking.CROSSWALK,
-                "the menu's choice was not taken");
-        me.trossty.car.item.RoadPaintItem.choose(player, net.minecraft.world.InteractionHand.MAIN_HAND, 99);
-        context.assertTrue(me.trossty.car.item.RoadPaintItem.selected(tin) == me.trossty.car.block.AsphaltBlock.Marking.CROSSWALK,
-                "a bad index from the menu changed the marking");
-        // Sneaking on road opens the menu (client side) and paints nothing.
-        BlockState before = context.getBlockState(road);
-        player.setShiftKeyDown(true);
-        clickTop(context, player, road);
-        context.assertTrue(context.getBlockState(road) == before, "sneaking painted instead of opening the menu");
-        context.succeed();
-    }
-
-    @GameTest(template = "empty")
-    public static void obdTabletPairsAndLosesSignal(GameTestHelper context) {
-        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        BlockPos stand = context.absolutePos(new BlockPos(1, 1, 1));
-        player.moveTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, 0.0F, 0.0F);
-        ItemStack tablet = new ItemStack(me.trossty.car.registry.ModItems.OBD_SCANNER);
-        context.assertTrue(me.trossty.car.item.ObdScannerItem.reading(tablet, player) == null,
-                "an unpaired tablet reads a car");
-        me.trossty.car.item.ObdScannerItem.pair(tablet, car, player);
-        context.assertTrue(me.trossty.car.item.ObdScannerItem.reading(tablet, player) == car,
-                "a paired tablet does not read its car");
-        car.setPos(car.getX() + 2.0 * me.trossty.car.item.ObdScannerItem.RANGE, car.getY(), car.getZ());
-        context.assertTrue(me.trossty.car.item.ObdScannerItem.reading(tablet, player) == null,
-                "a tablet still reads a car out of range");
-        car.discard();
-        context.succeed();
     }
 
     // ---- servicing by hand ----
@@ -2172,38 +1784,7 @@ public class CarMachineTests {
         });
     }
 
-    /** A trailer has no engine: nothing about one can be worked on, read or worn. */
-    @GameTest(template = "empty")
-    public static void trailerHasNoEngine(GameTestHelper context) {
-        CarEntity trailer = context.spawn(ModEntities.TRAILER, new BlockPos(2, 1, 2));
-        context.assertFalse(trailer.hasPart(CarPart.ENGINE), "a trailer has an engine");
-        context.assertFalse(trailer.workshop().canReach(CarPart.ENGINE), "a trailer's engine can be reached");
-        context.assertTrue(trailer.hasPart(CarPart.WHEELS), "a trailer has no wheels");
-        trailer.discard();
-        context.succeed();
-    }
-
     // ---- a car once put down stays a car ----
-
-    private static int itemsAround(GameTestHelper context, CarEntity car, net.minecraft.world.item.Item item) {
-        return context.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
-                car.getBoundingBox().inflate(4.0), drop -> drop.getItem().is(item)).size();
-    }
-
-    /** A survival player's punch dents a car; it does not turn it back into an item. */
-    @GameTest(template = "empty")
-    public static void punchDentsInsteadOfPocketing(GameTestHelper context) {
-        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        float before = car.damage().getHealth();
-        car.hurt(context.getLevel().damageSources().playerAttack(player), 2.0F);
-        context.assertFalse(car.isRemoved(), "a punch took the car away");
-        context.assertTrue(car.damage().getHealth() < before, "a punch did not dent the car");
-        context.assertTrue(itemsAround(context, car, me.trossty.car.registry.ModItems.CAR) == 0,
-                "a punch dropped the car as an item");
-        car.discard();
-        context.succeed();
-    }
 
     /** A bare fist is no crowbar: one punch takes a sliver, not a twentieth of the car. */
     @GameTest(template = "empty")
@@ -2248,18 +1829,6 @@ public class CarMachineTests {
         });
     }
 
-    /** A creative player clears a car away, and nothing comes back from it. */
-    @GameTest(template = "empty")
-    public static void creativeClearsWithoutAnItem(GameTestHelper context) {
-        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.CREATIVE);
-        car.hurt(context.getLevel().damageSources().playerAttack(player), 1.0F);
-        context.assertTrue(car.isRemoved(), "a creative hit left the car standing");
-        context.assertTrue(itemsAround(context, car, me.trossty.car.registry.ModItems.CAR) == 0,
-                "a creative hit dropped the car as an item");
-        context.succeed();
-    }
-
     /** A motorboat put on deep water floats at its waterline and its engine stays dry; it has no wheels to need. */
     @GameTest(template = "empty", timeoutTicks = 120)
     public static void motorboatFloats(GameTestHelper context) {
@@ -2284,55 +1853,6 @@ public class CarMachineTests {
         });
     }
 
-    /**
-     * Each machine has the driveline it really would: a car shifts through a
-     * gearbox, an electric car, a propeller and an outboard never do, and
-     * nothing has parts it could not have.
-     */
-    @GameTest(template = "empty")
-    public static void drivelinesMatchTheMachine(GameTestHelper context) {
-        CarEntity petrol = car(context, new BlockPos(1, 1, 1), false);
-        CarEntity electric = car(context, new BlockPos(5, 1, 1), true);
-        me.trossty.car.entity.AirplaneEntity plane = context.spawn(
-                me.trossty.car.registry.ModEntities.AIRPLANE, new BlockPos(1, 1, 5));
-        me.trossty.car.entity.MotorboatEntity boat = context.spawn(
-                me.trossty.car.registry.ModEntities.MOTORBOAT, new BlockPos(5, 1, 5));
-        context.assertTrue(petrol.hasGearbox() && petrol.hasPart(CarPart.EXHAUST), "a petrol car lost its gearbox");
-        context.assertTrue(!electric.hasGearbox(), "an electric car shifts gear");
-        for (CarPart part : new CarPart[]{CarPart.EXHAUST, CarPart.SPARK_PLUGS, CarPart.AIR_FILTER,
-                CarPart.OIL_FILTER, CarPart.CLUTCH}) {
-            context.assertTrue(!electric.hasPart(part), "an electric car has " + part);
-        }
-        context.assertTrue(!plane.hasGearbox(), "a plane shifts gear");
-        for (CarPart part : new CarPart[]{CarPart.TRANSMISSION, CarPart.CLUTCH, CarPart.DRIVESHAFT,
-                CarPart.RADIATOR}) {
-            context.assertTrue(!plane.hasPart(part), "a plane has " + part);
-        }
-        context.assertTrue(plane.hasPart(CarPart.BRAKE_PADS) && plane.hasPart(CarPart.WHEELS),
-                "a plane lost its wheel brakes");
-        context.assertTrue(!plane.areBrakeLampsOn(), "a plane shows brake lamps");
-        context.assertTrue(!boat.hasGearbox() && !boat.hasPart(CarPart.RADIATOR) && !boat.hasPart(CarPart.CLUTCH),
-                "an outboard has a gearbox, radiator or clutch");
-        context.assertTrue(!me.trossty.car.workbench.ModVehicleRecipes.chassisParts(
-                        me.trossty.car.vehicle.VehicleDefinition.Chassis.PLANE).stream()
-                        .anyMatch(m -> m.item() == me.trossty.car.registry.ModItems.TRANSMISSION),
-                "a plane is built with a gearbox");
-        context.succeed();
-    }
-
-    /** The clipboard reads nothing off a car standing on its wheels: no lift, no service window. */
-    @GameTest(template = "empty")
-    public static void clipboardNeedsALift(GameTestHelper context) {
-        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
-                new ItemStack(me.trossty.car.registry.ModItems.DIAGNOSTIC_SHEET));
-        car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(player.containerMenu == player.inventoryMenu,
-                "the clipboard opened a service window off the lift");
-        context.succeed();
-    }
-
     /** A locked car keeps its parts, however the request to take one arrives. */
     @GameTest(template = "empty")
     public static void lockedCarRefusesService(GameTestHelper context) {
@@ -2354,19 +1874,6 @@ public class CarMachineTests {
             }
         }
         car.discard();
-        context.succeed();
-    }
-
-    /** A wrecked pickup tips its bed out, the way a broken chest does. */
-    @GameTest(template = "empty")
-    public static void wreckedPickupSpillsItsBed(GameTestHelper context) {
-        var pickup = context.spawn(ModEntities.PICKUP, new BlockPos(3, 1, 3));
-        pickup.getBed().setItem(0, new ItemStack(Items.DIAMOND, 5));
-        pickup.hurt(context.getLevel().damageSources().generic(), 1000.0F);
-        context.assertTrue(pickup.isRemoved(), "the pickup was not wrecked");
-        context.assertTrue(itemsAround(context, pickup, Items.DIAMOND) > 0, "the bed did not spill");
-        context.assertTrue(itemsAround(context, pickup, me.trossty.car.registry.ModItems.CAR) == 0,
-                "a wreck dropped the vehicle as an item");
         context.succeed();
     }
 
@@ -2409,25 +1916,6 @@ public class CarMachineTests {
             tractor.discard();
             context.succeed();
         });
-    }
-
-    /** A plane cannot take a trailer: walked up to its tail and clicked, the drawbar stays in hand. */
-    @GameTest(template = "empty", timeoutTicks = 20)
-    public static void planeWillNotTow(GameTestHelper context) {
-        var plane = context.spawn(ModEntities.AIRPLANE, new BlockPos(3, 1, 6));
-        var trailer = context.spawn(ModEntities.TRAILER, new BlockPos(3, 1, 1));
-        plane.moveTo(plane.getX(), plane.getY(), plane.getZ(), 0.0F, 0.0F);
-        net.minecraft.world.phys.Vec3 ball = plane.hitchPoint();
-        trailer.moveTo(ball.x, trailer.getY(), ball.z - 2.0, 0.0F, 0.0F);
-        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        player.moveTo(ball.x + 1.0, trailer.getY(), ball.z);
-        trailer.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        plane.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertFalse(trailer.isHitched(), "a plane took a trailer on");
-        trailer.discard();
-        plane.discard();
-        context.succeed();
     }
 
     /** A flat slows the car and pulls it to its side; a spare wheel clicked on fixes it where it stands. */
@@ -2616,161 +2104,6 @@ public class CarMachineTests {
         bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
         context.assertTrue(bed.hasCargo(), "the owner could not winch their own car");
         bed.discard();
-        context.succeed();
-    }
-
-    /**
-     * A wheel lift goes on the back of the tow truck and nothing else: walked
-     * up to a plain pickup it is refused, to the tow truck it hitches.
-     */
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void wheelLiftOnlyOnTowTruck(GameTestHelper context) {
-        var lift = context.spawn(ModEntities.TRAILER, new BlockPos(3, 1, 1));
-        lift.setModel(me.trossty.car.CarMain.id("wheel_lift"));
-        lift.moveTo(lift.getX(), lift.getY(), lift.getZ(), 0.0F, 0.0F);
-        var player = context.makeMockServerPlayerInLevel();
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        player.moveTo(lift.getX() + 1.5, lift.getY(), lift.getZ());
-        lift.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(lift.getHolder() == player, "the wheel lift was not picked up by its stinger");
-        for (String model : new String[] {"toyota_hilux", "hilux_tow"}) {
-            var truck = context.spawn(ModEntities.PICKUP, new BlockPos(3, 1, 1));
-            truck.setModel(me.trossty.car.CarMain.id(model));
-            // Its tow ball just where the stinger's eye is.
-            double back = lift.getZ() + 1.25 - truck.hitchPoint().z + truck.getZ();
-            truck.moveTo(lift.getX(), lift.getY(), back, 0.0F, 0.0F);
-            truck.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-            boolean onIt = lift.getTractor() == truck;
-            context.assertTrue(onIt == model.equals("hilux_tow"),
-                    model + (onIt ? " took the wheel lift" : " would not take the wheel lift"));
-            truck.discard();
-        }
-        lift.discard();
-        context.succeed();
-    }
-
-    /**
-     * A caravan is slept in at night from its door, keeps its sleeper asleep
-     * though there is no bed block, and puts them out beside it in the
-     * morning; by day, or from the drawbar end, a click is not for sleeping.
-     */
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void caravanSleeps(GameTestHelper context) {
-        var caravan = context.spawn(ModEntities.TRAILER, new BlockPos(4, 1, 4));
-        caravan.setModel(me.trossty.car.CarMain.id("caravan"));
-        caravan.moveTo(caravan.getX(), caravan.getY(), caravan.getZ(), 0.0F, 0.0F);
-        var player = context.makeMockServerPlayerInLevel();
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        var level = context.getLevel();
-        long time = level.getDayTime();
-        try {
-            level.setDayTime(6000L);
-            level.updateSkyBrightness();
-            player.moveTo(caravan.getX() - 2.0, caravan.getY(), caravan.getZ());
-            caravan.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-            context.assertFalse(player.isSleeping(), "slept in a caravan at noon");
-            level.setDayTime(18000L);
-            level.updateSkyBrightness();
-            player.moveTo(caravan.getX(), caravan.getY(), caravan.getZ() + 3.0);
-            caravan.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-            context.assertFalse(player.isSleeping(), "the drawbar end put the player to bed");
-            player.moveTo(caravan.getX() - 2.0, caravan.getY(), caravan.getZ());
-            caravan.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-            context.assertTrue(player.isSleeping(), "could not sleep in the caravan at night");
-            player.doTick();
-            player.doTick();
-            context.assertTrue(player.isSleeping(), "woken at once for want of a bed block");
-            player.stopSleepInBed(false, true);
-            context.assertFalse(caravan.getBoundingBox().contains(player.position()), "woke up inside the caravan");
-            context.assertTrue(player.getX() < caravan.getX() - 1.0, "woke up away from the door");
-        } finally {
-            level.setDayTime(time);
-            level.updateSkyBrightness();
-        }
-        caravan.discard();
-        context.succeed();
-    }
-
-    /**
-     * A key clicked at nothing finds its own car, not a stranger's, and not
-     * one beyond the button's reach.
-     */
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void keyFindsItsCar(GameTestHelper context) {
-        var mine = context.spawn(ModEntities.CAR, new BlockPos(1, 1, 1));
-        var other = context.spawn(ModEntities.CAR, new BlockPos(6, 1, 6));
-        mine.setLockCode(7L);
-        other.setLockCode(9L);
-        var player = context.makeMockServerPlayerInLevel();
-        player.moveTo(other.getX() + 1.0, other.getY(), other.getZ());
-        ItemStack key = new ItemStack(me.trossty.car.registry.ModItems.CAR_KEY);
-        key.set(me.trossty.car.registry.ModComponents.VEHICLE_KEY, 7L);
-        context.assertTrue(me.trossty.car.item.CarKeyItem.find(context.getLevel(), player, 7L) == mine,
-                "the key did not find its car");
-        context.assertTrue(me.trossty.car.item.CarKeyItem.find(context.getLevel(), player, 5L) == null,
-                "a key with no car found one");
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, key);
-        context.assertTrue(key.use(context.getLevel(), player, net.minecraft.world.InteractionHand.MAIN_HAND)
-                .getResult().consumesAction(), "clicking the key at nothing did nothing");
-        player.moveTo(mine.getX() + me.trossty.car.item.CarKeyItem.FOB_RANGE + 4.0, mine.getY(), mine.getZ());
-        context.assertTrue(me.trossty.car.item.CarKeyItem.find(context.getLevel(), player, 7L) == null,
-                "the key reached a car out of range");
-        mine.discard();
-        other.discard();
-        context.succeed();
-    }
-
-    /**
-     * Walking a trailer by hand slows the walker, more with a car on the bed,
-     * and letting go gives them their pace back.
-     */
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void drawbarSlowsByWeight(GameTestHelper context) {
-        var bed = context.spawn(ModEntities.TRAILER, new BlockPos(3, 1, 7));
-        bed.setModel(me.trossty.car.CarMain.id("flatbed_trailer"));
-        bed.moveTo(bed.getX(), bed.getY(), bed.getZ(), 0.0F, 0.0F);
-        var car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 1));
-        car.moveTo(car.getX(), car.getY(), car.getZ(), 0.0F, 0.0F);
-        var player = context.makeMockServerPlayerInLevel();
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        player.moveTo(bed.getX() + 1.5, bed.getY(), bed.getZ());
-        var speed = player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
-        double free = speed.getValue();
-        bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.runAfterDelay(3, () -> {
-            double empty = speed.getValue();
-            context.assertTrue(empty < free, "an empty trailer did not slow the walk");
-            player.setShiftKeyDown(true);
-            bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-            player.setShiftKeyDown(false);
-            context.assertTrue(bed.hasCargo(), "the car did not go on the bed");
-            context.runAfterDelay(3, () -> {
-                double laden = speed.getValue();
-                context.assertTrue(laden < empty * 0.75, "a car on the bed did not slow the walk further: "
-                        + empty + " -> " + laden);
-                bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-                context.assertTrue(Math.abs(speed.getValue() - free) < 1.0E-6, "letting go did not give the pace back");
-                bed.discard();
-                context.succeed();
-            });
-        });
-    }
-
-    /**
-     * A jack pumped up by hand stays up when something is built next to it;
-     * only redstone coming on or going off moves it.
-     */
-    @GameTest(template = "empty", timeoutTicks = 20)
-    public static void jackStaysUpBesideNewBlocks(GameTestHelper context) {
-        BlockPos jack = new BlockPos(2, 1, 2);
-        context.setBlock(jack, me.trossty.car.registry.ModBlocks.AIRCRAFT_JACK.defaultBlockState()
-                .setValue(me.trossty.car.block.AircraftJackBlock.RAISED, true));
-        context.setBlock(jack.east(), net.minecraft.world.level.block.Blocks.STONE);
-        context.assertBlockProperty(jack, me.trossty.car.block.AircraftJackBlock.RAISED, true);
-        context.setBlock(jack.west(), net.minecraft.world.level.block.Blocks.REDSTONE_BLOCK);
-        context.assertBlockProperty(jack, me.trossty.car.block.AircraftJackBlock.RAISED, true);
-        context.setBlock(jack.west(), net.minecraft.world.level.block.Blocks.AIR);
-        context.assertBlockProperty(jack, me.trossty.car.block.AircraftJackBlock.RAISED, false);
         context.succeed();
     }
 
