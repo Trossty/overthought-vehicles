@@ -71,8 +71,8 @@ final class Playtest {
             var player = minecraft.getPlayerList().getPlayers().get(0);
             out[0] = car == null ? "no car, player hp %.1f".formatted(player.getHealth())
                     : "car at %.1f %.1f %.1f hp %.1f/%.0f%% fuel %.1f water %s riding %s player hp %.1f air %d"
-                    .formatted(car.getX(), car.getY() - Y, car.getZ(), car.getHealth(),
-                            car.getHealthFraction() * 100, car.getFuel(), car.isInWater(),
+                    .formatted(car.getX(), car.getY() - Y, car.getZ(), car.damage().getHealth(),
+                            car.damage().getHealthFraction() * 100, car.getFuel(), car.isInWater(),
                             car.hasPassenger(player), player.getHealth(), player.getAirSupply());
         });
         return out[0];
@@ -133,7 +133,7 @@ final class Playtest {
                 car.moveTo(x, y, z, 0.0F, 0.0F);
                 minecraft.overworld().addFreshEntity(car);
             }
-            car.setHealth(CarEntity.MAX_HEALTH);
+            car.damage().setHealth(CarEntity.MAX_HEALTH);
             player.stopRiding();
         });
         // Out first: while somebody drives, the driver's client owns the car's position.
@@ -236,8 +236,8 @@ final class Playtest {
         startAt(context, server, -8.5, Y, 0.5);
         server.runOnServer(minecraft -> {
             CarEntity car = serverCar(minecraft);
-            car.setCondition(me.trossty.car.entity.CarPart.STEERING_RACK, 10.0F);
-            car.setCondition(me.trossty.car.entity.CarPart.BRAKE_PADS, 20.0F);
+            car.parts().setCondition(me.trossty.car.entity.CarPart.STEERING_RACK, 10.0F);
+            car.parts().setCondition(me.trossty.car.entity.CarPart.BRAKE_PADS, 20.0F);
             log("worn pull " + car.pull());
         });
         drive(context, server, "worn", 60);
@@ -251,8 +251,8 @@ final class Playtest {
         log("worn braked: " + state(server));
         server.runOnServer(minecraft -> {
             CarEntity car = serverCar(minecraft);
-            car.setCondition(me.trossty.car.entity.CarPart.STEERING_RACK, 100.0F);
-            car.setCondition(me.trossty.car.entity.CarPart.BRAKE_PADS, 100.0F);
+            car.parts().setCondition(me.trossty.car.entity.CarPart.STEERING_RACK, 100.0F);
+            car.parts().setCondition(me.trossty.car.entity.CarPart.BRAKE_PADS, 100.0F);
         });
     }
 
@@ -276,9 +276,9 @@ final class Playtest {
             server.runOnServer(minecraft -> {
                 CarEntity car = serverCar(minecraft);
                 float level = worn ? 5.0F : 100.0F;
-                car.setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, level);
-                car.setCondition(me.trossty.car.entity.CarPart.OIL_FILTER, level);
-                car.setCondition(me.trossty.car.entity.CarPart.ENGINE, worn ? 25.0F : 100.0F);
+                car.parts().setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, level);
+                car.parts().setCondition(me.trossty.car.entity.CarPart.OIL_FILTER, level);
+                car.parts().setCondition(me.trossty.car.entity.CarPart.ENGINE, worn ? 25.0F : 100.0F);
             });
             pops[0] = 0;
             drive(context, server, worn ? "tired" : "fresh", 200);
@@ -309,7 +309,7 @@ final class Playtest {
             var player = minecraft.getPlayerList().getPlayers().get(0);
             out[0] = v == null ? "gone, player hp %.1f".formatted(player.getHealth())
                     : "at %.1f %.2f %.1f yaw %.0f hp %.1f speed %.2f water %s flooded %s riding %s player hp %.1f"
-                    .formatted(v.getX(), v.getY() - Y, v.getZ(), v.getYRot(), v.getHealth(), v.getEngineSpeed(),
+                    .formatted(v.getX(), v.getY() - Y, v.getZ(), v.getYRot(), v.damage().getHealth(), v.getEngineSpeed(),
                             v.isInWater(), v.isFlooded(), v.hasPassenger(player), player.getHealth());
         });
         return out[0];
@@ -399,7 +399,7 @@ final class Playtest {
         for (int i = 0; i < 6 && context.computeOnClient(client -> client.player.getVehicle() != null); i++) {
             server.runOnServer(minecraft -> minecraft.overworld().getEntitiesOfClass(
                     me.trossty.car.entity.MotorboatEntity.class, new AABB(60, Y - 20, -80, 160, Y + 20, 80), e -> true)
-                    .forEach(boat -> boat.applyReportedCrash(minecraft.overworld(), 6.0F)));
+                    .forEach(boat -> boat.damage().applyReportedCrash(minecraft.overworld(), 6.0F)));
             context.waitTicks(12);
         }
         context.waitTicks(3);
@@ -596,7 +596,7 @@ final class Playtest {
     /** What the rider's dashboard shows for the gear. */
     private static String gear(ClientGameTestContext context) {
         return context.computeOnClient(client -> client.player.getVehicle() instanceof CarEntity car
-                ? (car.hasGearbox() ? String.valueOf(car.getGear()) : "D") : "-");
+                ? (car.hasGearbox() ? String.valueOf(car.gearbox().getGear()) : "D") : "-");
     }
 
     private static void cow(ClientGameTestContext context, TestServerContext server) {

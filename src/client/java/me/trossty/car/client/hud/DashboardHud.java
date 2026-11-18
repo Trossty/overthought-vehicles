@@ -188,7 +188,7 @@ public class DashboardHud implements LayeredDraw.Layer {
         float dialMax = dialMax(car);
         float targetSpeed = Mth.clamp(blocksPerSecond / dialMax, 0.0F, 1.0F);
         int dialRpm = car.getEngineFuel().needsSpark() ? 8000 : 5000;
-        float targetRpm = Mth.clamp(car.getEngineRpm() / dialRpm, 0.0F, 1.0F);
+        float targetRpm = Mth.clamp(car.gearbox().getEngineRpm() / dialRpm, 0.0F, 1.0F);
         float targetFuel = Mth.clamp(car.getFuelFraction(), 0.0F, 1.0F);
 
         // Exponential easing, with the frame's length folded in so the needles
@@ -213,7 +213,7 @@ public class DashboardHud implements LayeredDraw.Layer {
         int cy = bottom - BOTTOM_MARGIN - RADIUS;
 
         // speedometer next to the hotbar, rev counter outside it
-        drawSpeedometer(context, client, centerX - reach, cy, car.getHealthFraction(), dialMax, car.getOdometer());
+        drawSpeedometer(context, client, centerX - reach, cy, car.damage().getHealthFraction(), dialMax, car.parts().getOdometer());
         drawTachometer(context, client, centerX - reach - RADIUS * 2 - DIAL_GAP, cy, car, dialRpm);
         // fuel next to the hotbar, temperature outside it, sitting on the same line
         float range = car.rangeBlocks(car.getEngineSpeed());
@@ -262,7 +262,7 @@ public class DashboardHud implements LayeredDraw.Layer {
     private void drawTachometer(GuiGraphics context, Minecraft client, int cx, int cy,
                                 CarEntity car, int dialRpm) {
         drawFace(context, RPM_FACE, cx, cy);
-        float redline = car.getRedlineRpm() / dialRpm;
+        float redline = car.gearbox().getRedlineRpm() / dialRpm;
         for (int i = 0; i <= 24; i++) {
             float t = redline + (1.0F - redline) * i / 24.0F;
             dialRect(context, cx, cy, t, (TICK_OUTER - 3) * 2, -2, TICK_OUTER * 2, 2, REDLINE);
@@ -278,7 +278,7 @@ public class DashboardHud implements LayeredDraw.Layer {
         for (int rpm = 0; rpm <= dialRpm; rpm += labelEvery) {
             drawLabel(context, client, cx, cy, (float) rpm / dialRpm, String.valueOf(rpm / 1000));
         }
-        int gear = car.getGear();
+        int gear = car.gearbox().getGear();
         String gearText = gear < 0 ? "R" : gear == 0 ? "-" : car.hasGearbox() ? String.valueOf(gear) : "D";
         context.drawCenteredString(client.font, gearText, cx, cy + ICON_OFFSET_Y, GEAR_COLOR);
         // A plane's stall warning lights where the label is: steady near the

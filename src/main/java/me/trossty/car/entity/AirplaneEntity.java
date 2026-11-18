@@ -262,7 +262,7 @@ public class AirplaneEntity extends CarEntity {
      * the end of the aircraft.
      */
     private void checkTouchdown(double sink) {
-        if (this.recentlyCrashed()) {
+        if (this.damage().recentlyCrashed()) {
             return;
         }
         float tooSteep = (float) Math.max(0.0, sink - SAFE_SINK) * SINK_DAMAGE;
@@ -271,7 +271,7 @@ public class AirplaneEntity extends CarEntity {
         float tooFast = this.ticksAirborne < FLOWN_TICKS ? 0.0F
                 : Math.max(0.0F, Math.abs(this.getEngineSpeed()) - SAFE_TOUCHDOWN_LIFT * this.takeoffSpeed())
                         * FAST_TOUCHDOWN_DAMAGE;
-        this.reportImpact(tooSteep + tooFast);
+        this.damage().reportImpact(tooSteep + tooFast);
     }
 
     /** A crashed aircraft goes up: its fuel catches. Nothing round it is blown apart. */

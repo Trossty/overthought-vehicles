@@ -2,7 +2,9 @@ package me.trossty.car.workbench;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.CarParts;
 import me.trossty.car.entity.CarSetup;
+import me.trossty.car.entity.Workshop;
 import me.trossty.car.item.CarItem;
 import me.trossty.car.registry.ModComponents;
 import net.minecraft.core.BlockPos;
@@ -72,7 +74,7 @@ public final class BenchWork {
         int total = 0;
         for (int slot = 0; slot < source.getContainerSize(); slot++) {
             ItemStack stack = source.getItem(slot);
-            if (stack.is(item) && CarEntity.conditionOf(stack) < CarPart.REFURBISHED) {
+            if (stack.is(item) && Workshop.conditionOf(stack) < CarPart.REFURBISHED) {
                 total += stack.getCount();
             }
         }
@@ -142,7 +144,7 @@ public final class BenchWork {
             CarPart.Quality taken = consume(source, material.item(), material.count());
             CarPart built = CarPart.forItem(material.item());
             if (built != null && taken != null) {
-                assembledFrom = CarEntity.withQuality(assembledFrom, built, taken);
+                assembledFrom = CarParts.withQuality(assembledFrom, built, taken);
             }
         }
         if (choosesQuality(recipe) && quality != CarPart.Quality.DEFAULT) {
@@ -203,7 +205,7 @@ public final class BenchWork {
     private static int wornVariant(Container source, Item item) {
         for (int slot = 0; slot < source.getContainerSize(); slot++) {
             ItemStack stack = source.getItem(slot);
-            if (stack.is(item) && CarEntity.conditionOf(stack) < CarPart.REFURBISHED) {
+            if (stack.is(item) && Workshop.conditionOf(stack) < CarPart.REFURBISHED) {
                 return CarEntity.variantOf(stack);
             }
         }
@@ -215,10 +217,10 @@ public final class BenchWork {
         CarPart.Quality taken = CarPart.Quality.DEFAULT;
         for (int slot = 0; slot < source.getContainerSize() && remaining > 0; slot++) {
             ItemStack stack = source.getItem(slot);
-            if (!stack.is(item) || CarEntity.conditionOf(stack) >= CarPart.REFURBISHED) {
+            if (!stack.is(item) || Workshop.conditionOf(stack) >= CarPart.REFURBISHED) {
                 continue;
             }
-            taken = CarEntity.qualityOf(stack);
+            taken = Workshop.qualityOf(stack);
             int moved = Math.min(remaining, stack.getCount());
             stack.shrink(moved);
             remaining -= moved;
@@ -236,7 +238,7 @@ public final class BenchWork {
                 continue;
             }
             if (CarPart.forItem(item) != null) {
-                CarPart.Quality here = CarEntity.qualityOf(stack);
+                CarPart.Quality here = Workshop.qualityOf(stack);
                 if (worst == null || here.rank() < worst.rank()) {
                     worst = here;
                 }

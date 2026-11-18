@@ -132,7 +132,7 @@ public final class CarServiceOverlay {
         // a car to read: how beaten up it is and what is in the tank. Those
         // two come up whenever you look at one, so that walking up to your car
         // tells you what a menu used to have to.
-        boolean servicing = car.isWorkable();
+        boolean servicing = car.workshop().isWorkable();
 
         float tickProgress = client.getTimer().getGameTimeDeltaPartialTick(true);
 
@@ -163,7 +163,7 @@ public final class CarServiceOverlay {
             Vec3 end = eye.add(player.getViewVector(tickProgress).scale(reach));
             double nearest = Double.MAX_VALUE;
             for (CarPart part : CarPart.values()) {
-                if (!car.canWorkOn(part)) {
+                if (!car.workshop().canWorkOn(part)) {
                     continue;
                 }
                 for (AABB box : boxesOf(car, part, tickProgress)) {
@@ -189,10 +189,10 @@ public final class CarServiceOverlay {
             Vec3 camera = context.camera();
             PoseStack matrices = context.matrices();
             for (CarPart part : CarPart.values()) {
-                if (!servicing || !car.canWorkOn(part)) {
+                if (!servicing || !car.workshop().canWorkOn(part)) {
                     continue;
                 }
-                boolean fitted = car.isFitted(part);
+                boolean fitted = car.parts().isFitted(part);
                 for (AABB box : boxesOf(car, part, tickProgress)) {
                     boolean lit = part == aiming && box.equals(aimingBox);
                     AABB frame = lit ? box.inflate(chase(part)) : box;
@@ -278,7 +278,7 @@ public final class CarServiceOverlay {
                 || player.isSpectator() || player.getVehicle() == car || nearestCar(player) != car) {
             return List.of();
         }
-        boolean servicing = car.isWorkable();
+        boolean servicing = car.workshop().isWorkable();
         boolean inReach = client.hitResult instanceof EntityHitResult hit && CarEntity.of(hit.getEntity()) == car;
         if (!servicing && !inReach) {
             return List.of();
@@ -290,7 +290,7 @@ public final class CarServiceOverlay {
         if (servicing) {
             CarPart aimed = aimedCar() == car ? aimedPart : null;
             for (CarPart part : CarPart.values()) {
-                if (part == aimed || !car.canWorkOn(part)) {
+                if (part == aimed || !car.workshop().canWorkOn(part)) {
                     continue;
                 }
                 int colour = colourOf(car, part);
@@ -306,7 +306,7 @@ public final class CarServiceOverlay {
                     at = at.add(0.0, PLATE_STEP, 0.0);
                 }
                 labels.add(new PartLabel(at, name, colour, mark,
-                        car.isFitted(part) ? LINE_FITTED : LINE_ABSENT));
+                        car.parts().isFitted(part) ? LINE_FITTED : LINE_ABSENT));
             }
         }
         return labels;
@@ -361,7 +361,7 @@ public final class CarServiceOverlay {
         CarPart.Anchor specAt = new CarPart.Anchor(0.0F, y + (float) PLATE_STEP, front, 0.01F);
         CarPart.Anchor tankAt = new CarPart.Anchor(0.0F, y, -front, 0.01F);
 
-        float body = car.getHealthFraction();
+        float body = car.damage().getHealthFraction();
         stack(labels, new PartLabel(bodyAt.box(pos, yaw).getCenter().subtract(pos),
                 Component.translatable("gui.car.plate_body", Math.round(body * 100.0F)),
                 body >= 0.75F ? GOOD : (body > 0.35F ? FAIR : BAD)));
@@ -403,7 +403,7 @@ public final class CarServiceOverlay {
     /** What the plate over a mark says: the part, and how worn it is. */
     private static Component nameOf(CarEntity car, CarPart part) {
         Component name = Component.translatable("part.car." + part.key());
-        if (!car.isFitted(part)) {
+        if (!car.parts().isFitted(part)) {
             return Component.translatable("gui.car.hologram_absent", name);
         }
         if (me.trossty.car.entity.CarSetup.variantsOf(part) > 1) {
@@ -413,18 +413,18 @@ public final class CarServiceOverlay {
                 name = Component.translatable("gui.car.with_turbo", name);
             }
         }
-        if (!car.canInspect(part)) {
+        if (!car.workshop().canInspect(part)) {
             return Component.translatable("gui.car.hologram_hidden", name);
         }
         return Component.translatable("gui.car.hologram_worn", name,
-                Math.round(car.getConditionFraction(part) * 100.0F));
+                Math.round(car.parts().getConditionFraction(part) * 100.0F));
     }
 
     private static int colourOf(CarEntity car, CarPart part) {
-        if (!car.isFitted(part) || !car.canInspect(part)) {
+        if (!car.parts().isFitted(part) || !car.workshop().canInspect(part)) {
             return ABSENT;
         }
-        float fraction = car.getConditionFraction(part);
+        float fraction = car.parts().getConditionFraction(part);
         return fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD);
     }
 

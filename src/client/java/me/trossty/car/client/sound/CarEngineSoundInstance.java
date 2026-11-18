@@ -176,7 +176,7 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
         // The note follows the revs, so it climbs through each gear and drops
         // at the change, and a car with a higher top speed simply revs on.
         float revs = running
-                ? Mth.clamp(this.car.getEngineRpm() / this.car.getRedlineRpm(), 0.0F, 1.0F)
+                ? Mth.clamp(this.car.gearbox().getEngineRpm() / this.car.gearbox().getRedlineRpm(), 0.0F, 1.0F)
                 : 0.0F;
 
         this.lift(revs);
@@ -192,9 +192,9 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
                 : 0.0F;
         // The box lifts off the drive for a gear change: the note drops and
         // eases for a moment before it pulls again.
-        this.volume *= 1.0F - SHIFT_DIP * this.car.getShift();
+        this.volume *= 1.0F - SHIFT_DIP * this.car.gearbox().getShift();
         // A blowing silencer lets the whole bang out.
-        this.volume *= this.car.exhaustNoise();
+        this.volume *= this.car.upkeep().exhaustNoise();
         // Still on the starter: the loop comes in as the engine catches.
         Long started = STARTED.get(this.car);
         if (started != null) {
@@ -223,9 +223,9 @@ public class CarEngineSoundInstance extends AbstractTickableSoundInstance {
                     0.7F, 0.95F + random.nextFloat() * 0.1F, false);
         }
         boolean popper = this.voice == Voice.V8
-                || this.car.getConditionFraction(me.trossty.car.entity.CarPart.SPARK_PLUGS)
+                || this.car.parts().getConditionFraction(me.trossty.car.entity.CarPart.SPARK_PLUGS)
                         <= me.trossty.car.entity.FaultCodes.WARNING;
-        if (popper && this.car.getShift() == 0.0F && random.nextFloat() < 0.6F) {
+        if (popper && this.car.gearbox().getShift() == 0.0F && random.nextFloat() < 0.6F) {
             this.car.level().playLocalSound(this.x, this.y, this.z, ModSounds.BACKFIRE, SoundSource.NEUTRAL,
                     0.6F, 0.9F + random.nextFloat() * 0.25F, false);
         }

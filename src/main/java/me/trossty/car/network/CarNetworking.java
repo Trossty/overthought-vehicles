@@ -70,7 +70,7 @@ public final class CarNetworking {
             if (context.player().getVehicle() instanceof CarEntity car
                     && car.getControllingPassenger() == context.player()
                     && car.level() instanceof ServerLevel world) {
-                car.applyReportedCrash(world, payload.severity());
+                car.damage().applyReportedCrash(world, payload.severity());
             }
         });
     }
@@ -96,7 +96,7 @@ public final class CarNetworking {
                 || car.distanceToSqr(player) > SERVICE_RANGE_SQUARED) {
             return;
         }
-        car.serviceByHand(player, part);
+        car.workshop().serviceByHand(player, part);
     }
 
     /**

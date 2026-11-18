@@ -109,7 +109,7 @@ public final class MpServerHarness {
     private String state(ServerPlayer alice, ServerPlayer bob) {
         return "car %.2f %.2f yaw %.0f speed %.2f hp %.1f lights-driver %s | Alice hp %.1f riding %s | Bob hp %.1f riding %s"
                 .formatted(this.car.getX(), this.car.getZ(), this.car.getYRot(), this.car.getEngineSpeed(),
-                        this.car.getHealth(), name(this.car.getControllingPassenger()),
+                        this.car.damage().getHealth(), name(this.car.getControllingPassenger()),
                         alice.getHealth(), this.car.hasPassenger(alice), bob.getHealth(), this.car.hasPassenger(bob));
     }
 

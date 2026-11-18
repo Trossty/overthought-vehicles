@@ -154,7 +154,7 @@ public class CarItem extends Item {
         // back repaired just because you put it down again.
         Float health = stack.get(ModComponents.CAR_HEALTH);
         if (health != null) {
-            car.setHealth(health);
+            car.damage().setHealth(health);
         }
 
         // Tired parts come back tired, for the same reason dents do.
@@ -167,7 +167,7 @@ public class CarItem extends Item {
         // in the car when you put it back down.
         Integer qualities = stack.get(ModComponents.CAR_PART_QUALITY);
         if (qualities != null) {
-            car.setQualityBits(qualities);
+            car.parts().setQualityBits(qualities);
         }
 
         Integer setup = stack.get(ModComponents.CAR_SETUP);

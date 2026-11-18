@@ -2,7 +2,9 @@ package me.trossty.car.item;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.CarParts;
 import me.trossty.car.entity.CarSetup;
+import me.trossty.car.entity.Workshop;
 import me.trossty.car.registry.ModComponents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -79,11 +81,11 @@ public class VehiclePartItem extends Item {
                         .withStyle(ChatFormatting.DARK_AQUA));
             }
         }
-        CarPart.Quality quality = CarEntity.qualityOf(stack);
+        CarPart.Quality quality = Workshop.qualityOf(stack);
         tooltip.accept(Component.translatable("tooltip.car.part_quality",
                         Component.translatable("quality.car." + quality.key()))
                 .withStyle(colorOf(quality)));
-        if (part != null && CarEntity.gradeIsFelt(part) && quality.performance() != 1.0F) {
+        if (part != null && CarParts.gradeIsFelt(part) && quality.performance() != 1.0F) {
             // A grade is felt on the road as well as in how long the part lasts.
             int percent = Math.round((quality.performance() - 1.0F) * 100.0F);
             tooltip.accept(Component.translatable("tooltip.car.grade_effect",

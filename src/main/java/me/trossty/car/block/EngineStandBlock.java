@@ -109,7 +109,7 @@ public class EngineStandBlock extends ModelEntityBlock {
                     stand.rebuild();
                     world.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 1.0F, 0.8F);
                     player.displayClientMessage(Component.translatable("message.car.engine_rebuilt",
-                            Math.round(me.trossty.car.entity.CarEntity.conditionOf(stand.getEngine()))), true);
+                            Math.round(me.trossty.car.entity.Workshop.conditionOf(stand.getEngine()))), true);
                 } else {
                     player.displayClientMessage(Component.translatable("message.car.engine_incomplete"), true);
                 }
@@ -143,7 +143,7 @@ public class EngineStandBlock extends ModelEntityBlock {
                     if (!inside.isEmpty()) {
                         stand.setInternal(slot, ItemStack.EMPTY);
                         player.displayClientMessage(Component.translatable("message.car.internal_out",
-                                inside.getHoverName(), Math.round(me.trossty.car.entity.CarEntity.conditionOf(inside))), true);
+                                inside.getHoverName(), Math.round(me.trossty.car.entity.Workshop.conditionOf(inside))), true);
                         if (!player.addItem(inside)) {
                             player.drop(inside, false);
                         }

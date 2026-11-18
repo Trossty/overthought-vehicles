@@ -67,13 +67,13 @@ public final class CompressionTesterItem {
         int count = car.getLayout().cylinders();
         float[] bar = new float[count];
         long seed = car.getUUID().getLeastSignificantBits() ^ car.getUUID().getMostSignificantBits();
-        float health = 0.45F + 0.55F * car.getConditionFraction(CarPart.ENGINE);
+        float health = 0.45F + 0.55F * car.parts().getConditionFraction(CarPart.ENGINE);
         for (int i = 0; i < count; i++) {
             // No two cylinders read quite the same: a few per cent either way.
             bar[i] = spec * health * (1.0F + 0.04F * jitter(seed, i));
         }
         Verdict verdict;
-        if (car.isBeltSnapped()) {
+        if (car.upkeep().isBeltSnapped()) {
             for (int i = 0; i < count; i++) {
                 // Most valves are bent; the odd one escapes.
                 if (i == 0 || jitter(seed, i + 31) < 0.5F) {
@@ -81,7 +81,7 @@ public final class CompressionTesterItem {
                 }
             }
             verdict = Verdict.BENT_VALVES;
-        } else if (car.isGasketBlown()) {
+        } else if (car.upkeep().isGasketBlown()) {
             int first = gasketCylinder(car);
             bar[first] = spec * GASKET * (1.0F + 0.1F * jitter(seed, 50));
             bar[first + 1] = spec * GASKET * (1.0F + 0.1F * jitter(seed, 51));
@@ -97,7 +97,7 @@ public final class CompressionTesterItem {
      * from 0, or -1 while it holds. Always the same pair on the same car.
      */
     public static int gasketCylinder(CarEntity car) {
-        if (!car.isGasketBlown()) {
+        if (!car.upkeep().isGasketBlown()) {
             return -1;
         }
         int count = car.getLayout().cylinders();
@@ -158,16 +158,16 @@ public final class CompressionTesterItem {
         if (!car.hasPart(CarPart.ENGINE) || car.isElectric()) {
             return Component.translatable("message.car.compression_no_engine");
         }
-        if (!car.isFitted(CarPart.ENGINE)) {
+        if (!car.parts().isFitted(CarPart.ENGINE)) {
             return Component.translatable("message.car.compression_no_engine");
         }
-        if (!car.isWorkable(CarPart.SPARK_PLUGS)) {
-            return car.cannotWork(CarPart.SPARK_PLUGS);
+        if (!car.workshop().isWorkable(CarPart.SPARK_PLUGS)) {
+            return car.workshop().cannotWork(CarPart.SPARK_PLUGS);
         }
         if (car.isEngineRunning()) {
             return Component.translatable("message.car.compression_running");
         }
-        if (car.hasPart(CarPart.SPARK_PLUGS) && car.isFitted(CarPart.SPARK_PLUGS)) {
+        if (car.hasPart(CarPart.SPARK_PLUGS) && car.parts().isFitted(CarPart.SPARK_PLUGS)) {
             return Component.translatable("message.car.compression_plugs_in");
         }
         if (car.isBatteryFlat()) {

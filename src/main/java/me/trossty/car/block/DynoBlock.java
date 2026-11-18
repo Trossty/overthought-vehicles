@@ -110,23 +110,23 @@ public class DynoBlock extends ModelEntityBlock {
         lines.add(Math.abs(drift) < 0.01F ? Component.translatable("dyno.car.straight")
                 : Component.translatable(drift < 0.0F ? "dyno.car.drifts_left" : "dyno.car.drifts_right",
                 String.format(java.util.Locale.ROOT, "%.2f", Math.abs(drift))));
-        if (car.hasOil()) {
-            lines.add(Component.translatable("dyno.car.oil", Math.round(car.getOilLevel() * 100.0F),
-                    Math.round(car.getOilAge() * 100.0F)));
+        if (car.upkeep().hasOil()) {
+            lines.add(Component.translatable("dyno.car.oil", Math.round(car.upkeep().getOilLevel() * 100.0F),
+                    Math.round(car.upkeep().getOilAge() * 100.0F)));
         }
-        lines.add(Component.translatable("dyno.car.fluids", Math.round(car.getCoolantLevel() * 100.0F),
-                Math.round(car.getBrakeFluid() * 100.0F)));
-        if (car.hasPart(me.trossty.car.entity.CarPart.WHEELS) && car.isFitted(me.trossty.car.entity.CarPart.WHEELS)) {
+        lines.add(Component.translatable("dyno.car.fluids", Math.round(car.upkeep().getCoolantLevel() * 100.0F),
+                Math.round(car.upkeep().getBrakeFluid() * 100.0F)));
+        if (car.hasPart(me.trossty.car.entity.CarPart.WHEELS) && car.parts().isFitted(me.trossty.car.entity.CarPart.WHEELS)) {
             // A new tyre has eight millimetres of tread; the legal limit is 1.6.
-            float tread = 1.6F + 6.4F * car.getConditionFraction(me.trossty.car.entity.CarPart.WHEELS);
+            float tread = 1.6F + 6.4F * car.parts().getConditionFraction(me.trossty.car.entity.CarPart.WHEELS);
             lines.add(Component.translatable("dyno.car.tyres", String.format(java.util.Locale.ROOT, "%.1f", tread),
-                    Math.round(car.getTyrePressure() * 100.0F)));
+                    Math.round(car.upkeep().getTyrePressure() * 100.0F)));
         }
-        if (car.hasOil()) {
-            lines.add(Component.translatable("dyno.car.service", Math.round(car.getBeltWear() * 100.0F),
-                    Math.round(car.getCatClog() * 100.0F)));
+        if (car.upkeep().hasOil()) {
+            lines.add(Component.translatable("dyno.car.service", Math.round(car.upkeep().getBeltWear() * 100.0F),
+                    Math.round(car.upkeep().getCatClog() * 100.0F)));
         }
-        if (car.isOnDyno() && Math.abs(car.getEngineSpeed()) > 0.001F) {
+        if (car.upkeep().isOnDyno() && Math.abs(car.getEngineSpeed()) > 0.001F) {
             lines.add(Component.translatable("dyno.car.rolling",
                     String.format(java.util.Locale.ROOT, "%.1f", Math.abs(car.getEngineSpeed()) * 20.0F)));
         }

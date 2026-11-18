@@ -536,7 +536,7 @@ malzeme panelinin altında üç düğme var (Eko / Std / Per) ve seçilen sını
 malzeme sayılarını yerinde çarpıyor — düğmeye bastığında panelde yazan sayılar
 değişiyor, yani neye ne ödediğini görüyorsun.
 
-Aşınma tarafı tek bir yerde hissediliyor: `CarEntity.wear()`. Yukarıdaki bütün
+Aşınma tarafı tek bir yerde hissediliyor: `CarParts.wear()`. Yukarıdaki bütün
 kurallar aşınmayı bu metoda veriyor, dolayısıyla ucuz parça yaptığı her işte
 daha hızlı bitiyor ve o kuralların hiçbirinin sınıfı bilmesi gerekmiyor.
 
@@ -779,20 +779,20 @@ envanterin üstüne taşıyordu.
 | `CarPart.Quality` | `DEFAULT` | Sınıfı yazılmamış parçanın sayıldığı sınıf |
 | `CarEntity` | `WORN_ENGINE_SPEED` | Bitmiş motorda kalan azami hız |
 | `CarEntity` | `WORN_PLUGS_THROTTLE` | Bitmiş bujide kalan gaz tepkisi |
-| `CarEntity` | `MISFIRE_CHANCE` | Bitmiş bujide tik başına tekleme olasılığı |
-| `CarEntity` | `WORN_OIL_WEAR` | Kirli yağın aşınma çarpanı |
+| `CarParts` | `MISFIRE_CHANCE` | Bitmiş bujide tik başına tekleme olasılığı |
+| `CarParts` | `WORN_OIL_WEAR` | Kirli yağın aşınma çarpanı |
 | `CarEntity` | `WORN_RADIATOR_COOLING` | Bitmiş radyatörde kalan soğutma |
 | `CarEntity` | `OVERHEAT_AT` | Kaynama eşiği |
 | `CarEntity` | `OVERHEATING_POWER` | Kaynarken kalan güç |
-| `CarEntity` | `BATTERY_DRAIN` | Şarj gelmezken akünün boşalma hızı |
+| `CarParts` | `BATTERY_DRAIN` | Şarj gelmezken akünün boşalma hızı |
 | `CarEntity` | `FLAT_BATTERY` | Akünün "bitik" sayıldığı eşik |
-| `CarEntity` | `PADS_EAT_DISCS` | Bitmiş balatanın diski yeme katsayısı |
+| `CarParts` | `PADS_EAT_DISCS` | Bitmiş balatanın diski yeme katsayısı |
 | `CarEntity` | `WORN_TYRE_GRIP` | Kel lastikte kalan tutuş |
-| `CarEntity` | `WORN_SPRING_HARSHNESS` | Bitmiş süspansiyonun hasar çarpanı |
-| `CarEntity` | `SUSPENSION_WEAR_PER_DAMAGE` | Hasar başına süspansiyon aşınması |
+| `BodyDamage` | `WORN_SPRING_HARSHNESS` | Bitmiş süspansiyonun hasar çarpanı |
+| `BodyDamage` | `SUSPENSION_WEAR_PER_DAMAGE` | Hasar başına süspansiyon aşınması |
 | `CarEntity` | `LOW_FUEL_FRACTION`, `STARVING_FRACTION` | Çanın çaldığı ve motorun öksürmeye başladığı yakıt oranı |
 | `CarEntity` | `COAST_MARGIN`, `CLIMB_LOAD`, `TOWING_THIRST` | Ayak gazdan çekildi sayılan yavaşlama, yokuş yükü, römork çarpanı |
-| `CarEntity` | `LEAK_PER_TICK`, `PUNCTURE_MIN_DAMAGE`, `PUNCTURE_SPREAD` | Delik deponun sızıntısı ve delinme olasılığı |
+| `CarEntity`, `BodyDamage` | `LEAK_PER_TICK`, `PUNCTURE_MIN_DAMAGE`, `PUNCTURE_SPREAD` | Delik deponun sızıntısı ve delinme olasılığı |
 | `JerryCans` | `CAPACITY`, `POUR`, `LITRES_PER_UNIT` | Bidonun birimi, bir dökümü, birimin litresi |
 | `CarEntity` | `CAN_FLOW`, `NOZZLE_FLOW`, `FILLER_RADIUS` | Bidonun ve tabancanın tik başına akışı, kapağa nişan toleransı |
 | `FuelPumpBlockEntity` | `HOSE_LENGTH` | Hortumun pompadan ele uzanabildiği mesafe |
@@ -1808,7 +1808,7 @@ Arabaya binince eşya çubuğunun iki yanında, ekranın altında tek sıra hâl
 analog kadranlar beliriyor: solda hızölçer ve onun dışında **devir saati**,
 sağda yakıt ve onun dışında küçük sıcaklık kadranı.
 
-**Devir saati:** otomatik şanzıman (`CarEntity.tickGearbox/getEngineRpm`); vites
+**Devir saati:** otomatik şanzıman (`Gearbox.tick/getEngineRpm`); vites
 sayısı ve oranları aracın tanımından gelir (`performance.gears`, her vitesin
 kırmızı çizgide ulaştığı azami hız payı, sonuncusu 1): verilmezse 5 ileri,
 Mustang/Jeep/Hilux/CBR 6, Atego 8, Vespa tek oranlı (CVT). Kısa alt vitesler,
@@ -1954,13 +1954,13 @@ davranışına düşüyor, külçe boşa harcanmıyor.
 | Yer | Sabit | Etkisi |
 |-----|-------|--------|
 | `CarEntity` | `MAX_HEALTH` | Durum puanı |
-| `CarEntity` | `MIN_CRASH_SPEED` | Çarpışma sayılması için engelin yutması gereken yol |
-| `CarEntity` | `CRASH_COOLDOWN` | Çarpma sonrası hasar muafiyeti (tik) |
-| `CarEntity` | `CRASH_DAMAGE_PER_SPEED` | Çarpışmanın sertliği |
+| `BodyDamage` | `MIN_CRASH_SPEED` | Çarpışma sayılması için engelin yutması gereken yol |
+| `BodyDamage` | `CRASH_COOLDOWN` | Çarpma sonrası hasar muafiyeti (tik) |
+| `BodyDamage` | `CRASH_DAMAGE_PER_SPEED` | Çarpışmanın sertliği |
 | `CarEntity` | `SAFE_FALL_BLOCKS` | Hasarsız düşme yüksekliği |
 | `CarEntity` | `WRECKED_SPEED_FACTOR` | Boş durumdaki üst hız çarpanı |
-| `CarEntity` | `REPAIR_PER_INGOT` | Bir külçenin tamir ettiği puan |
-| `CarEntity` | `WRECK_SCRAP` | Dağılan arabadan düşen hurda |
+| `BodyDamage` | `REPAIR_PER_INGOT` | Bir külçenin tamir ettiği puan |
+| `BodyDamage` | `WRECK_SCRAP` | Dağılan arabadan düşen hurda |
 
 ## Sesler
 
@@ -2254,6 +2254,5 @@ Henüz yapılmadı, MrCrayfish'te olan katmanlar:
   eklendi; yeni bir araç artık `tools/GenVehicles.java`'da bir yöntem ve bir
   tarif dosyası demek
 - **Ertelenenler** ([GELISTIRME.md](GELISTIRME.md)'de nedenleriyle):
-  arıtıcının 2×2 yapılması, `CarEntity`'nin bileşenlere bölünmesi, iki
-  istemcili çok oyunculu test, EMI/REI tarif gösterimi, WTHIT ve Create
-  uyumunun oyun içinde denenmesi
+  arıtıcının 2×2 yapılması, iki istemcili çok oyunculu test, EMI/REI tarif
+  gösterimi, WTHIT ve Create uyumunun oyun içinde denenmesi

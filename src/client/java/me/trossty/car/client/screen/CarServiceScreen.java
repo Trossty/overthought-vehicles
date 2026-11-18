@@ -2,6 +2,7 @@ package me.trossty.car.client.screen;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.Workshop;
 import me.trossty.car.service.CarServiceScreenHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -248,10 +249,10 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
     public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         CarEntity car = this.menu.car();
         CarPart selected = this.menu.selectedPart();
-        this.removeButton.active = car != null && car.isFitted(selected) && car.canWorkOn(selected);
-        this.fitButton.active = car != null && car.canWorkOn(selected)
+        this.removeButton.active = car != null && car.parts().isFitted(selected) && car.workshop().canWorkOn(selected);
+        this.fitButton.active = car != null && car.workshop().canWorkOn(selected)
                 && !this.menu.spareFor(selected).isEmpty()
-                && car.getCondition(selected) < CarPart.MAX_CONDITION;
+                && car.parts().getCondition(selected) < CarPart.MAX_CONDITION;
         super.render(context, mouseX, mouseY, deltaTicks);
         this.drawTooltips(context, car, mouseX, mouseY);
     }
@@ -319,9 +320,9 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
             }
 
             CarPart part = line.part();
-            boolean fitted = car != null && car.isFitted(part);
-            boolean seen = car == null || car.canInspect(part);
-            float fraction = car == null ? 1.0F : car.getConditionFraction(part);
+            boolean fitted = car != null && car.parts().isFitted(part);
+            boolean seen = car == null || car.workshop().canInspect(part);
+            float fraction = car == null ? 1.0F : car.parts().getConditionFraction(part);
             int colour = seen ? conditionColour(fraction, fitted) : ABSENT;
             // Indented under whatever is bolted on top of it, so the list reads
             // as the order the car comes apart in.
@@ -373,13 +374,13 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         context.fillGradient(left, top, left + DETAIL_WIDTH, top + 30, 0x14FFFFFF, 0x00FFFFFF);
 
         CarPart part = this.menu.selectedPart();
-        int count = car == null ? part.count() : car.countOf(part);
+        int count = car == null ? part.count() : car.parts().countOf(part);
         GuiStyle.slot(context, left + 3, top + 3);
         context.renderItem(new ItemStack(part.item(), count), left + 4, top + 4);
 
-        boolean fitted = car != null && car.isFitted(part);
-        CarPart hidden = car == null || !fitted ? null : car.hiddenBy(part);
-        float fraction = car == null ? 1.0F : car.getConditionFraction(part);
+        boolean fitted = car != null && car.parts().isFitted(part);
+        CarPart hidden = car == null || !fitted ? null : car.workshop().hiddenBy(part);
+        float fraction = car == null ? 1.0F : car.parts().getConditionFraction(part);
         int colour = hidden == null ? conditionColour(fraction, fitted) : ABSENT;
         String big = !fitted ? "—" : hidden == null ? Math.round(fraction * 100.0F) + "%" : "?";
         context.pose().pushPose();
@@ -408,7 +409,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
             return;
         }
 
-        CarPart inTheWay = car.blockedBy(part);
+        CarPart inTheWay = car.workshop().blockedBy(part);
         Component status;
         int statusColour;
         if (inTheWay != null) {
@@ -437,7 +438,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         // What is in the slot was built to something, and that is half the
         // answer to "why is this worn out again already".
         if (fitted) {
-            CarPart.Quality quality = car.getQuality(part);
+            CarPart.Quality quality = car.parts().getQuality(part);
             context.drawString(this.font, Component.translatable("quality.car." + quality.key()),
                     left + 4, line, quality.argb(), false);
             line += 9;
@@ -446,7 +447,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         ItemStack spare = this.menu.spareFor(part);
         Component have = spare.isEmpty()
                 ? Component.translatable("gui.car.no_spare")
-                : Component.translatable("gui.car.spare", Math.round(CarEntity.conditionOf(spare)) + "%");
+                : Component.translatable("gui.car.spare", Math.round(Workshop.conditionOf(spare)) + "%");
         context.drawString(this.font, GuiStyle.fit(this.font, have, room), left + 4, line + 2,
                 spare.isEmpty() ? ABSENT : TEXT_ON_WELL, false);
         if (count > 1) {

@@ -7,8 +7,10 @@ import me.trossty.car.block.entity.BatteryBankBlockEntity;
 import me.trossty.car.block.entity.ChargingPostBlockEntity;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.CarParts;
 import me.trossty.car.entity.CarSetup;
 import me.trossty.car.entity.FaultCodes;
+import me.trossty.car.entity.Workshop;
 import me.trossty.car.registry.ModEntities;
 import me.trossty.car.block.MultiblockBlock;
 import me.trossty.car.block.entity.EnergyCableBlockEntity;
@@ -183,7 +185,7 @@ public class CarMachineTests {
     public static void theStarterDrawsOnTheBattery(GameTestHelper context) {
         CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));
         CarEntity weak = context.spawn(ModEntities.CAR, new BlockPos(6, 1, 2));
-        weak.setCondition(CarPart.BATTERY, 3.0F);
+        weak.parts().setCondition(CarPart.BATTERY, 3.0F);
         var driver = context.makeMockServerPlayerInLevel();
         var other = context.makeMockServerPlayerInLevel();
         context.runAtTickTime(2, () -> {
@@ -191,17 +193,17 @@ public class CarMachineTests {
             other.startRiding(weak, true);
         });
         context.runAtTickTime(6, () -> {
-            context.assertTrue(car.getStarterDebt() > 0.0F
-                    && car.getCondition(CarPart.BATTERY) < CarPart.MAX_CONDITION - 1.0F,
-                    "starting did not draw on the battery: " + car.getCondition(CarPart.BATTERY));
+            context.assertTrue(car.parts().getStarterDebt() > 0.0F
+                    && car.parts().getCondition(CarPart.BATTERY) < CarPart.MAX_CONDITION - 1.0F,
+                    "starting did not draw on the battery: " + car.parts().getCondition(CarPart.BATTERY));
             context.assertTrue(car.isEngineRunning(), "a good battery did not start the car");
             context.assertTrue(weak.isBatteryFlat() && !weak.isEngineRunning(),
                     "a nearly flat battery started the car and kept it running");
         });
         context.runAtTickTime(240, () -> {
-            context.assertTrue(car.getStarterDebt() == 0.0F
-                    && car.getCondition(CarPart.BATTERY) >= CarPart.MAX_CONDITION - 0.01F,
-                    "the alternator did not put the start back: " + car.getCondition(CarPart.BATTERY));
+            context.assertTrue(car.parts().getStarterDebt() == 0.0F
+                    && car.parts().getCondition(CarPart.BATTERY) >= CarPart.MAX_CONDITION - 0.01F,
+                    "the alternator did not put the start back: " + car.parts().getCondition(CarPart.BATTERY));
             context.succeed();
         });
     }
@@ -836,10 +838,10 @@ public class CarMachineTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void codeReaderListsWorstFirst(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        car.setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION * 0.10F);
-        car.setCondition(CarPart.WHEELS, CarPart.MAX_CONDITION * 0.30F);
-        car.setCondition(CarPart.AIR_FILTER, CarPart.MAX_CONDITION * 0.45F);
-        car.setCondition(CarPart.EXHAUST, 0.0F);
+        car.parts().setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION * 0.10F);
+        car.parts().setCondition(CarPart.WHEELS, CarPart.MAX_CONDITION * 0.30F);
+        car.parts().setCondition(CarPart.AIR_FILTER, CarPart.MAX_CONDITION * 0.45F);
+        car.parts().setCondition(CarPart.EXHAUST, 0.0F);
         var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
         context.assertTrue(codes.equals(java.util.List.of("P0420", "C0040", "C0750", "P0101")),
                 "the reader listed " + codes);
@@ -848,8 +850,8 @@ public class CarMachineTests {
 
     /** The wheel at this end (1 front, -1 rear) on this side (1 right, -1 left). */
     private static int corner(CarEntity car, int end, int side) {
-        for (int wheel = 0; wheel < car.placesOf(CarPart.WHEELS); wheel++) {
-            if (car.axle(wheel) == end && car.lateral(wheel) == side) {
+        for (int wheel = 0; wheel < car.parts().placesOf(CarPart.WHEELS); wheel++) {
+            if (car.parts().axle(wheel) == end && car.parts().lateral(wheel) == side) {
                 return wheel;
             }
         }
@@ -861,23 +863,23 @@ public class CarMachineTests {
     public static void frontPadsWearFirstAndAWeakCornerPulls(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         for (int stop = 0; stop < 400; stop++) {
-            car.wearBrakes(1.0F);
-            car.wearBrakes(0.6F);
+            car.parts().wearBrakes(1.0F);
+            car.parts().wearBrakes(0.6F);
         }
-        float front = car.getCondition(CarPart.BRAKE_PADS, corner(car, 1, -1))
-                + car.getCondition(CarPart.BRAKE_PADS, corner(car, 1, 1));
-        float rear = car.getCondition(CarPart.BRAKE_PADS, corner(car, -1, -1))
-                + car.getCondition(CarPart.BRAKE_PADS, corner(car, -1, 1));
+        float front = car.parts().getCondition(CarPart.BRAKE_PADS, corner(car, 1, -1))
+                + car.parts().getCondition(CarPart.BRAKE_PADS, corner(car, 1, 1));
+        float rear = car.parts().getCondition(CarPart.BRAKE_PADS, corner(car, -1, -1))
+                + car.parts().getCondition(CarPart.BRAKE_PADS, corner(car, -1, 1));
         context.assertTrue(front < rear && rear < 2 * CarPart.MAX_CONDITION,
                 "front pads at " + front + ", rear at " + rear);
 
-        car.setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION);
-        context.assertTrue(Math.abs(car.brakePull()) < 1e-3F, "even brakes pulled " + car.brakePull());
-        car.setCondition(CarPart.BRAKE_PADS, corner(car, 1, -1), CarPart.MAX_CONDITION * 0.05F);
-        float left = car.brakePull();
-        car.setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION);
-        car.setCondition(CarPart.BRAKE_PADS, corner(car, 1, 1), CarPart.MAX_CONDITION * 0.05F);
-        float right = car.brakePull();
+        car.parts().setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION);
+        context.assertTrue(Math.abs(car.parts().brakePull()) < 1e-3F, "even brakes pulled " + car.parts().brakePull());
+        car.parts().setCondition(CarPart.BRAKE_PADS, corner(car, 1, -1), CarPart.MAX_CONDITION * 0.05F);
+        float left = car.parts().brakePull();
+        car.parts().setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION);
+        car.parts().setCondition(CarPart.BRAKE_PADS, corner(car, 1, 1), CarPart.MAX_CONDITION * 0.05F);
+        float right = car.parts().brakePull();
         context.assertTrue(Math.abs(left) > 0.01F && Math.signum(left) == -Math.signum(right),
                 "a worn left pad pulled " + left + ", a worn right one " + right);
         // The reader names the corner, not the set.
@@ -890,14 +892,14 @@ public class CarMachineTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void misfireNamesItsCylinder(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        car.setCondition(CarPart.SPARK_PLUGS, 2, CarPart.MAX_CONDITION * 0.2F);
+        car.parts().setCondition(CarPart.SPARK_PLUGS, 2, CarPart.MAX_CONDITION * 0.2F);
         var faults = FaultCodes.read(car);
         var misfire = faults.stream().filter(f -> f.code().equals("P0303")).findFirst();
         context.assertTrue(misfire.isPresent(), "a fouled third plug read " + faults.stream().map(FaultCodes.Fault::code).toList());
         context.assertTrue(misfire.get().suspects().contains(CarPart.ENGINE),
                 "a misfire only blamed " + misfire.get().suspects());
-        car.setCondition(CarPart.SPARK_PLUGS, 0, CarPart.MAX_CONDITION * 0.2F);
-        car.setCondition(CarPart.SPARK_PLUGS, 1, CarPart.MAX_CONDITION * 0.2F);
+        car.parts().setCondition(CarPart.SPARK_PLUGS, 0, CarPart.MAX_CONDITION * 0.2F);
+        car.parts().setCondition(CarPart.SPARK_PLUGS, 1, CarPart.MAX_CONDITION * 0.2F);
         var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
         context.assertTrue(codes.contains("P0300") && !codes.contains("P0303"), "three bad plugs read " + codes);
         context.succeed();
@@ -907,7 +909,7 @@ public class CarMachineTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void slippingDriveBlamesBoxAndClutch(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        car.setCondition(CarPart.CLUTCH, CarPart.MAX_CONDITION * 0.2F);
+        car.parts().setCondition(CarPart.CLUTCH, CarPart.MAX_CONDITION * 0.2F);
         var faults = FaultCodes.read(car);
         var codes = faults.stream().map(FaultCodes.Fault::code).toList();
         context.assertTrue(codes.contains("P0730") && !codes.contains("P0805"), "a worn clutch read " + codes);
@@ -922,12 +924,12 @@ public class CarMachineTests {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         car.setSetup(CarSetup.withVariant(car.getSetup(), CarPart.ENGINE,
                 CarSetup.engineVariant(CarSetup.Layout.V8, CarSetup.Fuel.PETROL)));
-        context.assertTrue(car.countOf(CarPart.SPARK_PLUGS) == 8 && car.placesOf(CarPart.SPARK_PLUGS) == 8,
-                "a V8 takes " + car.countOf(CarPart.SPARK_PLUGS) + " plugs");
-        context.assertTrue(car.canInspect(CarPart.AIR_FILTER), "the air filter on top could not be seen");
-        context.assertTrue(car.hiddenBy(CarPart.CLUTCH) == CarPart.DRIVESHAFT, "the clutch was hidden by "
-                + car.hiddenBy(CarPart.CLUTCH));
-        context.assertTrue(!car.canInspect(CarPart.BRAKE_PADS), "pads were seen through a wheel");
+        context.assertTrue(car.parts().countOf(CarPart.SPARK_PLUGS) == 8 && car.parts().placesOf(CarPart.SPARK_PLUGS) == 8,
+                "a V8 takes " + car.parts().countOf(CarPart.SPARK_PLUGS) + " plugs");
+        context.assertTrue(car.workshop().canInspect(CarPart.AIR_FILTER), "the air filter on top could not be seen");
+        context.assertTrue(car.workshop().hiddenBy(CarPart.CLUTCH) == CarPart.DRIVESHAFT, "the clutch was hidden by "
+                + car.workshop().hiddenBy(CarPart.CLUTCH));
+        context.assertTrue(!car.workshop().canInspect(CarPart.BRAKE_PADS), "pads were seen through a wheel");
         context.succeed();
     }
 
@@ -935,11 +937,11 @@ public class CarMachineTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void gearboxComesFromTheVehicle(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        context.assertTrue(car.gearCount() == 5, "a plain car has " + car.gearCount() + " gears");
+        context.assertTrue(car.gearbox().gearCount() == 5, "a plain car has " + car.gearbox().gearCount() + " gears");
         car.setModel(net.minecraft.resources.ResourceLocation.parse("car:mercedes_atego"));
-        context.assertTrue(car.gearCount() == 8, "the lorry has " + car.gearCount() + " gears");
+        context.assertTrue(car.gearbox().gearCount() == 8, "the lorry has " + car.gearbox().gearCount() + " gears");
         car.setModel(net.minecraft.resources.ResourceLocation.parse("car:vespa_primavera"));
-        context.assertTrue(car.gearCount() == 1, "the scooter has " + car.gearCount() + " gears");
+        context.assertTrue(car.gearbox().gearCount() == 1, "the scooter has " + car.gearbox().gearCount() + " gears");
         for (CarSetup.Layout layout : CarSetup.Layout.values()) {
             float sum = 0.0F;
             for (int i = 0; i < 16; i++) {
@@ -960,8 +962,8 @@ public class CarMachineTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void codeReaderSkipsPlugsOnAnElectricCar(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), true);
-        car.setCondition(CarPart.SPARK_PLUGS, CarPart.MAX_CONDITION * 0.05F);
-        car.setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.20F);
+        car.parts().setCondition(CarPart.SPARK_PLUGS, CarPart.MAX_CONDITION * 0.05F);
+        car.parts().setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.20F);
         var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
         context.assertTrue(codes.equals(java.util.List.of("P0A1A")), "an electric car read " + codes);
         context.succeed();
@@ -971,15 +973,15 @@ public class CarMachineTests {
     public static void oldCarsAndTiredPartsWearFaster(GameTestHelper context) {
         CarEntity fresh = car(context, new BlockPos(2, 1, 3), false);
         CarEntity old = car(context, new BlockPos(5, 1, 3), false);
-        old.setOdometer(CarEntity.HIGH_MILEAGE * 3);
-        old.setCondition(CarPart.CLUTCH, CarPart.MAX_CONDITION * 0.5F);
-        context.assertTrue(Math.abs(fresh.ageFactor(CarPart.ENGINE) - 1.0F) < 1e-4F,
-                "a new car's engine wears at " + fresh.ageFactor(CarPart.ENGINE));
-        context.assertTrue(Math.abs(old.ageFactor(CarPart.ENGINE) - (1.0F + CarEntity.MILEAGE_WEAR)) < 1e-4F,
-                "an old car's fresh engine wears at " + old.ageFactor(CarPart.ENGINE));
-        float tired = (1.0F + CarEntity.MILEAGE_WEAR) * (1.0F + CarEntity.TIRED_WEAR * 0.5F);
-        context.assertTrue(Math.abs(old.ageFactor(CarPart.CLUTCH) - tired) < 1e-4F,
-                "a half-worn clutch on an old car wears at " + old.ageFactor(CarPart.CLUTCH) + ", not " + tired);
+        old.parts().setOdometer(CarParts.HIGH_MILEAGE * 3);
+        old.parts().setCondition(CarPart.CLUTCH, CarPart.MAX_CONDITION * 0.5F);
+        context.assertTrue(Math.abs(fresh.parts().ageFactor(CarPart.ENGINE) - 1.0F) < 1e-4F,
+                "a new car's engine wears at " + fresh.parts().ageFactor(CarPart.ENGINE));
+        context.assertTrue(Math.abs(old.parts().ageFactor(CarPart.ENGINE) - (1.0F + CarParts.MILEAGE_WEAR)) < 1e-4F,
+                "an old car's fresh engine wears at " + old.parts().ageFactor(CarPart.ENGINE));
+        float tired = (1.0F + CarParts.MILEAGE_WEAR) * (1.0F + CarParts.TIRED_WEAR * 0.5F);
+        context.assertTrue(Math.abs(old.parts().ageFactor(CarPart.CLUTCH) - tired) < 1e-4F,
+                "a half-worn clutch on an old car wears at " + old.parts().ageFactor(CarPart.CLUTCH) + ", not " + tired);
         context.succeed();
     }
 
@@ -1237,19 +1239,19 @@ public class CarMachineTests {
         CarEntity car = context.spawn(ModEntities.CAR, lift.above());
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         CarPart part = CarPart.AIR_FILTER;
-        context.assertTrue(car.isFitted(part), "a new car has no air filter");
+        context.assertTrue(car.parts().isFitted(part), "a new car has no air filter");
         car.setLidOpen(CarEntity.BONNET_BIT, true);
 
-        car.serviceByHand(player, part);
-        context.assertFalse(car.isFitted(part), "the air filter did not come off");
+        car.workshop().serviceByHand(player, part);
+        context.assertFalse(car.parts().isFitted(part), "the air filter did not come off");
         context.assertTrue(player.getMainHandItem().isEmpty(), "the air filter landed in the working hand");
         context.assertTrue(player.getInventory().countItem(part.item()) == 1, "the air filter was not handed over");
 
-        car.serviceByHand(player, part);
-        context.assertFalse(car.isFitted(part), "a second click with an empty hand put it back");
+        car.workshop().serviceByHand(player, part);
+        context.assertFalse(car.parts().isFitted(part), "a second click with an empty hand put it back");
         var creative = context.makeMockPlayer(net.minecraft.world.level.GameType.CREATIVE);
-        car.serviceByHand(creative, part);
-        context.assertFalse(car.isFitted(part), "creative conjured an air filter into the empty slot");
+        car.workshop().serviceByHand(creative, part);
+        context.assertFalse(car.parts().isFitted(part), "creative conjured an air filter into the empty slot");
 
         int pocket = -1;
         for (int slot = 0; slot < 36; slot++) {
@@ -1259,8 +1261,8 @@ public class CarMachineTests {
         }
         ItemStack spare = player.getInventory().removeItemNoUpdate(pocket);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, spare);
-        car.serviceByHand(player, part);
-        context.assertTrue(car.isFitted(part), "holding the spare and clicking did not fit it");
+        car.workshop().serviceByHand(player, part);
+        context.assertTrue(car.parts().isFitted(part), "holding the spare and clicking did not fit it");
         context.assertTrue(player.getMainHandItem().isEmpty(), "fitting it did not use the spare up");
         car.discard();
         context.succeed();
@@ -1368,18 +1370,18 @@ public class CarMachineTests {
     public static void bonnetPartsWantTheBonnetUp(GameTestHelper context) {
         CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 3));
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        car.removePart(player, CarPart.AIR_FILTER);
-        context.assertTrue(car.isFitted(CarPart.AIR_FILTER), "the air filter came out through a shut bonnet");
+        car.workshop().removePart(player, CarPart.AIR_FILTER);
+        context.assertTrue(car.parts().isFitted(CarPart.AIR_FILTER), "the air filter came out through a shut bonnet");
         car.setLidOpen(CarEntity.BONNET_BIT, true);
-        car.removePart(player, CarPart.AIR_FILTER);
-        context.assertFalse(car.isFitted(CarPart.AIR_FILTER), "the air filter did not come out with the bonnet up");
-        context.assertFalse(car.isWorkable(CarPart.ENGINE), "the engine came free without a lift or a hoist");
-        context.assertFalse(car.isWorkable(CarPart.WHEELS), "the wheels came off a car on the ground");
+        car.workshop().removePart(player, CarPart.AIR_FILTER);
+        context.assertFalse(car.parts().isFitted(CarPart.AIR_FILTER), "the air filter did not come out with the bonnet up");
+        context.assertFalse(car.workshop().isWorkable(CarPart.ENGINE), "the engine came free without a lift or a hoist");
+        context.assertFalse(car.workshop().isWorkable(CarPart.WHEELS), "the wheels came off a car on the ground");
         BlockPos hoist = BlockPos.containing(car.bonnetCentre()).atY(car.blockPosition().getY());
         context.getLevel().setBlockAndUpdate(hoist, ModBlocks.ENGINE_HOIST.defaultBlockState());
-        context.assertTrue(car.isWorkable(CarPart.ENGINE), "a hoist beside the open bonnet did not reach the engine");
+        context.assertTrue(car.workshop().isWorkable(CarPart.ENGINE), "a hoist beside the open bonnet did not reach the engine");
         car.setLidOpen(CarEntity.BONNET_BIT, false);
-        context.assertFalse(car.isWorkable(CarPart.ENGINE), "the hoist reached the engine through a shut bonnet");
+        context.assertFalse(car.workshop().isWorkable(CarPart.ENGINE), "the hoist reached the engine through a shut bonnet");
         car.discard();
         context.succeed();
     }
@@ -1389,19 +1391,19 @@ public class CarMachineTests {
     public static void oilAndCoolantTopUp(GameTestHelper context) {
         CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 3));
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        car.setOilLevel(0.1F);
-        car.setCoolantLevel(0.1F);
+        car.upkeep().setOilLevel(0.1F);
+        car.upkeep().setCoolantLevel(0.1F);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
                 new ItemStack(me.trossty.car.registry.ModItems.MOTOR_OIL));
         car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(car.getOilLevel() < 0.2F, "oil went in through a shut bonnet");
+        context.assertTrue(car.upkeep().getOilLevel() < 0.2F, "oil went in through a shut bonnet");
         car.setLidOpen(CarEntity.BONNET_BIT, true);
         car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(Math.abs(car.getOilLevel() - 0.6F) < 0.01F, "a bottle of oil did not top the sump up");
+        context.assertTrue(Math.abs(car.upkeep().getOilLevel() - 0.6F) < 0.01F, "a bottle of oil did not top the sump up");
         context.assertTrue(player.getMainHandItem().is(Items.GLASS_BOTTLE), "the empty oil bottle was not handed back");
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.WATER_BUCKET));
         car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(car.getCoolantLevel() > 0.99F, "a bucket of water did not fill the coolant");
+        context.assertTrue(car.upkeep().getCoolantLevel() > 0.99F, "a bucket of water did not fill the coolant");
         context.assertTrue(player.getMainHandItem().is(Items.BUCKET), "the empty bucket was not handed back");
         car.discard();
         context.succeed();
@@ -1411,13 +1413,13 @@ public class CarMachineTests {
     @GameTest(template = "empty")
     public static void exhaustColourReadsTheFault(GameTestHelper context) {
         CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(3, 1, 3));
-        context.assertFalse(car.isBurningOil() || car.isGasketBlown() || car.isRunningRich(), "a new car smokes");
-        car.setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.3F);
-        context.assertTrue(car.isBurningOil() && !car.isGasketBlown(), "a worn engine did not burn oil");
-        car.setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.1F);
-        context.assertTrue(car.isGasketBlown() && car.isKnocking(), "a worn-out engine kept its gasket");
-        car.setCondition(CarPart.AIR_FILTER, CarPart.MAX_CONDITION * 0.2F);
-        context.assertTrue(car.isRunningRich(), "a choked filter did not run rich");
+        context.assertFalse(car.upkeep().isBurningOil() || car.upkeep().isGasketBlown() || car.upkeep().isRunningRich(), "a new car smokes");
+        car.parts().setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.3F);
+        context.assertTrue(car.upkeep().isBurningOil() && !car.upkeep().isGasketBlown(), "a worn engine did not burn oil");
+        car.parts().setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION * 0.1F);
+        context.assertTrue(car.upkeep().isGasketBlown() && car.upkeep().isKnocking(), "a worn-out engine kept its gasket");
+        car.parts().setCondition(CarPart.AIR_FILTER, CarPart.MAX_CONDITION * 0.2F);
+        context.assertTrue(car.upkeep().isRunningRich(), "a choked filter did not run rich");
         car.discard();
         context.succeed();
     }
@@ -1430,7 +1432,7 @@ public class CarMachineTests {
                 .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
         context.setBlock(lift.east(), ModBlocks.DRAIN_PAN.defaultBlockState());
         CarEntity car = context.spawn(ModEntities.CAR, lift.above());
-        car.setOilAge(0.8F);
+        car.upkeep().setOilAge(0.8F);
         BlockPos pan = context.absolutePos(lift.east());
         context.assertTrue(me.trossty.car.block.DrainPanBlock.carAbove(context.getLevel(), pan) == car,
                 "the pan did not find the car on the lift");
@@ -1438,7 +1440,7 @@ public class CarMachineTests {
         context.getLevel().getBlockState(pan).useWithoutItem(context.getLevel(), player,
                 new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pan),
                         Direction.UP, pan, false));
-        context.assertTrue(car.getOilLevel() == 0.0F && car.getOilAge() == 0.0F, "the sump did not drain");
+        context.assertTrue(car.upkeep().getOilLevel() == 0.0F && car.upkeep().getOilAge() == 0.0F, "the sump did not drain");
         var drained = ((me.trossty.car.block.entity.DrainPanBlockEntity) context.getLevel().getBlockEntity(pan))
                 .getOutlet().drain(5000, IFluidHandler.FluidAction.EXECUTE);
         context.assertTrue(drained.getAmount() == 1000 && drained.getFluid() == me.trossty.car.registry.ModFluids.CRUDE_OIL,
@@ -1461,11 +1463,11 @@ public class CarMachineTests {
         context.assertTrue(java.util.Arrays.equals(good.cylinders(), me.trossty.car.item.CompressionTesterItem.read(car).cylinders()),
                 "a second test read different numbers");
 
-        car.setCondition(CarPart.ENGINE, 40.0F);
+        car.parts().setCondition(CarPart.ENGINE, 40.0F);
         context.assertTrue(me.trossty.car.item.CompressionTesterItem.read(car).verdict()
                 == me.trossty.car.item.CompressionTesterItem.Verdict.WORN, "a tired engine did not read worn");
 
-        car.setCondition(CarPart.ENGINE, 10.0F);
+        car.parts().setCondition(CarPart.ENGINE, 10.0F);
         var gasket = me.trossty.car.item.CompressionTesterItem.read(car);
         context.assertTrue(gasket.verdict() == me.trossty.car.item.CompressionTesterItem.Verdict.GASKET,
                 "a blown gasket did not show");
@@ -1477,8 +1479,8 @@ public class CarMachineTests {
         }
         context.assertTrue(low >= 0, "no two cylinders side by side read low for the gasket");
 
-        car.setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION);
-        car.setBeltWear(1.0F);
+        car.parts().setCondition(CarPart.ENGINE, CarPart.MAX_CONDITION);
+        car.upkeep().setBeltWear(1.0F);
         context.assertTrue(me.trossty.car.item.CompressionTesterItem.read(car).verdict()
                 == me.trossty.car.item.CompressionTesterItem.Verdict.BENT_VALVES, "a snapped belt did not show bent valves");
 
@@ -1487,7 +1489,7 @@ public class CarMachineTests {
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
                 new ItemStack(me.trossty.car.registry.ModItems.COMPRESSION_TESTER));
         car.setLidOpen(CarEntity.BONNET_BIT, true);
-        car.setCondition(CarPart.SPARK_PLUGS, 0.0F);
+        car.parts().setCondition(CarPart.SPARK_PLUGS, 0.0F);
         car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
         context.assertTrue(player.getMainHandItem().is(me.trossty.car.registry.ModItems.COMPRESSION_TESTER),
                 "the tester was used up");
@@ -1500,19 +1502,19 @@ public class CarMachineTests {
     public static void timingBelt(GameTestHelper context) {
         CarEntity car = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));
         context.assertTrue(car.canRun(), "a new car would not start");
-        car.setBeltWear(1.0F);
-        context.assertTrue(car.isBeltSnapped() && !car.canRun(), "a snapped belt still turned the engine");
+        car.upkeep().setBeltWear(1.0F);
+        context.assertTrue(car.upkeep().isBeltSnapped() && !car.canRun(), "a snapped belt still turned the engine");
         context.assertTrue(FaultCodes.read(car).stream().anyMatch(f -> f.code().equals("P0016")
                 && f.place() == CarPart.ENGINE), "the scanner did not point at the belt");
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
                 new ItemStack(me.trossty.car.registry.ModItems.TIMING_BELT));
         car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(car.isBeltSnapped(), "a belt went on through a shut bonnet");
+        context.assertTrue(car.upkeep().isBeltSnapped(), "a belt went on through a shut bonnet");
         car.setLidOpen(CarEntity.BONNET_BIT, true);
         car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
         car.setLidOpen(CarEntity.BONNET_BIT, false);
-        context.assertTrue(car.getBeltWear() == 0.0F && car.canRun(), "the new belt did not take");
+        context.assertTrue(car.upkeep().getBeltWear() == 0.0F && car.canRun(), "the new belt did not take");
         context.assertTrue(player.getMainHandItem().isEmpty(), "the belt was not used up");
         car.discard();
         context.succeed();
@@ -1527,8 +1529,8 @@ public class CarMachineTests {
         CarEntity car = context.spawn(ModEntities.CAR, lift.above());
         float speed = car.getMaxSpeed();
         float brakes = car.brakeStrength();
-        car.setCatClog(1.0F);
-        car.setTyrePressure(0.3F);
+        car.upkeep().setCatClog(1.0F);
+        car.upkeep().setTyrePressure(0.3F);
         context.assertTrue(car.getMaxSpeed() < speed * 0.6F, "a blocked converter did not hold the engine back");
         context.assertTrue(car.brakeStrength() < brakes, "soft tyres gripped as well as hard ones");
         var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
@@ -1537,13 +1539,13 @@ public class CarMachineTests {
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
                 new ItemStack(me.trossty.car.registry.ModItems.CATALYTIC_CONVERTER));
         car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(car.getCatClog() == 0.0F, "the new converter did not go on");
+        context.assertTrue(car.upkeep().getCatClog() == 0.0F, "the new converter did not go on");
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
                 new ItemStack(me.trossty.car.registry.ModItems.TYRE_PUMP));
         for (int i = 0; i < 4; i++) {
             car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
         }
-        context.assertTrue(car.getTyrePressure() == 1.0F && car.tyreSoftness() == 0.0F, "the pump did not fill the tyres");
+        context.assertTrue(car.upkeep().getTyrePressure() == 1.0F && car.upkeep().tyreSoftness() == 0.0F, "the pump did not fill the tyres");
         context.assertTrue(Math.abs(car.brakeStrength() - brakes) < 1.0E-4F, "pumped tyres did not grip again");
         car.discard();
         context.succeed();
@@ -1559,7 +1561,7 @@ public class CarMachineTests {
             net.minecraft.world.phys.Vec3 from = car.position();
             car.setSpeed(0.5F);
             context.runAfterDelay(10, () -> {
-                context.assertTrue(car.isOnDyno(), "the car did not find the rollers under it");
+                context.assertTrue(car.upkeep().isOnDyno(), "the car did not find the rollers under it");
                 context.assertTrue(car.position().horizontalDistanceSqr() - from.horizontalDistanceSqr() < 1.0E-4
                         && car.position().subtract(from).horizontalDistance() < 0.01,
                         "the car rolled off the dyno: " + from + " -> " + car.position());
@@ -1592,16 +1594,16 @@ public class CarMachineTests {
                 .setValue(me.trossty.car.block.VehicleLiftBlock.LEVEL, 2));
         CarEntity car = context.spawn(ModEntities.CAR, lift.above());
         float firm = car.brakeStrength();
-        car.setBrakeFluid(0.0F);
+        car.upkeep().setBrakeFluid(0.0F);
         context.assertTrue(car.brakeStrength() < firm * 0.5F, "dry brakes still bit");
         float straight = car.pull();
-        car.setAlignment(0.5F);
+        car.upkeep().setAlignment(0.5F);
         context.assertTrue(car.pull() > straight, "bent tracking did not pull");
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
                 new ItemStack(me.trossty.car.registry.ModItems.WRENCH));
         car.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(car.getAlignment() == 0.0F, "the wrench did not set the tracking straight");
+        context.assertTrue(car.upkeep().getAlignment() == 0.0F, "the wrench did not set the tracking straight");
         context.assertFalse(me.trossty.car.block.DynoBlock.readout(car).isEmpty(), "the dyno read nothing");
         car.discard();
         context.succeed();
@@ -1612,7 +1614,7 @@ public class CarMachineTests {
     public static void jumpStart(GameTestHelper context) {
         CarEntity donor = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));
         CarEntity flat = context.spawn(ModEntities.CAR, new BlockPos(5, 1, 2));
-        flat.setCondition(CarPart.BATTERY, 1.5F);
+        flat.parts().setCondition(CarPart.BATTERY, 1.5F);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         ItemStack leads = new ItemStack(me.trossty.car.registry.ModItems.JUMPER_CABLES);
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, leads);
@@ -1623,8 +1625,8 @@ public class CarMachineTests {
         flat.setLidOpen(CarEntity.BONNET_BIT, true);
         donor.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
         flat.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
-        context.assertTrue(flat.getCondition(CarPart.BATTERY) > 20.0F, "the flat battery took no charge");
-        context.assertTrue(donor.getCondition(CarPart.BATTERY) < CarPart.MAX_CONDITION, "the donor gave nothing");
+        context.assertTrue(flat.parts().getCondition(CarPart.BATTERY) > 20.0F, "the flat battery took no charge");
+        context.assertTrue(donor.parts().getCondition(CarPart.BATTERY) < CarPart.MAX_CONDITION, "the donor gave nothing");
         donor.discard();
         flat.discard();
         context.succeed();
@@ -1642,13 +1644,13 @@ public class CarMachineTests {
         stand.strip(context.getLevel().getRandom());
         float sum = 0.0F;
         for (ItemStack inside : stand.getInternals()) {
-            sum += CarEntity.conditionOf(inside);
+            sum += Workshop.conditionOf(inside);
         }
         context.assertTrue(Math.abs(sum / 3.0F - 40.0F) < 1.0F, "the insides did not average to the engine");
         ItemStack fresh = new ItemStack(me.trossty.car.registry.ModItems.PISTONS);
         stand.setInternal(0, fresh);
         stand.rebuild();
-        context.assertTrue(CarEntity.conditionOf(stand.getEngine()) > 40.0F, "new pistons did not freshen the engine");
+        context.assertTrue(Workshop.conditionOf(stand.getEngine()) > 40.0F, "new pistons did not freshen the engine");
         context.succeed();
     }
 
@@ -1812,7 +1814,7 @@ public class CarMachineTests {
     public static void trailerHasNoEngine(GameTestHelper context) {
         CarEntity trailer = context.spawn(ModEntities.TRAILER, new BlockPos(2, 1, 2));
         context.assertFalse(trailer.hasPart(CarPart.ENGINE), "a trailer has an engine");
-        context.assertFalse(trailer.canReach(CarPart.ENGINE), "a trailer's engine can be reached");
+        context.assertFalse(trailer.workshop().canReach(CarPart.ENGINE), "a trailer's engine can be reached");
         context.assertTrue(trailer.hasPart(CarPart.WHEELS), "a trailer has no wheels");
         trailer.discard();
         context.succeed();
@@ -1830,10 +1832,10 @@ public class CarMachineTests {
     public static void punchDentsInsteadOfPocketing(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        float before = car.getHealth();
+        float before = car.damage().getHealth();
         car.hurt(context.getLevel().damageSources().playerAttack(player), 2.0F);
         context.assertFalse(car.isRemoved(), "a punch took the car away");
-        context.assertTrue(car.getHealth() < before, "a punch did not dent the car");
+        context.assertTrue(car.damage().getHealth() < before, "a punch did not dent the car");
         context.assertTrue(itemsAround(context, car, me.trossty.car.registry.ModItems.CAR) == 0,
                 "a punch dropped the car as an item");
         car.discard();
@@ -1845,9 +1847,9 @@ public class CarMachineTests {
     public static void aPunchBarelyDents(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        float before = car.getHealth();
+        float before = car.damage().getHealth();
         car.hurt(context.getLevel().damageSources().playerAttack(player), 1.0F);
-        float lost = before - car.getHealth();
+        float lost = before - car.damage().getHealth();
         context.assertTrue(lost > 0.0F && lost <= 0.3F, "a punch took " + lost + " off the car");
         car.discard();
         context.succeed();
@@ -1858,7 +1860,7 @@ public class CarMachineTests {
     public static void aWornRackPulls(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
         context.assertTrue(car.pull() == 0.0F, "a fresh car pulls " + car.pull());
-        car.setCondition(CarPart.STEERING_RACK, 10.0F);
+        car.parts().setCondition(CarPart.STEERING_RACK, 10.0F);
         float pull = car.pull();
         context.assertTrue(Math.abs(pull) > 0.5F, "a worn-out rack pulls only " + pull);
         context.assertTrue(car.pull() == pull, "the pull changed sides");
@@ -1870,13 +1872,13 @@ public class CarMachineTests {
     @GameTest(template = "empty", timeoutTicks = 60)
     public static void waterSoaksTheAirbox(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), false);
-        float filter = car.getConditionFraction(CarPart.AIR_FILTER);
+        float filter = car.parts().getConditionFraction(CarPart.AIR_FILTER);
         for (BlockPos at : BlockPos.betweenClosed(new BlockPos(0, 1, 0), new BlockPos(6, 3, 6))) {
             context.setBlock(at, net.minecraft.world.level.block.Blocks.WATER);
         }
         context.runAfterDelay(10, () -> {
             context.assertTrue(car.isFlooded(), "the car did not flood under water");
-            context.assertTrue(car.getConditionFraction(CarPart.AIR_FILTER) < filter - 0.2F,
+            context.assertTrue(car.parts().getConditionFraction(CarPart.AIR_FILTER) < filter - 0.2F,
                     "the airbox stayed dry under water");
             car.discard();
             context.succeed();
@@ -1984,7 +1986,7 @@ public class CarMachineTests {
         player.setShiftKeyDown(false);
         for (CarPart part : CarPart.values()) {
             if (car.hasPart(part)) {
-                car.serviceByHand(player, part);
+                car.workshop().serviceByHand(player, part);
                 context.assertTrue(car.hasPart(part), "a locked car gave up its " + part);
             }
         }
@@ -2184,41 +2186,41 @@ public class CarMachineTests {
         };
         float sound = car.getMaxSpeed();
         pointAt.accept(2);
-        car.serviceByHand(player, CarPart.WHEELS);
+        car.workshop().serviceByHand(player, CarPart.WHEELS);
         context.assertFalse(car.isTyreOn(2), "the tyre pointed at did not come off");
         context.assertTrue(car.tyresOn() == car.tyreCount() - 1, "more than one tyre came off");
         context.assertTrue(player.getInventory().countItem(CarPart.WHEELS.item()) == 1, "not one tyre was handed over");
         context.assertTrue(car.getMaxSpeed() < sound * 0.3F, "the car would drive on a bare hub");
-        car.serviceByHand(player, CarPart.WHEELS);
+        car.workshop().serviceByHand(player, CarPart.WHEELS);
         context.assertFalse(car.isTyreOn(2), "an empty hand put the tyre back");
-        car.serviceByHand(player, CarPart.BRAKE_PADS);
-        context.assertTrue(car.isFitted(CarPart.BRAKE_PADS), "the brakes came off through the other tyres");
+        car.workshop().serviceByHand(player, CarPart.BRAKE_PADS);
+        context.assertTrue(car.parts().isFitted(CarPart.BRAKE_PADS), "the brakes came off through the other tyres");
         for (int wheel = 0; wheel < car.tyreCount(); wheel++) {
             if (wheel != 2) {
                 pointAt.accept(wheel);
-                car.serviceByHand(player, CarPart.WHEELS);
+                car.workshop().serviceByHand(player, CarPart.WHEELS);
             }
         }
-        context.assertFalse(car.isFitted(CarPart.WHEELS), "with every tyre off the wheels still counted as on");
+        context.assertFalse(car.parts().isFitted(CarPart.WHEELS), "with every tyre off the wheels still counted as on");
         context.assertTrue(player.getInventory().countItem(CarPart.WHEELS.item()) == car.tyreCount(),
                 "the tyres were not all handed over");
         ItemStack road = new ItemStack(CarPart.WHEELS.item(), 4);
         player.getInventory().clearContent();
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, road);
         pointAt.accept(1);
-        car.serviceByHand(player, CarPart.WHEELS);
+        car.workshop().serviceByHand(player, CarPart.WHEELS);
         context.assertTrue(car.isTyreOn(1) && car.tyresOn() == 1, "one tyre did not go on by itself");
         context.assertTrue(road.getCount() == 3, "fitting one tyre did not take one");
         ItemStack snow = new ItemStack(CarPart.WHEELS.item(), 1);
         snow.set(me.trossty.car.registry.ModComponents.PART_VARIANT, CarSetup.Tyre.SNOW.ordinal());
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, snow);
         pointAt.accept(0);
-        car.serviceByHand(player, CarPart.WHEELS);
+        car.workshop().serviceByHand(player, CarPart.WHEELS);
         context.assertFalse(car.isTyreOn(0), "a snow tyre went on beside a road tyre");
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, road);
         for (int wheel : new int[] {0, 2, 3}) {
             pointAt.accept(wheel);
-            car.serviceByHand(player, CarPart.WHEELS);
+            car.workshop().serviceByHand(player, CarPart.WHEELS);
         }
         context.assertTrue(car.tyresOn() == 4 && road.isEmpty(), "the set did not go back on");
         context.assertTrue(Math.abs(car.getMaxSpeed() - sound) < 1.0E-4F, "the car still limped with four tyres");

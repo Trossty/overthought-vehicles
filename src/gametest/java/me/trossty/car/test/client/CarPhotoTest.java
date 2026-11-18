@@ -146,17 +146,17 @@ public class CarPhotoTest {
                 var box = new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10);
                 var car = minecraft.overworld().getEntitiesOfClass(
                         me.trossty.car.entity.CarEntity.class, box, e -> e.getTags().contains("lift")).get(0);
-                car.removePart(player, me.trossty.car.entity.CarPart.WHEELS);
+                car.workshop().removePart(player, me.trossty.car.entity.CarPart.WHEELS);
                 if (car.hasLid(me.trossty.car.entity.CarEntity.BONNET_BIT)) {
                     car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
                 }
-                car.removePart(player, me.trossty.car.entity.CarPart.AIR_FILTER);
-                car.setCondition(me.trossty.car.entity.CarPart.BATTERY,
+                car.workshop().removePart(player, me.trossty.car.entity.CarPart.AIR_FILTER);
+                car.parts().setCondition(me.trossty.car.entity.CarPart.BATTERY,
                         me.trossty.car.entity.CarPart.MAX_CONDITION * 0.5F);
                 System.out.println("car photo lift " + name + ": servicing="
                         + me.trossty.car.block.VehicleLiftBlock.isServicing(minecraft.overworld(), car)
-                        + " wheels=" + car.isFitted(me.trossty.car.entity.CarPart.WHEELS)
-                        + " filter=" + car.isFitted(me.trossty.car.entity.CarPart.AIR_FILTER)
+                        + " wheels=" + car.parts().isFitted(me.trossty.car.entity.CarPart.WHEELS)
+                        + " filter=" + car.parts().isFitted(me.trossty.car.entity.CarPart.AIR_FILTER)
                         + " tyre at " + car.anchorOf(me.trossty.car.entity.CarPart.WHEELS)
                         + " engine at " + car.anchorOf(me.trossty.car.entity.CarPart.ENGINE));
             });
@@ -545,8 +545,8 @@ public class CarPhotoTest {
             for (var car : world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box, e -> true)) {
                 line.append(" | ").append(car.getModelId()).append(" electric=").append(car.isElectric())
                         .append(String.format(java.util.Locale.ROOT, " fuel=%.1f/%.0f dirty=%.2f odo=%.0f health=%.1f asphalt=%s",
-                                car.getFuel(), car.getMaxFuel(), car.getDirtyFuel(), car.getOdometer(),
-                                car.getHealth(), car.onAsphalt()));
+                                car.getFuel(), car.getMaxFuel(), car.getDirtyFuel(), car.parts().getOdometer(),
+                                car.damage().getHealth(), car.onAsphalt()));
             }
             System.out.println(line);
         });
@@ -669,9 +669,9 @@ public class CarPhotoTest {
                 var cooldown = me.trossty.car.entity.CarEntity.class.getDeclaredField("crashCooldown");
                 cooldown.setAccessible(true);
                 while (!tanker.isLeaking() && crashes < 40) {
-                    tanker.setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH);
+                    tanker.damage().setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH);
                     cooldown.setInt(tanker, 0);
-                    tanker.applyReportedCrash(world, 9.0F);
+                    tanker.damage().applyReportedCrash(world, 9.0F);
                     crashes++;
                 }
             } catch (ReflectiveOperationException e) {
@@ -1502,14 +1502,14 @@ public class CarPhotoTest {
         car.setSetup(defined.factory().setup());
         car.refreshDimensions();
         car.setColor(net.minecraft.world.item.DyeColor.LIGHT_GRAY);
-        car.setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH * 0.34F);
-        car.setOdometer(me.trossty.car.entity.CarEntity.HIGH_MILEAGE * 2.5F);
+        car.damage().setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH * 0.34F);
+        car.parts().setOdometer(me.trossty.car.entity.CarParts.HIGH_MILEAGE * 2.5F);
         var random = net.minecraft.util.RandomSource.create(5);
         for (var part : me.trossty.car.entity.CarPart.values()) {
-            car.setCondition(part, me.trossty.car.entity.CarPart.MAX_CONDITION * (0.12F + 0.5F * random.nextFloat()));
+            car.parts().setCondition(part, me.trossty.car.entity.CarPart.MAX_CONDITION * (0.12F + 0.5F * random.nextFloat()));
         }
-        car.setCondition(me.trossty.car.entity.CarPart.BATTERY, me.trossty.car.entity.CarPart.MAX_CONDITION * 0.05F);
-        car.setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F);
+        car.parts().setCondition(me.trossty.car.entity.CarPart.BATTERY, me.trossty.car.entity.CarPart.MAX_CONDITION * 0.05F);
+        car.parts().setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F);
         car.setFuel(0.0F);
         car.addFuel(1.0F, car.getEngineFuel(), false);
         car.setDirtyFuel(0.8F);
@@ -1964,7 +1964,7 @@ public class CarPhotoTest {
         // The odometer counts the blocks driven, and the client sees it too.
         context.runOnClient(client -> {
             var car = (me.trossty.car.entity.CarEntity) client.player.getVehicle();
-            System.out.println("car photo ride odometer: %.1f blocks, z %.1f".formatted(car.getOdometer(), car.getZ() + 6.5));
+            System.out.println("car photo ride odometer: %.1f blocks, z %.1f".formatted(car.parts().getOdometer(), car.getZ() + 6.5));
         });
         context.getInput().pressKey(options -> options.keyShift);
         // Where the car is drawn after getting out: it has to stay put, not
@@ -2339,9 +2339,9 @@ public class CarPhotoTest {
             var car = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
                     new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
             car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
-            car.setBeltWear(0.9F);
-            car.setCatClog(0.9F);
-            car.setTyrePressure(0.3F);
+            car.upkeep().setBeltWear(0.9F);
+            car.upkeep().setCatClog(0.9F);
+            car.upkeep().setTyrePressure(0.3F);
             var scanner = new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.OBD_SCANNER);
             scanner.set(me.trossty.car.registry.ModComponents.OBD_LINK, car.getUUID());
             minecraft.getPlayerList().getPlayers().get(0).setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, scanner);
@@ -2449,7 +2449,7 @@ public class CarPhotoTest {
         context.getInput().releaseKey(options -> options.keyUp);
         System.out.println(trace);
         float dirt = context.computeOnClient(client -> client.player.getVehicle()
-                instanceof me.trossty.car.entity.CarEntity car ? car.getDirt() : -1.0F);
+                instanceof me.trossty.car.entity.CarEntity car ? car.upkeep().getDirt() : -1.0F);
         System.out.println("car photo roadLife dirt after the dirt road: " + dirt);
         lampCamera(context, server, 9.0, Y + 6.0, 6.0, 120, 35);
         context.takeScreenshot("road_ruts");

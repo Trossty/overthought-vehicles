@@ -84,8 +84,8 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.vehicle = car.getDefinition();
         state.vehicleId = state.vehicle == null ? null : car.getModelId();
         state.tyre = me.trossty.car.entity.CarSetup.tyre(car.getSetup()).key();
-        state.tyresOn = car.isFitted(me.trossty.car.entity.CarPart.WHEELS);
-        state.discsOn = car.isFitted(me.trossty.car.entity.CarPart.BRAKE_DISCS);
+        state.tyresOn = car.parts().isFitted(me.trossty.car.entity.CarPart.WHEELS);
+        state.discsOn = car.parts().isFitted(me.trossty.car.entity.CarPart.BRAKE_DISCS);
         state.tyresOff = car.tyresOff();
         state.flatTyre = car.getFlatTyre();
         state.labels = CarServiceOverlay.labelsFor(car, tickProgress);
@@ -96,7 +96,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.engineRunning = car.isEngineRunning();
         state.headlights = lampsOn(car);
         state.braking = car.areBrakeLampsOn();
-        state.dirt = car.getDirt();
+        state.dirt = car.upkeep().getDirt();
         state.restPose = car.getRestPose(tickProgress);
         state.bonnetOpen = car.getBonnetSwing(tickProgress);
         state.bootOpen = car.getBootSwing(tickProgress);
@@ -277,7 +277,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             net.minecraft.world.item.ItemStack stack;
             if (spot.part() == null) {
                 stack = new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.TURBO);
-            } else if (car.isFitted(spot.part())) {
+            } else if (car.parts().isFitted(spot.part())) {
                 stack = new net.minecraft.world.item.ItemStack(spot.part().item());
             } else {
                 continue;
@@ -300,16 +300,16 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         // to the engine, and the lead from the battery to it. Each runs from
         // the middle of one to the middle of the other, so only the stretch
         // between them shows.
-        if (car.isFitted(me.trossty.car.entity.CarPart.ENGINE)) {
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.ENGINE)) {
             float engineZ = back + 0.48F * length;
-            if (car.isFitted(me.trossty.car.entity.CarPart.RADIATOR)) {
+            if (car.parts().isFitted(me.trossty.car.entity.CarPart.RADIATOR)) {
                 float radiatorZ = back + 0.92F * length;
                 pipe(matrices, buffers, light, HOSE, midX - 0.22F * width / 2.0F, floor + deep * 0.62F,
                         engineZ, radiatorZ);
                 pipe(matrices, buffers, light, HOSE, midX + 0.22F * width / 2.0F, floor + deep * 0.22F,
                         engineZ, radiatorZ);
             }
-            if (car.isFitted(me.trossty.car.entity.CarPart.BATTERY)) {
+            if (car.parts().isFitted(me.trossty.car.entity.CarPart.BATTERY)) {
                 float batteryX = midX - 0.7F * width / 2.0F;
                 float z = back + 0.2F * length;
                 matrices.pushPose();
@@ -372,9 +372,9 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         // bay, low down, or just behind the front axle with no bay to go by.
         float engineZ = bay != null ? (float) (bay.minZ + 0.48 * (bay.maxZ - bay.minZ)) : front + 2.0F;
         float engineY = bay != null ? (float) bay.minY + 1.5F : floor;
-        boolean engine = car.isFitted(me.trossty.car.entity.CarPart.ENGINE);
-        boolean gearbox = car.isFitted(me.trossty.car.entity.CarPart.TRANSMISSION);
-        boolean shaft = car.isFitted(me.trossty.car.entity.CarPart.DRIVESHAFT);
+        boolean engine = car.parts().isFitted(me.trossty.car.entity.CarPart.ENGINE);
+        boolean gearbox = car.parts().isFitted(me.trossty.car.entity.CarPart.TRANSMISSION);
+        boolean shaft = car.parts().isFitted(me.trossty.car.entity.CarPart.DRIVESHAFT);
         float gearboxZ = front - (front - rear) * 0.3F;
         float gearboxY = floor - tall * 0.5F;
         float shaftY = floor - tall * 0.6F + Math.min(tall * 0.5F, 1.4F) / 2.0F;
@@ -418,7 +418,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
                     1.93F, 0.0F);
         }
         // Prop shaft: down the middle from the gearbox to the rear axle.
-        if (car.isFitted(me.trossty.car.entity.CarPart.DRIVESHAFT)) {
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.DRIVESHAFT)) {
             float from = rear;
             float to = front - (front - rear) * 0.38F;
             float thick = Math.min(tall * 0.5F, 1.4F) / 4.4F;
@@ -426,7 +426,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
                     0.0F, floor - tall * 0.6F, (from + to) / 2.0F, (to - from) / 17.6F, thick, thick, 5.8F, 90.0F);
         }
         // Exhaust: down one side from under the engine to the back bumper.
-        if (car.isFitted(me.trossty.car.entity.CarPart.EXHAUST)) {
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.EXHAUST)) {
             float from = tail + 1.0F;
             float to = front - (front - rear) * 0.2F;
             float thick = Math.min(tall * 0.6F, 1.8F) / 6.28F;
@@ -444,13 +444,13 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             rod(matrices, buffers, light, METAL, x, y, from + 0.5F, x, y, tail - 0.8F, bore);
         }
         // Steering rack: across the front axle, a little behind it.
-        if (car.isFitted(me.trossty.car.entity.CarPart.STEERING_RACK)) {
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.STEERING_RACK)) {
             float thick = Math.min(tall * 0.5F, 1.4F) / 5.6F;
             underItem(car, me.trossty.car.entity.CarPart.STEERING_RACK, matrices, buffers, light,
                     0.0F, floor - tall * 0.55F, front - 2.0F, track * 1.4F / 19.0F, thick, thick, 5.2F, 0.0F);
         }
         // Springs: inboard of each wheel, from the hub up to the body.
-        if (car.isFitted(me.trossty.car.entity.CarPart.SUSPENSION)) {
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.SUSPENSION)) {
             for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : wheels) {
                 float side = Math.signum(wheel.at().x());
                 float x = wheel.at().x() - side * (wheel.width() / 2.0F + 1.4F);

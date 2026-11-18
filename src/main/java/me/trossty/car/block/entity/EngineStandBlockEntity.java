@@ -42,7 +42,7 @@ public class EngineStandBlockEntity extends BlockEntity {
      * engine back.
      */
     public void strip(net.minecraft.util.RandomSource random) {
-        float condition = me.trossty.car.entity.CarEntity.conditionOf(this.engine);
+        float condition = me.trossty.car.entity.Workshop.conditionOf(this.engine);
         net.minecraft.world.item.Item[] kinds = me.trossty.car.registry.ModItems.engineInternals();
         float[] share = new float[3];
         float spread = Math.min(condition - 1.0F, me.trossty.car.entity.CarPart.MAX_CONDITION - condition) * 0.6F;
@@ -68,7 +68,7 @@ public class EngineStandBlockEntity extends BlockEntity {
     public void rebuild() {
         float sum = 0.0F;
         for (ItemStack inside : this.internals) {
-            sum += me.trossty.car.entity.CarEntity.conditionOf(inside);
+            sum += me.trossty.car.entity.Workshop.conditionOf(inside);
         }
         this.engine.set(me.trossty.car.registry.ModComponents.PART_CONDITION, Math.max(1, Math.round(sum / 3.0F)));
         java.util.Collections.fill(this.internals, ItemStack.EMPTY);

@@ -27,7 +27,7 @@ public class DynoBlockEntity extends BlockEntity {
     public static void clientTick(Level world, BlockPos pos, BlockState state, DynoBlockEntity dyno) {
         dyno.lastAngle = dyno.angle;
         CarEntity car = DynoBlock.carOn(world, pos);
-        float speed = car == null || !car.isOnDyno() ? 0.0F : car.getEngineSpeed();
+        float speed = car == null || !car.upkeep().isOnDyno() ? 0.0F : car.getEngineSpeed();
         // Capped so a car flat out reads as a blur rather than as standing still.
         dyno.angle += Math.max(-0.9F, Math.min(0.9F, speed / RADIUS));
     }

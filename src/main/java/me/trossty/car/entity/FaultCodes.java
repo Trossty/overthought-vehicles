@@ -180,7 +180,7 @@ public final class FaultCodes {
             if (!relevant(part, car)) {
                 continue;
             }
-            if (!car.isFitted(part)) {
+            if (!car.parts().isFitted(part)) {
                 faults.add(new Fault(codeFor(part, electric), part, "obd.car.absent", Severity.CRITICAL, 0));
                 continue;
             }
@@ -191,13 +191,13 @@ public final class FaultCodes {
             }
             float fraction = part == CarPart.TRANSMISSION
                     ? Math.min(fraction(car, CarPart.TRANSMISSION), fraction(car, CarPart.CLUTCH))
-                    : car.worstFraction(part);
+                    : car.parts().worstFraction(part);
             if (fraction > ADVISORY) {
                 continue;
             }
             int percent = Math.round(fraction * 100.0F);
-            int worst = car.worstPlace(part);
-            Component at = worst < 0 ? null : car.placeName(part, worst);
+            int worst = car.parts().worstPlace(part);
+            Component at = worst < 0 ? null : car.parts().placeName(part, worst);
             switch (part) {
                 case TRANSMISSION -> faults.add(new Fault("P0730", part, "obd.car.gear_ratio",
                         Severity.of(fraction), percent, SLIP, null));
@@ -214,34 +214,34 @@ public final class FaultCodes {
         if (car.isLeaking()) {
             faults.add(new Fault("P0455", null, "obd.car.leak", Severity.WARNING, -1));
         }
-        if (car.hasOil() && car.getOilLevel() < CarEntity.FLUID_LOW) {
+        if (car.upkeep().hasOil() && car.upkeep().getOilLevel() < Upkeep.FLUID_LOW) {
             faults.add(new Fault("P0524", null, "obd.car.oil_low", Severity.CRITICAL, -1));
-        } else if (car.hasOil() && car.getOilAge() >= 0.7F) {
+        } else if (car.upkeep().hasOil() && car.upkeep().getOilAge() >= 0.7F) {
             faults.add(new Fault("P0196", null, "obd.car.oil_old", Severity.WARNING, -1));
         }
-        if (car.isOilLeaking()) {
+        if (car.upkeep().isOilLeaking()) {
             faults.add(new Fault("P0520", null, "obd.car.oil_leak", Severity.WARNING, -1));
         }
-        if (car.hasPart(CarPart.RADIATOR) && car.getCoolantLevel() < CarEntity.FLUID_LOW) {
+        if (car.hasPart(CarPart.RADIATOR) && car.upkeep().getCoolantLevel() < Upkeep.FLUID_LOW) {
             faults.add(new Fault("P2560", null, "obd.car.coolant_low", Severity.WARNING, -1));
         }
-        if (car.hasPart(CarPart.BRAKE_PADS) && car.getBrakeFluid() < CarEntity.FLUID_LOW) {
+        if (car.hasPart(CarPart.BRAKE_PADS) && car.upkeep().getBrakeFluid() < Upkeep.FLUID_LOW) {
             faults.add(new Fault("C1513", null, "obd.car.brake_fluid_low", Severity.CRITICAL, -1));
         }
-        if (car.isBeltSnapped()) {
+        if (car.upkeep().isBeltSnapped()) {
             faults.add(new Fault("P0016", null, "obd.car.belt_snapped", Severity.CRITICAL, -1));
-        } else if (car.hasOil() && car.getBeltWear() >= CarEntity.BELT_DUE) {
+        } else if (car.upkeep().hasOil() && car.upkeep().getBeltWear() >= Upkeep.BELT_DUE) {
             faults.add(new Fault("P0016", null, "obd.car.belt_due", Severity.WARNING, -1));
         }
-        if (car.hasCat() && car.getCatClog() >= CarEntity.CAT_CHOKED) {
+        if (car.upkeep().hasCat() && car.upkeep().getCatClog() >= Upkeep.CAT_CHOKED) {
             faults.add(new Fault("P0421", null, "obd.car.cat_clogged",
-                    car.getCatClog() >= 0.8F ? Severity.CRITICAL : Severity.WARNING, -1));
+                    car.upkeep().getCatClog() >= 0.8F ? Severity.CRITICAL : Severity.WARNING, -1));
         }
-        if (car.hasPart(CarPart.WHEELS) && car.isFitted(CarPart.WHEELS) && car.tyreSoftness() > 0.0F) {
+        if (car.hasPart(CarPart.WHEELS) && car.parts().isFitted(CarPart.WHEELS) && car.upkeep().tyreSoftness() > 0.0F) {
             faults.add(new Fault("C0755", null, "obd.car.tyres_soft",
-                    car.tyreSoftness() >= 0.5F ? Severity.CRITICAL : Severity.WARNING, -1));
+                    car.upkeep().tyreSoftness() >= 0.5F ? Severity.CRITICAL : Severity.WARNING, -1));
         }
-        if (Math.abs(car.getAlignment()) >= 0.15F) {
+        if (Math.abs(car.upkeep().getAlignment()) >= 0.15F) {
             faults.add(new Fault("C0455", null, "obd.car.alignment", Severity.ADVISORY, -1));
         }
         if (!electric && !car.getEngineFuel().burns(car.getTankFuel()) && car.hasFuel()) {
@@ -251,7 +251,7 @@ public final class FaultCodes {
             faults.add(new Fault("P0172", null, "obd.car.dirty_fuel",
                     car.getDirtyFuel() >= 0.75F ? Severity.CRITICAL : Severity.WARNING, -1));
         }
-        if (car.getHealthFraction() < CarEntity.DAMAGE_WARNING_FRACTION) {
+        if (car.damage().getHealthFraction() < CarEntity.DAMAGE_WARNING_FRACTION) {
             faults.add(new Fault("B1000", null, "obd.car.body", Severity.WARNING, -1));
         }
         faults.sort(Comparator.comparing(Fault::severity)
@@ -265,7 +265,7 @@ public final class FaultCodes {
      * that is missing has a code of its own).
      */
     private static float fraction(CarEntity car, CarPart part) {
-        return relevant(part, car) && car.isFitted(part) ? car.getConditionFraction(part) : 2.0F;
+        return relevant(part, car) && car.parts().isFitted(part) ? car.parts().getConditionFraction(part) : 2.0F;
     }
 
     /**
@@ -274,13 +274,13 @@ public final class FaultCodes {
      * when too many miss at once, only that the engine runs rough.
      */
     private static void readMisfires(CarEntity car, List<Fault> faults) {
-        if (!relevant(CarPart.SPARK_PLUGS, car) || !car.isFitted(CarPart.SPARK_PLUGS)) {
+        if (!relevant(CarPart.SPARK_PLUGS, car) || !car.parts().isFitted(CarPart.SPARK_PLUGS)) {
             return;
         }
         List<Integer> missing = new ArrayList<>();
         float worst = 0.0F;
-        for (int cylinder = 0; cylinder < car.placesOf(CarPart.SPARK_PLUGS); cylinder++) {
-            float misfire = car.misfireIn(cylinder);
+        for (int cylinder = 0; cylinder < car.parts().placesOf(CarPart.SPARK_PLUGS); cylinder++) {
+            float misfire = car.parts().misfireIn(cylinder);
             if (misfire >= MISFIRE_CODE) {
                 missing.add(cylinder);
                 worst = Math.max(worst, misfire);
@@ -292,10 +292,10 @@ public final class FaultCodes {
             return;
         }
         for (int cylinder : missing) {
-            float misfire = car.misfireIn(cylinder);
+            float misfire = car.parts().misfireIn(cylinder);
             faults.add(new Fault("P030" + (cylinder + 1), CarPart.SPARK_PLUGS, "obd.car.misfire",
                     Severity.of(1.0F - misfire), Math.round((1.0F - misfire) * 100.0F), MISFIRE,
-                    car.placeName(CarPart.SPARK_PLUGS, cylinder)));
+                    car.parts().placeName(CarPart.SPARK_PLUGS, cylinder)));
         }
     }
 }

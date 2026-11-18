@@ -2,6 +2,7 @@ package me.trossty.car.workbench;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.CarParts;
 import me.trossty.car.entity.CarSetup;
 import me.trossty.car.item.CarItem;
 import me.trossty.car.registry.ModBlocks;
@@ -230,7 +231,7 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
             }
             CarPart.Quality taken = BenchWork.consume(pockets, material.item(), material.count());
             if (part != null && taken != null) {
-                tiers = CarEntity.withQuality(tiers, part, taken);
+                tiers = CarParts.withQuality(tiers, part, taken);
             }
         }
         result.set(ModComponents.CAR_SETUP, setup);

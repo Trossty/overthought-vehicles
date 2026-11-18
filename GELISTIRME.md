@@ -49,7 +49,7 @@ Kod, README ve fotoğraf testleri taranarak hazırlandı (2026-11-12). Liste ön
 | Öncelik | Emek | Konu | Ayrıntı | Durum |
 |---|---|---|---|---|
 | Y | M | Otomatik doğrulama testleri | Tek test dosyası (`CarPhotoTest`, ~1200 satır) ekran görüntüsü alıyor; sayısal kontroller günlüğe yazılıyor ama hiçbiri testi düşürmüyor. Fabric gametest ile "pompa kulesi 200 tick'te petrol üretir", "kablo enerjiyi 10 blok taşır", "rafineri 1:1 dönüştürür" gibi gerçek assertion'lar eklenmeli. Böylece fotoğraf testini yeniden çalıştırmadan gerilemeler yakalanır. | ✅ `CarMachineTests` içinde 26 sunucu gametest'i, hepsi geçiyor. |
-| O | L | `CarEntity` çok büyük | 3109 satır. Sürüş fiziği, hasar, parçalar, ses ve ağ senkronu tek sınıfta. `VehiclePhysics`, `VehicleDamage`, `VehicleParts` gibi bileşenlere bölmek, yeni araç türü eklemeyi ve hata ayıklamayı kolaylaştırır. | ⏸ Ertelendi: büyük bir yeniden düzenleme. Davranış değişmeden yapılmalı ve ayrı bir iş olarak ele alınmalı. |
+| O | L | `CarEntity` çok büyük | 3109 satır. Sürüş fiziği, hasar, parçalar, ses ve ağ senkronu tek sınıfta. `VehiclePhysics`, `VehicleDamage`, `VehicleParts` gibi bileşenlere bölmek, yeni araç türü eklemeyi ve hata ayıklamayı kolaylaştırır. | ✅ 2026-11-18: davranış değişmeden altı bileşene bölündü (`CarParts`, `Gearbox`, `Upkeep`, `Workshop`, `BodyDamage`, `CarEffects`); araba her birini `car.parts()` gibi bir erişimciyle verir. `CarEntity` 6310 satırdan 3885'e indi; sürüş, ağ senkronu ve alt sınıfların ezdiği metodlar orada kaldı. |
 | O | M | Ayar dosyası yok | Jeneratör çıktısı, kablo kapasitesi, rezerv boyutu, yakıt tüketimi kodda sabit. Basit bir JSON ayar dosyası (ya da gamerule) sunucu sahiplerinin dengeyi değiştirmesine izin verir. | ✅ `config/car.json` |
 | O | M | Kablo ağı performansı | Her kablo her tick komşularına bakıyor (`EnergyStorage.SIDED.find` her yön için). Uzun hatlarda ve çok oyunculu sunucularda maliyet artar. Seçenekler: komşu aramasını önbelleğe almak (blok güncellemesinde yenilemek) ya da kabloları her 2–4 tick'te bir çalıştırmak. Gerçek bir ağ (graph) yapısı en iyisi, ama emek L. | ✅ Komşular önbellekte tutuluyor ve blok güncellemesinde yenileniyor. |
 | D | S | Çok oyunculu test | Testler tek oyunculu. İki istemcili bir senaryo (biri sürerken diğerinin izlemesi, tanker hortumu paylaşımı) senkron hatalarını ortaya çıkarabilir. | ✅ `runMpServer`, ardından `runMpAlice` ve `runMpBob`: gerçek bir sunucuda Alice sürer, Bob yolcu olur. Kaza ikisine de hasar veriyor, Bob arabayı aynı hızda görüyor, farlar gece ikisinde de yanıyor. Sunucu işini bitirince kapanıyor. Bu test sunucuda zıplayan hız ölçümünü ve duvarın arkasına sızan far ışığını yakaladı. |
@@ -72,6 +72,7 @@ Kod, README ve fotoğraf testleri taranarak hazırlandı (2026-11-12). Liste ön
 | Y | Silindir başına buji, P0301–P0308 | ✅ Buji sayısı motor düzenine göre; tekleme silindir silindir. |
 | Y | Zorlaşan teşhis | ✅ Kodlarda yüzde yok, çok sebepli kodlar ("Olası: …"), sökmeden görünmeyen aşınma. ⏳ Canlı veri ve donmuş kare (freeze frame) yapılmadı. |
 | Y | Araca özel vites ve tork eğrisi | ✅ `performance.gears`, `CarSetup.torque`. |
+| O | `CarEntity`'nin bölünmesi | ✅ Altı bileşen; yukarıdaki tabloda ayrıntısı. 96 gametest değişmeden geçiyor. |
 
 ## Durum özeti (2026-11-12)
 

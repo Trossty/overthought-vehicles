@@ -62,7 +62,7 @@ public class DrainPanBlock extends ModelEntityBlock {
     /** The car up on a lift over this pan, if there is one. */
     public static @Nullable CarEntity carAbove(Level world, BlockPos pos) {
         AABB above = new AABB(pos).inflate(1.5, 0.0, 1.5).expandTowards(0.0, 4.0, 0.0);
-        for (CarEntity car : world.getEntitiesOfClass(CarEntity.class, above, CarEntity::hasOil)) {
+        for (CarEntity car : world.getEntitiesOfClass(CarEntity.class, above, car -> car.upkeep().hasOil())) {
             if (VehicleLiftBlock.isServicing(world, car)) {
                 return car;
             }
@@ -85,15 +85,15 @@ public class DrainPanBlock extends ModelEntityBlock {
                     pan.millibuckets()), true);
             return InteractionResult.CONSUME;
         }
-        if (car.getOilLevel() <= 0.0F) {
+        if (car.upkeep().getOilLevel() <= 0.0F) {
             player.displayClientMessage(Component.translatable("message.car.pan_dry"), true);
             return InteractionResult.CONSUME;
         }
-        if (!pan.hasRoomFor(car.getOilLevel())) {
+        if (!pan.hasRoomFor(car.upkeep().getOilLevel())) {
             player.displayClientMessage(Component.translatable("message.car.pan_full"), true);
             return InteractionResult.CONSUME;
         }
-        pan.catchOil(car.drainOil());
+        pan.catchOil(car.upkeep().drainOil());
         world.playSound(null, pos, SoundEvents.BUCKET_EMPTY_LAVA, SoundSource.BLOCKS, 0.8F, 0.8F);
         player.displayClientMessage(Component.translatable("message.car.pan_drained", pan.millibuckets()), true);
         return InteractionResult.CONSUME;

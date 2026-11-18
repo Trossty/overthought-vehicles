@@ -30,24 +30,24 @@ final class CarLookLines {
                 lines.add(Component.translatable("obd.car.dirty_fuel").withStyle(ChatFormatting.RED));
             }
         }
-        lines.add(Component.translatable("jade.car.body", Math.round(100.0F * car.getHealthFraction())));
+        lines.add(Component.translatable("jade.car.body", Math.round(100.0F * car.damage().getHealthFraction())));
         CarPart worst = null;
         for (CarPart part : CarPart.values()) {
             if (!car.hasPart(part)) {
                 continue;
             }
-            if (worst == null || car.getConditionFraction(part) < car.getConditionFraction(worst)) {
+            if (worst == null || car.parts().getConditionFraction(part) < car.parts().getConditionFraction(worst)) {
                 worst = part;
             }
         }
-        if (worst != null && car.getConditionFraction(worst) < 0.5F) {
+        if (worst != null && car.parts().getConditionFraction(worst) < 0.5F) {
             Component name = Component.translatable("part.car." + worst.key());
-            lines.add(car.isFitted(worst)
-                    ? Component.translatable("jade.car.worst", name, Math.round(100.0F * car.getConditionFraction(worst)))
+            lines.add(car.parts().isFitted(worst)
+                    ? Component.translatable("jade.car.worst", name, Math.round(100.0F * car.parts().getConditionFraction(worst)))
                             .withStyle(ChatFormatting.YELLOW)
                     : Component.translatable("jade.car.missing", name).withStyle(ChatFormatting.RED));
         }
-        lines.add(Component.translatable("jade.car.odometer", CarEntity.formatOdometer(car.getOdometer()))
+        lines.add(Component.translatable("jade.car.odometer", CarEntity.formatOdometer(car.parts().getOdometer()))
                 .withStyle(ChatFormatting.GRAY));
         return lines;
     }
