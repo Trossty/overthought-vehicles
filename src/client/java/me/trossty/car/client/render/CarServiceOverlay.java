@@ -413,12 +413,15 @@ public final class CarServiceOverlay {
                 name = Component.translatable("gui.car.with_turbo", name);
             }
         }
+        if (!car.canInspect(part)) {
+            return Component.translatable("gui.car.hologram_hidden", name);
+        }
         return Component.translatable("gui.car.hologram_worn", name,
                 Math.round(car.getConditionFraction(part) * 100.0F));
     }
 
     private static int colourOf(CarEntity car, CarPart part) {
-        if (!car.isFitted(part)) {
+        if (!car.isFitted(part) || !car.canInspect(part)) {
             return ABSENT;
         }
         float fraction = car.getConditionFraction(part);
@@ -459,10 +462,7 @@ public final class CarServiceOverlay {
         }
         java.util.Set<CarPart> parts = java.util.EnumSet.noneOf(CarPart.class);
         for (me.trossty.car.entity.FaultCodes.Fault fault : me.trossty.car.entity.FaultCodes.read(car)) {
-            CarPart at = fault.place();
-            if (at != null) {
-                parts.add(at);
-            }
+            parts.addAll(fault.lookAt());
         }
         return parts;
     }

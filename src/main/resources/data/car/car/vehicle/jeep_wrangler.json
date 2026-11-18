@@ -3,7 +3,7 @@
   "width": 2,
   "height": 2.14,
   "color": "green",
-  "performance": { "speed": 0.92, "acceleration": 1.05, "fuel_use": 1.25, "braking": 0.95, "steering": 0.9, "offroad": 0.8 },
+  "performance": { "speed": 0.92, "acceleration": 1.05, "fuel_use": 1.25, "braking": 0.95, "steering": 0.9, "offroad": 0.8, "gears": [0.17, 0.3, 0.45, 0.62, 0.8, 1.0] },
   "factory": { "engine": "v6", "fuel": "petrol", "tyres": "dirt" },
   "tank": 66,
   "mass": 1900,

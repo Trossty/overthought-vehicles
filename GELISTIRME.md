@@ -64,6 +64,15 @@ Kod, README ve fotoğraf testleri taranarak hazırlandı (2026-11-12). Liste ön
 
 ---
 
+## Mekanik derinlik (2026-11-18)
+
+| Öncelik | Konu | Durum |
+|---|---|---|
+| Y | Köşe başına aşınma (lastik, balata, disk, amortisör) | ✅ `PartPositions`; ön/arka fren payı, frenlerken çekme, köşeye lastik takma. |
+| Y | Silindir başına buji, P0301–P0308 | ✅ Buji sayısı motor düzenine göre; tekleme silindir silindir. |
+| Y | Zorlaşan teşhis | ✅ Kodlarda yüzde yok, çok sebepli kodlar ("Olası: …"), sökmeden görünmeyen aşınma. ⏳ Canlı veri ve donmuş kare (freeze frame) yapılmadı. |
+| Y | Araca özel vites ve tork eğrisi | ✅ `performance.gears`, `CarSetup.torque`. |
+
 ## Durum özeti (2026-11-12)
 
 26 maddeden 21'i yapıldı ve testlerle korunuyor. Ertelenenler: ölçek uyumsuzluğu, `CarEntity` bölünmesi, çok oyunculu test, EMI/REI, WTHIT ve Create. Nedenleri tabloda.

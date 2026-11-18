@@ -846,6 +846,117 @@ public class CarMachineTests {
         context.succeed();
     }
 
+    /** The wheel at this end (1 front, -1 rear) on this side (1 right, -1 left). */
+    private static int corner(CarEntity car, int end, int side) {
+        for (int wheel = 0; wheel < car.placesOf(CarPart.WHEELS); wheel++) {
+            if (car.axle(wheel) == end && car.lateral(wheel) == side) {
+                return wheel;
+            }
+        }
+        throw new AssertionError("no wheel at " + end + "/" + side);
+    }
+
+    /** The front does most of the stopping, so the front pads go first; one weak corner pulls the car round. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void frontPadsWearFirstAndAWeakCornerPulls(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        for (int stop = 0; stop < 400; stop++) {
+            car.wearBrakes(1.0F);
+            car.wearBrakes(0.6F);
+        }
+        float front = car.getCondition(CarPart.BRAKE_PADS, corner(car, 1, -1))
+                + car.getCondition(CarPart.BRAKE_PADS, corner(car, 1, 1));
+        float rear = car.getCondition(CarPart.BRAKE_PADS, corner(car, -1, -1))
+                + car.getCondition(CarPart.BRAKE_PADS, corner(car, -1, 1));
+        context.assertTrue(front < rear && rear < 2 * CarPart.MAX_CONDITION,
+                "front pads at " + front + ", rear at " + rear);
+
+        car.setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION);
+        context.assertTrue(Math.abs(car.brakePull()) < 1e-3F, "even brakes pulled " + car.brakePull());
+        car.setCondition(CarPart.BRAKE_PADS, corner(car, 1, -1), CarPart.MAX_CONDITION * 0.05F);
+        float left = car.brakePull();
+        car.setCondition(CarPart.BRAKE_PADS, CarPart.MAX_CONDITION);
+        car.setCondition(CarPart.BRAKE_PADS, corner(car, 1, 1), CarPart.MAX_CONDITION * 0.05F);
+        float right = car.brakePull();
+        context.assertTrue(Math.abs(left) > 0.01F && Math.signum(left) == -Math.signum(right),
+                "a worn left pad pulled " + left + ", a worn right one " + right);
+        // The reader names the corner, not the set.
+        var pads = FaultCodes.read(car).stream().filter(f -> f.code().equals("C0040")).findFirst();
+        context.assertTrue(pads.isPresent() && pads.get().at() != null, "the reader did not say which pad");
+        context.succeed();
+    }
+
+    /** One fouled plug sets its own cylinder's code; three at once only say the engine runs rough. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void misfireNamesItsCylinder(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.setCondition(CarPart.SPARK_PLUGS, 2, CarPart.MAX_CONDITION * 0.2F);
+        var faults = FaultCodes.read(car);
+        var misfire = faults.stream().filter(f -> f.code().equals("P0303")).findFirst();
+        context.assertTrue(misfire.isPresent(), "a fouled third plug read " + faults.stream().map(FaultCodes.Fault::code).toList());
+        context.assertTrue(misfire.get().suspects().contains(CarPart.ENGINE),
+                "a misfire only blamed " + misfire.get().suspects());
+        car.setCondition(CarPart.SPARK_PLUGS, 0, CarPart.MAX_CONDITION * 0.2F);
+        car.setCondition(CarPart.SPARK_PLUGS, 1, CarPart.MAX_CONDITION * 0.2F);
+        var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
+        context.assertTrue(codes.contains("P0300") && !codes.contains("P0303"), "three bad plugs read " + codes);
+        context.succeed();
+    }
+
+    /** A slipping drive reads the same whether the box or the clutch is going: one code, both suspects. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void slippingDriveBlamesBoxAndClutch(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.setCondition(CarPart.CLUTCH, CarPart.MAX_CONDITION * 0.2F);
+        var faults = FaultCodes.read(car);
+        var codes = faults.stream().map(FaultCodes.Fault::code).toList();
+        context.assertTrue(codes.contains("P0730") && !codes.contains("P0805"), "a worn clutch read " + codes);
+        context.assertTrue(faults.stream().filter(f -> f.code().equals("P0730")).findFirst().get().suspects()
+                .equals(java.util.List.of(CarPart.TRANSMISSION, CarPart.CLUTCH)), "the slip did not name both");
+        context.succeed();
+    }
+
+    /** A V8 takes eight plugs, and what is bolted over a part hides how worn it is. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void eightPlugsAndHiddenWear(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.setSetup(CarSetup.withVariant(car.getSetup(), CarPart.ENGINE,
+                CarSetup.engineVariant(CarSetup.Layout.V8, CarSetup.Fuel.PETROL)));
+        context.assertTrue(car.countOf(CarPart.SPARK_PLUGS) == 8 && car.placesOf(CarPart.SPARK_PLUGS) == 8,
+                "a V8 takes " + car.countOf(CarPart.SPARK_PLUGS) + " plugs");
+        context.assertTrue(car.canInspect(CarPart.AIR_FILTER), "the air filter on top could not be seen");
+        context.assertTrue(car.hiddenBy(CarPart.CLUTCH) == CarPart.DRIVESHAFT, "the clutch was hidden by "
+                + car.hiddenBy(CarPart.CLUTCH));
+        context.assertTrue(!car.canInspect(CarPart.BRAKE_PADS), "pads were seen through a wheel");
+        context.succeed();
+    }
+
+    /** Each vehicle has its own box: a lorry eight short gears, a scooter one; the torque curve averages out. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void gearboxComesFromTheVehicle(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        context.assertTrue(car.gearCount() == 5, "a plain car has " + car.gearCount() + " gears");
+        car.setModel(net.minecraft.resources.ResourceLocation.parse("car:mercedes_atego"));
+        context.assertTrue(car.gearCount() == 8, "the lorry has " + car.gearCount() + " gears");
+        car.setModel(net.minecraft.resources.ResourceLocation.parse("car:vespa_primavera"));
+        context.assertTrue(car.gearCount() == 1, "the scooter has " + car.gearCount() + " gears");
+        for (CarSetup.Layout layout : CarSetup.Layout.values()) {
+            float sum = 0.0F;
+            for (int i = 0; i < 16; i++) {
+                sum += CarSetup.torque(layout, CarSetup.Fuel.PETROL,
+                        net.minecraft.util.Mth.lerp((i + 0.5F) / 16, CarSetup.DOWNSHIFT, CarSetup.UPSHIFT));
+            }
+            context.assertTrue(Math.abs(sum / 16 - 1.0F) < 1e-3F, layout + " averages " + sum / 16);
+        }
+        context.assertTrue(CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.DIESEL, 0.4F)
+                        > CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.DIESEL, 0.85F),
+                "a diesel pulled harder at the top than low down");
+        context.assertTrue(CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.ELECTRIC, 0.1F)
+                        > CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.ELECTRIC, 0.9F),
+                "an electric motor ran out of push at standstill");
+        context.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void codeReaderSkipsPlugsOnAnElectricCar(GameTestHelper context) {
         CarEntity car = car(context, new BlockPos(3, 1, 3), true);

@@ -269,6 +269,22 @@ public class CarEntity extends VehicleEntity {
     }
 
     /**
+     * Each wheel's tyre, pad, disc and spring and each cylinder's plug, one
+     * packed number per such part as {@link PartPositions} lays them out. The
+     * set's average stays in {@link #PART_CONDITION}; these are the
+     * differences inside it, which a reader and a pull to one side need.
+     */
+    private static final List<EntityDataAccessor<Long>> PART_PLACES = registerPartPlaces();
+
+    private static List<EntityDataAccessor<Long>> registerPartPlaces() {
+        List<EntityDataAccessor<Long>> entries = new java.util.ArrayList<>(PartPositions.PARTS);
+        for (int index = 0; index < PartPositions.PARTS; index++) {
+            entries.add(SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.LONG));
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
      * What each fitted part was built to, two bits per part packed into one
      * number, in {@link CarPart#ordinal()} order. Packed rather than sixteen
      * more tracked entries because quality is one of three things and the whole
@@ -547,6 +563,27 @@ public class CarEntity extends VehicleEntity {
      * go straight. Nothing below half condition, and growing from there.
      */
     private static final float MAX_PULL = 0.9F;
+    /**
+     * Degrees a tick the car is dragged towards the side whose brakes bite
+     * harder, with one side's pads and discs gone and the other's like new.
+     */
+    private static final float BRAKE_PULL = 1.2F;
+
+    // How a set's wear is shared out among its places; see wearShares.
+
+    /** How far apart two places of the same set wear, either way, from the car's own make. */
+    private static final float PLACE_SPREAD = 0.12F;
+    /** The front brakes' share of the stopping, and the back's: about seventy and thirty. */
+    private static final float FRONT_BRAKE_SHARE = 1.4F;
+    private static final float REAR_BRAKE_SHARE = 0.6F;
+    /** The steered tyres scrub through every turn. */
+    private static final float FRONT_TYRE_SHARE = 1.25F;
+    /** Extra front tyre wear with the wheels as far out of line as they go. */
+    private static final float MISALIGNED_TYRE_WEAR = 3.0F;
+    /** How much faster a tyre goes driven on flat. */
+    private static final float FLAT_TYRE_WEAR = 8.0F;
+    /** How much faster the plugs either side of a blown gasket foul. */
+    private static final float GASKET_PLUG_WEAR = 3.0F;
     private boolean hasLastTickPos;
     private boolean wasLogicalSide;
 
@@ -645,6 +682,9 @@ public class CarEntity extends VehicleEntity {
         builder.define(HEALTH, MAX_HEALTH);
         for (CarPart part : CarPart.values()) {
             builder.define(PART_CONDITION.get(part.ordinal()), CarPart.MAX_CONDITION);
+        }
+        for (EntityDataAccessor<Long> places : PART_PLACES) {
+            builder.define(places, PartPositions.ALL_NEW);
         }
         builder.define(ENGINE_TEMP, 0.0F);
         builder.define(PART_QUALITY, defaultQualityBits());
@@ -1352,7 +1392,7 @@ public class CarEntity extends VehicleEntity {
             this.setYRot(Mth.wrapDegrees(this.getYRot() + turn));
         }
 
-        float pull = this.pull();
+        float pull = this.pull() + (driver != null && this.brakePedal() ? this.brakePull() : 0.0F);
         if (pull != 0.0F && onGround && this.flyDist != 0.0F) {
             float grip = Math.min(1.0F, Math.abs(this.flyDist) / FULL_GRIP_SPEED);
             this.setYRot(Mth.wrapDegrees(this.getYRot() + pull * grip * Math.signum(this.flyDist)));
@@ -2419,9 +2459,188 @@ public class CarEntity extends VehicleEntity {
         return this.entityData.get(PART_CONDITION.get(part.ordinal()));
     }
 
+    /**
+     * Sets the part, and for a part with places every place of it: a set put
+     * on is a set of the same.
+     */
     public void setCondition(CarPart part, float condition) {
-        this.entityData.set(PART_CONDITION.get(part.ordinal()),
-                Mth.clamp(condition, 0.0F, CarPart.MAX_CONDITION));
+        float clamped = Mth.clamp(condition, 0.0F, CarPart.MAX_CONDITION);
+        this.entityData.set(PART_CONDITION.get(part.ordinal()), clamped);
+        int slot = PartPositions.slot(part);
+        if (slot >= 0) {
+            java.util.Arrays.fill(this.places[slot], clamped);
+            this.entityData.set(PART_PLACES.get(slot), PartPositions.pack(this.places[slot], PartPositions.MAX));
+        }
+    }
+
+    /**
+     * Each place of the parts that have them, to the decimal, on the server.
+     * A client reads them from {@link #PART_PLACES} instead.
+     */
+    private final float[][] places = newPlaces();
+
+    private static float[][] newPlaces() {
+        float[][] all = new float[PartPositions.PARTS][];
+        for (int slot = 0; slot < PartPositions.PARTS; slot++) {
+            all[slot] = PartPositions.filled(CarPart.MAX_CONDITION);
+        }
+        return all;
+    }
+
+    /** How many places this part has here: one per wheel, one per cylinder, or just the one. */
+    public int placesOf(CarPart part) {
+        if (!PartPositions.isSpread(part)) {
+            return 1;
+        }
+        return Math.min(PartPositions.MAX,
+                part == CarPart.SPARK_PLUGS ? this.getLayout().cylinders() : this.tyreCount());
+    }
+
+    /** How many of this part a job on it takes: a plug for every cylinder, else the usual set. */
+    public int countOf(CarPart part) {
+        return part == CarPart.SPARK_PLUGS ? this.placesOf(part) : part.count();
+    }
+
+    /** Whether this place is part of the set now: a wheel with its tyre off has no tyre there. */
+    private boolean counts(CarPart part, int place) {
+        return part != CarPart.WHEELS || this.isTyreOn(place);
+    }
+
+    /** One place of a part: the tyre at this wheel, the plug in this cylinder. */
+    public float getCondition(CarPart part, int place) {
+        int slot = PartPositions.slot(part);
+        if (slot < 0) {
+            return this.getCondition(part);
+        }
+        return this.level().isClientSide()
+                ? PartPositions.unpack(this.entityData.get(PART_PLACES.get(slot)), place)
+                : this.places[slot][place];
+    }
+
+    public void setCondition(CarPart part, int place, float condition) {
+        int slot = PartPositions.slot(part);
+        if (slot < 0) {
+            this.setCondition(part, condition);
+            return;
+        }
+        this.places[slot][place] = Mth.clamp(condition, 0.0F, CarPart.MAX_CONDITION);
+        this.settlePlaces(part);
+    }
+
+    /**
+     * After a place changed: the set's average and the packed copy follow.
+     * A set that is not on the car stays off, whatever its places say.
+     */
+    private void settlePlaces(CarPart part) {
+        int slot = PartPositions.slot(part);
+        float sum = 0.0F;
+        int counted = 0;
+        for (int place = 0; place < this.placesOf(part); place++) {
+            if (this.counts(part, place)) {
+                sum += this.places[slot][place];
+                counted++;
+            }
+        }
+        if (counted > 0 && this.isFitted(part)) {
+            this.entityData.set(PART_CONDITION.get(part.ordinal()), Math.max(CarPart.WORN_OUT, sum / counted));
+        }
+        this.entityData.set(PART_PLACES.get(slot), PartPositions.pack(this.places[slot], PartPositions.MAX));
+    }
+
+    /** The place of this part in the worst state, or -1 if it has none or is not on. */
+    public int worstPlace(CarPart part) {
+        if (!PartPositions.isSpread(part) || !this.isFitted(part)) {
+            return -1;
+        }
+        int worst = -1;
+        for (int place = 0; place < this.placesOf(part); place++) {
+            if (this.counts(part, place)
+                    && (worst < 0 || this.getCondition(part, place) < this.getCondition(part, worst))) {
+                worst = place;
+            }
+        }
+        return worst;
+    }
+
+    /** The worst place of a part, 0 to 1: the set's own condition for a part that has only the one. */
+    public float worstFraction(CarPart part) {
+        int worst = this.worstPlace(part);
+        return worst < 0 ? this.getConditionFraction(part)
+                : this.getCondition(part, worst) / CarPart.MAX_CONDITION;
+    }
+
+    /** One place's share of the job, 1 fresh and {@code worn} at its last; {@code missing} when the set is off. */
+    private float placeFactor(CarPart part, int place, float worn, float missing) {
+        if (!this.isFitted(part)) {
+            return missing;
+        }
+        return Mth.lerp(this.getCondition(part, place) / CarPart.MAX_CONDITION, worn, 1.0F);
+    }
+
+    /**
+     * Where a wheel sits on the car, in blocks, before the car is turned:
+     * +z to the front, -x to the right.
+     */
+    private Vec3 wheelLocal(int wheel) {
+        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+        if (defined != null && wheel < defined.wheels().size()) {
+            org.joml.Vector3f at = defined.wheels().get(wheel).at();
+            return new Vec3(at.x() / 16.0, at.y() / 16.0, at.z() / 16.0);
+        }
+        java.util.List<CarPart.Anchor> anchors = this.anchorsOf(CarPart.WHEELS);
+        CarPart.Anchor anchor = anchors.get(Math.min(wheel, anchors.size() - 1));
+        return new Vec3(-anchor.x(), anchor.y(), -anchor.z());
+    }
+
+    /** Which side of the car a wheel is on: 1 right, -1 left, 0 on the middle line, like a motorcycle's. */
+    public int lateral(int wheel) {
+        double x = this.wheelLocal(wheel).x;
+        return Math.abs(x) < 0.1 ? 0 : x < 0.0 ? 1 : -1;
+    }
+
+    /** Which end a wheel is at: 1 the front, -1 the back, 0 a middle axle. */
+    public int axle(int wheel) {
+        int wheels = this.tyreCount();
+        double front = -Double.MAX_VALUE;
+        double back = Double.MAX_VALUE;
+        for (int each = 0; each < wheels; each++) {
+            double z = this.wheelLocal(each).z;
+            front = Math.max(front, z);
+            back = Math.min(back, z);
+        }
+        double z = this.wheelLocal(wheel).z;
+        if (front - back < 0.1) {
+            return 0;
+        }
+        return z > front - 0.1 ? 1 : z < back + 0.1 ? -1 : 0;
+    }
+
+    /** What to call a place on the reader and the service plate: "front left", "cylinder 3". */
+    public Component placeName(CarPart part, int place) {
+        return part == CarPart.SPARK_PLUGS
+                ? Component.translatable("place.car.cylinder", place + 1)
+                : Component.translatable("place.car." + this.cornerKey(place));
+    }
+
+    /** The same, as short as a service plate needs it: "FL", "3". */
+    public Component placeShort(CarPart part, int place) {
+        return part == CarPart.SPARK_PLUGS
+                ? Component.literal(String.valueOf(place + 1))
+                : Component.translatable("place.car.short." + this.cornerKey(place));
+    }
+
+    /** "front_left", "rear", "middle_right": the end of the car a wheel is at, then its side. */
+    private String cornerKey(int wheel) {
+        String end = switch (this.axle(wheel)) {
+            case 1 -> "front";
+            case -1 -> "rear";
+            default -> "middle";
+        };
+        return switch (this.lateral(wheel)) {
+            case 1 -> end + "_right";
+            case -1 -> end + "_left";
+            default -> end;
+        };
     }
 
     /** Whether the part is on the car at all. */
@@ -2503,11 +2722,79 @@ public class CarEntity extends VehicleEntity {
      * without a single one of those rules having to know about quality.
      */
     private void wear(CarPart part, float amount) {
-        if (amount > 0.0F && this.hasPart(part) && this.isFitted(part)) {
-            this.setCondition(part, Math.max(CarPart.WORN_OUT,
-                    this.getCondition(part) - amount * this.getQuality(part).wearFactor() * this.ageFactor(part)
-                            * (float) me.trossty.car.CarConfig.get().partWear));
+        if (amount <= 0.0F || !this.hasPart(part) || !this.isFitted(part)) {
+            return;
         }
+        float scale = amount * this.getQuality(part).wearFactor() * (float) me.trossty.car.CarConfig.get().partWear;
+        int slot = PartPositions.slot(part);
+        if (slot < 0) {
+            this.setCondition(part, Math.max(CarPart.WORN_OUT, this.getCondition(part) - scale * this.ageFactor(part)));
+            return;
+        }
+        // A set wears place by place, each at its own share of the work.
+        float[] here = this.places[slot];
+        float[] shares = this.wearShares(part);
+        for (int place = 0; place < this.placesOf(part); place++) {
+            if (this.counts(part, place) && here[place] > 0.0F) {
+                here[place] = Math.max(CarPart.WORN_OUT,
+                        here[place] - scale * shares[place] * this.ageFactor(here[place] / CarPart.MAX_CONDITION));
+            }
+        }
+        this.settlePlaces(part);
+    }
+
+    /**
+     * How much of a set's wear each of its places takes, averaging 1 before
+     * anything has gone wrong. No two places are quite alike; the front
+     * brakes do most of the stopping; the steered tyres scrub in every turn,
+     * far more so knocked out of line, and a flat is chewed to pieces; the
+     * springs at the end that hit something take the blow; and the plugs
+     * either side of a blown gasket foul in the coolant.
+     */
+    private float[] wearShares(CarPart part) {
+        float[] shares = new float[PartPositions.MAX];
+        int count = this.placesOf(part);
+        float total = 0.0F;
+        int counted = 0;
+        for (int place = 0; place < count; place++) {
+            if (!this.counts(part, place)) {
+                continue;
+            }
+            float end = 1.0F;
+            if (PartPositions.atWheels(part)) {
+                int axle = this.axle(place);
+                end = switch (part) {
+                    case BRAKE_PADS, BRAKE_DISCS -> axle > 0 ? FRONT_BRAKE_SHARE : axle < 0 ? REAR_BRAKE_SHARE : 1.0F;
+                    case WHEELS -> axle > 0 ? FRONT_TYRE_SHARE : 1.0F;
+                    // An impact lands at the end the car was going towards.
+                    case SUSPENSION -> this.getEngineSpeed() > 0.05F ? (axle > 0 ? 1.6F : 0.4F)
+                            : this.getEngineSpeed() < -0.05F ? (axle < 0 ? 1.6F : 0.4F) : 1.0F;
+                    default -> 1.0F;
+                };
+            }
+            shares[place] = end * (1.0F + PLACE_SPREAD * PartPositions.bias(this.getUUID(), part, place));
+            total += shares[place];
+            counted++;
+        }
+        if (total <= 0.0F) {
+            return shares;
+        }
+        int gasket = part == CarPart.SPARK_PLUGS
+                ? me.trossty.car.item.CompressionTesterItem.gasketCylinder(this) : -1;
+        int flat = part == CarPart.WHEELS ? this.getFlatTyre() : -1;
+        for (int place = 0; place < count; place++) {
+            shares[place] *= counted / total;
+            if (part == CarPart.WHEELS && this.axle(place) > 0) {
+                shares[place] *= 1.0F + MISALIGNED_TYRE_WEAR * Math.abs(this.getAlignment());
+            }
+            if (place == flat) {
+                shares[place] *= FLAT_TYRE_WEAR;
+            }
+            if (gasket >= 0 && (place == gasket || place == gasket + 1)) {
+                shares[place] *= GASKET_PLUG_WEAR;
+            }
+        }
+        return shares;
     }
 
     /**
@@ -2516,7 +2803,11 @@ public class CarEntity extends VehicleEntity {
      * putting off a service costs more than the service would have.
      */
     public float ageFactor(CarPart part) {
-        return mileageFactor(this.getOdometer()) * (1.0F + TIRED_WEAR * (1.0F - this.getConditionFraction(part)));
+        return this.ageFactor(this.getConditionFraction(part));
+    }
+
+    private float ageFactor(float fraction) {
+        return mileageFactor(this.getOdometer()) * (1.0F + TIRED_WEAR * (1.0F - fraction));
     }
 
     /** 1 new, rising to {@code 1 + MILEAGE_WEAR} at {@link #HIGH_MILEAGE}, and no further. */
@@ -2751,17 +3042,7 @@ public class CarEntity extends VehicleEntity {
 
     /** Where a wheel's middle is in the world. */
     public Vec3 wheelSpot(int wheel) {
-        me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
-        Vec3 local;
-        if (defined != null && wheel < defined.wheels().size()) {
-            org.joml.Vector3f at = defined.wheels().get(wheel).at();
-            local = new Vec3(at.x() / 16.0, at.y() / 16.0, at.z() / 16.0);
-        } else {
-            java.util.List<CarPart.Anchor> anchors = this.anchorsOf(CarPart.WHEELS);
-            CarPart.Anchor anchor = anchors.get(Math.min(wheel, anchors.size() - 1));
-            local = new Vec3(-anchor.x(), anchor.y(), -anchor.z());
-        }
-        return this.position().add(local.yRot(-this.getYRot() * Mth.DEG_TO_RAD));
+        return this.position().add(this.wheelLocal(wheel).yRot(-this.getYRot() * Mth.DEG_TO_RAD));
     }
 
     /**
@@ -2797,7 +3078,7 @@ public class CarEntity extends VehicleEntity {
                     Component.translatable("part.car." + CarPart.WHEELS.key())), true);
             return InteractionResult.CONSUME;
         }
-        float condition = this.getCondition(CarPart.WHEELS);
+        float condition = this.getCondition(CarPart.WHEELS, wheel);
         CarPart.Quality quality = this.getQuality(CarPart.WHEELS);
         int variant = this.getVariant(CarPart.WHEELS);
         if (this.getFlatTyre() == wheel) {
@@ -2810,6 +3091,9 @@ public class CarEntity extends VehicleEntity {
             this.setCondition(CarPart.WHEELS, 0.0F);
             this.setQuality(CarPart.WHEELS, CarPart.Quality.DEFAULT);
             this.setVariant(CarPart.WHEELS, 0);
+        } else {
+            // The set is now the ones left on.
+            this.settlePlaces(CarPart.WHEELS);
         }
         this.handAside(player, asStack(CarPart.WHEELS, condition, quality, variant, 1));
         this.playWrench();
@@ -2821,8 +3105,8 @@ public class CarEntity extends VehicleEntity {
     /**
      * Puts one tyre on the wheel the player points at: on a bare hub it goes
      * on, over a tyre it is a swap. All the tyres on a car are one kind, so
-     * a different kind goes on only once the others are off. The set wears
-     * as one, so a tyre put on among worn ones evens out with them.
+     * a different kind goes on only once the others are off. Each tyre keeps
+     * its own wear, so a new one among worn ones stays new.
      */
     private InteractionResult fitTyre(Player player, ItemStack spare) {
         Component name = Component.translatable("part.car.wheel");
@@ -2830,9 +3114,9 @@ public class CarEntity extends VehicleEntity {
         float fitting = conditionOf(spare);
         CarPart.Quality fittingQuality = qualityOf(spare);
         int fittingVariant = variantOf(spare);
-        float now = this.getCondition(CarPart.WHEELS);
-        int on = this.tyresOn();
         boolean swap = this.isTyreOn(wheel);
+        float now = swap ? this.getCondition(CarPart.WHEELS, wheel) : 0.0F;
+        int on = this.tyresOn();
         int others = swap ? on - 1 : on;
         if (others > 0 && fittingVariant != this.getVariant(CarPart.WHEELS)) {
             player.displayClientMessage(Component.translatable("message.car.tyre_mixed"), true);
@@ -2859,8 +3143,8 @@ public class CarEntity extends VehicleEntity {
                 this.entityData.set(TYRES_OFF, (byte) (((1 << this.tyreCount()) - 1) & ~(1 << wheel)));
             }
         } else {
-            this.setCondition(CarPart.WHEELS, Math.max(1.0F, (now * others + fitting) / (others + 1)));
             this.entityData.set(TYRES_OFF, (byte) (this.tyresOff() & ~(1 << wheel)));
+            this.setCondition(CarPart.WHEELS, wheel, Math.max(CarPart.WORN_OUT, fitting));
         }
         if (!player.isCreative()) {
             spare.shrink(1);
@@ -3808,19 +4092,46 @@ public class CarEntity extends VehicleEntity {
         return flat + this.wornPull() + this.getAlignment() * MAX_PULL;
     }
 
+    /**
+     * A tired rack drifts the car its own way, fixed by its identity; a
+     * tired spring sags its own corner and the car leans off towards it.
+     */
     private float wornPull() {
-        float worst = 1.0F;
+        float pull = 0.0F;
         if (this.hasPart(CarPart.STEERING_RACK) && this.isFitted(CarPart.STEERING_RACK)) {
-            worst = Math.min(worst, this.getConditionFraction(CarPart.STEERING_RACK));
+            float side = (this.getUUID().getLeastSignificantBits() & 1L) == 0L ? -1.0F : 1.0F;
+            pull += side * tiredPull(this.getConditionFraction(CarPart.STEERING_RACK));
         }
-        if (this.hasPart(CarPart.SUSPENSION) && this.isFitted(CarPart.SUSPENSION)) {
-            worst = Math.min(worst, this.getConditionFraction(CarPart.SUSPENSION));
+        int spring = this.hasPart(CarPart.SUSPENSION) ? this.worstPlace(CarPart.SUSPENSION) : -1;
+        if (spring >= 0) {
+            pull += this.lateral(spring) * tiredPull(this.worstFraction(CarPart.SUSPENSION));
         }
-        if (worst >= FaultCodes.ADVISORY) {
+        return Mth.clamp(pull, -MAX_PULL, MAX_PULL);
+    }
+
+    /** Nothing above half condition, {@link #MAX_PULL} at nothing, a line between. */
+    private static float tiredPull(float fraction) {
+        return fraction >= FaultCodes.ADVISORY ? 0.0F
+                : MAX_PULL * (FaultCodes.ADVISORY - fraction) / FaultCodes.ADVISORY;
+    }
+
+    /**
+     * Which way the brakes drag the car while they are on, degrees a tick:
+     * towards the side whose pads and discs bite harder. Even brakes, none.
+     */
+    public float brakePull() {
+        if (!this.hasPart(CarPart.BRAKE_PADS)) {
             return 0.0F;
         }
-        float side = (this.getUUID().getLeastSignificantBits() & 1L) == 0L ? -1.0F : 1.0F;
-        return side * MAX_PULL * (FaultCodes.ADVISORY - worst) / FaultCodes.ADVISORY;
+        float leaning = 0.0F;
+        float total = 0.0F;
+        for (int wheel = 0; wheel < this.tyreCount(); wheel++) {
+            float bite = this.placeFactor(CarPart.BRAKE_PADS, wheel, WORN_PADS_BRAKE, MISSING_PADS_BRAKE)
+                    * this.placeFactor(CarPart.BRAKE_DISCS, wheel, WORN_DISCS_BRAKE, MISSING_DISCS_BRAKE);
+            leaning += this.lateral(wheel) * bite;
+            total += bite;
+        }
+        return total <= 0.0F ? 0.0F : BRAKE_PULL * leaning / total;
     }
 
     /** Turn rate: the rack points the wheels, the tyres decide what happens. */
@@ -3944,7 +4255,8 @@ public class CarEntity extends VehicleEntity {
         if (scrubbed < BRAKING_SCRUB || !this.hasPart(CarPart.BRAKE_PADS)) {
             return;
         }
-        float pads = this.getConditionFraction(CarPart.BRAKE_PADS);
+        // One corner down to its backing plate is enough to be heard.
+        float pads = this.worstFraction(CarPart.BRAKE_PADS);
         if (pads > FaultCodes.WARNING) {
             return;
         }
@@ -3972,6 +4284,31 @@ public class CarEntity extends VehicleEntity {
             }
         }
         return null;
+    }
+
+    /**
+     * What is bolted over this part and hides how worn it is, or null when it
+     * can be seen. A mechanic reads a pad through the gap a wheel leaves, a
+     * disc behind its pads, but not a clutch through the gearbox in front of
+     * it or a bore with its plug still in: those are judged by what the car
+     * does, the reader and the gauges, until they are out in the open.
+     */
+    public @Nullable CarPart hiddenBy(CarPart part) {
+        for (CarPart above : part.blockedBy()) {
+            if (!this.isFitted(above) || above == CarPart.BRAKE_PADS) {
+                continue;
+            }
+            if (above == CarPart.WHEELS && this.tyresOn() < this.tyreCount()) {
+                // One wheel off is enough to see behind it.
+                continue;
+            }
+            return above;
+        }
+        return null;
+    }
+
+    public boolean canInspect(CarPart part) {
+        return this.hiddenBy(part) == null;
     }
 
     /** Whether this part can be touched at all right now. */
@@ -4042,12 +4379,7 @@ public class CarEntity extends VehicleEntity {
         };
     }
 
-    /** The stack a part in the given condition comes off as. */
-    private static ItemStack asStack(CarPart part, float condition, CarPart.Quality quality,
-                                     int variant) {
-        return asStack(part, condition, quality, variant, part.count());
-    }
-
+    /** The stack a part in the given condition comes off as: {@code count} of it, a set or one. */
     private static ItemStack asStack(CarPart part, float condition, CarPart.Quality quality,
                                      int variant, int count) {
         ItemStack stack = new ItemStack(part.item(), count);
@@ -4109,7 +4441,7 @@ public class CarEntity extends VehicleEntity {
         int variant = this.getVariant(part);
         boolean turbo = part == CarPart.ENGINE && CarSetup.turbo(this.getSetup());
         this.setVariant(part, 0);
-        this.handAside(player, asStack(part, condition, quality, variant));
+        this.handAside(player, asStack(part, condition, quality, variant, this.countOf(part)));
         if (turbo) {
             // The turbo is bolted to the engine, so it comes away with it.
             this.setTurbo(false);
@@ -4179,6 +4511,7 @@ public class CarEntity extends VehicleEntity {
         }
         if (part == CarPart.WHEELS && this.hasFlatTyre()) {
             // One wheel off and the spare on, where it stopped: no lift for that.
+            this.setCondition(CarPart.WHEELS, this.getFlatTyre(), Math.max(CarPart.WORN_OUT, conditionOf(spares)));
             this.entityData.set(FLAT_TYRE, (byte) -1);
             spares.consume(1, player);
             this.playSound(SoundEvents.ARMOR_EQUIP_IRON.value(), 1.0F, 0.8F);
@@ -4190,7 +4523,10 @@ public class CarEntity extends VehicleEntity {
 
         if (!this.isWorkable(part)) {
             // A closed bonnet says what is wrong; off a lift, what it reads.
+            CarPart hidden = this.hiddenBy(part);
             player.displayClientMessage(this.underBonnet(part) ? this.cannotWork(part)
+                    : hidden != null ? Component.translatable("message.car.part_hidden", name,
+                            Component.translatable("part.car." + hidden.key()))
                     : Component.translatable("message.car.part_reading", name, fittedNow), true);
             return InteractionResult.CONSUME;
         }
@@ -4203,9 +4539,9 @@ public class CarEntity extends VehicleEntity {
         if (part == CarPart.WHEELS) {
             return this.fitTyre(player, spares);
         }
-        if (spares.getCount() < part.count()) {
+        if (spares.getCount() < this.countOf(part)) {
             player.displayClientMessage(
-                    Component.translatable("message.car.part_needs", part.count(), name), true);
+                    Component.translatable("message.car.part_needs", this.countOf(part), name), true);
             return InteractionResult.CONSUME;
         }
 
@@ -4231,7 +4567,7 @@ public class CarEntity extends VehicleEntity {
         this.setQuality(part, fittingQuality);
         this.setVariant(part, fittingVariant);
         if (!player.isCreative()) {
-            spares.shrink(part.count());
+            spares.shrink(this.countOf(part));
         }
 
         int fittedPercent = Math.round(fitting / CarPart.MAX_CONDITION * 100.0F);
@@ -4243,7 +4579,7 @@ public class CarEntity extends VehicleEntity {
             return InteractionResult.CONSUME;
         }
         // The old one goes into your pockets rather than on the floor.
-        this.handAside(player, asStack(part, removed, removedQuality, removedVariant));
+        this.handAside(player, asStack(part, removed, removedQuality, removedVariant, this.countOf(part)));
         this.playWrench();
         player.displayClientMessage(Component.translatable("message.car.part_fitted", name,
                 fittedNow, fittedPercent), true);
@@ -5154,19 +5490,16 @@ public class CarEntity extends VehicleEntity {
 
     // ---- automatic gearbox ----
 
-    /** Forward gears. */
-    public static final int GEARS = 5;
     /**
-     * How much of the top speed each gear reaches at the redline. Short low
-     * gears, long high ones, as in a real box: first is over in a moment,
-     * fifth takes its time.
+     * How hard each of the usual five gears pulls, against the plain
+     * throttle step: first shoves, fifth leans. A gear of any other box pulls
+     * what one this long would, read off between them; see {@link #pullOf}.
      */
-    private static final float[] GEAR_TOP = {0.24F, 0.42F, 0.61F, 0.81F, 1.0F};
-    /** How hard each gear pulls, against the plain throttle step: first shoves, fifth leans. */
-    private static final float[] GEAR_PULL = {1.45F, 1.1F, 0.85F, 0.68F, 0.55F};
-    /** Revs, as a share of the redline, the box changes up at, and down at. */
-    private static final float UPSHIFT = 0.9F;
-    private static final float DOWNSHIFT = 0.36F;
+    private static final float[] FIVE_SPEED_PULL = {1.45F, 1.1F, 0.85F, 0.68F, 0.55F};
+    /** How much harder a gear half as long pulls, past either end of the five. */
+    private static final float PULL_SLOPE = 0.68F;
+    private static final float UPSHIFT = CarSetup.UPSHIFT;
+    private static final float DOWNSHIFT = CarSetup.DOWNSHIFT;
     /** How long a change takes, in ticks; the drive is mostly cut while it happens. */
     private static final int SHIFT_TICKS = 6;
     private static final float SHIFT_DRIVE = 0.2F;
@@ -5174,7 +5507,7 @@ public class CarEntity extends VehicleEntity {
     /** The pull of a single fixed ratio: about what the five gears give over a run to top speed. */
     private static final float DIRECT_PULL = 1.0F;
 
-    /** The forward gear the box is in, 1 to {@link #GEARS}. Each side keeps its own. */
+    /** The forward gear the box is in, 1 to {@link #gearCount()}. Each side keeps its own. */
     private int driveGear = 1;
     private int shiftFromGear = 1;
     private int shiftTicks;
@@ -5201,12 +5534,52 @@ public class CarEntity extends VehicleEntity {
         return this.getLayout() == CarSetup.Layout.V8 ? redline - 500.0F : redline;
     }
 
-    /** The gear in, 1 to {@link #GEARS}; -1 in reverse, 0 when the engine is off. */
+    /** The gear in, 1 to {@link #gearCount()}; -1 in reverse, 0 when the engine is off. */
     public int getGear() {
         if (!this.isEngineRunning()) {
             return 0;
         }
-        return this.getEngineSpeed() < -0.005F ? -1 : this.driveGear;
+        return this.getEngineSpeed() < -0.005F ? -1 : this.forwardGear();
+    }
+
+    /**
+     * How much of the top speed each forward gear reaches at the redline, as
+     * the vehicle's definition gives them: six close ones in a sports car,
+     * eight short ones in a lorry, one in a scooter's belt drive.
+     */
+    public java.util.List<Float> gearTops() {
+        return this.tuning().gears();
+    }
+
+    public int gearCount() {
+        return this.hasGearbox() ? this.gearTops().size() : 1;
+    }
+
+    /** The gear the box is in, kept inside the box it has now: a reload can hand a car a shorter one. */
+    private int forwardGear() {
+        return Mth.clamp(this.driveGear, 1, this.gearCount());
+    }
+
+    /**
+     * How hard a gear reaching {@code top} of the top speed pulls. Read off
+     * the five-speed's own gears, so a car with that box drives as it always
+     * has; a shorter first than its first, or a longer top, carries on the
+     * same way.
+     */
+    static float pullOf(float top) {
+        java.util.List<Float> five = me.trossty.car.vehicle.VehicleDefinition.Performance.FIVE_SPEED;
+        if (top <= five.get(0)) {
+            return FIVE_SPEED_PULL[0] * (float) Math.pow(top / five.get(0), -PULL_SLOPE);
+        }
+        for (int i = 1; i < five.size(); i++) {
+            if (top <= five.get(i)) {
+                // Between two of them, evenly in the logarithms, as gearing goes.
+                float along = (float) (Math.log(top / five.get(i - 1)) / Math.log(five.get(i) / five.get(i - 1)));
+                return (float) Math.exp(Mth.lerp(along,
+                        Math.log(FIVE_SPEED_PULL[i - 1]), Math.log(FIVE_SPEED_PULL[i])));
+            }
+        }
+        return FIVE_SPEED_PULL[FIVE_SPEED_PULL.length - 1];
     }
 
     /** How far through a gear change the box is: 1 as it starts, 0 when it is done or not changing. */
@@ -5223,20 +5596,33 @@ public class CarEntity extends VehicleEntity {
         return !this.isElectric();
     }
 
-    /** How hard the engine can push right now, against the plain throttle step. */
+    /**
+     * How hard the engine can push right now, against the plain throttle
+     * step: what the gear gives, times where the engine is on its torque
+     * curve. A boat's or a plane's propeller takes what it is given.
+     */
     private float gearPull() {
         if (!this.hasGearbox()) {
-            return DIRECT_PULL;
+            return this.isElectric()
+                    ? DIRECT_PULL * CarSetup.torque(this.getLayout(), CarSetup.Fuel.ELECTRIC, this.revsIn(1))
+                    : DIRECT_PULL;
         }
-        float pull = GEAR_PULL[this.driveGear - 1];
+        int gear = this.forwardGear();
+        float pull = this.gearCount() == 1 ? DIRECT_PULL : pullOf(this.gearTops().get(gear - 1));
+        pull *= CarSetup.torque(this.getLayout(), this.getEngineFuel(), this.revsIn(gear));
         return this.shiftTicks > 0 ? pull * SHIFT_DRIVE : pull;
+    }
+
+    /** Revs in {@code gear} as a share of the redline. */
+    private float revsIn(int gear) {
+        return this.rpmIn(gear) / this.getRedlineRpm();
     }
 
     /** Engine revs in {@code gear} at the speed the car is doing. */
     private float rpmIn(int gear) {
         float fraction = Math.abs(this.getEngineSpeed()) / Math.max(0.01F, this.getRatedTopSpeed());
         float redline = this.getRedlineRpm();
-        float top = this.hasGearbox() ? GEAR_TOP[gear - 1] : 1.0F;
+        float top = this.hasGearbox() ? this.gearTops().get(Mth.clamp(gear, 1, this.gearCount()) - 1) : 1.0F;
         return Mth.clamp(IDLE_RPM + (redline - IDLE_RPM) * fraction / top,
                 IDLE_RPM, redline * 1.04F);
     }
@@ -5256,8 +5642,9 @@ public class CarEntity extends VehicleEntity {
             this.driveGear = 1;
             return;
         }
-        float revs = this.rpmIn(this.driveGear) / this.getRedlineRpm();
-        if (revs >= UPSHIFT && this.driveGear < GEARS) {
+        this.driveGear = this.forwardGear();
+        float revs = this.revsIn(this.driveGear);
+        if (revs >= UPSHIFT && this.driveGear < this.gearCount()) {
             this.changeGear(this.driveGear + 1);
         } else if (this.driveGear > 1 && this.rpmIn(this.driveGear - 1) / this.getRedlineRpm() < UPSHIFT - 0.1F
                 && revs < DOWNSHIFT) {
@@ -5301,8 +5688,25 @@ public class CarEntity extends VehicleEntity {
         if (!this.getEngineFuel().needsSpark()) {
             return false;
         }
-        float worn = 1.0F - this.getConditionFraction(CarPart.SPARK_PLUGS);
-        return worn > 0.0F && this.random.nextFloat() < MISFIRE_CHANCE * worn;
+        int cylinders = this.placesOf(CarPart.SPARK_PLUGS);
+        float rough = 0.0F;
+        for (int cylinder = 0; cylinder < cylinders; cylinder++) {
+            rough += this.misfireIn(cylinder);
+        }
+        return rough > 0.0F && this.random.nextFloat() < MISFIRE_CHANCE * rough / cylinders;
+    }
+
+    /**
+     * How badly one cylinder misfires, 0 to 1: a worn plug fires weakly, and a
+     * cylinder that cannot hold its squeeze fires badly whatever the plug.
+     * Only a spark engine; a diesel lights its fuel by compression alone.
+     */
+    public float misfireIn(int cylinder) {
+        if (!this.getEngineFuel().needsSpark() || !this.isFitted(CarPart.SPARK_PLUGS)) {
+            return 0.0F;
+        }
+        float plug = 1.0F - this.getCondition(CarPart.SPARK_PLUGS, cylinder) / CarPart.MAX_CONDITION;
+        return Math.max(plug, me.trossty.car.item.CompressionTesterItem.compressionLoss(this, cylinder));
     }
 
     /**
@@ -5661,7 +6065,7 @@ public class CarEntity extends VehicleEntity {
             return;
         }
         if (speed > 0.15F && this.hasPart(CarPart.SUSPENSION) && this.isFitted(CarPart.SUSPENSION)
-                && this.getConditionFraction(CarPart.SUSPENSION) <= FaultCodes.WARNING
+                && this.worstFraction(CarPart.SUSPENSION) <= FaultCodes.WARNING
                 && this.random.nextInt(30) == 0) {
             this.level().playSound(null, this.getX(), this.getY() + 0.3, this.getZ(),
                     SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.NEUTRAL, 0.5F, 0.6F);
@@ -5806,6 +6210,17 @@ public class CarEntity extends VehicleEntity {
         for (CarPart part : CarPart.values()) {
             this.setCondition(part, view.getFloatOr("Part" + part.key(), CarPart.MAX_CONDITION));
         }
+        for (int slot = 0; slot < PartPositions.PARTS; slot++) {
+            // Saved before each wheel and cylinder kept its own: the whole set alike.
+            CarPart part = PartPositions.part(slot);
+            int[] saved = view.tag().getIntArray("Places" + part.key());
+            for (int place = 0; place < Math.min(saved.length, PartPositions.MAX); place++) {
+                this.places[slot][place] = Mth.clamp(Float.intBitsToFloat(saved[place]), 0.0F, CarPart.MAX_CONDITION);
+            }
+            if (saved.length > 0) {
+                this.settlePlaces(part);
+            }
+        }
         int tiers = view.getIntOr("PartQuality", defaultQualityBits());
         if (view.getIntOr("PartTiers", 0) == 0) {
             // Saved before parts were iron, gold, diamond and netherite.
@@ -5875,6 +6290,13 @@ public class CarEntity extends VehicleEntity {
         view.putFloat("Health", this.getHealth());
         for (CarPart part : CarPart.values()) {
             view.putFloat("Part" + part.key(), this.getCondition(part));
+        }
+        for (int slot = 0; slot < PartPositions.PARTS; slot++) {
+            int[] bits = new int[PartPositions.MAX];
+            for (int place = 0; place < PartPositions.MAX; place++) {
+                bits[place] = Float.floatToIntBits(this.places[slot][place]);
+            }
+            view.tag().putIntArray("Places" + PartPositions.part(slot).key(), bits);
         }
         view.putInt("PartQuality", this.getQualityBits());
         view.putInt("PartTiers", 1);

@@ -1,5 +1,7 @@
 package me.trossty.car.entity;
 
+import net.minecraft.util.Mth;
+
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -88,7 +90,74 @@ public final class CarSetup {
         public int costFactor() {
             return this.costFactor;
         }
+
+        /**
+         * Where in the rev range this engine pulls hardest, as a share of the
+         * redline, and how sharply it falls away either side: a four wants
+         * revving, a six is broad and even, an eight shoves from low down.
+         */
+        float torquePeak() {
+            return switch (this) {
+                case INLINE4 -> 0.7F;
+                case INLINE6, V6 -> 0.6F;
+                case V8 -> 0.5F;
+            };
+        }
+
+        float torqueFall() {
+            return switch (this) {
+                case INLINE4 -> 1.6F;
+                case INLINE6 -> 1.0F;
+                case V6 -> 1.3F;
+                case V8 -> 1.1F;
+            };
+        }
     }
+
+    /** Revs, as a share of the redline, an automatic changes up at. */
+    public static final float UPSHIFT = 0.9F;
+    /** And down at. */
+    public static final float DOWNSHIFT = 0.36F;
+    /** However far off its peak, an engine never pulls less than this share of it. */
+    private static final float TORQUE_FLOOR = 0.45F;
+    /** Revs past which an electric motor runs out of current and its push falls away. */
+    private static final float ELECTRIC_KNEE = 0.45F;
+
+    /**
+     * How hard this engine pulls at these revs (a share of the redline), against
+     * its own average: above 1 at its peak, below it at either end. Averaged
+     * over the revs an automatic keeps it between it comes to 1, so a car
+     * covers the same ground on the whole, only differently: a diesel shoves
+     * early and runs out, a four is lazy until it is wound up.
+     *
+     * <p>An electric motor, with no gears, sees its whole range: full push
+     * from standstill, then the push falls away as its power runs out.
+     */
+    public static float torque(Layout layout, Fuel fuel, float revs) {
+        if (fuel == Fuel.ELECTRIC) {
+            return electricTorque(revs) / ELECTRIC_MEAN;
+        }
+        float sum = 0.0F;
+        int samples = 16;
+        for (int i = 0; i < samples; i++) {
+            sum += rawTorque(layout, fuel, Mth.lerp((i + 0.5F) / samples, DOWNSHIFT, UPSHIFT));
+        }
+        return rawTorque(layout, fuel, revs) / (sum / samples);
+    }
+
+    private static float rawTorque(Layout layout, Fuel fuel, float revs) {
+        float peak = fuel == Fuel.DIESEL ? 0.4F : layout.torquePeak();
+        float fall = fuel == Fuel.DIESEL ? 2.2F : layout.torqueFall();
+        float off = revs - peak;
+        return Math.max(TORQUE_FLOOR, 1.0F - fall * off * off);
+    }
+
+    private static float electricTorque(float revs) {
+        return revs <= ELECTRIC_KNEE ? 1.0F : ELECTRIC_KNEE / revs;
+    }
+
+    /** What {@link #electricTorque} averages from standstill to flat out. */
+    private static final float ELECTRIC_MEAN = ELECTRIC_KNEE + ELECTRIC_KNEE * (float) Math.log(1.0 / ELECTRIC_KNEE);
 
     /** What the engine burns, and so what has to be in the tank. */
     public enum Fuel {

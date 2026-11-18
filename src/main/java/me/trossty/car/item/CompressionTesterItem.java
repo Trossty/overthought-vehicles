@@ -82,7 +82,7 @@ public final class CompressionTesterItem {
             }
             verdict = Verdict.BENT_VALVES;
         } else if (car.isGasketBlown()) {
-            int first = (int) Math.floorMod(seed, (long) (count - 1));
+            int first = gasketCylinder(car);
             bar[first] = spec * GASKET * (1.0F + 0.1F * jitter(seed, 50));
             bar[first + 1] = spec * GASKET * (1.0F + 0.1F * jitter(seed, 51));
             verdict = Verdict.GASKET;
@@ -90,6 +90,28 @@ public final class CompressionTesterItem {
             verdict = health < LOW ? Verdict.WORN : Verdict.GOOD;
         }
         return new Reading(spec, bar, verdict);
+    }
+
+    /**
+     * The first of the two cylinders a blown gasket sits between, counting
+     * from 0, or -1 while it holds. Always the same pair on the same car.
+     */
+    public static int gasketCylinder(CarEntity car) {
+        if (!car.isGasketBlown()) {
+            return -1;
+        }
+        int count = car.getLayout().cylinders();
+        long seed = car.getUUID().getLeastSignificantBits() ^ car.getUUID().getMostSignificantBits();
+        return (int) Math.floorMod(seed, (long) (count - 1));
+    }
+
+    /**
+     * How much of its squeeze this cylinder has lost, 0 for a sound one: what
+     * makes it misfire however good its plug.
+     */
+    public static float compressionLoss(CarEntity car, int cylinder) {
+        int gasket = gasketCylinder(car);
+        return gasket >= 0 && (cylinder == gasket || cylinder == gasket + 1) ? 1.0F - GASKET : 0.0F;
     }
 
     /** A number in -1..1 that only depends on the car and the cylinder. */

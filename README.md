@@ -422,7 +422,7 @@ Girinti, neyin neyin altında olduğunu gösteriyor.
 | Sistem | Parça | Adet | Ne yapıyor | Şart mı |
 |--------|-------|------|------------|---------|
 | Motor Bölümü | Hava filtresi | 1 | Hız ve yakıt tüketimi | — |
-| | ↳ Bujiler | 4 | Gaz tepkisi, tekleme | **evet** |
+| | ↳ Bujiler | silindir başına 1 (4/6/8) | Gaz tepkisi, tekleme | **evet** |
 | | &nbsp;&nbsp;↳ Motor | 1 | Azami hız | **evet** |
 | | Yağ filtresi | 1 | Motor ve şanzıman ömrü | — |
 | | Radyatör | 1 | Motor sıcaklığı | — |
@@ -481,7 +481,9 @@ Arabanın derdini ölçmeden önce **hissediyorsun**:
 
 | Belirti | Sebebi |
 |---------|--------|
-| Motor tekliyor, hız bir an düşüyor | Yorgun bujiler |
+| Motor tekliyor, hız bir an düşüyor | Yorgun bir buji ya da kompresyonu kaçıran silindir |
+| Frenlerken araç bir yana çekiyor | O köşenin balatası/diski diğer taraftan zayıf |
+| Düz yolda bir yana çekiyor | Kot ayarı ya da yorgun bir amortisör |
 | Kaputtan buhar, güç %55'e düşüyor | Radyatör bitmiş ya da yok |
 | Fren tutmuyor | Balata, disk, lastik |
 | Yakıt çabuk bitiyor | Tıkalı hava filtresi |
@@ -1806,11 +1808,21 @@ Arabaya binince eşya çubuğunun iki yanında, ekranın altında tek sıra hâl
 analog kadranlar beliriyor: solda hızölçer ve onun dışında **devir saati**,
 sağda yakıt ve onun dışında küçük sıcaklık kadranı.
 
-**Devir saati:** 5 ileri vitesli otomatik şanzıman (`CarEntity.tickGearbox/getEngineRpm`);
-kısa alt vitesler, uzun üst vitesler; devir kırmızı çizginin %90'ına gelince vites
+**Devir saati:** otomatik şanzıman (`CarEntity.tickGearbox/getEngineRpm`); vites
+sayısı ve oranları aracın tanımından gelir (`performance.gears`, her vitesin
+kırmızı çizgide ulaştığı azami hız payı, sonuncusu 1): verilmezse 5 ileri,
+Mustang/Jeep/Hilux/CBR 6, Atego 8, Vespa tek oranlı (CVT). Kısa alt vitesler,
+uzun üst vitesler; devir kırmızı çizginin %90'ına gelince vites
 büyür, %36'nın altına düşünce küçülür. Her geçiş 6 tik sürer: çekiş kısa bir an
 kesilir, devir yeni vitese iner, motor sesi alçalıp kısılır, sonra yeniden çeker.
-Ortadaki pencerede vites (`R`, `1`–`5`).
+Ortadaki pencerede vites (`R`, `1`–`8`).
+
+Her vitesin itişi beşlinin kendi değerlerinden okunur (aradakiler logaritmik
+ara değer), sonra **motorun tork eğrisiyle** çarpılır (`CarSetup.torque`):
+sıralı dört yüksek devirde (%70), sıralı altı ve V6 ortada, V8 aşağıda (%50),
+dizel erkenden (%40) tepe yapar; elektrik motoru kalkışta tam iter, %45'ten
+sonra gücü tükenir. Eğri vites aralığında ortalama 1'dir: araç toplamda aynı
+yolu alır, yalnızca farklı hisseder.
 
 | | Hızölçer | Yakıt | Sıcaklık |
 |---|---|---|---|
@@ -1857,7 +1869,8 @@ okunmayacağı için kadranlar hiç çizilmiyor.
 | Yer | Sabit | Etkisi |
 |-----|-------|--------|
 | `DashboardHud` | `DIAL_STEP_KMH`, `DIAL_HEADROOM` | Hız kadranının yuvarlama adımı ve azami hızın üstündeki pay |
-| `CarEntity` | `GEARS`, `UPSHIFT` | Vites sayısı ve vites atılan devir oranı |
+| `vehicle/*.json` | `performance.gears` | Aracın vites sayısı ve oranları |
+| `CarSetup` | `UPSHIFT`, `DOWNSHIFT`, `torque` | Vites atılan devir oranları ve tork eğrisi |
 | `DashboardHud` | `NEEDLE_RESPONSE` | İbre yumuşatması (büyük = daha çevik) |
 | `DashboardHud` | `WARNING_FRACTION` | Pompa ikonunun yandığı yakıt oranı |
 | `CarEntity` | `DAMAGE_WARNING_FRACTION` | Anahtar ikonunun yandığı hasar oranı |
@@ -2038,8 +2051,46 @@ geçer. Devir sınırı 4500.
   araca binince her zaman bindiğin aracı okur. Eşleşme yoksa ya da araç
   uzaktaysa ekranda "Eşleşmiş araç yok" / "Sinyal yok" yazar. Ekran
   karanlıkta da parlar.
-- Kodlar gerçekçi: P0300 buji, P0420 egzoz, C0040 fren balatası, P0217
-  hararet, P0172 kirli yakıt, B1000 kaporta…
+- Kodlar gerçekçi: P0420 egzoz, C0040 fren balatası, P0217 hararet, P0172
+  kirli yakıt, B1000 kaporta… Okuyucu yüzde söylemez; bir sensörün sınır
+  dışına çıktığını bilir, kaç milim balata kaldığını değil.
+
+#### Köşe ve silindir başına aşınma
+
+Lastik, balata, disk ve amortisör her tekerlekte; buji her silindirde ayrı
+aşınır (`PartPositions`). Servis ekranı ve işaret takımı setin ortalamasını
+gösterir, nişan ipucu tek tek köşeleri (`SÖ 82  SğÖ 80 …`, bujide `1 90  2 88`).
+
+- Önden frenleme işin çoğunu yapar: ön balatalar ~1.4, arkalar ~0.6 payla
+  aşınır. Her kaliper biraz farklı tutar (araca özgü ±%12).
+- Kotu bozuk aracın ön lastikleri, inik lastik kendisi, conta yanığının iki
+  silindirindeki bujiler daha hızlı gider.
+- Bir köşesi zayıf fren, frenlerken aracı **güçlü tarafa çeker**; yorgun bir
+  amortisör düz yolda kendi tarafına.
+- Lastik takarken yeni lastik **kendi köşesine** gider, diğerleriyle ortalanmaz.
+- V6/sıralı altı 6, V8 8 buji ister.
+
+#### Birden çok olası sebep
+
+Bazı kodlar parçayı değil belirtiyi gösterir; tablet altına "Olası: …" yazar:
+
+| Kod | Anlamı | Olası |
+|-----|--------|-------|
+| P0301–P0308 | O silindirde tekleme | Buji, motor (kompresyon) |
+| P0300 | 3+ silindirde rastgele tekleme | Buji, motor |
+| P0730 | Vites oranı hatalı (kaçırma) | Şanzıman, debriyaj |
+| C0045 | Fren titremesi (köşe) | Disk, balata |
+
+C0040/C0750/C0690 en kötü köşeyi adıyla söyler. Ayırmak oyuncunun işi:
+bujileri sökünce kompresyon ölçer contanın iki silindirini gösterir; tek
+silindirde düşük buji ise bujidir.
+
+#### Sökmeden görünmeyen aşınma
+
+Bir parçanın üstüne başka parça takılıysa aşınması **görünmez**: servis
+ekranında `?`, işaret plakasında `?`, ipucunda "Görünmüyor: önce X sökülmeli".
+Debriyaj şanzıman ve şaft çıkmadan, motor bujiler çıkmadan görülmez. Balata
+ve disk için bir tekerleği sökmek yeter (disk balatanın arkasından görünür).
 
 ### Yakıt kalitesi
 

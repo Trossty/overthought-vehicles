@@ -320,8 +320,9 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
 
             CarPart part = line.part();
             boolean fitted = car != null && car.isFitted(part);
+            boolean seen = car == null || car.canInspect(part);
             float fraction = car == null ? 1.0F : car.getConditionFraction(part);
-            int colour = conditionColour(fraction, fitted);
+            int colour = seen ? conditionColour(fraction, fitted) : ABSENT;
             // Indented under whatever is bolted on top of it, so the list reads
             // as the order the car comes apart in.
             int indent = 5 + part.depth() * 7;
@@ -342,7 +343,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
             GuiStyle.disc(context, listLeft + indent + 1, rowY + 4, 1, colour);
             GuiStyle.dot(context, listLeft + indent, rowY + 3, GuiStyle.lighter(colour));
 
-            String reading = fitted ? Math.round(fraction * 100.0F) + "%" : "—";
+            String reading = !fitted ? "—" : seen ? Math.round(fraction * 100.0F) + "%" : "?";
             int nameLeft = listLeft + indent + 6;
             // The name stops short of the reading rather than running under it.
             int nameRoom = rowRight - this.font.width(reading) - 4 - nameLeft;
@@ -352,7 +353,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
             context.drawString(this.font, reading, rowRight - this.font.width(reading), rowY + 1, colour, false);
             // The LEDs are the row's own underline: they start where the name
             // does, so an indented part visibly belongs to the one above it.
-            ledBar(context, nameLeft, rowY + 10, rowRight, 2, fitted ? fraction : 0.0F, colour);
+            ledBar(context, nameLeft, rowY + 10, rowRight, 2, fitted && seen ? fraction : 0.0F, colour);
         }
 
         GuiStyle.scrollbar(context, this.leftPos + SCROLLBAR_X, this.topPos + SCROLLBAR_Y,
@@ -372,19 +373,22 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         context.fillGradient(left, top, left + DETAIL_WIDTH, top + 30, 0x14FFFFFF, 0x00FFFFFF);
 
         CarPart part = this.menu.selectedPart();
+        int count = car == null ? part.count() : car.countOf(part);
         GuiStyle.slot(context, left + 3, top + 3);
-        context.renderItem(new ItemStack(part.item(), part.count()), left + 4, top + 4);
+        context.renderItem(new ItemStack(part.item(), count), left + 4, top + 4);
 
         boolean fitted = car != null && car.isFitted(part);
+        CarPart hidden = car == null || !fitted ? null : car.hiddenBy(part);
         float fraction = car == null ? 1.0F : car.getConditionFraction(part);
-        int colour = conditionColour(fraction, fitted);
-        String big = fitted ? Math.round(fraction * 100.0F) + "%" : "—";
+        int colour = hidden == null ? conditionColour(fraction, fitted) : ABSENT;
+        String big = !fitted ? "—" : hidden == null ? Math.round(fraction * 100.0F) + "%" : "?";
         context.pose().pushPose();
         context.pose().translate(left + 25, top + 4, 0.0F);
         context.pose().scale(2.0F, 2.0F, 1.0F);
         context.drawString(this.font, big, 0, 0, colour, true);
         context.pose().popPose();
-        ledBar(context, left + 25, top + 20, left + DETAIL_WIDTH - 3, 2, fitted ? fraction : 0.0F, colour);
+        ledBar(context, left + 25, top + 20, left + DETAIL_WIDTH - 3, 2,
+                fitted && hidden == null ? fraction : 0.0F, colour);
         context.fill(left + 3, top + 25, left + DETAIL_WIDTH - 3, top + 26, 0x30FFFFFF);
 
         int line = top + 29;
@@ -414,6 +418,10 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         } else if (!fitted) {
             status = Component.translatable("gui.car.status_absent");
             statusColour = ABSENT;
+        } else if (hidden != null) {
+            status = Component.translatable("gui.car.status_hidden",
+                    Component.translatable("part.car." + hidden.key()));
+            statusColour = TEXT_DIM;
         } else if (fraction >= 1.0F) {
             status = Component.translatable("gui.car.status_new");
             statusColour = GOOD;
@@ -441,8 +449,8 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
                 : Component.translatable("gui.car.spare", Math.round(CarEntity.conditionOf(spare)) + "%");
         context.drawString(this.font, GuiStyle.fit(this.font, have, room), left + 4, line + 2,
                 spare.isEmpty() ? ABSENT : TEXT_ON_WELL, false);
-        if (part.count() > 1) {
-            context.drawString(this.font, Component.translatable("gui.car.set_of", part.count()),
+        if (count > 1) {
+            context.drawString(this.font, Component.translatable("gui.car.set_of", count),
                     left + 4, line + 12, TEXT_DIM, false);
         }
     }

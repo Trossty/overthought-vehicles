@@ -3,7 +3,7 @@
   "width": 0.9,
   "height": 1.5,
   "color": "red",
-  "performance": { "speed": 1.25, "acceleration": 1.55, "fuel_use": 0.7, "braking": 1.25, "steering": 1.3, "offroad": 0 },
+  "performance": { "speed": 1.25, "acceleration": 1.55, "fuel_use": 0.7, "braking": 1.25, "steering": 1.3, "offroad": 0, "gears": [0.32, 0.47, 0.6, 0.73, 0.86, 1.0] },
   "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "sport" },
   "tank": 18,
   "mass": 195,

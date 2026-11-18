@@ -73,12 +73,14 @@ public class CarServiceScreenHandler extends AbstractContainerMenu {
      * will be worn out again before the good one has got going.
      */
     public ItemStack spareFor(CarPart part) {
+        CarEntity car = this.car();
+        int needed = car == null ? part.count() : car.countOf(part);
         ItemStack best = ItemStack.EMPTY;
         int bestGrade = -1;
         float bestCondition = -1.0F;
         for (int slot = 0; slot < this.inventory.getContainerSize(); slot++) {
             ItemStack stack = this.inventory.getItem(slot);
-            if (!stack.is(part.item()) || stack.getCount() < part.count()) {
+            if (!stack.is(part.item()) || stack.getCount() < needed) {
                 continue;
             }
             int grade = CarEntity.qualityOf(stack).ordinal();

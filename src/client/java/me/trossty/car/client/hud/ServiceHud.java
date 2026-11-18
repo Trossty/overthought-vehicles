@@ -125,6 +125,27 @@ public class ServiceHud implements LayeredDraw.Layer {
         context.pose().popPose();
     }
 
+    /**
+     * Each place of a part that has several, coloured as the condition row is:
+     * "FL 82  FR 80  RL 91  RR 90", or a plug a cylinder, "1 90  2 88".
+     */
+    private static Component places(CarEntity car, CarPart part) {
+        net.minecraft.network.chat.MutableComponent line = Component.empty();
+        for (int place = 0; place < car.placesOf(part); place++) {
+            if (part == CarPart.WHEELS && !car.isTyreOn(place)) {
+                continue;
+            }
+            if (!line.getSiblings().isEmpty()) {
+                line.append("  ");
+            }
+            float fraction = car.getCondition(part, place) / CarPart.MAX_CONDITION;
+            int colour = fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD);
+            line.append(Component.translatable("tooltip.car.place", car.placeShort(part, place),
+                    Math.round(fraction * 100.0F)).withColor(colour & 0xFFFFFF));
+        }
+        return line;
+    }
+
     /** The part of a car under the crosshair, or null if there is none. */
     private static Tooltip partTooltip(Minecraft client) {
         CarEntity car = CarServiceOverlay.aimedCar();
@@ -137,11 +158,20 @@ public class ServiceHud implements LayeredDraw.Layer {
         ItemStack held = client.player.getMainHandItem();
         boolean offering = held.is(part.item());
         List<Row> rows = new ArrayList<>();
-        if (fitted) {
+        CarPart hidden = fitted ? car.hiddenBy(part) : null;
+        if (fitted && hidden != null) {
+            rows.add(new Row(Component.translatable("gui.car.status_hidden",
+                    Component.translatable("part.car." + hidden.key())), GREY));
+        } else if (fitted) {
             float fraction = car.getConditionFraction(part);
             rows.add(new Row(
                     Component.translatable("tooltip.car.condition", Math.round(fraction * 100.0F)),
                     fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD)));
+            if (car.placesOf(part) > 1) {
+                rows.add(new Row(places(car, part), GREY));
+            }
+        }
+        if (fitted) {
             rows.add(new Row(
                     Component.translatable("quality.car." + car.getQuality(part).key()), GREY));
         } else {

@@ -235,11 +235,31 @@ public record VehicleDefinition(
      * to all of it (1).
      */
     public record Performance(float speed, float acceleration, float fuelUse,
-                              float braking, float steering, float offroad) {
+                              float braking, float steering, float offroad, List<Float> gears) {
 
-        public static final Performance PLAIN = new Performance(1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F);
+        /**
+         * The gearbox a definition gets when it does not give one: five
+         * forward, short low gears and long high ones. Each number is how much
+         * of the top speed that gear reaches at the redline, so the last is
+         * always 1. A single 1 is one fixed ratio, a scooter's belt drive.
+         */
+        public static final List<Float> FIVE_SPEED = List.of(0.24F, 0.42F, 0.61F, 0.81F, 1.0F);
+
+        public static final Performance PLAIN = new Performance(1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, FIVE_SPEED);
 
         private static final Codec<Float> FACTOR = Codec.floatRange(0.25F, 3.0F);
+
+        private static final Codec<List<Float>> GEARS = Codec.floatRange(0.05F, 1.0F).listOf(1, 12)
+                .validate(gears -> {
+                    for (int i = 1; i < gears.size(); i++) {
+                        if (gears.get(i) <= gears.get(i - 1)) {
+                            return com.mojang.serialization.DataResult.error(
+                                    () -> "gears must climb from first to top: " + gears);
+                        }
+                    }
+                    return gears.get(gears.size() - 1) == 1.0F ? com.mojang.serialization.DataResult.success(gears)
+                            : com.mojang.serialization.DataResult.error(() -> "top gear must reach 1: " + gears);
+                });
 
         public static final Codec<Performance> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 FACTOR.optionalFieldOf("speed", 1.0F).forGetter(Performance::speed),
@@ -247,7 +267,8 @@ public record VehicleDefinition(
                 FACTOR.optionalFieldOf("fuel_use", 1.0F).forGetter(Performance::fuelUse),
                 FACTOR.optionalFieldOf("braking", 1.0F).forGetter(Performance::braking),
                 FACTOR.optionalFieldOf("steering", 1.0F).forGetter(Performance::steering),
-                Codec.floatRange(0.0F, 1.0F).optionalFieldOf("offroad", 0.0F).forGetter(Performance::offroad)
+                Codec.floatRange(0.0F, 1.0F).optionalFieldOf("offroad", 0.0F).forGetter(Performance::offroad),
+                GEARS.optionalFieldOf("gears", FIVE_SPEED).forGetter(Performance::gears)
         ).apply(instance, Performance::new));
     }
 

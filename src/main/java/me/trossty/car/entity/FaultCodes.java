@@ -40,21 +40,64 @@ public final class FaultCodes {
     /**
      * One stored code: the part it points at (null for whole-car faults), how
      * bad, and the part's condition in percent (-1 when that means nothing).
+     * The percent only orders the list: a reader knows a sensor is out of
+     * range, not how many millimetres of pad are left, so it never prints it.
+     *
+     * <p>{@code suspects} is what could be behind a code that more than one
+     * part can set — a misfire is a plug or the cylinder it sits in — and is
+     * empty when the code names its part outright. {@code at} is the wheel or
+     * cylinder it was read at, or null.
      */
-    public record Fault(String code, @Nullable CarPart part, String key, Severity severity, int percent) {
+    public record Fault(String code, @Nullable CarPart part, String key, Severity severity, int percent,
+                       List<CarPart> suspects, @Nullable Component at) {
 
+        public Fault(String code, @Nullable CarPart part, String key, Severity severity, int percent) {
+            this(code, part, key, severity, percent, List.of(), null);
+        }
+
+        /**
+         * The code and what it means. A part's name is the first thing handed
+         * to the line and the place the second, so a line can use either.
+         */
         public Component describe() {
-            Component what = this.part == null
-                    ? Component.translatable(this.key)
-                    : Component.translatable(this.key, Component.translatable("part.car." + this.part.key()), this.percent);
+            Component what;
+            if (this.part == null) {
+                what = Component.translatable(this.key);
+            } else {
+                Component name = Component.translatable("part.car." + this.part.key());
+                what = this.at == null ? Component.translatable(this.key, name)
+                        : Component.translatable(this.key, name, this.at);
+            }
             return Component.literal(this.code + "  ").withStyle(ChatFormatting.BOLD, this.severity.colour)
                     .append(what.copy().withStyle(ChatFormatting.RESET, this.severity.colour));
         }
 
-        /** Where on the car to look for it, or null when it is nowhere in particular. */
+        /**
+         * Where on the car to look for it, or null when it is nowhere in
+         * particular: for a code with more than one cause, what those are.
+         */
         public @Nullable Component where() {
+            if (this.suspects.size() > 1) {
+                net.minecraft.network.chat.MutableComponent names = Component.empty();
+                for (int i = 0; i < this.suspects.size(); i++) {
+                    if (i > 0) {
+                        names.append(", ");
+                    }
+                    names.append(Component.translatable("part.car." + this.suspects.get(i).key()));
+                }
+                return Component.translatable("obd.car.suspects", names);
+            }
             CarPart at = this.place();
             return at == null ? null : Component.translatable("obd.car.where." + at.group().key());
+        }
+
+        /** Every part worth a look for this code: its suspects, else the one place it points at. */
+        public List<CarPart> lookAt() {
+            if (!this.suspects.isEmpty()) {
+                return this.suspects;
+            }
+            CarPart at = this.place();
+            return at == null ? List.of() : List.of(at);
         }
 
         /**
@@ -116,6 +159,19 @@ public final class FaultCodes {
         return part != CarPart.SPARK_PLUGS || car.getEngineFuel().needsSpark();
     }
 
+    /**
+     * Codes one look at a single part cannot settle: a gearbox that slips is
+     * read the same whether the box or the clutch behind it is going.
+     */
+    private static final List<CarPart> SLIP = List.of(CarPart.TRANSMISSION, CarPart.CLUTCH);
+    private static final List<CarPart> JUDDER = List.of(CarPart.BRAKE_DISCS, CarPart.BRAKE_PADS);
+    private static final List<CarPart> MISFIRE = List.of(CarPart.SPARK_PLUGS, CarPart.ENGINE);
+
+    /** A cylinder misfiring at least this badly sets its own code. */
+    private static final float MISFIRE_CODE = 1.0F - ADVISORY;
+    /** This many cylinders at once read as one random misfire, as a real reader gives up and says. */
+    private static final int MANY_MISFIRES = 3;
+
     /** Everything stored, worst first. */
     public static List<Fault> read(CarEntity car) {
         List<Fault> faults = new ArrayList<>();
@@ -128,12 +184,30 @@ public final class FaultCodes {
                 faults.add(new Fault(codeFor(part, electric), part, "obd.car.absent", Severity.CRITICAL, 0));
                 continue;
             }
-            float fraction = car.getConditionFraction(part);
-            if (fraction <= ADVISORY) {
-                faults.add(new Fault(codeFor(part, electric), part, "obd.car.worn", Severity.of(fraction),
-                        Math.round(fraction * 100.0F)));
+            if (part == CarPart.SPARK_PLUGS || part == CarPart.CLUTCH && fraction(car, CarPart.TRANSMISSION) <= 1.0F) {
+                // Read by what they do rather than what they are: plugs as
+                // misfires below, a clutch through the gearbox it drives.
+                continue;
+            }
+            float fraction = part == CarPart.TRANSMISSION
+                    ? Math.min(fraction(car, CarPart.TRANSMISSION), fraction(car, CarPart.CLUTCH))
+                    : car.worstFraction(part);
+            if (fraction > ADVISORY) {
+                continue;
+            }
+            int percent = Math.round(fraction * 100.0F);
+            int worst = car.worstPlace(part);
+            Component at = worst < 0 ? null : car.placeName(part, worst);
+            switch (part) {
+                case TRANSMISSION -> faults.add(new Fault("P0730", part, "obd.car.gear_ratio",
+                        Severity.of(fraction), percent, SLIP, null));
+                case BRAKE_DISCS -> faults.add(new Fault(codeFor(part, electric), part, "obd.car.brake_judder",
+                        Severity.of(fraction), percent, JUDDER, at));
+                default -> faults.add(new Fault(codeFor(part, electric), part,
+                        at == null ? "obd.car.worn" : "obd.car.worn_at", Severity.of(fraction), percent, List.of(), at));
             }
         }
+        readMisfires(car, faults);
         if (car.isOverheating()) {
             faults.add(new Fault("P0217", null, "obd.car.overheat", Severity.CRITICAL, -1));
         }
@@ -183,5 +257,45 @@ public final class FaultCodes {
         faults.sort(Comparator.comparing(Fault::severity)
                 .thenComparingInt(fault -> fault.percent() < 0 ? 0 : fault.percent()));
         return faults;
+    }
+
+    /**
+     * A part's condition, 0 to 1, for reading it alongside another: 2 when
+     * there is none on the car to read, so it never decides anything (a part
+     * that is missing has a code of its own).
+     */
+    private static float fraction(CarEntity car, CarPart part) {
+        return relevant(part, car) && car.isFitted(part) ? car.getConditionFraction(part) : 2.0F;
+    }
+
+    /**
+     * What the engine's misfire counters show: the cylinder that keeps
+     * missing, which a plug or a leaking cylinder can be behind alike, or
+     * when too many miss at once, only that the engine runs rough.
+     */
+    private static void readMisfires(CarEntity car, List<Fault> faults) {
+        if (!relevant(CarPart.SPARK_PLUGS, car) || !car.isFitted(CarPart.SPARK_PLUGS)) {
+            return;
+        }
+        List<Integer> missing = new ArrayList<>();
+        float worst = 0.0F;
+        for (int cylinder = 0; cylinder < car.placesOf(CarPart.SPARK_PLUGS); cylinder++) {
+            float misfire = car.misfireIn(cylinder);
+            if (misfire >= MISFIRE_CODE) {
+                missing.add(cylinder);
+                worst = Math.max(worst, misfire);
+            }
+        }
+        if (missing.size() >= MANY_MISFIRES) {
+            faults.add(new Fault("P0300", CarPart.SPARK_PLUGS, "obd.car.misfire_many",
+                    Severity.of(1.0F - worst), Math.round((1.0F - worst) * 100.0F), MISFIRE, null));
+            return;
+        }
+        for (int cylinder : missing) {
+            float misfire = car.misfireIn(cylinder);
+            faults.add(new Fault("P030" + (cylinder + 1), CarPart.SPARK_PLUGS, "obd.car.misfire",
+                    Severity.of(1.0F - misfire), Math.round((1.0F - misfire) * 100.0F), MISFIRE,
+                    car.placeName(CarPart.SPARK_PLUGS, cylinder)));
+        }
     }
 }
