@@ -72,11 +72,19 @@ public class CarEntity extends VehicleEntity {
     private static final float FACTORY_FULL = -1.0F;
 
     /**
-     * Condition, from MAX_HEALTH down to 0. Tracked because the driver's client
-     * caps its own top speed from it and every client draws the warning lamp.
+     * What is left of each side of the body, from MAX_HEALTH down to 0, in
+     * {@link BodyZone} order. Tracked because the driver's client caps its own
+     * top speed from the worst of them and every client draws the warning lamp.
      */
-    static final EntityDataAccessor<Float> HEALTH =
-            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT);
+    static final List<EntityDataAccessor<Float>> BODY = registerBody();
+
+    private static List<EntityDataAccessor<Float>> registerBody() {
+        List<EntityDataAccessor<Float>> entries = new java.util.ArrayList<>(BodyZone.values().length);
+        for (int index = 0; index < BodyZone.values().length; index++) {
+            entries.add(SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.FLOAT));
+        }
+        return List.copyOf(entries);
+    }
 
     /**
      * Seat placement, in blocks from the car's own position. Half the cabin's
@@ -580,7 +588,9 @@ public class CarEntity extends VehicleEntity {
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
-        builder.define(HEALTH, MAX_HEALTH);
+        for (EntityDataAccessor<Float> side : BODY) {
+            builder.define(side, MAX_HEALTH);
+        }
         for (CarPart part : CarPart.values()) {
             builder.define(PART_CONDITION.get(part.ordinal()), CarPart.MAX_CONDITION);
         }
@@ -1584,7 +1594,8 @@ public class CarEntity extends VehicleEntity {
                 victim.push(forward.x * Math.abs(speed) * 1.6, 0.25 + Math.abs(speed) * 0.4,
                         forward.z * Math.abs(speed) * 1.6);
                 victim.hurtMarked = true;
-                this.damage.applyCarDamage(world, damage * IMPACT_SHARE_TO_CAR * Math.min(1.0F, bulk));
+                this.damage.applyCarDamage(world, damage * IMPACT_SHARE_TO_CAR * Math.min(1.0F, bulk),
+                        speed > 0.0F ? BodyZone.FRONT : BodyZone.REAR);
                 world.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
                         SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.NEUTRAL, 1.0F, 0.7F);
             }
@@ -3764,7 +3775,10 @@ public class CarEntity extends VehicleEntity {
         if (source.isDirect() && source.getEntity() instanceof Player) {
             amount *= PLAYER_BLOW;
         }
-        this.damage.applyCarDamage(world, amount);
+        // A blow from somewhere lands on the side facing it: an arrow, a fist,
+        // a blast. Fire, cactus or the void come from no side and dent it all.
+        Vec3 from = source.getSourcePosition();
+        this.damage.applyCarDamage(world, amount, from == null ? null : BodyZone.facing(this, from));
         return true;
     }
 
@@ -3845,7 +3859,7 @@ public class CarEntity extends VehicleEntity {
                     view.tag().getCompound("Boot"), this.boot.getItems(), view.registries());
         }
         this.show(this.boot, SHOWN_BOOT);
-        this.damage.setHealth(view.getFloatOr("Health", MAX_HEALTH));
+        this.damage.load(view);
         this.parts.load(view);
         this.setSetup(view.getIntOr("Setup", CarSetup.DEFAULT));
         this.setDirtyFuel(view.getFloatOr("DirtyFuel", 0.0F));
@@ -3874,7 +3888,7 @@ public class CarEntity extends VehicleEntity {
             view.tag().put("Boot", net.minecraft.world.ContainerHelper.saveAllItems(
                     new net.minecraft.nbt.CompoundTag(), this.boot.getItems(), view.registries()));
         }
-        view.putFloat("Health", this.damage.getHealth());
+        this.damage.save(view);
         this.parts.save(view);
         view.putInt("Setup", this.getSetup());
         view.putFloat("DirtyFuel", this.getDirtyFuel());

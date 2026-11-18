@@ -404,12 +404,48 @@ public final class CarParts {
     }
 
     /**
+     * Wears only the places of a set that sit at one side of the body, each by
+     * the full {@code amount}: the springs at the end that hit the wall, the
+     * tyres along the sill that scraped it. A part in one place, or a set with
+     * no place on that side, wears as a whole.
+     */
+    void wearAt(CarPart part, BodyZone zone, float amount) {
+        if (!PartPositions.atWheels(part)) {
+            this.wear(part, amount);
+            return;
+        }
+        if (amount <= 0.0F || !this.car.hasPart(part) || !this.isFitted(part)) {
+            return;
+        }
+        int slot = PartPositions.slot(part);
+        boolean[] struck = new boolean[PartPositions.MAX];
+        boolean any = false;
+        for (int place = 0; place < this.placesOf(part); place++) {
+            struck[place] = this.counts(part, place) && this.places[slot][place] > 0.0F && zone.holds(this, place);
+            any |= struck[place];
+        }
+        if (!any) {
+            this.wear(part, amount);
+            return;
+        }
+        float scale = amount * this.getQuality(part).wearFactor() * (float) me.trossty.car.CarConfig.get().partWear;
+        float[] here = this.places[slot];
+        for (int place = 0; place < this.placesOf(part); place++) {
+            if (struck[place]) {
+                here[place] = Math.max(CarPart.WORN_OUT,
+                        here[place] - scale * this.ageFactor(here[place] / CarPart.MAX_CONDITION));
+            }
+        }
+        this.settlePlaces(part);
+    }
+
+    /**
      * How much of a set's wear each of its places takes, averaging 1 before
      * anything has gone wrong. No two places are quite alike; the front
      * brakes do most of the stopping; the steered tyres scrub in every turn,
-     * far more so knocked out of line, and a flat is chewed to pieces; the
-     * springs at the end that hit something take the blow; and the plugs
-     * either side of a blown gasket foul in the coolant.
+     * far more so knocked out of line, and a flat is chewed to pieces; and
+     * the plugs either side of a blown gasket foul in the coolant. A knock
+     * on one side of the body wears that side's places through {@link #wearAt}.
      */
     private float[] wearShares(CarPart part) {
         float[] shares = new float[PartPositions.MAX];
@@ -426,9 +462,7 @@ public final class CarParts {
                 end = switch (part) {
                     case BRAKE_PADS, BRAKE_DISCS -> axle > 0 ? FRONT_BRAKE_SHARE : axle < 0 ? REAR_BRAKE_SHARE : 1.0F;
                     case WHEELS -> axle > 0 ? FRONT_TYRE_SHARE : 1.0F;
-                    // An impact lands at the end the car was going towards.
-                    case SUSPENSION -> this.car.getEngineSpeed() > 0.05F ? (axle > 0 ? 1.6F : 0.4F)
-                            : this.car.getEngineSpeed() < -0.05F ? (axle < 0 ? 1.6F : 0.4F) : 1.0F;
+                    // A knock with a side to it goes through wearAt instead.
                     default -> 1.0F;
                 };
             }

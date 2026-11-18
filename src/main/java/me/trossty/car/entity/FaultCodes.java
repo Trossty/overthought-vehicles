@@ -62,7 +62,8 @@ public final class FaultCodes {
         public Component describe() {
             Component what;
             if (this.part == null) {
-                what = Component.translatable(this.key);
+                // No part to name: the place, if there is one, is all the line gets.
+                what = this.at == null ? Component.translatable(this.key) : Component.translatable(this.key, this.at);
             } else {
                 Component name = Component.translatable("part.car." + this.part.key());
                 what = this.at == null ? Component.translatable(this.key, name)
@@ -251,8 +252,12 @@ public final class FaultCodes {
             faults.add(new Fault("P0172", null, "obd.car.dirty_fuel",
                     car.getDirtyFuel() >= 0.75F ? Severity.CRITICAL : Severity.WARNING, -1));
         }
-        if (car.damage().getHealthFraction() < CarEntity.DAMAGE_WARNING_FRACTION) {
-            faults.add(new Fault("B1000", null, "obd.car.body", Severity.WARNING, -1));
+        // Each side's crash sensor keeps its own code, B1001 the front to B1004 the right.
+        for (BodyZone zone : BodyZone.values()) {
+            if (car.damage().zoneFraction(zone) < CarEntity.DAMAGE_WARNING_FRACTION) {
+                faults.add(new Fault("B100" + (zone.ordinal() + 1), null, "obd.car.body_at", Severity.WARNING, -1,
+                        List.of(), zone.displayName()));
+            }
         }
         faults.sort(Comparator.comparing(Fault::severity)
                 .thenComparingInt(fault -> fault.percent() < 0 ? 0 : fault.percent()));

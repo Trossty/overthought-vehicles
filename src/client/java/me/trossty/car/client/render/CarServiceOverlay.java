@@ -361,9 +361,12 @@ public final class CarServiceOverlay {
         CarPart.Anchor specAt = new CarPart.Anchor(0.0F, y + (float) PLATE_STEP, front, 0.01F);
         CarPart.Anchor tankAt = new CarPart.Anchor(0.0F, y, -front, 0.01F);
 
+        // The worst side, and which it is once anything is dented: the side to walk round to with the iron.
         float body = car.damage().getHealthFraction();
+        int percent = Math.round(body * 100.0F);
         stack(labels, new PartLabel(bodyAt.box(pos, yaw).getCenter().subtract(pos),
-                Component.translatable("gui.car.plate_body", Math.round(body * 100.0F)),
+                body >= 1.0F ? Component.translatable("gui.car.plate_body", percent)
+                        : Component.translatable("gui.car.plate_body_at", percent, car.damage().worstZone().displayName()),
                 body >= 0.75F ? GOOD : (body > 0.35F ? FAIR : BAD)));
 
         if (car instanceof me.trossty.car.entity.TrailerEntity trailer) {

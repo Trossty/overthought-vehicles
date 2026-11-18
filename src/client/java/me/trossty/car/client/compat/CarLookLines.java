@@ -30,7 +30,9 @@ final class CarLookLines {
                 lines.add(Component.translatable("obd.car.dirty_fuel").withStyle(ChatFormatting.RED));
             }
         }
-        lines.add(Component.translatable("jade.car.body", Math.round(100.0F * car.damage().getHealthFraction())));
+        int body = Math.round(100.0F * car.damage().getHealthFraction());
+        lines.add(car.damage().getHealthFraction() >= 1.0F ? Component.translatable("jade.car.body", body)
+                : Component.translatable("jade.car.body_at", body, car.damage().worstZone().displayName()));
         CarPart worst = null;
         for (CarPart part : CarPart.values()) {
             if (!car.hasPart(part)) {

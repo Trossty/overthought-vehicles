@@ -195,13 +195,18 @@ public final class CarEffects {
                 0.0, 0.06, 0.0);
     }
 
+    /** Smoke off the worst-battered side: over the bonnet after a head-on, over the boot after backing into something. */
     void emitDamageSmoke() {
-        float yawRad = this.car.getYRot() * ((float) Math.PI / 180.0F);
+        // Partway out from the middle towards that side, over the body rather than past the bumper.
+        Vec3 side = this.car.damage().pointOf(this.car.damage().worstZone());
         this.car.level().addParticle(
                 this.car.damage().getHealthFraction() < 0.15F ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SMOKE,
-                this.car.getX() - Mth.sin(yawRad) * 0.9,
+                Mth.lerp(SMOKE_OUT, this.car.getX(), side.x),
                 this.car.getY() + 0.8,
-                this.car.getZ() + Mth.cos(yawRad) * 0.9,
+                Mth.lerp(SMOKE_OUT, this.car.getZ(), side.z),
                 0.0, 0.03, 0.0);
     }
+
+    /** How far out towards the battered side the smoke rises, from the middle (0) to the bumper (1). */
+    private static final double SMOKE_OUT = 0.55;
 }

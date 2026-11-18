@@ -789,7 +789,7 @@ envanterin üstüne taşıyordu.
 | `CarParts` | `PADS_EAT_DISCS` | Bitmiş balatanın diski yeme katsayısı |
 | `CarEntity` | `WORN_TYRE_GRIP` | Kel lastikte kalan tutuş |
 | `BodyDamage` | `WORN_SPRING_HARSHNESS` | Bitmiş süspansiyonun hasar çarpanı |
-| `BodyDamage` | `SUSPENSION_WEAR_PER_DAMAGE` | Hasar başına süspansiyon aşınması |
+| `BodyDamage` | `SUSPENSION_WEAR_PER_DAMAGE` | Yönsüz hasarda (düşme) dört köşenin süspansiyon aşınması |
 | `CarEntity` | `LOW_FUEL_FRACTION`, `STARVING_FRACTION` | Çanın çaldığı ve motorun öksürmeye başladığı yakıt oranı |
 | `CarEntity` | `COAST_MARGIN`, `CLIMB_LOAD`, `TOWING_THIRST` | Ayak gazdan çekildi sayılan yavaşlama, yokuş yükü, römork çarpanı |
 | `CarEntity`, `BodyDamage` | `LEAK_PER_TICK`, `PUNCTURE_MIN_DAMAGE`, `PUNCTURE_SPREAD` | Delik deponun sızıntısı ve delinme olasılığı |
@@ -860,7 +860,8 @@ devam ediyor, yani yol kenarına çekebiliyorsun. Motor sesi de susuyor.
 ### Delinen depo
 
 Sert bir çarpışma (en az 4 hasar) depoyu delebiliyor: 4'te ~%10, 9'da %60
-(tavan). Delik depo sürücü olsun olmasın **sızdırıyor**: tick başına 0.03 birim,
+(tavan). Bu arkadan çarpmanın olasılığı; yandan yarısı, önden hiç (arada motor
+var). Delik depo sürücü olsun olmasın **sızdırıyor**: tick başına 0.03 birim,
 dolu bir Corolla deposu ~3 dakikada boşalıyor. Sol marşpiyelden, arka tekerin
 önünden damla damla yakıt akıyor ve yerde ıslaklık bırakıyor; göstergede
 menzilin yerine yanıp sönen kırmızı **SIZINTI** yazıyor, servis etiketinde
@@ -1936,7 +1937,8 @@ Hırpalanan araba:
 
 - **Yavaşlıyor.** Üst hız durumla birlikte düşüyor, boş durumda `MAX_SPEED`'in
   yarısına kadar — ama oraya varmadan dağılıyor. %35'te ~8 blok/sn.
-- **Tütüyor.** %35'in altında kaputun önünden duman çıkıyor, %15'in altında
+- **Tütüyor.** %35'in altında en çok ezilen tarafın üstünden duman çıkıyor
+  (kafa kafaya sonrası kaputtan, geri geri vurunca bagajdan), %15'in altında
   duman kalınlaşıyor.
 - **Uyarı veriyor.** Hızölçerdeki anahtar ikonu kırmızı yanıyor.
 
@@ -1949,6 +1951,34 @@ geri veriyor.
 durumdan tama dört külçe gidiyor. Araba sapasağlamsa tıklama normal biniş
 davranışına düşüyor, külçe boşa harcanmıyor.
 
+### Nereden çarptığın önemli
+
+Gövde tek bir sayı değil, dört taraf: **ön, arka, sol, sağ**
+([`BodyZone`](src/main/java/me/trossty/car/entity/BodyZone.java)). Her çarpma
+tek bir tarafa iniyor ve o tarafın arkasındaki parçaları yoruyor:
+
+| Taraf | Arkasında yorulan |
+|-------|-------------------|
+| Ön | **radyatör**, ön amortisörler; direksiyon ayarı kayar. Depo hiç delinmez (arada motor var). |
+| Arka | **egzoz**, arka amortisörler; depo delinebilir. Arka tekerler dönmediği için ayar bozulmaz. |
+| Sol / Sağ | o taraftaki **lastikler** ve amortisörler; araba vurulan tarafa çeker. Depoya yarı olasılıkla ulaşır. |
+
+- **Tarafı ne belirliyor?** Sürerken çarptığın yön. Vurulunca vuruşun geldiği
+  yer: yumrukta oyuncu, okta ok, patlamada patlamanın merkezi. Bir nokta ön tekerin yanındaysa ön değil yan
+  sayılıyor: araba eninin iki katı uzunluğunda kabul ediliyor
+  (`LENGTH_TO_WIDTH`). Düşme gibi yönü olmayan hasar dört tarafa birden iniyor,
+  yani pert olma süresi eskisiyle aynı.
+- **Pert olmak için bir tarafın bitmesi yetiyor.** Önü 3'e düşmüş arabaya
+  arkadan 4 vurmak bir şey yapmaz; önden 4 vurmak dağıtır. Servis etiketi ve
+  Jade satırı en kötü tarafı adıyla yazıyor ("Gövde · %15 (ön)").
+- **Çekiç durduğun tarafa iniyor.** Külçeyle tıklayınca önce yanında
+  durduğun taraf, o sağlamsa en kötü taraf düzeltiliyor; aksiyon çubuğu hangi
+  tarafın kaç olduğunu söylüyor.
+- **OBD tarafı söylüyor.** %35'in altındaki her taraf ayrı kod: B1001 ön,
+  B1002 arka, B1003 sol yan, B1004 sağ yan.
+- Eski kayıtlardaki tek `Health` değeri yüklenirken dört tarafa birden
+  yazılıyor; yeni kayıt `Body` dizisi.
+
 ### Ayarlar
 
 | Yer | Sabit | Etkisi |
@@ -1960,6 +1990,12 @@ davranışına düşüyor, külçe boşa harcanmıyor.
 | `CarEntity` | `SAFE_FALL_BLOCKS` | Hasarsız düşme yüksekliği |
 | `CarEntity` | `WRECKED_SPEED_FACTOR` | Boş durumdaki üst hız çarpanı |
 | `BodyDamage` | `REPAIR_PER_INGOT` | Bir külçenin tamir ettiği puan |
+| `BodyZone` | `LENGTH_TO_WIDTH` | Bir noktanın uca mı yana mı sayılacağını belirleyen boy/en oranı |
+| `BodyDamage` | `STRUCK_SPRING_WEAR` | Vurulan taraftaki amortisörlerin hasar başına aşınması |
+| `BodyDamage` | `RADIATOR_PER_DAMAGE` | Önden çarpmada radyatörün hasar başına aşınması |
+| `BodyDamage` | `EXHAUST_PER_DAMAGE` | Arkadan çarpmada egzozun hasar başına aşınması |
+| `BodyDamage` | `KERBED_TYRE_WEAR` | Yandan çarpmada o taraftaki lastiklerin aşınması |
+| `BodyDamage` | `SIDE_TANK_EXPOSURE` | Yandan çarpmanın depoya ulaşma payı (arkadan 1, önden 0) |
 | `BodyDamage` | `WRECK_SCRAP` | Dağılan arabadan düşen hurda |
 
 ## Sesler
@@ -2052,7 +2088,7 @@ geçer. Devir sınırı 4500.
   uzaktaysa ekranda "Eşleşmiş araç yok" / "Sinyal yok" yazar. Ekran
   karanlıkta da parlar.
 - Kodlar gerçekçi: P0420 egzoz, C0040 fren balatası, P0217 hararet, P0172
-  kirli yakıt, B1000 kaporta… Okuyucu yüzde söylemez; bir sensörün sınır
+  kirli yakıt, B1001–B1004 kaporta (ön, arka, sol, sağ)… Okuyucu yüzde söylemez; bir sensörün sınır
   dışına çıktığını bilir, kaç milim balata kaldığını değil.
 
 #### Köşe ve silindir başına aşınma

@@ -73,6 +73,8 @@ Kod, README ve fotoğraf testleri taranarak hazırlandı (2026-11-12). Liste ön
 | Y | Zorlaşan teşhis | ✅ Kodlarda yüzde yok, çok sebepli kodlar ("Olası: …"), sökmeden görünmeyen aşınma. ⏳ Canlı veri ve donmuş kare (freeze frame) yapılmadı. |
 | Y | Araca özel vites ve tork eğrisi | ✅ `performance.gears`, `CarSetup.torque`. |
 | O | `CarEntity`'nin bölünmesi | ✅ Altı bileşen; yukarıdaki tabloda ayrıntısı. 96 gametest değişmeden geçiyor. |
+| O | Konuma göre hasar | ✅ Gövde dört taraf (`BodyZone`): önden radyatör, arkadan egzoz, yandan o taraftaki lastik ve amortisör; depo önden hiç, yandan yarı olasılıkla delinir; bir taraf bitince pert; çekiç durduğun tarafa; OBD B1001–B1004. Eski kayıtlar `Health` → dört taraf. 7 yeni gametest (103/103). Far kırılması elektrikle birlikte bekliyor. |
+| O | Elektrik: far ampulü, sigorta kutusu, kablo demeti | ⏸ Sonraya bırakıldı. Bugün elektrikte yalnızca akü, alternatör ve marş var; farlar ve sinyaller hiç bozulmuyor. Sigorta kutusu ucuz bir teşhis bulmacası olur: yanan sigorta bir devreyi (far, sinyal, marş) susturur, OBD yalnızca devreyi söyler. Önden çarpma farı kırabilir. |
 
 ## Durum özeti (2026-11-12)
 

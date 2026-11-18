@@ -99,7 +99,8 @@ public class CarMainClient {
         RoadPaintItem.openMenu = hand -> Minecraft.getInstance().setScreen(new RoadMarkingScreen(hand));
         // The driving client is the only side that sees its car hit something,
         // so give the common code a way to pass that on to the server.
-        CarNetworking.setCrashReporter(severity -> PacketDistributor.sendToServer(new CrashC2SPayload(severity)));
+        CarNetworking.setCrashReporter((severity, zone) -> PacketDistributor.sendToServer(
+                new CrashC2SPayload(severity, (byte) (zone == null ? -1 : zone.ordinal()))));
 
         modBus.addListener((RegisterKeyMappingsEvent event) -> event.register(HORN_KEY));
         modBus.addListener((FMLClientSetupEvent event) -> event.enqueueWork(() -> {

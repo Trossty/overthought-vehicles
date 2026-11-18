@@ -5,6 +5,7 @@ import me.trossty.car.block.ChargingPostBlock;
 import me.trossty.car.block.EnergyCableBlock;
 import me.trossty.car.block.entity.BatteryBankBlockEntity;
 import me.trossty.car.block.entity.ChargingPostBlockEntity;
+import me.trossty.car.entity.BodyZone;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.entity.CarParts;
@@ -956,6 +957,148 @@ public class CarMachineTests {
         context.assertTrue(CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.ELECTRIC, 0.1F)
                         > CarSetup.torque(CarSetup.Layout.INLINE4, CarSetup.Fuel.ELECTRIC, 0.9F),
                 "an electric motor ran out of push at standstill");
+        context.succeed();
+    }
+
+    // ---- where a car is hit ----
+
+    /** The side that faces a point or a direction; a point beside the front wheel is on the side, not the front. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void aKnockLandsOnTheSideFacingIt(GameTestHelper context) {
+        net.minecraft.world.phys.Vec3 ahead = new net.minecraft.world.phys.Vec3(0, 0, 1);
+        context.assertTrue(BodyZone.facing(0.0F, ahead, 1.0F) == BodyZone.FRONT, "ahead was not the front");
+        context.assertTrue(BodyZone.facing(0.0F, ahead.reverse(), 1.0F) == BodyZone.REAR, "behind was not the rear");
+        context.assertTrue(BodyZone.facing(0.0F, new net.minecraft.world.phys.Vec3(1, 0, 0), 1.0F) == BodyZone.LEFT,
+                "+x was not the left of a car facing +z");
+        context.assertTrue(BodyZone.facing(0.0F, new net.minecraft.world.phys.Vec3(-1, 0, 0), 1.0F) == BodyZone.RIGHT,
+                "-x was not the right of a car facing +z");
+        context.assertTrue(BodyZone.facing(0.0F, new net.minecraft.world.phys.Vec3(1.2, 0, 1.3), BodyZone.LENGTH_TO_WIDTH)
+                == BodyZone.LEFT, "a point beside the front wheel counted as the front");
+        context.assertTrue(BodyZone.facing(90.0F, new net.minecraft.world.phys.Vec3(-1, 0, 0), 1.0F) == BodyZone.FRONT,
+                "turned to face -x, -x was not the front");
+        context.assertTrue(BodyZone.facing(0.0F, new net.minecraft.world.phys.Vec3(0, 1, 0), 1.0F) == null,
+                "straight up faced a side");
+        context.succeed();
+    }
+
+    /** A head-on stoves in the front: the radiator and the front springs, never the tank, and the back is untouched. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void aHeadOnHitsTheRadiatorNotTheTank(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.setFuel(car.getMaxFuel());
+        car.damage().applyReportedCrash(context.getLevel(), 8.0F, BodyZone.FRONT);
+        context.assertTrue(car.damage().getZone(BodyZone.FRONT) < CarEntity.MAX_HEALTH, "the front took no dent");
+        context.assertTrue(car.damage().getZone(BodyZone.REAR) == CarEntity.MAX_HEALTH, "the back was dented by a head-on");
+        context.assertTrue(car.parts().getCondition(CarPart.RADIATOR) < CarPart.MAX_CONDITION, "the radiator came through a head-on");
+        context.assertTrue(car.parts().getCondition(CarPart.EXHAUST) == CarPart.MAX_CONDITION, "the exhaust took a head-on");
+        int front = corner(car, 1, 1);
+        int rear = corner(car, -1, 1);
+        context.assertTrue(car.parts().getCondition(CarPart.SUSPENSION, front) < CarPart.MAX_CONDITION,
+                "the front springs came through a head-on");
+        context.assertTrue(car.parts().getCondition(CarPart.SUSPENSION, rear) == CarPart.MAX_CONDITION,
+                "the rear springs took a head-on");
+        context.assertFalse(car.isLeaking(), "a head-on holed the tank through the engine bay");
+        context.assertTrue(car.upkeep().getAlignment() != 0.0F, "a head-on left the steering true");
+        context.assertTrue(FaultCodes.read(car).stream().noneMatch(f -> f.code().startsWith("B")),
+                "a dent the body can take was read as damage");
+        context.succeed();
+    }
+
+    /** Backed into a wall: the exhaust and the back springs take it, the radiator and the steering do not. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void aRearKnockHitsTheExhaust(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.damage().applyReportedCrash(context.getLevel(), 6.0F, BodyZone.REAR);
+        context.assertTrue(car.damage().getZone(BodyZone.REAR) < CarEntity.MAX_HEALTH, "the back took no dent");
+        context.assertTrue(car.damage().getZone(BodyZone.FRONT) == CarEntity.MAX_HEALTH, "the front was dented from behind");
+        context.assertTrue(car.parts().getCondition(CarPart.EXHAUST) < CarPart.MAX_CONDITION, "the exhaust came through");
+        context.assertTrue(car.parts().getCondition(CarPart.RADIATOR) == CarPart.MAX_CONDITION, "the radiator was hit from behind");
+        context.assertTrue(car.parts().getCondition(CarPart.SUSPENSION, corner(car, -1, -1)) < CarPart.MAX_CONDITION,
+                "the rear springs came through");
+        context.assertTrue(car.parts().getCondition(CarPart.SUSPENSION, corner(car, 1, -1)) == CarPart.MAX_CONDITION,
+                "the front springs took a knock from behind");
+        context.assertTrue(car.upkeep().getAlignment() == 0.0F, "a knock on the back bent the steering");
+        context.succeed();
+    }
+
+    /** Scraped down the left: the left tyres and springs wear, the right ones do not, and it pulls left. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void aSideSwipeKerbsThatSide(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.damage().applyReportedCrash(context.getLevel(), 6.0F, BodyZone.LEFT);
+        context.assertTrue(car.damage().getZone(BodyZone.LEFT) < CarEntity.MAX_HEALTH, "the left took no dent");
+        context.assertTrue(car.damage().getZone(BodyZone.RIGHT) == CarEntity.MAX_HEALTH, "the right was dented");
+        for (int end : new int[] {1, -1}) {
+            context.assertTrue(car.parts().getCondition(CarPart.WHEELS, corner(car, end, -1)) < CarPart.MAX_CONDITION,
+                    "a left tyre came through a side-swipe");
+            context.assertTrue(car.parts().getCondition(CarPart.WHEELS, corner(car, end, 1)) == CarPart.MAX_CONDITION,
+                    "a right tyre was kerbed by a hit on the left");
+            context.assertTrue(car.parts().getCondition(CarPart.SUSPENSION, corner(car, end, 1)) == CarPart.MAX_CONDITION,
+                    "a right spring took a hit on the left");
+        }
+        context.assertTrue(car.parts().getCondition(CarPart.RADIATOR) == CarPart.MAX_CONDITION, "the radiator took a side-swipe");
+        context.assertTrue(car.upkeep().getAlignment() < 0.0F, "a hit on the left did not pull it left");
+        context.succeed();
+    }
+
+    /** One side stove in wrecks the car; the same knock on a sound side does not. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void aWreckComesFromOneSideGiving(GameTestHelper context) {
+        CarEntity sound = car(context, new BlockPos(2, 1, 3), false);
+        sound.damage().setZone(BodyZone.FRONT, 3.0F);
+        sound.damage().applyReportedCrash(context.getLevel(), 4.0F, BodyZone.REAR);
+        context.assertFalse(sound.isRemoved(), "a knock on a sound back wrecked a car with a dented front");
+        context.assertTrue(sound.damage().getHealth() == 3.0F, "the body reads " + sound.damage().getHealth()
+                + " instead of its worst side");
+        CarEntity stoved = car(context, new BlockPos(5, 1, 3), false);
+        stoved.damage().setZone(BodyZone.FRONT, 3.0F);
+        stoved.damage().applyReportedCrash(context.getLevel(), 4.0F, BodyZone.FRONT);
+        context.assertTrue(stoved.isRemoved(), "a front with nothing left did not wreck the car");
+        sound.discard();
+        context.succeed();
+    }
+
+    /** The hammer goes to the dented side the player stands at, else to the worst one; the reader names the side. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void theHammerFindsTheDentedSide(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.setYRot(0.0F);
+        var player = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.moveTo(car.getX() + 1.5, car.getY(), car.getZ());
+        context.assertTrue(car.damage().sideToBeatOut(player) == null, "a sound car had a side to beat out");
+        car.damage().setZone(BodyZone.REAR, 5.0F);
+        context.assertTrue(car.damage().sideToBeatOut(player) == BodyZone.REAR,
+                "by a sound side, the hammer went to " + car.damage().sideToBeatOut(player));
+        car.damage().setZone(BodyZone.LEFT, 15.0F);
+        context.assertTrue(car.damage().sideToBeatOut(player) == BodyZone.LEFT,
+                "by the dented left, the hammer went to " + car.damage().sideToBeatOut(player));
+        var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
+        context.assertTrue(codes.contains("B1002") && !codes.contains("B1003"), "the reader listed " + codes);
+        car.discard();
+        context.succeed();
+    }
+
+    /** Each side keeps its dents through a save, and an old save's single number lands on every side. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void sideDentsSurviveASave(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.damage().setZone(BodyZone.RIGHT, 7.5F);
+        net.minecraft.nbt.CompoundTag saved = new net.minecraft.nbt.CompoundTag();
+        car.saveWithoutId(saved);
+        CarEntity copy = ModEntities.CAR.create(context.getLevel());
+        copy.load(saved);
+        context.assertTrue(copy.damage().getZone(BodyZone.RIGHT) == 7.5F
+                        && copy.damage().getZone(BodyZone.LEFT) == CarEntity.MAX_HEALTH,
+                "the sides came back as " + copy.damage().getZone(BodyZone.RIGHT) + "/" + copy.damage().getZone(BodyZone.LEFT));
+        saved.remove("Body");
+        saved.putFloat("Health", 8.0F);
+        CarEntity old = ModEntities.CAR.create(context.getLevel());
+        old.load(saved);
+        for (BodyZone zone : BodyZone.values()) {
+            context.assertTrue(old.damage().getZone(zone) == 8.0F, "an old save's body came back as "
+                    + old.damage().getZone(zone) + " on the " + zone.key());
+        }
+        car.discard();
         context.succeed();
     }
 
