@@ -529,6 +529,11 @@ public class CarEntity extends VehicleEntity {
     private final FarmWork farmWork = new FarmWork();
     private int hornCooldown;
     int crashCooldown;
+    /**
+     * The part of the last move a wall took from the nose or tail, along the
+     * way the wall stood; null when the ends went where they were sent.
+     */
+    @Nullable Vec3 endsStoppedBy;
 
     /** The bonnet and the boot, which hang out past the square hit box. */
     private final CarEnd[] ends;
@@ -1234,6 +1239,7 @@ public class CarEntity extends VehicleEntity {
      */
     private void moveKeepingEndsOut(Vec3 move) {
         Vec3 from = this.position();
+        this.endsStoppedBy = null;
         boolean wasClear = move.horizontalDistanceSqr() < 1.0E-8 || this.endsClear(this.getYRot(), 0.0, 0.0);
         this.move(MoverType.SELF, move);
         if (!wasClear || this.endsClear(this.getYRot(), 0.0, 0.0)) {
@@ -1254,6 +1260,15 @@ public class CarEntity extends VehicleEntity {
         this.setPos(from);
         this.move(MoverType.SELF, new Vec3(move.x * clear, move.y, move.z * clear));
         this.horizontalCollision = true;
+        // Which way the wall stood: the rest of the move along one axis at a
+        // time. A wall ahead stops the travel towards it and would let the car
+        // slide along it; a corner, where neither alone runs in, stops both.
+        double restX = move.x * (1.0 - clear);
+        double restZ = move.z * (1.0 - clear);
+        boolean xRunsIn = !this.endsClear(this.getYRot(), restX, 0.0);
+        boolean zRunsIn = !this.endsClear(this.getYRot(), 0.0, restZ);
+        boolean corner = !xRunsIn && !zRunsIn;
+        this.endsStoppedBy = new Vec3(xRunsIn || corner ? move.x : 0.0, 0.0, zRunsIn || corner ? move.z : 0.0);
     }
 
     /** From the middle to the very front of the body, in blocks. */

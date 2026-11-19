@@ -150,10 +150,12 @@ public final class BodyDamage {
      * real signal, so the driving client reports it and the server, which owns
      * the condition, applies it.
      *
-     * <p>Severity is how much of the requested travel the obstacle swallowed,
-     * which grades the hit for free: a head-on impact loses everything, a
-     * glancing scrape along a wall loses almost nothing. The side that hit is
-     * the one the car was travelling towards.
+     * <p>Severity is the speed the obstacle took out of the car, along
+     * whichever way it stood in the way: all of it in a head-on impact, only
+     * the part into the wall in a glancing scrape, which keeps the rest and
+     * slides on. How far through the tick the wall came does not matter: a
+     * car that met it early in the tick and one that met it late were going
+     * just as fast. The side that hit is the one facing the obstacle.
      *
      * @param requested the movement asked of {@link CarEntity#move}
      * @param from      where the car stood before that move
@@ -162,8 +164,12 @@ public final class BodyDamage {
         if (this.car.crashCooldown > 0 || !this.car.horizontalCollision) {
             return;
         }
-        double covered = this.car.position().subtract(from).horizontalDistance();
-        float blocked = (float) (requested.horizontalDistance() - covered);
+        Vec3 lost = this.car.endsStoppedBy;
+        if (lost == null) {
+            Vec3 moved = this.car.position().subtract(from);
+            lost = new Vec3(stoppedAlong(requested.x, moved.x), 0.0, stoppedAlong(requested.z, moved.z));
+        }
+        float blocked = (float) lost.horizontalDistance();
         if (blocked < MIN_CRASH_SPEED) {
             return;
         }
@@ -173,8 +179,13 @@ public final class BodyDamage {
         this.car.setDeltaMovement(0.0, this.car.getDeltaMovement().y, 0.0);
         this.car.crashCooldown = CRASH_COOLDOWN;
 
-        BodyZone struck = BodyZone.facing(this.car.getYRot(), new Vec3(requested.x, 0.0, requested.z), 1.0F);
+        BodyZone struck = BodyZone.facing(this.car.getYRot(), lost, 1.0F);
         this.reportImpact((blocked - MIN_CRASH_SPEED) * CRASH_DAMAGE_PER_SPEED * this.car.crashFragility(), struck);
+    }
+
+    /** The whole of the travel along one axis if something cut it short, else nothing. */
+    private static double stoppedAlong(double requested, double moved) {
+        return Math.abs(moved) < Math.abs(requested) - 1.0E-4 ? requested : 0.0;
     }
 
     /** Bills an impact with no side to it, such as an aircraft landing too hard. */
