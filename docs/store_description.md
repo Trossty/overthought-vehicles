@@ -87,6 +87,11 @@ A vehicle you place stays a vehicle: it can't be picked back up. Hitting it dent
 - NeoForge 21.1.266 or newer
 - Needed on both the server and the client
 
+### Source and bug reports
+
+- Source code: https://github.com/Trossty/car
+- Bug reports and ideas: https://github.com/Trossty/car/issues
+
 ### Licence
 
 MIT: use it, change it, build on it and share it, in modpacks or in your own mods. Keep the licence notice with any copy.
