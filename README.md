@@ -13,6 +13,8 @@ and a garage where every part wears, fails and gets fixed.
 </p>
 
 <p align="center">
+  <a href="https://modrinth.com/mod/overthought-vehicles"><img src="https://img.shields.io/badge/Modrinth-download-00AF5C?style=flat-square&logo=modrinth&logoColor=white" alt="Download on Modrinth"></a>
+  <a href="https://www.curseforge.com/minecraft/mc-mods/overthought-vehicles"><img src="https://img.shields.io/badge/CurseForge-download-F16436?style=flat-square&logo=curseforge&logoColor=white" alt="Download on CurseForge"></a>
   <img src="https://img.shields.io/badge/Minecraft-1.21.1-62B47A?style=flat-square" alt="Minecraft 1.21.1">
   <img src="https://img.shields.io/badge/NeoForge-21.1.266%2B-D7742F?style=flat-square" alt="NeoForge 21.1.266+">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT licence">

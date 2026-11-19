@@ -9,11 +9,15 @@ Vehicles thought through to the last bolt: cars, bikes, boats and planes, a fuel
 
 ## Overthought Vehicles
 
+![A line-up of vehicles on a grass field](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/hero.jpg)
+
 Drive, fly, sail — then pull the engine apart when it starts to cough.
 
 Overthought Vehicles adds 19 drivable vehicles to Minecraft, plus trailers and farm implements, and the whole world around them: oil in the ground, a refinery to turn it into fuel, pumps to fill up at, and a workshop where you keep everything running. Every vehicle has real proportions, real wheels and a real fuel tank, and every one of them breaks down if you don't look after it.
 
 ### Vehicles
+
+![Muscle car](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/muscle_car.jpg) ![Sport bike](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/sport_bike.jpg) ![Helicopter](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/helicopter.jpg)
 
 - **Cars:** Sedan, Classic Sedan, Muscle Car, Off-Roader
 - **Work vehicles:** Pickup Truck (picks up items it drives over), Tanker Truck (carries any fluid), Tow Truck
@@ -28,15 +32,19 @@ Vehicles are built at the Vehicle Workstation: pick a model, spin the 3D preview
 
 ### Driving
 
+![The analog dashboard](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/dashboard.jpg)
+
 - Throttle, brakes, reverse and speed-sensitive steering; handbrake drifts
-- Engine sounds that rise and fall with the revs and drop on each gear change — four-cylinder, six-cylinder, V8, diesel and electric all sound different
-- Road feel: gravel crunches, asphalt hums, rough ground shakes the camera
+- Engine sounds built from each engine's own firing, with a real gearbox: the note drops on every upshift — four-cylinder, six-cylinder, V8, diesel and electric all sound different
+- Road feel: gravel crunches, asphalt hisses, rough ground shakes the camera
 - Analog dashboard with speedometer, rev counter, gear, fuel and temperature
 - Fully enclosed cabins with steering wheels, pedals and gear levers that move
 - Horn, brake lights, headlights, keys and locking
 - Paint any vehicle with dyes, or mix any colour with the spray can
 
 ### Fuel, from the ground up
+
+![A production line of pumpjacks and refineries](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/fuel_line.jpg)
 
 - Oil deposits in the world, a pumpjack to draw them, a multiblock refinery and a hydrotreater to clean the fuel
 - Biofuel from organic matter as a second route
@@ -47,6 +55,8 @@ Vehicles are built at the Vehicle Workstation: pick a model, spin the 3D preview
 
 ### The workshop
 
+![The engine hoist over an open bonnet](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/engine_hoist.jpg) ![The service screen](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/menu_service.png)
+
 - 24 parts per vehicle wear with use and mileage; a worn part makes itself felt on the road
 - A vehicle lift to raise the car and work underneath it; parts come off in the right order
 - A service screen to diagnose and swap parts, in several quality grades
@@ -54,6 +64,8 @@ Vehicles are built at the Vehicle Workstation: pick a model, spin the 3D preview
 - Crashes dent the body zone that took the hit, can puncture the tank and hurt the people inside; badly wrecked vehicles fall apart into scrap
 
 ### Power and roads
+
+![Cars on a painted asphalt road](https://raw.githubusercontent.com/Trossty/overthought-vehicles/main/docs/images/road_charging.jpg)
 
 - Coal, biofuel and diesel generators, energy cables, a battery bank and a charging post for electric vehicles
 - An electric motor option for vehicles: a battery instead of a tank
@@ -90,6 +102,7 @@ A vehicle you place stays a vehicle: it can't be picked back up. Hitting it dent
 ### Source and bug reports
 
 - Source code: https://github.com/Trossty/overthought-vehicles
+- Wiki with every recipe: https://github.com/Trossty/overthought-vehicles/wiki
 - Bug reports and ideas: https://github.com/Trossty/overthought-vehicles/issues
 
 ### Licence
