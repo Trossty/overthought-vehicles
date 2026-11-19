@@ -25,7 +25,7 @@ import me.trossty.car.client.screen.RoadMarkingScreen;
 import me.trossty.car.client.screen.ToolboxScreen;
 import me.trossty.car.client.screen.VehicleWorkbenchScreen;
 import me.trossty.car.client.screen.VehicleWorkstationScreen;
-import me.trossty.car.client.sound.CarEngineSoundInstance;
+import me.trossty.car.client.sound.CarEngineSound;
 import me.trossty.car.block.AsphaltBlock;
 import me.trossty.car.block.entity.BatteryBankBlockEntity;
 import me.trossty.car.block.entity.FuelDrumBlockEntity;
@@ -79,8 +79,10 @@ import java.util.Locale;
 @Mod(value = CarMain.MOD_ID, dist = Dist.CLIENT)
 public class CarMainClient {
 
-    /** The brake pedal as the server last heard it from this client. */
+    /** The pedals as the server last heard them from this client, and which car they were for. */
     private static boolean brakeSent;
+    private static boolean throttleSent;
+    private static int pedalsSentTo = -1;
     /** The bank last told to the server, and which aircraft it was for. */
     private static float bankSent;
     private static int bankSentTo = -1;
@@ -203,7 +205,7 @@ public class CarMainClient {
         // A looping engine sound for each car that is running or rolling.
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
             if (Minecraft.getInstance().level != null && !Minecraft.getInstance().isPaused()) {
-                CarEngineSoundInstance.listen(Minecraft.getInstance().level);
+                CarEngineSound.listen(Minecraft.getInstance().level);
             }
         });
         // Hands-on work. The parts of a car that is up on its ramp are drawn
@@ -259,6 +261,7 @@ public class CarMainClient {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
         if (player == null || !(player.getVehicle() instanceof CarEntity car)) {
+            pedalsSentTo = -1;
             // Drain any presses made outside a car so they do not fire on entry.
             while (HORN_KEY.consumeClick()) {
                 // discard
@@ -269,11 +272,16 @@ public class CarMainClient {
         // The controlling client simulates the car, so feed it that player's keys.
         if (car.getControllingPassenger() == player) {
             car.setInputs(player.input.up, player.input.down, player.input.left, player.input.right, player.input.jumping);
-            // Everybody else sees the brake lamps from the server, so tell it when the pedal moves.
-            boolean pedal = car.brakePedal();
-            if (pedal != brakeSent) {
-                brakeSent = pedal;
-                PacketDistributor.sendToServer(new me.trossty.car.network.BrakeC2SPayload(pedal));
+            // Everybody else sees the brake lamps and hears the throttle from
+            // the server, so tell it when a pedal moves. The server lets go of
+            // both when the driver gets out, so a new car hears them afresh.
+            boolean brake = car.brakePedal();
+            boolean throttle = car.throttlePedal();
+            if (brake != brakeSent || throttle != throttleSent || car.getId() != pedalsSentTo) {
+                brakeSent = brake;
+                throttleSent = throttle;
+                pedalsSentTo = car.getId();
+                PacketDistributor.sendToServer(new me.trossty.car.network.PedalsC2SPayload(brake, throttle));
             }
             // And the bank the pilot flies, for the crew's seats and anyone watching.
             if (car instanceof me.trossty.car.entity.AirplaneEntity plane) {

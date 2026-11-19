@@ -1,10 +1,390 @@
 {
-  "engine": {
+  "engine_single_firing_0": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_single",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_single_firing_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_single_firing_1": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_single",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_single_firing_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_single_firing_2": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_single",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_single_firing_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_single_firing_3": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_single",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_single_firing_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_single_load_0": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_single_load_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_single_load_1": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_single_load_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_single_load_2": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_single_load_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_single_load_3": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_single_load_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_four_firing_0": {
     "category": "neutral",
     "subtitle": "subtitles.overthought_vehicles.engine",
     "sounds": [
       {
-        "name": "overthought_vehicles:engine",
+        "name": "overthought_vehicles:engine_four_firing_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_four_firing_1": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_four_firing_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_four_firing_2": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_four_firing_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_four_firing_3": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_four_firing_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_four_load_0": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_four_load_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_four_load_1": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_four_load_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_four_load_2": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_four_load_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_four_load_3": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_four_load_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_six_firing_0": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_six_firing_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_six_firing_1": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_six_firing_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_six_firing_2": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_six_firing_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_six_firing_3": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_six_firing_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_six_load_0": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_six_load_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_six_load_1": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_six_load_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_six_load_2": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_six_load_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_six_load_3": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_six_load_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_v8_firing_0": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_v8",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8_firing_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_v8_firing_1": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_v8",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8_firing_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_v8_firing_2": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_v8",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8_firing_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_v8_firing_3": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_v8",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8_firing_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_v8_load_0": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8_load_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_v8_load_1": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8_load_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_v8_load_2": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8_load_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_v8_load_3": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8_load_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel_firing_0": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_diesel",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel_firing_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel_firing_1": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_diesel",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel_firing_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel_firing_2": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_diesel",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel_firing_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel_firing_3": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_diesel",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel_firing_3",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel_load_0": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel_load_0",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel_load_1": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel_load_1",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel_load_2": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel_load_2",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel_load_3": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel_load_3",
+        "stream": false
+      }
+    ]
+  },
+  "turbo_whistle": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.turbo_whistle",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:turbo_whistle",
         "stream": false
       }
     ]
@@ -21,26 +401,6 @@
     "subtitle": "subtitles.overthought_vehicles.skid",
     "sounds": [
       "overthought_vehicles:skid"
-    ]
-  },
-  "engine_v8": {
-    "category": "neutral",
-    "subtitle": "subtitles.overthought_vehicles.engine_v8",
-    "sounds": [
-      {
-        "name": "overthought_vehicles:engine_v8",
-        "stream": false
-      }
-    ]
-  },
-  "engine_diesel": {
-    "category": "neutral",
-    "subtitle": "subtitles.overthought_vehicles.engine_diesel",
-    "sounds": [
-      {
-        "name": "overthought_vehicles:engine_diesel",
-        "stream": false
-      }
     ]
   },
   "engine_electric": {

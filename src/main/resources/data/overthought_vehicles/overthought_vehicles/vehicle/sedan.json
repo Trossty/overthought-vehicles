@@ -4,7 +4,7 @@
   "height": 1.92,
   "color": "cyan",
   "performance": { "speed": 1.05, "acceleration": 1, "fuel_use": 0.85, "braking": 1.05, "steering": 1.05, "offroad": 0 },
-  "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "road" },
+  "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "road", "cylinders": 4, "idle_rpm": 750, "redline_rpm": 6500, "turbo": false },
   "tank": 50,
   "mass": 1300,
   "seats": [

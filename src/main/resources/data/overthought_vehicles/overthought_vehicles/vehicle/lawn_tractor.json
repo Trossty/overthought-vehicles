@@ -7,7 +7,7 @@
   "steering_wheel_rise": 6,
   "steering_wheel_rake": 55,
   "performance": { "speed": 0.3, "acceleration": 0.9, "fuel_use": 0.3, "braking": 1, "steering": 1.4, "offroad": 0.4 },
-  "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "road" },
+  "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "road", "cylinders": 2, "idle_rpm": 1500, "redline_rpm": 3600, "turbo": false },
   "tank": 9,
   "lights": { "length": 8, "spread": 1.5 },
   "materials": [

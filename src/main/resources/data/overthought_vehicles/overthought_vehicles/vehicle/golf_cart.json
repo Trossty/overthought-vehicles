@@ -5,7 +5,7 @@
   "color": "white",
   "performance": { "speed": 0.5, "acceleration": 0.9, "fuel_use": 0.6, "braking": 1, "steering": 1.2, "offroad": 0.3 },
   "steering_wheel_rake": 55,
-  "factory": { "engine": "inline4", "fuel": "electric", "tyres": "road" },
+  "factory": { "engine": "inline4", "fuel": "electric", "tyres": "road", "turbo": false },
   "tank": 20,
   "lights": { "length": 8, "spread": 2 },
   "materials": [

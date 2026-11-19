@@ -4,7 +4,7 @@
   "height": 1.9,
   "color": "red",
   "performance": { "speed": 0.45, "acceleration": 0.85, "fuel_use": 0.9, "braking": 0.9, "steering": 0.85, "offroad": 0.95 },
-  "factory": { "engine": "inline4", "fuel": "diesel", "tyres": "dirt" },
+  "factory": { "engine": "inline4", "fuel": "diesel", "tyres": "dirt", "cylinders": 4, "idle_rpm": 800, "redline_rpm": 2400, "turbo": false },
   "tank": 47,
   "lights": { "length": 12, "spread": 2 },
   "materials": [

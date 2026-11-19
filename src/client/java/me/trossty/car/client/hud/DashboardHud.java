@@ -233,7 +233,7 @@ public class DashboardHud implements LayeredDraw.Layer {
         float blocksPerSecond = Math.abs(car.getEngineSpeed()) * TICKS_PER_SECOND;
         float dialMax = dialMax(car);
         float targetSpeed = Mth.clamp(blocksPerSecond / dialMax, 0.0F, 1.0F);
-        int dialRpm = car.getEngineFuel().needsSpark() ? 8000 : 5000;
+        int dialRpm = dialRpm(car);
         float targetRpm = Mth.clamp(car.gearbox().getEngineRpm() / dialRpm, 0.0F, 1.0F);
         float targetFuel = Mth.clamp(car.getFuelFraction(), 0.0F, 1.0F);
 
@@ -306,6 +306,21 @@ public class DashboardHud implements LayeredDraw.Layer {
     }
 
     /**
+     * How far the rev counter reads: a tenth past this engine's redline,
+     * rounded up to a number it labels evenly. A lorry's diesel gets a short
+     * dial, a sports bike's four a long one.
+     */
+    static int dialRpm(CarEntity car) {
+        float reach = car.gearbox().getRedlineRpm() * 1.1F;
+        int every = rpmLabelEvery(reach);
+        return (int) Math.ceil(reach / every) * every;
+    }
+
+    private static int rpmLabelEvery(float dialRpm) {
+        return dialRpm > 10000 ? 3000 : dialRpm > 6000 ? 2000 : 1000;
+    }
+
+    /**
      * The rev counter: ticks every 500 rpm, numbers in thousands, the red band
      * from this engine's redline, and the gear in the window underneath.
      */
@@ -324,7 +339,7 @@ public class DashboardHud implements LayeredDraw.Layer {
             dialRect(context, cx, cy, t, (major ? TICK_OUTER - 5 : TICK_OUTER - 3) * 2, major ? -2 : -1,
                     TICK_OUTER * 2, major ? 2 : 1, major ? 0xFFE8ECEE : 0xFF8A949A);
         }
-        int labelEvery = dialRpm > 6000 ? 2000 : 1000;
+        int labelEvery = rpmLabelEvery(dialRpm);
         for (int rpm = 0; rpm <= dialRpm; rpm += labelEvery) {
             drawLabel(context, client, cx, cy, (float) rpm / dialRpm, String.valueOf(rpm / 1000));
         }

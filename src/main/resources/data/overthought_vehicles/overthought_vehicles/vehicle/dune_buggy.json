@@ -5,7 +5,7 @@
   "color": "orange",
   "performance": { "speed": 1, "acceleration": 1.1, "fuel_use": 0.9, "braking": 0.95, "steering": 1.1, "offroad": 0.85 },
   "steering_wheel_rake": 40,
-  "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "dirt" },
+  "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "dirt", "cylinders": 4, "idle_rpm": 900, "redline_rpm": 5500, "turbo": false },
   "tank": 40,
   "lights": { "length": 12, "spread": 3 },
   "materials": [

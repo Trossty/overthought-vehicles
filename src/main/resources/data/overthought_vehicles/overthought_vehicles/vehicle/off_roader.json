@@ -4,7 +4,7 @@
   "height": 2.14,
   "color": "green",
   "performance": { "speed": 0.92, "acceleration": 1.05, "fuel_use": 1.25, "braking": 0.95, "steering": 0.9, "offroad": 0.8, "gears": [0.17, 0.3, 0.45, 0.62, 0.8, 1] },
-  "factory": { "engine": "v6", "fuel": "petrol", "tyres": "dirt" },
+  "factory": { "engine": "v6", "fuel": "petrol", "tyres": "dirt", "cylinders": 6, "idle_rpm": 750, "redline_rpm": 6000, "turbo": false },
   "tank": 66,
   "mass": 1900,
   "lights": { "length": 15, "spread": 4 },

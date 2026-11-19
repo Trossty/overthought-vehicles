@@ -4,7 +4,7 @@
   "height": 0.95,
   "color": "lime",
   "performance": { "speed": 0.85, "acceleration": 1.5, "fuel_use": 0.5, "braking": 1.3, "steering": 1.6, "offroad": 0 },
-  "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "sport" },
+  "factory": { "engine": "inline4", "fuel": "petrol", "tyres": "sport", "cylinders": 1, "idle_rpm": 1800, "redline_rpm": 6800, "turbo": false },
   "tank": 8,
   "materials": [
     { "item": "minecraft:iron_ingot", "count": 3 },

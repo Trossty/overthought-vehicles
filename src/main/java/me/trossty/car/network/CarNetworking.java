@@ -38,10 +38,11 @@ public final class CarNetworking {
             }
         });
 
-        registrar.playToServer(BrakeC2SPayload.ID, BrakeC2SPayload.CODEC, (payload, context) -> {
+        registrar.playToServer(PedalsC2SPayload.ID, PedalsC2SPayload.CODEC, (payload, context) -> {
             if (context.player().getVehicle() instanceof CarEntity car
                     && car.getControllingPassenger() == context.player()) {
-                car.setBrakeLamps(payload.pressed());
+                car.setBrakeLamps(payload.brake());
+                car.setThrottlePedal(payload.throttle());
             }
         });
 

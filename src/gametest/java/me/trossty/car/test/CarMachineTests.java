@@ -2606,4 +2606,269 @@ public class CarMachineTests {
         context.assertTrue(copy.parts().getQuality(last) == CarPart.Quality.GOLD, "the tier did not survive a save");
         context.succeed();
     }
+
+    // ---- engine note ----
+
+    /**
+     * The note is the firing rate, rpm / 60 x cylinders / 2, and the octave
+     * layers it is played on cover every engine from idle to past the redline
+     * without Minecraft clamping a pitch.
+     */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void engineNoteFollowsTheFiring(GameTestHelper context) {
+        context.assertTrue(me.trossty.car.sound.EngineAcoustics.firingHz(3000.0F, 4) == 100.0F,
+                "a four at 3000 rpm does not fire 100 times a second");
+        context.assertTrue(me.trossty.car.sound.EngineAcoustics.firingHz(3000.0F, 8) == 200.0F,
+                "a V8 at 3000 rpm does not fire 200 times a second");
+        for (me.trossty.car.sound.EngineAcoustics.Voice voice : me.trossty.car.sound.EngineAcoustics.Voice.values()) {
+            for (float hz = 5.0F; hz < 600.0F; hz *= 1.07F) {
+                float power = 0.0F;
+                for (int layer = 0; layer < me.trossty.car.sound.EngineAcoustics.LAYERS; layer++) {
+                    float gain = me.trossty.car.sound.EngineAcoustics.layerGain(voice, hz, layer);
+                    power += gain * gain;
+                }
+                context.assertTrue(Math.abs(power - 1.0F) < 0.001F,
+                        voice.key() + " at " + hz + " Hz plays at power " + power);
+            }
+        }
+        var registry = context.getLevel().registryAccess().registryOrThrow(me.trossty.car.vehicle.VehicleDefinition.KEY);
+        int checked = 0;
+        for (var entry : registry.entrySet()) {
+            var definition = entry.getValue();
+            String name = entry.getKey().location().getPath();
+            var factory = definition.factory();
+            int setup = factory.setup();
+            if (CarSetup.electric(setup) || definition.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.TRAILER) {
+                continue;
+            }
+            context.assertTrue(factory.cylinders().isPresent() && factory.idleRpm().isPresent()
+                    && factory.redlineRpm().isPresent(), name + " does not say its cylinders, idle and redline");
+            CarSetup.EngineSpec spec = factory.engineSpec(
+                    CarSetup.EngineSpec.of(CarSetup.layout(setup), CarSetup.engineFuel(setup)));
+            context.assertTrue(spec.redlineRpm() >= 2.0F * spec.idleRpm(), name + " redlines below twice its idle");
+            var voice = me.trossty.car.sound.EngineAcoustics.Voice.of(spec.cylinders(),
+                    !CarSetup.engineFuel(setup).needsSpark());
+            float low = me.trossty.car.sound.EngineAcoustics.firingHz(spec.idleRpm(), spec.cylinders());
+            float high = me.trossty.car.sound.EngineAcoustics.firingHz(spec.redlineRpm() * 1.04F, spec.cylinders());
+            float bottom = me.trossty.car.sound.EngineAcoustics.layerHz(voice, 0);
+            float top = me.trossty.car.sound.EngineAcoustics.layerHz(voice, me.trossty.car.sound.EngineAcoustics.LAYERS - 1);
+            context.assertTrue(low >= bottom * me.trossty.car.sound.EngineAcoustics.MIN_PITCH,
+                    name + " idles at " + low + " Hz, under what the " + voice.key() + " loops reach");
+            context.assertTrue(high <= top * me.trossty.car.sound.EngineAcoustics.MAX_PITCH,
+                    name + " revs to " + high + " Hz, over what the " + voice.key() + " loops reach");
+            checked++;
+        }
+        context.assertTrue(checked >= 15, "only " + checked + " engines were checked");
+        context.succeed();
+    }
+
+    /**
+     * Driving a sedan up through first and back down again: changing up cuts
+     * the throttle and lets the revs fall to second's, a step at a time;
+     * changing down blips the throttle and spins them up to first's.
+     */
+    @GameTest(template = "empty", timeoutTicks = 140)
+    public static void gearChangesCutAndBlipTheThrottle(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new net.minecraft.world.phys.Vec3(4.5, 1.0, 0.5));
+        car.setModel(CarMain.id("sedan"));
+        var definition = context.getLevel().registryAccess()
+                .registryOrThrow(me.trossty.car.vehicle.VehicleDefinition.KEY).get(CarMain.id("sedan"));
+        car.setSetup(definition.factory().setup());
+        car.setYRot(0.0F);
+        var driver = context.makeMockServerPlayerInLevel();
+        context.runAtTickTime(2, () -> driver.startRiding(car, true));
+        context.runAtTickTime(3, () -> car.setThrottlePedal(true));
+        float redline = definition.factory().redlineRpm().orElseThrow();
+        // 0 waiting, 1 pulling away, 2 holding speed, 3 lifted and slowing, 4 rolling
+        int[] phase = {0};
+        int[] held = {0};
+        float[] speed = {0.0F};
+        int[] last = {0};
+        float[] lastRpm = {0.0F};
+        boolean[] upshift = {false};
+        boolean[] downshift = {false};
+        int[] cutTicks = {0};
+        float[] fellFrom = {0.0F};
+        float[] blipFrom = {0.0F};
+        int[] afterUp = {-1};
+        float[] worstDrop = {0.0F};
+        context.onEachTick(() -> {
+            if (!car.isEngineRunning()) {
+                return;
+            }
+            float top = car.getRatedTopSpeed();
+            var box = car.gearbox();
+            int gear = box.getGear();
+            float rpm = box.getEngineRpm();
+            // The drive is cut through a change, so the speed holds while it happens.
+            boolean shifting = box.getShift() > 0.0F;
+            if (phase[0] == 0) {
+                phase[0] = 1;
+            } else if (phase[0] == 1 && !shifting) {
+                speed[0] += 0.015F * top;
+                if (speed[0] >= 0.3F * top) {
+                    phase[0] = 2;
+                }
+            } else if (phase[0] == 2 && ++held[0] >= 5) {
+                phase[0] = 3;
+                car.setThrottlePedal(false);
+            } else if (phase[0] == 3 && !shifting) {
+                // Coasting: quickly at first, then gently enough near the change
+                // down that the box, reading speed averaged over three ticks, is
+                // not left behind.
+                speed[0] -= (speed[0] > 0.16F * top ? 0.02F : 0.004F) * top;
+                if (speed[0] <= 0.05F * top) {
+                    phase[0] = 4;
+                }
+            }
+            if (phase[0] <= 2 && last[0] > 0) {
+                worstDrop[0] = Math.max(worstDrop[0], lastRpm[0] - rpm);
+            }
+            if (last[0] == 1 && gear == 2) {
+                upshift[0] = true;
+                fellFrom[0] = lastRpm[0];
+            }
+            if (upshift[0] && afterUp[0] < 0) {
+                if (box.getShift() > 0.0F) {
+                    context.assertTrue(box.getThrottle() == 0.0F, "the throttle stayed open changing up: " + box.getThrottle());
+                    cutTicks[0]++;
+                } else {
+                    afterUp[0] = 0;
+                    context.assertTrue(rpm < fellFrom[0] - 0.15F * redline,
+                            "the revs only fell from " + fellFrom[0] + " to " + rpm + " changing up");
+                }
+            } else if (afterUp[0] >= 0 && afterUp[0] < 10 && phase[0] <= 2) {
+                afterUp[0]++;
+            }
+            if (last[0] == 2 && gear == 1 && phase[0] >= 3) {
+                downshift[0] = true;
+                blipFrom[0] = lastRpm[0];
+                context.assertTrue(box.getThrottle() == 1.0F, "no blip of throttle changing down: " + box.getThrottle());
+            }
+            if (downshift[0] && box.getShift() == 0.0F && blipFrom[0] > 0.0F) {
+                context.assertTrue(rpm > blipFrom[0] + 0.1F * redline,
+                        "the revs only went from " + blipFrom[0] + " to " + rpm + " changing down");
+                blipFrom[0] = 0.0F;
+            }
+            if (afterUp[0] == 4) {
+                context.assertTrue(box.getThrottle() == 1.0F, "the throttle did not open again after the change up");
+            }
+            last[0] = gear;
+            lastRpm[0] = rpm;
+            car.setPos(car.getX(), car.getY(), car.getZ() + speed[0]);
+        });
+        context.runAtTickTime(130, () -> {
+            context.assertTrue(upshift[0], "the sedan never changed up into second");
+            context.assertTrue(cutTicks[0] >= 4, "the change up was cut for only " + cutTicks[0] + " ticks");
+            context.assertTrue(worstDrop[0] <= 0.06F * redline + 1.0F,
+                    "the revs dropped " + worstDrop[0] + " in one tick, a jump rather than a fall");
+            context.assertTrue(downshift[0], "the sedan never changed down into first");
+            context.assertTrue(blipFrom[0] == 0.0F, "the change down never finished");
+            context.succeed();
+        });
+    }
+
+    /**
+     * A turbo spools on the throttle and lets its boost go when the throttle
+     * shuts, while the shaft runs on; an engine without one has nothing to spin.
+     */
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void turboSpoolsAndBlowsOff(GameTestHelper context) {
+        CarEntity turbo = context.spawn(ModEntities.CAR, new BlockPos(2, 1, 2));
+        CarEntity plain = context.spawn(ModEntities.CAR, new BlockPos(6, 1, 2));
+        turbo.setTurbo(true);
+        plain.setTurbo(false);
+        var driver = context.makeMockServerPlayerInLevel();
+        var other = context.makeMockServerPlayerInLevel();
+        context.runAtTickTime(2, () -> {
+            driver.startRiding(turbo, true);
+            other.startRiding(plain, true);
+        });
+        context.runAtTickTime(3, () -> {
+            turbo.setThrottlePedal(true);
+            plain.setThrottlePedal(true);
+        });
+        float[] boost = {0.0F};
+        float[] shaft = {0.0F};
+        context.runAtTickTime(40, () -> {
+            shaft[0] = turbo.gearbox().getTurboSpeed();
+            boost[0] = turbo.gearbox().getBoost();
+            context.assertTrue(turbo.hasTurbo() && shaft[0] > 0.3F, "the turbo only spooled to " + shaft[0]);
+            context.assertTrue(boost[0] >= me.trossty.car.sound.EngineAcoustics.BLOW_OFF_BOOST,
+                    "the turbo only made " + boost[0] + " boost");
+            context.assertTrue(plain.gearbox().getTurboSpeed() == 0.0F && plain.gearbox().getBoost() == 0.0F,
+                    "an engine with no turbo spun one up");
+            turbo.setThrottlePedal(false);
+        });
+        context.runAtTickTime(44, () -> {
+            float now = turbo.gearbox().getBoost();
+            context.assertTrue(now == 0.0F, "the boost was held with the throttle shut: " + now);
+            context.assertTrue(me.trossty.car.sound.EngineAcoustics.ventedBoost(boost[0], now) > 0.0F,
+                    "shutting the throttle on " + boost[0] + " boost blew nothing off");
+            float spinning = turbo.gearbox().getTurboSpeed();
+            context.assertTrue(spinning > 0.3F && spinning < shaft[0],
+                    "the shaft went from " + shaft[0] + " to " + spinning + " a moment after the lift");
+            context.succeed();
+        });
+    }
+
+    /**
+     * Held at its top speed, a sedan's box changes up into overdrive: the
+     * driver eases to a cruising throttle and the revs settle well under half
+     * the redline. Dropped off the pace with the pedal down, it kicks down.
+     * It shuttles up and down the template, turned about at each end, so it
+     * keeps its speed without leaving.
+     */
+    @GameTest(template = "empty", timeoutTicks = 140)
+    public static void cruisingSettlesIntoOverdrive(GameTestHelper context) {
+        CarEntity car = context.spawn(ModEntities.CAR, new net.minecraft.world.phys.Vec3(4.5, 1.0, 1.5));
+        car.setModel(CarMain.id("sedan"));
+        var definition = context.getLevel().registryAccess()
+                .registryOrThrow(me.trossty.car.vehicle.VehicleDefinition.KEY).get(CarMain.id("sedan"));
+        car.setSetup(definition.factory().setup());
+        car.setYRot(0.0F);
+        var driver = context.makeMockServerPlayerInLevel();
+        context.runAtTickTime(2, () -> driver.startRiding(car, true));
+        context.runAtTickTime(3, () -> car.setThrottlePedal(true));
+        float redline = definition.factory().redlineRpm().orElseThrow();
+        float[] pace = {1.0F};
+        BlockPos origin = context.absolutePos(BlockPos.ZERO);
+        context.onEachTick(() -> {
+            if (!car.isEngineRunning()) {
+                return;
+            }
+            double z = car.getZ() - origin.getZ();
+            boolean north = car.getYRot() == 180.0F;
+            if (!north && z > 7.0 || north && z < 1.5) {
+                car.setYRot(north ? 0.0F : 180.0F);
+                north = !north;
+            }
+            double step = pace[0] * car.getMaxSpeed();
+            car.setPos(car.getX(), car.getY(), car.getZ() + (north ? -step : step));
+        });
+        int[] cruising = {-1};
+        for (int tick = 10; tick <= 100; tick++) {
+            int at = tick;
+            context.runAtTickTime(tick, () -> {
+                if (cruising[0] < 0 && car.gearbox().getGear() == car.gearbox().gearCount() + 1) {
+                    cruising[0] = at;
+                }
+            });
+        }
+        context.runAtTickTime(100, () -> {
+            var box = car.gearbox();
+            context.assertTrue(cruising[0] > 0, "holding its top speed, the sedan stayed in gear " + box.getGear());
+            context.assertTrue(box.getEngineRpm() < 0.55F * redline,
+                    "cruising in overdrive the sedan still turned " + box.getEngineRpm() + " rpm");
+            context.assertTrue(box.getThrottle() > 0.0F && box.getThrottle() < 0.5F,
+                    "cruising the throttle stood at " + box.getThrottle());
+            pace[0] = 0.8F;
+        });
+        context.runAtTickTime(115, () -> {
+            var box = car.gearbox();
+            context.assertTrue(box.getGear() <= box.gearCount(), "off the pace with the pedal down it did not kick down");
+            context.assertTrue(box.getThrottle() == 1.0F, "kicked down, the throttle was only " + box.getThrottle());
+            context.succeed();
+        });
+    }
 }

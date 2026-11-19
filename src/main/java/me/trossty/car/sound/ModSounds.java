@@ -22,23 +22,33 @@ import net.minecraft.sounds.SoundEvent;
 public final class ModSounds {
 
     /**
-     * Looping engine drone, a 70 Hz fundamental with eight harmonics over a
-     * seamless one-second loop. Pitched between IDLE_PITCH and MAX_PITCH by
-     * speed, so pitch 1.0 is the idle note as synthesized.
+     * The combustion engines' loops, by voice, band and layer, named
+     * {@code engine_<voice>_<band>_<layer>}: each a seamless loop of the
+     * engine firing at that layer's frequency. See {@link EngineAcoustics}
+     * for how they are mixed.
      */
-    public static final SoundEvent CAR_ENGINE = register("engine");
+    private static final SoundEvent[][][] ENGINE_LOOPS =
+            new SoundEvent[EngineAcoustics.Voice.values().length][EngineAcoustics.Band.values().length][EngineAcoustics.LAYERS];
+
+    static {
+        for (EngineAcoustics.Voice voice : EngineAcoustics.Voice.values()) {
+            for (EngineAcoustics.Band band : EngineAcoustics.Band.values()) {
+                for (int layer = 0; layer < EngineAcoustics.LAYERS; layer++) {
+                    ENGINE_LOOPS[voice.ordinal()][band.ordinal()][layer] =
+                            register("engine_" + voice.key() + "_" + band.key() + "_" + layer);
+                }
+            }
+        }
+    }
+
+    /** A turbo's whine as its shaft spins, looped; pitched and swelled with the shaft's speed. */
+    public static final SoundEvent TURBO_WHISTLE = register("turbo_whistle");
 
     /** One-shot horn blast: a 440 Hz / 554.37 Hz two-tone chord. */
     public static final Holder<SoundEvent> CAR_HORN = registerReference("horn");
 
     /** Tyre squeal for a car sliding sideways: a wavering whine over hiss. */
     public static final SoundEvent TYRE_SKID = register("skid");
-
-    /** A cross-plane V8's loping burble, 46 Hz, for the big engines. */
-    public static final SoundEvent ENGINE_V8 = register("engine_v8");
-
-    /** A diesel's drone with a knock at every firing. */
-    public static final SoundEvent ENGINE_DIESEL = register("engine_diesel");
 
     /** An electric motor's inverter whine: no firing, just a clean rising tone. */
     public static final SoundEvent ENGINE_ELECTRIC = register("engine_electric");
@@ -71,6 +81,10 @@ public final class ModSounds {
     public static final SoundEvent CHARGER_HUM = register("charger_hum");
 
     private ModSounds() {
+    }
+
+    public static SoundEvent engineLoop(EngineAcoustics.Voice voice, EngineAcoustics.Band band, int layer) {
+        return ENGINE_LOOPS[voice.ordinal()][band.ordinal()][layer];
     }
 
     private static SoundEvent register(String path) {
