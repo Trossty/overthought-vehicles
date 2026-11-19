@@ -1,0 +1,57 @@
+name: Idea or suggestion
+description: Something the mod could add or do better.
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. The mod is about vehicles that feel real to drive, own and fix, in a Minecraft way.
+        Shops, money and customer systems are out of scope on purpose.
+        For a new vehicle, use the **Vehicle request** template instead.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Driving or handling
+        - Vehicles or trailers
+        - Boats, the plane or the helicopter
+        - Workshop, parts and diagnosis
+        - Damage and repairs
+        - Fuel production and refuelling
+        - Power and electric vehicles
+        - Roads and paint
+        - Screens, HUD or controls
+        - Sounds
+        - Compatibility with another mod
+        - Datapacks and config
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is missing or annoying?
+      description: The situation in game where you wanted this.
+      placeholder: When a car breaks down far from the garage there is no way to get it back except driving it broken.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How it could work in game. Recipes, controls and how it fits with the existing blocks and items are all useful.
+      placeholder: A tow rope between two cars, crafted from leads and iron, so one car can pull another at low speed.
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference
+      description: How it works in real life, or in a game that does it well. Pictures welcome.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you tried instead
+      description: Other ways you got around it, or other ways it could be done.

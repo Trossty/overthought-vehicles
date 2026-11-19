@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Wiki
+    url: https://github.com/Trossty/overthought-vehicles/wiki
+    about: How to build vehicles, fix them, make fuel and power, with every recipe.
+  - name: Adding your own vehicle
+    url: https://github.com/Trossty/overthought-vehicles/wiki/Adding-Vehicles
+    about: A new vehicle is one datapack JSON file. The guide lists every field.

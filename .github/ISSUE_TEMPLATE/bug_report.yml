@@ -1,0 +1,100 @@
+name: Bug report
+description: Something broke, crashed or does not work the way the wiki says it should.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. A good report with steps and a log usually gets fixed in the next release.
+        Please check the [wiki](https://github.com/Trossty/overthought-vehicles/wiki) first: some things that look like bugs are wear or damage doing their job (a car that pulls to one side, misfires or will not start).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected to see instead.
+      placeholder: I drove the pickup onto the lift and raised it, but the wheels stayed on the ground.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The shortest way to make it happen again, starting from a new world if you can.
+      placeholder: |
+        1. Place a Vehicle Lift
+        2. Drive a pickup truck onto it
+        3. Right-click the lift
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the mod?
+      options:
+        - Driving or handling
+        - A specific vehicle or trailer
+        - Boats, the plane or the helicopter
+        - Workshop, parts or wear
+        - Damage and repairs
+        - Fuel (pumpjack, refinery, pipes, pump)
+        - Power (generators, cables, batteries, charging)
+        - Roads and paint
+        - Screens, HUD or tooltips
+        - Sounds
+        - Crafting or recipes
+        - Multiplayer sync
+        - Crash
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: mod-version
+    attributes:
+      label: Overthought Vehicles version
+      description: Shown in the mod list, or in the jar's name.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: neoforge-version
+    attributes:
+      label: NeoForge version
+      placeholder: 21.1.266
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where were you playing?
+      options:
+        - Singleplayer
+        - Multiplayer (dedicated server)
+        - Multiplayer (LAN or open to LAN)
+    validations:
+      required: true
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods
+      description: Does it still happen with only Overthought Vehicles installed? If not, list the other mods (a modpack name and version is fine).
+      placeholder: Only this mod / Jade 15.x, Create 6.x ...
+  - type: textarea
+    id: log
+    attributes:
+      label: Log or crash report
+      description: Paste `logs/latest.log`, or the file in `crash-reports/` for a crash. For a long log, a link to a paste site such as mclo.gs is better.
+      render: shell
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or video
+      description: Drag images or a short clip here. They help a lot with anything visual.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send it
+      options:
+        - label: I searched the existing issues and this is not one of them.
+          required: true
+        - label: I am on the latest release of the mod.

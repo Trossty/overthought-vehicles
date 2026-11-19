@@ -1,0 +1,53 @@
+name: Vehicle request
+description: Suggest a new vehicle, trailer or implement.
+title: "[Vehicle] "
+labels: ["vehicle request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Vehicles are built from boxes with real-world proportions and round wheels, and they carry no brand names or badges.
+        You can also build one yourself as a datapack: see [Adding Vehicles](https://github.com/Trossty/overthought-vehicles/wiki/Adding-Vehicles). If you made one, share the JSON below.
+  - type: input
+    id: vehicle
+    attributes:
+      label: What vehicle?
+      description: The kind of vehicle, and a real model it could look like.
+      placeholder: A small box van, like a 1980s delivery van
+    validations:
+      required: true
+  - type: dropdown
+    id: chassis
+    attributes:
+      label: What is it closest to?
+      options:
+        - Car
+        - Pickup (with a bed you can load)
+        - Truck or tanker
+        - Motorcycle or scooter
+        - Boat
+        - Plane
+        - Helicopter
+        - Trailer or implement
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What would it be for?
+      description: What it does that the current vehicles do not.
+      placeholder: Carrying a chest-sized load that a pickup bed cannot, and towing a trailer at the same time.
+    validations:
+      required: true
+  - type: textarea
+    id: pictures
+    attributes:
+      label: Pictures
+      description: Side, front and rear pictures make the proportions much easier to get right.
+  - type: textarea
+    id: json
+    attributes:
+      label: Datapack JSON (optional)
+      description: If you already built it as a datapack vehicle, paste the file here.
+      render: json

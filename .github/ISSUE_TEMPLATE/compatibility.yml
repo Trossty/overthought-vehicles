@@ -1,0 +1,42 @@
+name: Mod compatibility
+description: Overthought Vehicles and another mod do not work well together.
+title: "[Compat] "
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fuels are real fluids with `c:` tags, and the machines take and give NeoForge energy and fluids, so most pipe, cable and tank mods should connect.
+        If one does not, or another mod breaks something here, tell us below.
+  - type: input
+    id: other-mod
+    attributes:
+      label: Other mod and its version
+      placeholder: Create 6.0.6
+    validations:
+      required: true
+  - type: input
+    id: mod-version
+    attributes:
+      label: Overthought Vehicles version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What goes wrong?
+      description: What you did, what happened and what you expected.
+      placeholder: Create's fluid pipes do not pull petrol out of the Fuel Tank.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log or crash report
+      description: Paste `logs/latest.log`, or a link to it on a paste site such as mclo.gs.
+      render: shell
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots

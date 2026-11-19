@@ -111,6 +111,8 @@ public class CarPhotoTest {
             scenes.put("newRiders", this::newRiders);
             scenes.put("farmWork", this::farmWork);
             scenes.put("crateAndIcons", this::crateAndIcons);
+            scenes.put("wikiHero", this::wikiHero);
+            scenes.put("recipes", this::recipes);
             String only = System.getProperty("car.photo.scenes", "");
             List<String> wanted = Boolean.getBoolean("car.photo.all") ? List.copyOf(scenes.keySet())
                     : only.isBlank() ? List.of() : List.of(only.split(","));
@@ -263,6 +265,7 @@ public class CarPhotoTest {
                 player.setShiftKeyDown(false);
             });
             context.waitTicks(10);
+            context.runOnClient(client -> client.getToasts().clear());
             context.takeScreenshot("menu_" + machines[i][1]);
             context.runOnClient(client -> client.setScreen(null));
         }
@@ -278,6 +281,7 @@ public class CarPhotoTest {
                     car.getDisplayName()));
         });
         context.waitTicks(10);
+        context.runOnClient(client -> client.getToasts().clear());
         context.takeScreenshot("menu_service");
         context.runOnClient(client -> client.setScreen(null));
     }
@@ -1919,6 +1923,81 @@ public class CarPhotoTest {
      * it the way placing the item does) of each vehicle added with the
      * MrCrayfish set.
      */
+    /** A line-up on grass for the top of the readme: cars, a bike, a truck and the helicopter. */
+    private void wikiHero(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -24 %d -10 24 %d 40 minecraft:air".formatted(Y, Y + 12));
+        server.runCommand("fill -24 %d -10 24 %d 40 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        String[][] lineUp = {
+                {"overthought_vehicles:car", "muscle_car", "14", "0.5", "12", "-10"},
+                {"overthought_vehicles:motorcycle", "sport_bike", "4", "-3.5", "13", "25"},
+                {"overthought_vehicles:car", "off_roader", "13", "5", "10", "-25"},
+                {"overthought_vehicles:pickup", "pickup_truck", "11", "-7.5", "8.5", "30"},
+                {"overthought_vehicles:fuel_tanker", "tanker_truck", "0", "-3", "1", "10"},
+                {"overthought_vehicles:helicopter", "helicopter", "1", "9.5", "0", "-35"},
+        };
+        for (String[] v : lineUp) {
+            server.runCommand("summon %s %s %d %s {Rotation:[%sf,0f],Model:\"overthought_vehicles:%s\",Color:%s}"
+                    .formatted(v[0], v[3], Y, v[4], v[5], v[1], v[2]));
+        }
+        context.runOnClient(client -> client.options.hideGui = true);
+        shot(context, server, "wiki_hero_front", 1.0, Y + 1.8, 23.0, 180, 6);
+        shot(context, server, "wiki_hero_right", 8.0, Y + 2.0, 21.0, 158, 7);
+        shot(context, server, "wiki_hero_left", -7.0, Y + 2.0, 21.5, -160, 7);
+        context.runOnClient(client -> client.options.hideGui = false);
+        clear(server);
+        server.runCommand("fill -24 %d -10 24 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+    }
+
+    /** Every crafting-table recipe of the mod, laid out in the grid, for the wiki. */
+    private void recipes(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -3 %d 26 3 %d 32 minecraft:air".formatted(Y, Y + 3));
+        server.runCommand("setblock 0 %d 30 minecraft:crafting_table".formatted(Y));
+        server.runCommand("tp @a 0.5 %d 28.5 0 20".formatted(Y));
+        server.runCommand("clear @a");
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var world = minecraft.overworld();
+            var pos = at(0, 30);
+            player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                    (id, inventory, opener) -> new net.minecraft.world.inventory.CraftingMenu(id, inventory,
+                            net.minecraft.world.inventory.ContainerLevelAccess.create(world, pos)),
+                    net.minecraft.network.chat.Component.translatable("container.crafting")));
+        });
+        context.waitTicks(10);
+        List<String> names = new java.util.ArrayList<>();
+        server.runOnServer(minecraft -> minecraft.getRecipeManager().getRecipes().stream()
+                .filter(holder -> holder.id().getNamespace().equals(me.trossty.car.CarMain.MOD_ID))
+                .filter(holder -> holder.value().getType() == net.minecraft.world.item.crafting.RecipeType.CRAFTING)
+                .filter(holder -> !holder.value().isSpecial())
+                .forEach(holder -> names.add(holder.id().getPath())));
+        for (String name : names) {
+            server.runOnServer(minecraft -> {
+                var menu = minecraft.getPlayerList().getPlayers().get(0).containerMenu;
+                for (int i = 1; i <= 9; i++) {
+                    menu.getSlot(i).set(net.minecraft.world.item.ItemStack.EMPTY);
+                }
+                var recipe = minecraft.getRecipeManager().byKey(net.minecraft.resources.ResourceLocation
+                        .fromNamespaceAndPath(me.trossty.car.CarMain.MOD_ID, name)).orElseThrow().value();
+                int width = recipe instanceof net.minecraft.world.item.crafting.ShapedRecipe shaped ? shaped.getWidth() : 3;
+                var ingredients = recipe.getIngredients();
+                for (int i = 0; i < ingredients.size(); i++) {
+                    var items = ingredients.get(i).getItems();
+                    if (items.length > 0) {
+                        menu.getSlot(1 + i / width * 3 + i % width).set(items[0].copy());
+                    }
+                }
+                menu.broadcastChanges();
+            });
+            context.waitTicks(4);
+            context.takeScreenshot("recipe_" + name);
+        }
+        context.runOnClient(client -> client.setScreen(null));
+        server.runCommand("clear @a");
+    }
+
     private static final String[][] NEW_VEHICLES = {
             {"overthought_vehicles:car", "overthought_vehicles:tractor", "14"},
             {"overthought_vehicles:trailer", "overthought_vehicles:seed_drill", "11"},
@@ -2330,6 +2409,7 @@ public class CarPhotoTest {
             player.containerMenu.broadcastChanges();
         });
         context.waitTicks(30);
+        context.runOnClient(client -> client.getToasts().clear());
         context.takeScreenshot("workstation_screen");
         context.runOnClient(client -> client.setScreen(null));
         server.runCommand("gamemode creative @a");
