@@ -37,6 +37,7 @@ public class CarPhotoTest {
             Map<String, BiConsumer<ClientGameTestContext, TestServerContext>> scenes = new LinkedHashMap<>();
             scenes.put("showroom", this::showroom);
             scenes.put("portraits", this::portraits);
+            scenes.put("rims", this::rims);
             scenes.put("icons", this::icons);
             scenes.put("tyres", this::tyres);
             scenes.put("station", this::station);
@@ -187,11 +188,7 @@ public class CarPhotoTest {
             System.out.println("car photo lift " + name + " battery box at " + battery);
             // Up in the air over the bay: flying, or the camera drops to the floor.
             server.runCommand("gamemode creative @a");
-            server.runOnServer(minecraft -> {
-                var player = minecraft.getPlayerList().getPlayers().get(0);
-                player.getAbilities().flying = true;
-                player.onUpdateAbilities();
-            });
+            fly(server, true);
             server.runCommand("tp @a %.2f %.2f %.2f -90 40".formatted(battery.x - 1.6, battery.y + 1.3 - 1.62, battery.z));
             context.waitTicks(12);
             context.takeScreenshot("lift_" + name + "_bay");
@@ -1720,6 +1717,15 @@ public class CarPhotoTest {
         }
     }
 
+    /** Holds the camera player up in the air where it is put, or lets it fall (it is in creative). */
+    private static void fly(TestServerContext server, boolean flying) {
+        server.runOnServer(minecraft -> {
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            player.getAbilities().flying = flying;
+            player.onUpdateAbilities();
+        });
+    }
+
     private void shot(ClientGameTestContext context, TestServerContext server, String name,
                       double x, double y, double z, float yaw, float pitch) {
         server.runCommand("tp @a %.2f %.2f %.2f %.1f %.1f".formatted(x, y, z, yaw, pitch));
@@ -1768,6 +1774,30 @@ public class CarPhotoTest {
                 shot(context, server, "rear_" + vehicle[1].substring(4),
                         0.5 - back * 0.55, Y + 1.0, 10.5 - back, -29, 10);
             }
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+    }
+
+    /** Each car's front wheel from the side, close: every one wears its own rim. */
+    private void rims(ClientGameTestContext context, TestServerContext server) {
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        // the vehicle, its kind, its paint, and its front axle in pixels ahead of the middle
+        String[][] vehicles = {
+                {"car:car", "car:ford_mustang", "11", "26.28"},
+                {"car:car", "car:toyota_corolla", "9", "25.2"},
+                {"car:car", "car:tofas_sahin", "0", "24.18"},
+                {"car:car", "car:jeep_wrangler", "5", "26.22"},
+                {"car:pickup", "car:toyota_hilux", "14", "29.5"},
+                {"car:fuel_tanker", "car:mercedes_atego", "0", "35.72"},
+        };
+        context.runOnClient(client -> client.options.hideGui = true);
+        for (String[] vehicle : vehicles) {
+            clear(server);
+            server.runCommand("summon %s 0.5 %d 10.5 {Rotation:[0f,0f],Model:\"%s\",Color:%s}"
+                    .formatted(vehicle[0], Y, vehicle[1], vehicle[2]));
+            double axle = 10.5 + Double.parseDouble(vehicle[3]) / 16.0;
+            shot(context, server, "rim_" + vehicle[1].substring(4), 3.4, Y - 0.85, axle, 90, 12);
         }
         context.runOnClient(client -> client.options.hideGui = false);
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
@@ -1908,9 +1938,12 @@ public class CarPhotoTest {
             String name = vehicle[1].substring(4);
             double back = vehicle[0].equals("car:helicopter") ? 7.5 : name.equals("massey_ferguson_240") ? 4.5 : 3.6;
             double up = back > 5 ? 2.2 : 1.0;
+            // Over water the camera flies: dropping in, its own splash fills the shot with big blue squares.
+            fly(server, boat);
             shot(context, server, "new_" + name + "_front34", 0.5 + back * 0.55, Y + up, 10.5 + back, 151, 12);
             shot(context, server, "new_" + name + "_rear34", 0.5 - back * 0.55, Y + up, 10.5 - back, -29, 12);
             shot(context, server, "new_" + name + "_side", 0.5 + back, Y + up * 0.6, 10.5, 90, 6);
+            fly(server, false);
         }
         context.runOnClient(client -> client.options.hideGui = false);
         clear(server);

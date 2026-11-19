@@ -68,10 +68,8 @@ for (let i = -3; i <= 3; i++) {
     k.box(i * 1.72 - 0.5, 12.8, FACE, i * 1.72 + 0.5, 18.4, FACE + 0.12, C.BLACK);
 }
 k.sym(() => {
-    k.box(6.75, 14.75, FACE, 10.45, 18.45, FACE + 0.3, C.BLACK);
-    k.box(7.05, 15.6, FACE + 0.3, 10.15, 17.6, FACE + 0.5, C.LAMP);
-    k.box(7.6, 15.05, FACE + 0.3, 9.6, 18.15, FACE + 0.5, C.LAMP);
-    k.box(7.9, 15.9, FACE + 0.5, 9.3, 17.3, FACE + 0.6, C.LAMP_GLOW);
+    k.discZ(8.6, 16.6, 1.95, FACE, FACE + 0.3, C.BLACK);
+    k.roundLamp(8.6, 16.6, 1.45, FACE + 0.3, C.LAMP, true, {bezel: '#3A3C40', ring: 0.28, depth: 0.3});
     k.box(8.5, 12.5, FACE, 10.3, 14.1, FACE + 0.3, C.AMBER);
 });
 k.box(-8.6, 9.0, FACE, 8.6, 10.9, 38.6, C.BLACK);

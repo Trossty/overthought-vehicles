@@ -17,6 +17,10 @@ SCALE = 2  # the 128px texture over a 64-texel model
 HUB = (0, 34, 5.2, 8.8, 0.87)
 WALL = (40, 22, 4.5, 13.8, 1.36)
 TREAD = (40, 0, 3.9, 15.08, 1.48)
+# For the rims (DefinedVehicleModel.addRim): the hub painted open behind
+# spokes, and patches of one colour for the spokes, the nuts and the holes.
+HUB_OPEN = (0, 0, 5.2, 8.8, 0.87)
+RIM_PATCH, NUT_PATCH, DARK_PATCH, PATCH = (14, 0), (23, 0), (31, 0), 8
 
 
 def mix(a, b, t):
@@ -78,9 +82,28 @@ def wheel(name, rim, rubber=(32, 32, 35), band=None, dish=0.72):
             return None
         return shade(rubber, 1.12 if r < 7.25 else 0.8)
 
+    def hub_open(r):
+        if r < 1.55:
+            return hub(r)                    # the cap and the nut ring, as on a dish
+        if r < 2.1 or 3.45 <= r < 3.7:
+            return (30, 30, 33, 255)         # the dark behind the spokes
+        if r < 3.7:
+            return (78, 79, 82, 255)         # the brake disc seen through them
+        return hub(r)                        # the lip
+
     paint(px, HUB, hub)
     paint(px, WALL, wall)
     paint(px, TREAD, tread_side)
+    # A hub for spoked rims: the plain hub's sides copied, its faces painted open.
+    u, v, dx, dy, dz = HUB
+    w, h = int(round(2 * (dx + dz) * SCALE)) + 1, int(round((dz + dy) * SCALE)) + 1
+    im.paste(im.crop((u * SCALE, v * SCALE, u * SCALE + w, v * SCALE + h)), (HUB_OPEN[0] * SCALE, HUB_OPEN[1] * SCALE))
+    paint(px, HUB_OPEN, hub_open)
+    # The patches the rim's pieces take their colour from.
+    for (pu, pv), colour in ((RIM_PATCH, shade(rim, 1.06)), (NUT_PATCH, shade(rim, 1.2)), (DARK_PATCH, (24, 24, 27, 255))):
+        for x in range(pu * SCALE, (pu + PATCH) * SCALE):
+            for y in range(pv * SCALE, (pv + PATCH) * SCALE):
+                px[x, y] = colour
     im.save(DIR + name + '.png')
 
 

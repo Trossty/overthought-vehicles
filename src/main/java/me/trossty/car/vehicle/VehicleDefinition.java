@@ -280,14 +280,75 @@ public record VehicleDefinition(
                 implement -> implement.name().toLowerCase(Locale.ROOT));
     }
 
-    /** One wheel: where its centre is, how big it is, and whether it steers. */
-    public record Wheel(org.joml.Vector3f at, float radius, float width, boolean steers) {
+    /**
+     * One wheel: where its centre is, how big it is, whether it steers, and
+     * the {@code rim} the maker put on it. The rim is the car's; its colour is
+     * the tyre's, since a set of tyres comes on its own wheels.
+     */
+    public record Wheel(org.joml.Vector3f at, float radius, float width, boolean steers, Rim rim) {
         public static final Codec<Wheel> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 ExtraCodecs.VECTOR3F.fieldOf("at").forGetter(Wheel::at),
                 Codec.floatRange(0.5F, 16.0F).optionalFieldOf("radius", 3.0F).forGetter(Wheel::radius),
                 Codec.floatRange(0.5F, 16.0F).optionalFieldOf("width", 3.0F).forGetter(Wheel::width),
-                Codec.BOOL.optionalFieldOf("steers", false).forGetter(Wheel::steers)
+                Codec.BOOL.optionalFieldOf("steers", false).forGetter(Wheel::steers),
+                Rim.CODEC.optionalFieldOf("rim", Rim.DISH).forGetter(Wheel::rim)
         ).apply(instance, Wheel::new));
+    }
+
+    /**
+     * The face of a wheel's rim, in pixels of the wheel model (7.6 to the
+     * tread): spokes from the centre cap out to the lip, with the dark of the
+     * brake showing between them; wheel nuts on a ring round the cap; holes
+     * through a steel face; slots in a plastic cover; a hub that stands out
+     * of the middle, as a lorry's does.
+     */
+    public enum Rim {
+        /** A plain pressed dish, as a farm cart or a trailer has. */
+        DISH(0, 0.0F, 0, 0, 0, false),
+        /** A painted steel wheel with a small cap: four nuts and a ring of holes. */
+        STEEL(0, 0.0F, 4, 8, 0, false),
+        /** A plastic cover over a steel wheel, slotted all round. */
+        COVER(0, 0.0F, 0, 0, 12, false),
+        /** Five broad spokes under a cap that hides the nuts: a sixties styled steel wheel. */
+        STYLED(5, 1.5F, 0, 0, 0, false),
+        /** Five slim alloy spokes, a nut between each two. */
+        FIVE_SPOKE(5, 0.75F, 5, 0, 0, false),
+        /** Six alloy spokes, a nut between each two. */
+        SIX_SPOKE(6, 0.9F, 6, 0, 0, false),
+        /** A lorry's steel wheel: ten nuts round a hub that stands out, hand holes in the dish. */
+        TRUCK(0, 0.0F, 10, 6, 0, true);
+
+        public static final Codec<Rim> CODEC = Codec.STRING.xmap(
+                name -> {
+                    for (Rim rim : values()) {
+                        if (rim.name().equalsIgnoreCase(name)) {
+                            return rim;
+                        }
+                    }
+                    return DISH;
+                },
+                rim -> rim.name().toLowerCase(Locale.ROOT));
+
+        public final int spokes;
+        public final float spokeWidth;
+        public final int nuts;
+        public final int holes;
+        public final int slots;
+        public final boolean boss;
+
+        Rim(int spokes, float spokeWidth, int nuts, int holes, int slots, boolean boss) {
+            this.spokes = spokes;
+            this.spokeWidth = spokeWidth;
+            this.nuts = nuts;
+            this.holes = holes;
+            this.slots = slots;
+            this.boss = boss;
+        }
+
+        /** Whether the face between the spokes is open, showing the dark behind. */
+        public boolean open() {
+            return this.spokes > 0;
+        }
     }
 
     /** The head lamps' pool of light on the road: its length and how far it fans out past the sides. */

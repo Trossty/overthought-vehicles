@@ -43,6 +43,9 @@ k.box(-H, 5.98, FZ + AR, H, 14.9, 37.0, P);
 k.box(-H, 5.98, 37.0, H, 14.1, NOSE, P);
 k.loft(LID + 0.05, H, FEN, 1.3, P);
 k.loft(-H, -LID - 0.05, FEN, 1.3, P);
+// the shut line down each side of the bonnet
+k.loft(LID + 0.05, LID + 0.3, FEN, 0.04, PD, 1);
+k.loft(-LID - 0.3, -LID - 0.05, FEN, 0.04, PD, 1);
 k.box(-LID, 16.3, 19.4, LID, 16.95, 21.0, C.BLACK);
 k.wipers({y: 17.05, z: 20.2});
 k.box(-13.9, 16.9, 20.3, -13.7, 22.5, 20.5, C.CHROME);
@@ -51,9 +54,13 @@ k.box(-6.3, 11.2, NOSE, 6.3, 13.7, NOSE + 0.15, C.BLACK);
 for (const y of [11.55, 12.3, 13.05]) {
     k.box(-6.0, y, NOSE + 0.1, 6.0, y + 0.3, NOSE + 0.3, '#3A3C40');
 }
-k.box(-0.9, 12.0, NOSE + 0.2, 0.9, 12.95, NOSE + 0.42, C.CHROME);
+// the badge: a ring, a bar through it
+k.discZ(0, 12.45, 0.68, NOSE + 0.2, NOSE + 0.42, C.CHROME);
+k.discZ(0, 12.45, 0.44, NOSE + 0.25, NOSE + 0.46, '#3A3C40');
+k.box(-0.1, 11.95, NOSE + 0.25, 0.1, 12.95, NOSE + 0.5, C.CHROME);
 k.sym(() => {
-    k.lamp(6.7, 11.2, 12.7, 13.7, NOSE, C.LAMP, true);
+    // wide and low, a reflector each for the dipped beam and the main
+    k.lamp(6.7, 11.2, 12.7, 13.7, NOSE, C.LAMP, true, {cells: 2});
     k.box(12.95, 11.2, 38.3, H + 0.12, 13.7, NOSE + 0.3, C.AMBER);
 });
 k.bumper({front: true, z: 41.45, depth: 1.7, y1: 6.3, y2: 10.0, half: H + 0.3, cut: 1.8, wrap: FZ + AR + 0.6});

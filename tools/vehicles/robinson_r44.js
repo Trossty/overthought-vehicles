@@ -60,11 +60,14 @@ k.box(-WS.x0, WS.y0 - 0.6, WS.z0 - 1.0, WS.x0, WS.y0 + 0.4, WS.z0 + 0.4, P);   /
 
 // ---- the doors' windows and the pillars between them --------------------------------------------------
 k.g('glass');
+// the front door's glass rakes forward with the windscreen: in fine bands, so
+// the steps along its front edge stay under the door frame
 k.sideGlass({xLow: 10.0, yLow: 19.4, xHigh: 7.6, yHigh: 39.4, rearLow: 11.6, rearHigh: 11.6,
-    frontLow: 30.6, frontHigh: 13.0, bands: 8});
+    frontLow: 30.6, frontHigh: 13.0, bands: 28});
 k.sideGlass({xLow: 10.0, yLow: 19.4, xHigh: 7.6, yHigh: 39.4, rearLow: -7.6, rearHigh: -7.6,
     frontLow: 10.8, frontHigh: 10.8, bands: 4});
 k.g('body');
+k.beams([10.15, 19.4, 30.05], [7.75, 39.4, 12.45], 0.5, 1.0, P);              // the front door's frame
 k.leans(10.6, 11.8, 10.0, 19.4, 7.6, 39.4, 0.7, P, 1);                         // the middle pillar
 k.leans(-8.6, -7.4, 10.0, 19.4, 7.6, 39.4, 0.7, P, 1);                         // the back pillar
 k.leans(-8.6, 26.0, 10.1, 19.0, 10.2, 19.8, 0.4, P, 1);                        // the sill under them

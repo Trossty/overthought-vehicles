@@ -97,6 +97,20 @@ public class DefinedVehicleModel extends VehicleModel {
     private static final float HUB_REACH = 4.4F;
     private static final float HUB_FLAT = (float) (2.0 * HUB_REACH * Math.tan(HALF_FLAT));
 
+    /*
+     * Where the wheel sheet keeps what a rim is drawn with (see
+     * tools/gen_wheel_faces.py): the hub painted open, dark between the
+     * centre cap and the lip, for spoked rims; and three patches of one
+     * colour each, the rim's own, its wheel nuts', and the dark behind it.
+     */
+    private static final int[] HUB_OPEN_UV = {0, 0};
+    private static final int[] RIM_UV = {14, 0};
+    private static final int[] NUT_UV = {23, 0};
+    private static final int[] DARK_UV = {31, 0};
+    /** How far a spoke or a nut stands out of the face of the hub, and how far a hole or a slot. */
+    private static final float RIM_PROUD = 0.25F;
+    private static final float HOLE_PROUD = 0.03F;
+
     /** One built vehicle, kept for as long as its definition is the loaded one. */
     private record Built(VehicleDefinition definition, DefinedVehicleModel model,
                          @org.jetbrains.annotations.Nullable DefinedVehicleModel glass,
@@ -128,6 +142,8 @@ public class DefinedVehicleModel extends VehicleModel {
     /** The rubber of every wheel, and the hubs, so a removed tyre or disc can leave the picture. */
     private final List<ModelPart> rubber = new ArrayList<>();
     private final List<ModelPart> hubs = new ArrayList<>();
+    /** Each wheel's spokes, nuts and the rest of its rim's face, which come off with the tyre. */
+    private final List<List<ModelPart>> rims = new ArrayList<>();
     /** The bonnet and the boot lid, each hung on its hinge; null where there is none. */
     private final ModelPart bonnet;
     private final ModelPart boot;
@@ -172,6 +188,11 @@ public class DefinedVehicleModel extends VehicleModel {
             for (int slab = 0; slab < TREAD_SLABS; slab++) {
                 this.hubs.add(wheel.getChild("hub" + slab));
             }
+            List<ModelPart> rim = new ArrayList<>();
+            for (int piece = 0; wheel.hasChild("rim" + piece); piece++) {
+                rim.add(wheel.getChild("rim" + piece));
+            }
+            this.rims.add(rim);
             if (definition.wheels().get(index).steers()) {
                 this.steered.add(wheel);
             }
@@ -693,14 +714,16 @@ public class DefinedVehicleModel extends VehicleModel {
                         PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, (slab + 0.5F) * SLAB_STEP * DEGREES, 0.0F, 0.0F));
             }
             // The hub: a thick grey disc standing out of the tyre. Real depth,
-            // so its sides catch the shade.
+            // so its sides catch the shade. Behind spokes it is painted open.
+            int[] face = wheel.rim().open() ? HUB_OPEN_UV : new int[] {0, 34};
             for (int slab = 0; slab < TREAD_SLABS; slab++) {
                 hub.addOrReplaceChild("hub" + slab,
-                        CubeListBuilder.create().texOffs(0, 34)
+                        CubeListBuilder.create().texOffs(face[0], face[1])
                                 .addBox(-HUB_HALF, -HUB_REACH, -HUB_FLAT / 2.0F,
                                         HUB_HALF * 2.0F, HUB_REACH * 2.0F, HUB_FLAT),
                         PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, slab * SLAB_STEP * DEGREES, 0.0F, 0.0F));
             }
+            addRim(hub, wheel.rim());
             for (int slab = 0; slab < TREAD_SLABS; slab++) {
                 hub.addOrReplaceChild("tread" + slab,
                         CubeListBuilder.create().texOffs(40, 0)
@@ -710,6 +733,65 @@ public class DefinedVehicleModel extends VehicleModel {
             }
         }
         return LayerDefinition.create(data, 64, 64).bakeRoot();
+    }
+
+    /**
+     * The face of a rim, on both sides of the hub, each piece named rim0,
+     * rim1 and so on: its spokes, its nuts on their ring between the spokes,
+     * holes through a steel face, slots round a cover, and a lorry's hub
+     * standing out of the middle, eight-sided.
+     */
+    private static void addRim(PartDefinition hub, VehicleDefinition.Rim rim) {
+        int[] count = {0};
+        float spokeStep = rim.spokes > 0 ? 360.0F / rim.spokes : 0.0F;
+        for (int i = 0; i < rim.spokes; i++) {
+            rimPiece(hub, count, RIM_UV, i * spokeStep, 1.0F, 3.75F, rim.spokeWidth, RIM_PROUD);
+        }
+        for (int i = 0; i < rim.nuts; i++) {
+            // between two spokes, where there are spokes
+            float angle = (i + (rim.spokes > 0 ? 0.5F : 0.0F)) * 360.0F / rim.nuts;
+            rimPiece(hub, count, NUT_UV, angle, 1.13F, 1.6F, 0.47F, RIM_PROUD + (rim.boss ? 0.15F : 0.0F));
+        }
+        for (int i = 0; i < rim.holes; i++) {
+            rimPiece(hub, count, DARK_UV, (i + 0.5F) * 360.0F / rim.holes, 2.2F, 2.95F, 0.75F, HOLE_PROUD);
+        }
+        for (int i = 0; i < rim.slots; i++) {
+            rimPiece(hub, count, DARK_UV, i * 360.0F / rim.slots, 2.25F, 3.2F, 0.4F, HOLE_PROUD);
+        }
+        if (rim.boss) {
+            // an octagon: a bar across the axle, turned four ways an eighth apart
+            float reach = 1.05F;
+            float flat = (float) (2.0 * reach * Math.tan(Math.PI / 8.0));
+            for (int turn = 0; turn < 4; turn++) {
+                for (int side : new int[] {1, -1}) {
+                    float inner = HUB_HALF - RIM_PROUD;
+                    float outer = HUB_HALF + 0.9F;
+                    hub.addOrReplaceChild("rim" + count[0]++,
+                            CubeListBuilder.create().texOffs(RIM_UV[0], RIM_UV[1])
+                                    .addBox(side > 0 ? inner : -outer, -reach, -flat / 2.0F,
+                                            outer - inner, reach * 2.0F, flat),
+                            PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, turn * 45.0F * DEGREES, 0.0F, 0.0F));
+                }
+            }
+        }
+    }
+
+    /**
+     * One piece of a rim's face on each side of the hub: from {@code from} to
+     * {@code to} out from the axle, {@code wide} across, {@code proud} out of
+     * the face, turned {@code angle} degrees round the axle.
+     */
+    private static void rimPiece(PartDefinition hub, int[] count, int[] uv, float angle,
+                                 float from, float to, float wide, float proud) {
+        float sunk = 0.25F;
+        for (int side : new int[] {1, -1}) {
+            float inner = HUB_HALF - sunk;
+            float outer = HUB_HALF + proud;
+            hub.addOrReplaceChild("rim" + count[0]++,
+                    CubeListBuilder.create().texOffs(uv[0], uv[1])
+                            .addBox(side > 0 ? inner : -outer, -to, -wide / 2.0F, outer - inner, to - from, wide),
+                    PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, angle * DEGREES, 0.0F, 0.0F));
+        }
     }
 
     @Override
@@ -728,6 +810,12 @@ public class DefinedVehicleModel extends VehicleModel {
         for (int index = 0; index < this.hubs.size(); index++) {
             this.hubs.get(index).visible = state.discsOn
                     || state.tyresOn && (state.tyresOff >> (index / TREAD_SLABS) & 1) == 0;
+        }
+        for (int index = 0; index < this.rims.size(); index++) {
+            boolean on = state.tyresOn && (state.tyresOff >> index & 1) == 0;
+            for (ModelPart piece : this.rims.get(index)) {
+                piece.visible = on;
+            }
         }
 
         float roll = state.wheelAngle * DEGREES;
