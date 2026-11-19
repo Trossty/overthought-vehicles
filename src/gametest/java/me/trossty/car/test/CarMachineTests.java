@@ -915,8 +915,8 @@ public class CarMachineTests {
     /**
      * Every vehicle gets its own map of where its parts are: the tyre box on
      * its own front wheel, nothing hanging off the body, nothing hidden inside
-     * a bigger box where it could never be aimed at, and a lorry's engine is
-     * not where a hatchback's is.
+     * a bigger box where it could never be aimed at, nothing of the engine
+     * bay in a seat, and a lorry's engine is not where a hatchback's is.
      */
     @GameTest(template = "empty")
     public static void partBoxesFitEachVehicle(GameTestHelper context) {
@@ -972,6 +972,20 @@ public class CarMachineTests {
                             && Math.abs(a.y() - b.y()) + a.size() <= b.size()
                             && Math.abs(a.z() - b.z()) + a.size() <= b.size();
                     context.assertFalse(buried, part.key() + " on " + name + " is buried inside " + other.key());
+                }
+            }
+            // Nothing of the engine bay is where someone sits: a lorry's cab
+            // is over its engine, which is under the floor, not in the seats.
+            if (definition.chassis() != me.trossty.car.vehicle.VehicleDefinition.Chassis.MOTORCYCLE) {
+                for (var spot : me.trossty.car.entity.PartLayout.BAY) {
+                    CarPart.Anchor a = map.get(spot.part());
+                    float x = -a.x() * 16.0F, y = a.y() * 16.0F, z = -a.z() * 16.0F, half = a.size() * 16.0F;
+                    for (var seat : definition.seats()) {
+                        boolean seated = Math.abs(x - seat.x) < half + 3.0F && Math.abs(z - seat.z) < half + 3.0F
+                                && y + half > seat.y && y - half < seat.y + 8.0F;
+                        context.assertFalse(seated, spot.part().key() + " on " + name + " is in a seat at "
+                                + x + ", " + y + ", " + z);
+                    }
                 }
             }
             engines.put(registry.getKey(definition).getPath(), map.get(CarPart.ENGINE));

@@ -748,9 +748,15 @@ araç tanımından hesaplanıyor: lastik kutusu aracın kendi ön tekerleğinde,
 balata/disk/amortisör onun iç tarafında, motor bölmesi ön aks ile burun
 arasında ve kaput yüksekliğine göre, şanzıman/debriyaj/şaft iki aks arasında
 tabanın altında, egzoz kendi kuyruğunda. Motosikletin ayrı bir haritası var
-(motor tekerlerin arasında). Corolla ile Atego'nun motoru aynı yerde değil;
-bunu ve "hiçbir kutu başka kutunun içine gömülü değil, hepsi aracın üstünde"
-kuralını `partBoxesFitEachVehicle` testi her araç için kontrol ediyor.
+(motor tekerlerin arasında). Koltuğu ön aksın üstünde olan araçta (Atego gibi
+kabini öne çıkık kamyon) motor bölmesi kabin tabanının altında, iki ön tekerin
+frenleri arasında: motor aksın arkasında boylamasına, bujiler üstünde, akü ve
+hava filtresi arkasında, enjektör ve bobinler yanlarında, önde devirdaim
+pompası, termostat ve tamponun arkasında radyatör; direksiyon kutusu aksın
+önünde. Corolla ile Atego'nun motoru aynı yerde değil; bunu, "hiçbir kutu
+başka kutunun içine gömülü değil, hepsi aracın üstünde" kuralını ve motor
+bölmesinden hiçbir parçanın bir koltuğun içinde olmadığını
+`partBoxesFitEachVehicle` testi her araç için kontrol ediyor.
 
 **Plakalar dünyaya yazılıyor.** İsimler aracın kendi çiziminde, kameraya dönük
 yazı olarak çiziliyor (`submitText`, `SEE_THROUGH`), yani kamera sallansa da
