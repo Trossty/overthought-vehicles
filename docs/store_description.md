@@ -89,8 +89,8 @@ A vehicle you place stays a vehicle: it can't be picked back up. Hitting it dent
 
 ### Source and bug reports
 
-- Source code: https://github.com/Trossty/car
-- Bug reports and ideas: https://github.com/Trossty/car/issues
+- Source code: https://github.com/Trossty/overthought-vehicles
+- Bug reports and ideas: https://github.com/Trossty/overthought-vehicles/issues
 
 ### Licence
 

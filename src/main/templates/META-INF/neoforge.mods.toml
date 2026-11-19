@@ -1,14 +1,14 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Trossty/car/issues"
+issueTrackerURL = "https://github.com/Trossty/overthought-vehicles/issues"
 
 [[mods]]
 modId = "${mod_id}"
 version = "${mod_version}"
 displayName = "Overthought Vehicles"
 authors = "trossty"
-displayURL = "https://github.com/Trossty/car"
+displayURL = "https://github.com/Trossty/overthought-vehicles"
 logoFile = "assets/overthought_vehicles/icon.png"
 description = '''Vehicles thought through to the last bolt: cars, bikes, boats and planes, a fuel line from well to pump, and a garage where every part wears, fails and gets fixed.'''
 
