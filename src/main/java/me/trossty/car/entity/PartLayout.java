@@ -183,10 +183,10 @@ public final class PartLayout {
             new BaySpot(CarPart.ALTERNATOR, 0.5F, 0.66F, 0.18F, 1.8F, 14.2F, 0.0F),
             new BaySpot(CarPart.OIL_FILTER, -0.5F, 0.66F, 0.14F, 3.95F, 12.05F, 0.0F),
             new BaySpot(CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.5F, 12.5F, 0.0F),
-            new BaySpot(CarPart.INJECTORS, -0.55F, 0.42F, 0.10F, 4.0F, 12.0F, 0.0F),
-            new BaySpot(CarPart.IGNITION_COILS, 0.48F, 0.40F, 0.12F, 3.3F, 12.7F, 0.0F),
-            new BaySpot(CarPart.WATER_PUMP, 0.30F, 0.80F, 0.12F, 3.6F, 12.4F, 0.0F),
-            new BaySpot(CarPart.THERMOSTAT, -0.30F, 0.80F, 0.08F, 4.25F, 11.75F, 0.0F));
+            new BaySpot(CarPart.INJECTORS, -0.55F, 0.42F, 0.10F, 4.5F, 11.5F, 0.0F),
+            new BaySpot(CarPart.IGNITION_COILS, 0.48F, 0.40F, 0.12F, 3.15F, 12.85F, 0.0F),
+            new BaySpot(CarPart.WATER_PUMP, 0.30F, 0.80F, 0.12F, 3.32F, 12.68F, 0.0F),
+            new BaySpot(CarPart.THERMOSTAT, -0.30F, 0.80F, 0.08F, 3.1F, 12.9F, 0.0F));
 
     /** A tyre, and the brakes, strut and ball joint behind it: one at every wheel, not only the first. */
     private static boolean atEveryCorner(CarPart part) {

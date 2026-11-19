@@ -1,28 +1,7 @@
 {
- "textures": {
-  "particle": "car:block/tank_frame",
-  "frame": "car:block/tank_frame",
-  "glass": "car:block/tank_glass",
-  "lid": "car:block/tank_lid",
-  "hatch": "car:block/tank_hatch"
- },
- "elements": [
-  {
-   "from": [
-    0.5,
-    0,
-    0
-   ],
-   "to": [
-    0.5,
-    16,
-    16
-   ],
-   "faces": {
-    "west": {
-     "texture": "#glass"
-    }
-   }
-  }
- ]
+  "parent": "minecraft:block/block",
+  "textures": {"particle": "car:block/tank_glass", "tank_glass": "car:block/tank_glass"},
+  "elements": [
+    {"from": [0.5, 0, 0], "to": [0.5, 16, 16], "faces": {"west": {"uv": [0, 0, 16, 16], "texture": "#tank_glass"}}}
+  ]
 }

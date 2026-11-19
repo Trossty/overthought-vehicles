@@ -986,7 +986,7 @@ public class GenPartTextures {
                 "{\n  \"model\": {\n    \"type\": \"minecraft:model\",\n"
                         + "    \"model\": \"car:block/fuel_pipe_inventory\"\n  }\n}");
 
-        // The yard tank is tools/gen_tank.py's.
+        // The yard tank is drawn in tools/blocks/fuel_tank.js.
 
         barrelIcon();
         save(ASSETS + "textures/item/tanker_barrel.png");

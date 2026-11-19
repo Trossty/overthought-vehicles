@@ -1,31 +1,11 @@
 {
- "textures": {
-  "particle": "car:block/tank_frame",
-  "frame": "car:block/tank_frame",
-  "glass": "car:block/tank_glass",
-  "lid": "car:block/tank_lid",
-  "hatch": "car:block/tank_hatch"
- },
- "elements": [
-  {
-   "from": [
-    0,
-    0.5,
-    0
-   ],
-   "to": [
-    16,
-    1.5,
-    16
-   ],
-   "faces": {
-    "up": {
-     "texture": "#lid"
-    },
-    "down": {
-     "texture": "#lid"
-    }
-   }
-  }
- ]
+  "parent": "minecraft:block/block",
+  "textures": {"particle": "car:block/tank_glass", "p": "car:block/palette"},
+  "elements": [
+    {"from": [0, 0.5, 0], "to": [16, 1.5, 16], "faces": {"north": {"uv": [1, 0.9063, 2, 0.9688], "texture": "#p", "cullface": "north"}, "south": {"uv": [1, 0.9063, 2, 0.9688], "texture": "#p", "cullface": "south"}, "east": {"uv": [1, 0.9063, 2, 0.9688], "texture": "#p", "cullface": "east"}, "west": {"uv": [1, 0.9063, 2, 0.9688], "texture": "#p", "cullface": "west"}, "up": {"uv": [1, 0, 2, 1], "texture": "#p"}, "down": {"uv": [1, 0, 2, 1], "texture": "#p"}}},
+    {"from": [7.732, 1.5, 7.353], "to": [8.268, 1.7, 8.647], "faces": {"north": {"uv": [2.4833, 0.8938, 2.5168, 0.9063], "texture": "#p"}, "south": {"uv": [2.4833, 0.8938, 2.5168, 0.9063], "texture": "#p"}, "up": {"uv": [2.4833, 0.4596, 2.5168, 0.5404], "texture": "#p"}, "down": {"uv": [2.4833, 0.4596, 2.5168, 0.5404], "texture": "#p"}}},
+    {"from": [7.353, 1.5, 7.732], "to": [8.647, 1.7, 8.268], "faces": {"east": {"uv": [2.4833, 0.8938, 2.5168, 0.9063], "texture": "#p"}, "west": {"uv": [2.4833, 0.8938, 2.5168, 0.9063], "texture": "#p"}, "up": {"uv": [2.4596, 0.4833, 2.5404, 0.5168], "texture": "#p"}, "down": {"uv": [2.4596, 0.4833, 2.5404, 0.5168], "texture": "#p"}}},
+    {"from": [7.732, 1.5, 7.353], "to": [8.268, 1.7, 8.647], "rotation": {"origin": [8, 1.6, 8], "axis": "y", "angle": 45}, "faces": {"north": {"uv": [2.4833, 0.8938, 2.5168, 0.9063], "texture": "#p"}, "south": {"uv": [2.4833, 0.8938, 2.5168, 0.9063], "texture": "#p"}, "up": {"uv": [2.4833, 0.4596, 2.5168, 0.5404], "texture": "#p"}, "down": {"uv": [2.4833, 0.4596, 2.5168, 0.5404], "texture": "#p"}}},
+    {"from": [7.353, 1.5, 7.732], "to": [8.647, 1.7, 8.268], "rotation": {"origin": [8, 1.6, 8], "axis": "y", "angle": 45}, "faces": {"east": {"uv": [2.4833, 0.8938, 2.5168, 0.9063], "texture": "#p"}, "west": {"uv": [2.4833, 0.8938, 2.5168, 0.9063], "texture": "#p"}, "up": {"uv": [2.4596, 0.4833, 2.5404, 0.5168], "texture": "#p"}, "down": {"uv": [2.4596, 0.4833, 2.5404, 0.5168], "texture": "#p"}}}
+  ]
 }

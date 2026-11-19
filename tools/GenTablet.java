@@ -5,8 +5,8 @@ import java.io.File;
 /**
  * The OBD tablet: the frame it is drawn in when held up like a map (a rugged
  * workshop tablet, rubber corners and a dark glass screen), a plain white
- * patch the screen's bars are tinted from, and its inventory icon. Run from
- * the project root.
+ * patch the screen's bars are tinted from, and the screen in the item's
+ * face. Run from the project root.
  */
 public class GenTablet {
 
@@ -136,21 +136,10 @@ public class GenTablet {
     }
 
     /**
-     * The tablet as an item: a slab with a glowing screen in its face, rubber
-     * bumpers standing proud at the corners and a camera bump at the back.
+     * The screen in the face of the tablet as an item (its model is drawn in
+     * tools/items/tools.js): the fault list, in the colours the held tablet uses.
      */
-    static void model(int bezel, int bezelDark, int rubber, int rubberDark) throws Exception {
-        // Face: bezel round a dark screen recess.
-        img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        rect(0, 0, 15, 15, bezel);
-        rect(0, 0, 15, 0, 0xFF33373E);
-        rect(0, 15, 15, 15, bezelDark);
-        rect(1, 1, 14, 14, 0xFF0A1820);
-        px(7, 0, 0xFF0B0C0E);
-        px(8, 0, 0xFF0B0C0E);
-        write("item/obd_tablet_face");
-
-        // Screen: the fault list, in the colours the held tablet uses.
+    static void screen() throws Exception {
         img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         rect(0, 0, 15, 15, 0xFF0A1820);
         rect(1, 1, 7, 1, 0xFF4FD6E8);
@@ -167,99 +156,6 @@ public class GenTablet {
             rect(4, code[0], 12, code[0], 0xFF8A99A3);
         }
         write("item/obd_tablet_screen");
-
-        // Back: the held tablet's back, brought down to sixteen pixels.
-        img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        for (int x = 0; x < 16; x++) {
-            for (int y = 0; y < 16; y++) {
-                px(x, y, shade(0xFF2C3036, grain(x, y)));
-            }
-        }
-        rect(1, 1, 4, 4, 0xFF15171A);
-        rect(2, 2, 3, 3, 0xFF0A2A3C);
-        rect(0, 7, 15, 8, 0xFF1F2226);
-        rect(5, 11, 10, 13, 0xFFE8E4DA);
-        rect(5, 11, 10, 11, rubber);
-        write("item/obd_tablet_back");
-
-        // Edge: dark plastic with a seam along it.
-        img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        for (int x = 0; x < 16; x++) {
-            for (int y = 0; y < 16; y++) {
-                px(x, y, (x == 7 || y == 7) ? 0xFF16181C : shade(0xFF2A2D33, grain(x, y) / 2));
-            }
-        }
-        write("item/obd_tablet_edge");
-
-        // Rubber.
-        img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        for (int x = 0; x < 16; x++) {
-            for (int y = 0; y < 16; y++) {
-                px(x, y, shade(rubber, grain(x, y) * 2));
-            }
-        }
-        rect(0, 0, 15, 0, 0xFFE9A050);
-        rect(0, 15, 15, 15, rubberDark);
-        write("item/obd_tablet_rubber");
-
-        StringBuilder els = new StringBuilder();
-        // Body, 12 wide, 14 tall, 1.25 thick; the face looks south.
-        els.append(box(2, 1, 7.25, 14, 15, 8.5,
-                "\"north\": {\"uv\": [0, 0, 16, 16], \"texture\": \"#back\"}, "
-                        + "\"south\": {\"uv\": [0, 0, 16, 16], \"texture\": \"#face\"}, "
-                        + "\"east\": {\"uv\": [7, 1, 8.25, 15], \"texture\": \"#edge\"}, "
-                        + "\"west\": {\"uv\": [7, 1, 8.25, 15], \"texture\": \"#edge\"}, "
-                        + "\"up\": {\"uv\": [2, 7, 14, 8.25], \"texture\": \"#edge\"}, "
-                        + "\"down\": {\"uv\": [2, 7, 14, 8.25], \"texture\": \"#edge\"}", 0));
-        // The screen, a hair proud of the bezel, and lit.
-        els.append(",\n").append(box(2.75, 1.75, 8.5, 13.25, 14.25, 8.55,
-                "\"south\": {\"uv\": [0, 0, 16, 16], \"texture\": \"#screen\"}", 15));
-        // Rubber bumpers on the corners.
-        double[][] corners = {{1.5, 0.5}, {12.5, 0.5}, {1.5, 13.5}, {12.5, 13.5}};
-        for (double[] c : corners) {
-            String all = "\"uv\": [0, 0, 2, 2], \"texture\": \"#rubber\"";
-            els.append(",\n").append(box(c[0], c[1], 7.0, c[0] + 2, c[1] + 2, 8.75,
-                    "\"north\": {" + all + "}, \"south\": {" + all + "}, \"east\": {" + all + "}, "
-                            + "\"west\": {" + all + "}, \"up\": {" + all + "}, \"down\": {" + all + "}", 0));
-        }
-        // Camera bump on the back, top corner.
-        String cam = "\"uv\": [1, 1, 4, 4], \"texture\": \"#back\"";
-        els.append(",\n").append(box(10.5, 11.5, 6.9, 13, 14, 7.25,
-                "\"north\": {" + cam + "}, \"east\": {" + cam + "}, \"west\": {" + cam + "}, "
-                        + "\"up\": {" + cam + "}, \"down\": {" + cam + "}", 0));
-
-        String json = "{\n"
-                + "  \"textures\": {\n"
-                + "    \"particle\": \"car:item/obd_tablet_face\",\n"
-                + "    \"face\": \"car:item/obd_tablet_face\",\n"
-                + "    \"screen\": \"car:item/obd_tablet_screen\",\n"
-                + "    \"back\": \"car:item/obd_tablet_back\",\n"
-                + "    \"edge\": \"car:item/obd_tablet_edge\",\n"
-                + "    \"rubber\": \"car:item/obd_tablet_rubber\"\n"
-                + "  },\n"
-                + "  \"elements\": [\n" + els + "\n  ],\n"
-                + "  \"display\": {\n"
-                + "    \"gui\": {\"rotation\": [12, -24, 0], \"translation\": [0, 0, 0], \"scale\": [1, 1, 1]},\n"
-                + "    \"ground\": {\"rotation\": [0, 0, 0], \"translation\": [0, 2, 0], \"scale\": [0.5, 0.5, 0.5]},\n"
-                + "    \"fixed\": {\"rotation\": [0, 180, 0], \"translation\": [0, 0, -0.5], \"scale\": [1, 1, 1]},\n"
-                + "    \"head\": {\"rotation\": [0, 180, 0], \"translation\": [0, 13, 7], \"scale\": [1, 1, 1]},\n"
-                + "    \"thirdperson_righthand\": {\"rotation\": [-60, 180, 0], \"translation\": [0, 3, 1.5], \"scale\": [0.55, 0.55, 0.55]},\n"
-                + "    \"thirdperson_lefthand\": {\"rotation\": [-60, 180, 0], \"translation\": [0, 3, 1.5], \"scale\": [0.55, 0.55, 0.55]},\n"
-                + "    \"firstperson_righthand\": {\"rotation\": [0, -150, 10], \"translation\": [1.13, 3.2, 1.13], \"scale\": [0.68, 0.68, 0.68]},\n"
-                + "    \"firstperson_lefthand\": {\"rotation\": [0, -150, 10], \"translation\": [1.13, 3.2, 1.13], \"scale\": [0.68, 0.68, 0.68]}\n"
-                + "  }\n"
-                + "}\n";
-        java.nio.file.Files.writeString(java.nio.file.Path.of("src/main/resources/assets/car/models/item/obd_scanner.json"), json);
-    }
-
-    static String num(double v) {
-        return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(v);
-    }
-
-    static String box(double x0, double y0, double z0, double x1, double y1, double z1, String faces, int light) {
-        return "    {\"from\": [" + num(x0) + ", " + num(y0) + ", " + num(z0) + "], \"to\": [" + num(x1) + ", " + num(y1)
-                + ", " + num(z1) + "], " + (light > 0 ? "\"light_emission\": " + light + ", " : "")
-                + "\"faces\": {" + faces + "}}";
     }
 
     public static void main(String[] args) throws Exception {
@@ -350,8 +246,8 @@ public class GenTablet {
         write("item/obd_scanner");
 
         back(bezel, rubber, rubberDark);
-        model(bezel, bezelDark, rubber, rubberDark);
+        screen();
 
-        System.out.println("wrote obd tablet frame, back, fill, icon and 3d model");
+        System.out.println("wrote obd tablet frame, back, fill and screen");
     }
 }

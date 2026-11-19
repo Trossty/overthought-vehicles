@@ -282,7 +282,10 @@ ile üretildi; dokular `shop_steel`, `shop_red`, `shop_chrome`, `shop_rubber`,
   Arkası da boş değil: beyaz köşe çıtaları, panjurlu ve kulplu servis kapağı,
   adadan çıkan besleme borusu; üst kabinde karşı şerit için ikinci bir LCD ve
   isim plakası.
-- **Tank:** çelik çerçeve, cam, kapak ve pirinç kapaklı ağız (bkz. Sıvı Tankı; `tools/gen_tank.py`).
+- **Tank:** cıvatalı köşebent dikmeler ve kenarlar, her yanda tek parça cam,
+  ortasında cıvatalı rögar kapağı, sarı dolum kapağı ve havalığı olan kabartmalı
+  sac kapak, tahliye tapalı taban (bkz. Sıvı Tankı; model
+  [`tools/blocks/fuel_tank.js`](tools/blocks/fuel_tank.js), cam ve kapak dokusu `tools/gen_tank.py`).
 - **Yakıt Borusu ve Valfi:** her kol blok sınırında cıvatalı bir flanşla
   bitiyor, iki boru birleşince araya bir flanş çifti giriyor; bağlantı kutusu
   borudan sadece biraz kalın. Valf düz geçen bir boru, iki ucunda flanş, üstünde
@@ -2170,7 +2173,7 @@ geçer. Devir sınırı 4500.
   yarı ömrünü bitirmiş bir parça kendi başına %25 daha hızlı gider. Servisi
   ertelemek servisin kendisinden pahalıya gelir.
 - **OBD tableti** gerçek bir atölye tableti gibi **3B**: kalın gövde, turuncu
-  kauçuk köşe tamponları, arkasında kamera, tutma bandı ve etiket. Envanterde,
+  kauçuk köşe tamponları, arkasında kamera, tutma bandı ve teşhis kablosunun girişi. Envanterde,
   yerde ve çerçevede katı bir model; üçüncü şahısta ekranı oyuncuya dönük
   tutulur.
 - Tablet sohbete yazmaz: elde **harita gibi** tutulur (öbür el boşsa
@@ -2369,7 +2372,7 @@ Araba ve eşya dokuları kodla üretiliyor, böylece renk değiştirmek kolay:
 - [`tools/GenPartTextures.java`](tools/GenPartTextures.java) — lift, rafineri, pompa, depo ve boru blok dokuları, boru, valf ve lift modelleri.
 - [`tools/gen_paint_tar.py`](tools/gen_paint_tar.py) — boya kutuları, katran, petrol sızıntısı (blok ve eşya), asfalt eşyası
 - [`tools/gen_pump_lift.py`](tools/gen_pump_lift.py) — yakıt pompası ve lift modelleri
-- [`tools/gen_tank.py`](tools/gen_tank.py) — sıvı tankı
+- [`tools/gen_tank.py`](tools/gen_tank.py) — sıvı tankının cam ve kapak dokuları
 - [`tools/GenPlantModels.java`](tools/GenPlantModels.java) — rafineri, jeneratörler, akü dolabı, şarj direği, pumpjack
 
 Her dosyanın tek bir sahibi var: hangi üreticiyi çalıştırırsan çalıştır, başka bir üreticinin dosyasını değiştirmez.
@@ -2377,7 +2380,8 @@ Her dosyanın tek bir sahibi var: hangi üreticiyi çalıştırırsan çalışt�
 - [`tools/pickup.bbmodel`](tools/pickup.bbmodel) — kamyonetin Blockbench projesi (Modded Entity, 256×256)
 - [`tools/GenEvItems.java`](tools/GenEvItems.java) — elektrik motorunun 3B modeli
 - [`tools/GenAsphalt.java`](tools/GenAsphalt.java) — katran, katmanlı asfalt, 12 yol işareti, 4 boya kutusu: dokular, modeller, 392 parçalı blockstate, tarifler, ganimet tablosu
-- [`tools/GenTablet.java`](tools/GenTablet.java) — OBD tabletinin çerçeve/ekran ve arka yüz dokuları, eşya simgesi ve 3B eşya modeli
+- [`tools/GenTablet.java`](tools/GenTablet.java) — OBD tabletinin elde çizilen çerçeve, arka yüz ve dolgu dokuları ile eşya modelindeki ekran dokusu (modelin kendisi `tools/items/tools.js`'te)
+- Blockbench kiti ([`tools/blocks/kit.js`](tools/blocks/kit.js)) ile çizilenler: [`tools/items/fine_parts.js`](tools/items/fine_parts.js) — devirdaim pompası, termostat, yakıt pompası, enjektörler, ateşleme bobinleri, fren kaliperi, rotil ve susturucu; [`tools/blocks/vehicle_crate.js`](tools/blocks/vehicle_crate.js) — araç kasası; [`tools/blocks/fuel_tank.js`](tools/blocks/fuel_tank.js) — sıvı tankı. Her betik Blockbench'te çalışır, modelleri yazar ve yanına bir `.bbmodel` bırakır.
 - [`tools/LangCheck.java`](tools/LangCheck.java) — iki dil dosyasının anahtar kümesini, yer tutucu sayılarını ve koddaki `translatable` anahtarlarını karşılaştırır (`java tools/LangCheck.java`)
 
 ## MrCrayfish seti
@@ -2391,7 +2395,10 @@ Araç İstasyonu'nda üretilen araç artık eşya olarak değil, içinde o araç
 olan bir **Araç Kasası** olarak çıkar. Kasanın ipucu içindekini söyler
 ("Honda FourTrax Rancher (Kasada)"). Yere koyulan kasa ancak **İngiliz
 anahtarıyla** açılır (atölyenin rot ayarı ve motor sehpası için kullandığı
-aynı anahtar; dört demir külçeden, çalışma masasında yapılır):
+aynı anahtar; dört demir külçeden, çalışma masasında yapılır).
+Kasa gerçek bir ihracat sandığı gibi: üç kızaklı, forklift oyuklu bir palet;
+çıtalarla çerçevelenmiş, çapraz destekli, köşeleri çivili çelik plakalı dört
+yan; üstünde iki çıtalı tahta kapak. Açmak için:
 
 - her sağ tık kapağı biraz daha kaldırır, dördüncüsünde kapak gider;
 - yanlar bir buçuk saniyede yere yatar ve araç, kasanın yerinde durur;
