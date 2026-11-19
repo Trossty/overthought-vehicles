@@ -1,7 +1,7 @@
-# Car
+# Overthought Vehicles
 
 MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.21.1
-(`neoforge-1.21.1` dalı; `main` dalı Fabric 1.21.11 sürümü).
+(`main` dalı).
 
 ## Durum
 
