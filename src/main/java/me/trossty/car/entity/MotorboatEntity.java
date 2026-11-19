@@ -56,9 +56,11 @@ public class MotorboatEntity extends CarEntity {
      */
     @Override
     public boolean hasPart(CarPart part) {
+        // Cooled by the lake it sits in, with nothing to circulate or hold back.
         return super.hasPart(part) && part != CarPart.WHEELS && part != CarPart.BRAKE_PADS
                 && part != CarPart.BRAKE_DISCS && part != CarPart.SUSPENSION
-                && part != CarPart.RADIATOR && part != CarPart.CLUTCH;
+                && part != CarPart.RADIATOR && part != CarPart.CLUTCH && part != CarPart.WATER_PUMP
+                && part != CarPart.THERMOSTAT && part != CarPart.BRAKE_CALIPERS && part != CarPart.BALL_JOINTS;
     }
 
     /** Forward, neutral and reverse in the leg: nothing to shift through. */

@@ -19,8 +19,9 @@ import java.util.List;
  * <p>Three things make this more than a list of wear bars.
  *
  * <p><b>Nothing is reached for free.</b> Every part names the one part that sits
- * on top of it ({@link #parent()}). The brake pads are behind the wheel, the
- * discs are behind the pads, the clutch is behind the gearbox. A part can only
+ * on top of it ({@link #parent()}). The caliper is behind the wheel, the pads
+ * come out of the caliper, the discs are behind the pads, the clutch is behind
+ * the gearbox. A part can only
  * be touched once everything above it has been taken off, so working on a car
  * is a sequence rather than a menu.
  *
@@ -40,8 +41,11 @@ public enum CarPart {
     /** The airbox, on top of everything. Nothing is in the way of this one. */
     AIR_FILTER("air_filter", Group.ENGINE_BAY, 1, 0.0018F, null, false),
 
-    /** Under the airbox. Four of them, and a tired set misfires. */
-    SPARK_PLUGS("spark_plugs", Group.ENGINE_BAY, 4, 0.0026F, "air_filter", true),
+    /**
+     * Under the coils, one in every cylinder: a coil sits on each plug, so it
+     * comes off first. A tired set misfires, idling or not.
+     */
+    SPARK_PLUGS("spark_plugs", Group.ENGINE_BAY, 4, 0.0026F, "ignition_coils", true),
 
     /** Under the plugs, and the single heaviest thing on the car. */
     ENGINE("engine", Group.ENGINE_BAY, 1, 0.0030F, "spark_plugs", true),
@@ -76,8 +80,8 @@ public enum CarPart {
     /** Four of them, and in the way of everything else at that corner. */
     WHEELS("wheels", Group.RUNNING_GEAR, 4, 0.0045F, null, true),
 
-    /** Behind the wheels. What actually stops the car. */
-    BRAKE_PADS("brake_pads", Group.RUNNING_GEAR, 4, 0.0038F, "wheels", false),
+    /** Inside the calipers: the caliper comes off and they slide out. What actually stops the car. */
+    BRAKE_PADS("brake_pads", Group.RUNNING_GEAR, 4, 0.0038F, "brake_calipers", false),
 
     /** Behind the pads. Worn pads eat these, which is the whole lesson. */
     BRAKE_DISCS("brake_discs", Group.RUNNING_GEAR, 4, 0.0012F, "brake_pads", false),
@@ -94,8 +98,43 @@ public enum CarPart {
 
     // ---- body ----
 
-    /** The one part you can hear from outside. */
-    EXHAUST("exhaust", Group.BODY, 1, 0.0021F, null, false);
+    /** The pipe and its converter, from the manifold back. A holed one costs power. */
+    EXHAUST("exhaust", Group.BODY, 1, 0.0021F, null, false),
+
+    // ---- the finer parts ----
+    //
+    // Added after the rest and kept at the end: a part's place in this list is
+    // the number it is synced and its tier packed under, and the parts above
+    // keep theirs. Each does one job the parts round it did not already do,
+    // so each has a symptom of its own.
+
+    /** On the front of the block, turned by the belt. A tired one weeps coolant; without one nothing circulates. */
+    WATER_PUMP("water_pump", Group.ENGINE_BAY, 1, 0.0015F, null, false),
+
+    /**
+     * In the top hose, shut until the engine is warm. A tired one sticks, open
+     * or shut by the car's own luck: open it never warms up and drinks, shut it
+     * cooks the engine at a cruise.
+     */
+    THERMOSTAT("thermostat", Group.ENGINE_BAY, 1, 0.0012F, null, false),
+
+    /** In the tank, at the back underneath. A tired one cannot keep up flat out; without one nothing runs. */
+    TANK_PUMP("tank_pump", Group.BODY, 1, 0.0013F, null, true),
+
+    /** One per cylinder, under the airbox. A sticking one misfires in its cylinder and runs rich, diesel or not. */
+    INJECTORS("injectors", Group.ENGINE_BAY, 4, 0.0017F, "air_filter", true),
+
+    /** One on every plug, under the airbox. A tired one misses in its cylinder only when the engine is pulling. */
+    IGNITION_COILS("ignition_coils", Group.ENGINE_BAY, 4, 0.0011F, "air_filter", true),
+
+    /** Behind the wheel, holding the pads. A tired one seizes and drags its corner: the car pulls while it rolls. */
+    BRAKE_CALIPERS("brake_calipers", Group.RUNNING_GEAR, 4, 0.0009F, "wheels", false),
+
+    /** Behind the wheel, where the hub swings. Worn ones let the car wander and clunk over every bump. */
+    BALL_JOINTS("ball_joints", Group.RUNNING_GEAR, 4, 0.0008F, "wheels", false),
+
+    /** The box at the tail. It only ever makes the car quieter, and no reader knows it is there. */
+    MUFFLER("muffler", Group.BODY, 1, 0.0019F, null, false);
 
     /** Condition runs 0 to this; a fresh part is at the top of it. */
     public static final float MAX_CONDITION = 100.0F;
@@ -433,8 +472,26 @@ public enum CarPart {
             // Across the front, under the engine.
             case STEERING_RACK -> new Anchor(0.00F, 0.26F, -0.95F, 0.14F);
 
-            // Out of the back, down the near side.
+            // Out of the back, down the near side, the silencer box ahead of
+            // the tailpipe; the tank pump on the far side, under the tank.
             case EXHAUST -> new Anchor(-0.30F, 0.26F, 1.05F, 0.13F);
+            case MUFFLER -> new Anchor(-0.30F, 0.26F, 0.70F, 0.11F);
+            case TANK_PUMP -> new Anchor(0.30F, 0.30F, 0.70F, 0.10F);
+
+            // The front of the engine, off to the far side: the pump low on
+            // the block, the thermostat up in the top hose.
+            case WATER_PUMP -> new Anchor(0.28F, 0.52F, -1.08F, 0.09F);
+            case THERMOSTAT -> new Anchor(0.22F, 0.84F, -1.16F, 0.07F);
+
+            // Along the head beside the plugs: the coils over them, the
+            // injectors down the other side.
+            case IGNITION_COILS -> new Anchor(0.22F, 1.02F, -1.02F, 0.09F);
+            case INJECTORS -> new Anchor(-0.20F, 0.86F, -1.06F, 0.08F);
+
+            // The corner again: the caliper over the pads, the ball joint
+            // behind the strut.
+            case BRAKE_CALIPERS -> new Anchor(0.30F, 0.62F, -0.88F, 0.08F);
+            case BALL_JOINTS -> new Anchor(0.42F, 0.46F, -0.66F, 0.07F);
         };
     }
 
@@ -460,6 +517,14 @@ public enum CarPart {
             case SUSPENSION -> ModItems.SUSPENSION;
             case STEERING_RACK -> ModItems.STEERING_RACK;
             case EXHAUST -> ModItems.EXHAUST;
+            case WATER_PUMP -> ModItems.WATER_PUMP;
+            case THERMOSTAT -> ModItems.THERMOSTAT;
+            case TANK_PUMP -> ModItems.TANK_PUMP;
+            case INJECTORS -> ModItems.INJECTORS;
+            case IGNITION_COILS -> ModItems.IGNITION_COILS;
+            case BRAKE_CALIPERS -> ModItems.BRAKE_CALIPERS;
+            case BALL_JOINTS -> ModItems.BALL_JOINTS;
+            case MUFFLER -> ModItems.MUFFLER;
         };
     }
 

@@ -277,7 +277,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             net.minecraft.world.item.ItemStack stack;
             if (spot.part() == null) {
                 stack = new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.TURBO);
-            } else if (car.parts().isFitted(spot.part())) {
+            } else if (car.hasPart(spot.part()) && car.parts().isFitted(spot.part())) {
                 stack = new net.minecraft.world.item.ItemStack(spot.part().item());
             } else {
                 continue;

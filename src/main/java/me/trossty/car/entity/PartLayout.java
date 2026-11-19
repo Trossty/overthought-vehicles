@@ -109,6 +109,14 @@ public final class PartLayout {
             put(map, CarPart.BATTERY, side, bay + 0.8F * tall, engineZ, 1.9F * scale);
             put(map, CarPart.ALTERNATOR, side, bay + 0.4F * tall, engineZ, 1.7F * scale);
             put(map, CarPart.OIL_FILTER, side, bay, engineZ, 1.5F * scale);
+            // The other flank: coils on top, the injector rail under them;
+            // in front of the block, towards the radiator, the water pump
+            // low down and the thermostat on the hose above it.
+            float ahead = (engineZ + front - 2.5F) / 2.0F;
+            put(map, CarPart.IGNITION_COILS, -side, bay + 0.88F * tall, engineZ, 1.5F * scale);
+            put(map, CarPart.INJECTORS, -side, bay + 0.62F * tall, engineZ, 1.5F * scale);
+            put(map, CarPart.WATER_PUMP, -0.5F * side, bay + 0.3F * tall, ahead, 1.5F * scale);
+            put(map, CarPart.THERMOSTAT, -0.5F * side, bay + 0.7F * tall, ahead, 1.2F * scale);
         }
 
         // Under the floor, between the axles — and still under the body where
@@ -120,6 +128,10 @@ public final class PartLayout {
         put(map, CarPart.TRANSMISSION, 0.0F, under, Math.max(tail, frontAxle - 0.3F * wheelbase), 2.8F * scale);
         put(map, CarPart.DRIVESHAFT, 0.0F, under, Math.max(tail, frontAxle - 0.6F * wheelbase), 2.4F * scale);
         put(map, CarPart.EXHAUST, 0.3F * halfWidth, under, rear + 3.0F, 2.0F * scale);
+        // The silencer further up the same pipe, and the pump in the top of
+        // the tank, which sits ahead of the back axle.
+        put(map, CarPart.MUFFLER, 0.3F * halfWidth, under, rear + 7.0F, 1.8F * scale);
+        put(map, CarPart.TANK_PUMP, -0.3F * halfWidth, under, Math.max(tail, rearAxle + 0.15F * wheelbase), 1.8F * scale);
 
         corner(map, wheel);
         return map;
@@ -159,7 +171,9 @@ public final class PartLayout {
      * Laid out as under a real bonnet: the engine across the middle, the
      * radiator upright behind the grille, the battery and the air box either
      * side behind it, the alternator and the oil filter low on the engine's
-     * flanks, the plugs along its back.
+     * flanks, the plugs along its back; the coils and the injector rail
+     * either side of them, the water pump and the thermostat between the
+     * engine and the radiator.
      */
     public static final List<BaySpot> BAY = List.of(
             new BaySpot(CarPart.ENGINE, 0.0F, 0.48F, 0.40F, 2.2F, 13.8F, 0.0F),
@@ -168,12 +182,15 @@ public final class PartLayout {
             new BaySpot(CarPart.AIR_FILTER, 0.7F, 0.22F, 0.24F, 5.3F, 10.7F, 0.0F),
             new BaySpot(CarPart.ALTERNATOR, 0.5F, 0.66F, 0.18F, 1.8F, 14.2F, 0.0F),
             new BaySpot(CarPart.OIL_FILTER, -0.5F, 0.66F, 0.14F, 3.95F, 12.05F, 0.0F),
-            new BaySpot(CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.5F, 12.5F, 0.0F));
+            new BaySpot(CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.5F, 12.5F, 0.0F),
+            new BaySpot(CarPart.INJECTORS, -0.55F, 0.42F, 0.10F, 4.0F, 12.0F, 0.0F),
+            new BaySpot(CarPart.IGNITION_COILS, 0.48F, 0.40F, 0.12F, 3.3F, 12.7F, 0.0F),
+            new BaySpot(CarPart.WATER_PUMP, 0.30F, 0.80F, 0.12F, 3.6F, 12.4F, 0.0F),
+            new BaySpot(CarPart.THERMOSTAT, -0.30F, 0.80F, 0.08F, 4.25F, 11.75F, 0.0F));
 
-    /** A tyre, and the brakes and strut behind it: one at every wheel, not only the first. */
+    /** A tyre, and the brakes, strut and ball joint behind it: one at every wheel, not only the first. */
     private static boolean atEveryCorner(CarPart part) {
-        return part == CarPart.WHEELS || part == CarPart.BRAKE_PADS
-                || part == CarPart.BRAKE_DISCS || part == CarPart.SUSPENSION;
+        return PartPositions.atWheels(part);
     }
 
     /**
@@ -232,6 +249,10 @@ public final class PartLayout {
         put(map, CarPart.BRAKE_PADS, inboard, y + 0.4F * radius, z, 1.6F);
         put(map, CarPart.BRAKE_DISCS, inboard, y - 0.4F * radius, z, 1.6F);
         put(map, CarPart.SUSPENSION, inboard, y + radius + 2.0F, z, 1.8F);
+        // The caliper clamps the disc behind the pads; the ball joint is at
+        // the bottom of the hub, ahead of the disc.
+        put(map, CarPart.BRAKE_CALIPERS, inboard, y + 0.4F * radius, z - 0.6F * radius, 1.3F);
+        put(map, CarPart.BALL_JOINTS, inboard, y, z + 0.6F * radius, 1.2F);
     }
 
     /** A motorbike: the engine hangs between the wheels, the rest round it. */
@@ -253,6 +274,12 @@ public final class PartLayout {
         put(map, CarPart.DRIVESHAFT, -2.5F, axleY, (rearAxle + middle - 5.0F) / 2.0F, 1.5F);
         put(map, CarPart.STEERING_RACK, 0.0F, axleY + 2.2F * radius, frontAxle - 2.0F, 1.6F);
         put(map, CarPart.EXHAUST, 3.5F, axleY, rearAxle + radius + 1.0F, 1.6F);
+        put(map, CarPart.MUFFLER, 3.5F, axleY + 0.5F * radius, rearAxle, 1.5F);
+        put(map, CarPart.TANK_PUMP, 0.0F, engineY + 6.5F, middle - 2.5F, 1.3F);
+        put(map, CarPart.IGNITION_COILS, 0.0F, engineY + 5.0F, middle - 1.5F, 1.1F);
+        put(map, CarPart.INJECTORS, -2.5F, engineY + 3.5F, middle, 1.2F);
+        put(map, CarPart.WATER_PUMP, 2.5F, engineY - 2.5F, middle + 3.0F, 1.2F);
+        put(map, CarPart.THERMOSTAT, 0.0F, engineY + 2.5F, middle + 4.0F, 1.0F);
         corner(map, wheel);
     }
 

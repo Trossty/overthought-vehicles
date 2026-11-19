@@ -115,6 +115,26 @@ public final class CarEffects {
     }
 
     /**
+     * Coolant weeping from a tired water pump's seal: clear drops off the
+     * front of the engine, on the far side from the oil filter, so a
+     * mechanic tells the two puddles apart by colour and by side.
+     */
+    void emitCoolantDrip() {
+        float yawRad = this.car.getYRot() * ((float) Math.PI / 180.0F);
+        double front = 0.9;
+        me.trossty.car.vehicle.VehicleDefinition defined = this.car.getDefinition();
+        if (defined != null && !defined.wheels().isEmpty()) {
+            front = -Double.MAX_VALUE;
+            for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : defined.wheels()) {
+                front = Math.max(front, wheel.at().z() / 16.0);
+            }
+        }
+        Vec3 at = this.car.position().add(new Vec3(-0.25, 0.35, front).yRot(-yawRad));
+        this.car.level().addParticle(ParticleTypes.DRIPPING_WATER, at.x, at.y, at.z, 0.0, 0.0, 0.0);
+        this.car.level().addParticle(ParticleTypes.SPLASH, at.x, this.car.getY() + 0.05, at.z, 0.0, 0.0, 0.0);
+    }
+
+    /**
      * What a sick car sounds like from outside: a knock from a dry or worn-out
      * engine in time with the revs, and a clunk from tired springs over the
      * road. Played by the server so everybody near hears it.
@@ -137,6 +157,15 @@ public final class CarEffects {
             this.car.level().playSound(null, this.car.getX(), this.car.getY() + 0.3, this.car.getZ(),
                     SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.NEUTRAL, 0.5F, 0.6F);
             this.faultNoiseCooldown = 10;
+            return;
+        }
+        // A worn ball joint clunks as the weight shifts across it: sharper
+        // and higher than a tired spring's thump.
+        float play = this.car.parts().play();
+        if (speed > 0.1F && play > 0.3F && this.car.getRandom().nextFloat() < play / 25.0F) {
+            this.car.level().playSound(null, this.car.getX(), this.car.getY() + 0.3, this.car.getZ(),
+                    SoundEvents.IRON_DOOR_CLOSE, SoundSource.NEUTRAL, 0.45F, 1.5F);
+            this.faultNoiseCooldown = 8;
         }
     }
 

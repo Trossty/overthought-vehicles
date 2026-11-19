@@ -187,7 +187,7 @@ public class CarEntity extends VehicleEntity {
     private static final float WORN_RADIATOR_COOLING = 0.55F;
     private static final float MISSING_RADIATOR_COOLING = 0.15F;
     /** Above this the engine is boiling and pulls like it means it. */
-    private static final float OVERHEAT_AT = 0.85F;
+    public static final float OVERHEAT_AT = 0.85F;
     private static final float OVERHEATING_POWER = 0.55F;
     /** How fast the temperature chases where it is headed, up and down. */
     private static final float TEMP_RISE = 0.012F;
@@ -207,6 +207,25 @@ public class CarEntity extends VehicleEntity {
 
     private static final float WORN_EXHAUST_SPEED = 0.95F;
     private static final float MISSING_EXHAUST_SPEED = 0.90F;
+
+    /** Cooling left with no water pump: the coolant stands in the block and boils. */
+    static final float MISSING_PUMP_COOLING = 0.2F;
+    /** Where a thermostat stuck open lets the engine get to, of where it should run. */
+    private static final float OPEN_THERMOSTAT_TEMP = 0.45F;
+    /** Heat a thermostat stuck shut adds: the radiator never sees the coolant. */
+    private static final float SHUT_THERMOSTAT_HEAT = 0.5F;
+    /** A cold engine is fed rich to keep it running: what a thermostat stuck open costs in fuel. */
+    private static final float OPEN_THERMOSTAT_THIRST = 1.15F;
+    /** Leaking injectors pour fuel in that never burns. */
+    private static final float WORN_INJECTOR_THIRST = 1.3F;
+    /** Top speed left on a tank pump at its last. */
+    private static final float WORN_PUMP_SPEED = 0.8F;
+    /** Top speed a fully seized caliper takes off, held against its disc. */
+    private static final float CALIPER_DRAG_SPEED = 0.15F;
+    /** Braking with no calipers on: the pads have nothing pressing them. */
+    private static final float MISSING_CALIPER_BRAKE = 0.1F;
+    /** Steering with no ball joints: the hubs flop on their arms. */
+    private static final float MISSING_JOINTS_STEER = 0.3F;
     private static final float SAFE_FALL_BLOCKS = 3.0F;
     private static final float FALL_DAMAGE_PER_BLOCK = 1.5F;
     /**
@@ -246,17 +265,17 @@ public class CarEntity extends VehicleEntity {
 
     /**
      * What each fitted part was built to, two bits per part packed into one
-     * number, in {@link CarPart#ordinal()} order. Packed rather than sixteen
-     * more tracked entries because quality is one of three things and the whole
-     * car fits in a single int: sixteen parts times two bits is exactly thirty
-     * two. A seventeenth part would need a long here.
+     * number, in {@link CarPart#ordinal()} order. Packed rather than one more
+     * tracked entry per part because a tier is one of four things: thirty two
+     * parts fit in a long, and the parts that were there when it was an int
+     * keep the bits they had.
      */
-    static final EntityDataAccessor<Integer> PART_QUALITY =
-            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.INT);
+    static final EntityDataAccessor<Long> PART_QUALITY =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.LONG);
 
     /** Two bits per part, so each part has room for one {@code Quality}. */
     static final int QUALITY_BITS = 2;
-    static final int QUALITY_MASK = (1 << QUALITY_BITS) - 1;
+    static final long QUALITY_MASK = (1L << QUALITY_BITS) - 1L;
 
     /**
      * How hot the engine is running, 0 at ambient and 1 at boiling. Tracked
@@ -787,10 +806,10 @@ public class CarEntity extends VehicleEntity {
     }
 
     /** A car off the lift, with a standard part in every slot. */
-    public static int defaultQualityBits() {
-        int bits = 0;
+    public static long defaultQualityBits() {
+        long bits = 0L;
         for (CarPart part : CarPart.values()) {
-            bits |= CarPart.Quality.DEFAULT.ordinal() << (part.ordinal() * QUALITY_BITS);
+            bits |= (long) CarPart.Quality.DEFAULT.ordinal() << (part.ordinal() * QUALITY_BITS);
         }
         return bits;
     }
@@ -990,6 +1009,9 @@ public class CarEntity extends VehicleEntity {
             }
             if (this.upkeep.isOilLeaking() && this.random.nextInt(3) == 0) {
                 this.effects.emitOilDrip();
+            }
+            if (this.isEngineRunning() && this.random.nextFloat() < 0.4F * this.parts.pumpWeep()) {
+                this.effects.emitCoolantDrip();
             }
         }
         this.lastTickX = this.getX();
@@ -1791,8 +1813,11 @@ public class CarEntity extends VehicleEntity {
                         formatDistance(this.rangeBlocks(this.getEngineSpeed()))), true);
             }
         }
-        if (fraction < STARVING_FRACTION && this.isEngineRunning()
-                && this.random.nextFloat() < STARVE_CHANCE) {
+        // Coughing on the last of the tank, or on a tired pump that cannot
+        // keep up with the throttle: it feeds a cruise, not flat out.
+        float starved = this.parts.starvation(Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED));
+        if (this.isEngineRunning() && (fraction < STARVING_FRACTION && this.random.nextFloat() < STARVE_CHANCE
+                || starved > 0.0F && this.random.nextFloat() < 2.0F * STARVE_CHANCE * starved)) {
             this.level().broadcastEntityEvent(this, STATUS_SPUTTER);
             this.level().playSound(null, this.getX(), this.getY() + 0.6, this.getZ(),
                     SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL, 0.35F, 0.55F);
@@ -2912,21 +2937,32 @@ public class CarEntity extends VehicleEntity {
      */
     private void tickTemperature() {
         float temp = this.getEngineTemp();
-        float target = 0.0F;
-        if (this.isEngineRunning()) {
-            float load = Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED);
-            float cooling = this.parts.partFactor(
-                    CarPart.RADIATOR, WORN_RADIATOR_COOLING, MISSING_RADIATOR_COOLING)
-                    * this.upkeep.coolantCooling();
-            float heat = this.getLayout().heat() * (this.hasTurbo() ? CarSetup.TURBO_HEAT : 1.0F);
-            // Old oil stops carrying the heat away: the gauge creeps up.
-            float oil = 1.0F - Math.min(1.0F,
-                    this.parts.getConditionFraction(CarPart.OIL_FILTER) / FaultCodes.WARNING);
-            target = Math.min(1.0F,
-                    (0.25F + (0.40F * heat + DIRTY_OIL_HEAT * oil) * load) / (cooling * this.parts.grade(CarPart.RADIATOR)));
-        }
+        float target = this.isEngineRunning()
+                ? this.settlingTemp(Math.min(1.0F, Math.abs(this.getEngineSpeed()) / MAX_SPEED))
+                : 0.0F;
         float rate = target > temp ? TEMP_RISE : TEMP_FALL;
         this.entityData.set(ENGINE_TEMP, Mth.lerp(rate, temp, target));
+    }
+
+    /** Where the gauge settles with the engine running at this load, 0 to 1: what the cooling lets it get to. */
+    public float settlingTemp(float load) {
+        float cooling = this.parts.partFactor(
+                CarPart.RADIATOR, WORN_RADIATOR_COOLING, MISSING_RADIATOR_COOLING)
+                * this.upkeep.coolantCooling()
+                * this.parts.circulation();
+        float heat = this.getLayout().heat() * (this.hasTurbo() ? CarSetup.TURBO_HEAT : 1.0F);
+        // Old oil stops carrying the heat away: the gauge creeps up.
+        float oil = 1.0F - Math.min(1.0F,
+                this.parts.getConditionFraction(CarPart.OIL_FILTER) / FaultCodes.WARNING);
+        float target = Math.min(1.0F,
+                (0.25F + (0.40F * heat + DIRTY_OIL_HEAT * oil) * load) / (cooling * this.parts.grade(CarPart.RADIATOR)));
+        // A thermostat stuck open never lets the engine warm through; one
+        // stuck shut keeps the coolant from the radiator and cooks it.
+        int stuck = this.parts.thermostatStuck();
+        if (stuck < 0) {
+            return target * OPEN_THERMOSTAT_TEMP;
+        }
+        return stuck > 0 ? Math.min(1.0F, target + SHUT_THERMOSTAT_HEAT) : target;
     }
 
     // ---- oil and coolant ----
@@ -2969,6 +3005,7 @@ public class CarEntity extends VehicleEntity {
         return BRAKE_STRENGTH * this.tuning().braking()
                 * this.parts.partFactor(CarPart.BRAKE_PADS, WORN_PADS_BRAKE, MISSING_PADS_BRAKE)
                 * this.parts.partFactor(CarPart.BRAKE_DISCS, WORN_DISCS_BRAKE, MISSING_DISCS_BRAKE)
+                * this.parts.partFactor(CarPart.BRAKE_CALIPERS, 1.0F, MISSING_CALIPER_BRAKE)
                 * this.parts.partFactor(CarPart.WHEELS, WORN_TYRE_GRIP)
                 * this.parts.grade(CarPart.BRAKE_PADS)
                 * this.parts.grade(CarPart.BRAKE_DISCS)
@@ -2986,13 +3023,14 @@ public class CarEntity extends VehicleEntity {
         // A flat drags the car hard over to its own side, whatever else is true.
         int limping = this.limpingWheel();
         float flat = limping >= 0 ? this.sideOf(limping) * FLAT_PULL : 0.0F;
-        return flat + this.parts.wornPull() + this.upkeep.getAlignment() * MAX_PULL;
+        return flat + this.parts.wornPull() + this.parts.wander() + this.upkeep.getAlignment() * MAX_PULL;
     }
 
     /** Turn rate: the rack points the wheels, the tyres decide what happens. */
     public float steeringFactor() {
         return this.tuning().steering() * this.parts.partFactor(CarPart.WHEELS, WORN_TYRE_GRIP)
                 * this.parts.partFactor(CarPart.STEERING_RACK, WORN_RACK_STEER, MISSING_RACK_STEER)
+                * this.parts.partFactor(CarPart.BALL_JOINTS, 1.0F, MISSING_JOINTS_STEER)
                 * this.parts.grade(CarPart.STEERING_RACK)
                 * this.parts.minorGrade(CarPart.WHEELS)
                 * this.getGrip();
@@ -3001,6 +3039,8 @@ public class CarEntity extends VehicleEntity {
     /** How much more fuel this car drinks than a clean one would. */
     public float thirstFactor() {
         return this.tuning().fuelUse() * this.parts.partFactor(CarPart.AIR_FILTER, WORN_FILTER_THIRST, MISSING_FILTER_THIRST)
+                * this.parts.partFactor(CarPart.INJECTORS, WORN_INJECTOR_THIRST, 1.0F)
+                * (this.parts.thermostatStuck() < 0 ? OPEN_THERMOSTAT_THIRST : 1.0F)
                 * this.getLayout().thirst()
                 * this.getEngineFuel().thirst()
                 // Biofuel is weaker stuff: whatever the engine, more of it goes.
@@ -3017,11 +3057,18 @@ public class CarEntity extends VehicleEntity {
      * Whether this kind of vehicle has the part at all. A car has every one;
      * a trailer has no engine, gearbox or exhaust to service, only what it
      * rolls and stops on. A motor burns nothing, so an electric car has no
-     * exhaust, plugs, filters or clutch to wear out.
+     * exhaust, plugs, coils, injectors, fuel pump, filters or clutch to wear
+     * out, and its coolant pump runs on a motor with no thermostat to stick.
+     * A diesel lights its fuel by squeezing it: no coils (its plugs are glow
+     * plugs, and stay).
      */
     public boolean hasPart(CarPart part) {
+        if (part == CarPart.IGNITION_COILS && !this.isElectric() && !this.getEngineFuel().needsSpark()) {
+            return false;
+        }
         return !this.isElectric() || switch (part) {
-            case EXHAUST, SPARK_PLUGS, AIR_FILTER, OIL_FILTER, CLUTCH -> false;
+            case EXHAUST, MUFFLER, SPARK_PLUGS, IGNITION_COILS, INJECTORS, TANK_PUMP, THERMOSTAT,
+                 AIR_FILTER, OIL_FILTER, CLUTCH -> false;
             default -> true;
         };
     }
@@ -3752,6 +3799,10 @@ public class CarEntity extends VehicleEntity {
                 * this.parts.firing()
                 * this.parts.partFactor(CarPart.AIR_FILTER, WORN_FILTER_SPEED, MISSING_FILTER_SPEED)
                 * this.parts.partFactor(CarPart.EXHAUST, WORN_EXHAUST_SPEED, MISSING_EXHAUST_SPEED)
+                // A tired tank pump cannot feed it flat out, and a seized
+                // caliper holds it back.
+                * this.parts.partFactor(CarPart.TANK_PUMP, WORN_PUMP_SPEED, 1.0F)
+                * (1.0F - CALIPER_DRAG_SPEED * this.parts.caliperDrag())
                 * this.parts.grade(CarPart.ENGINE)
                 * this.parts.minorGrade(CarPart.EXHAUST)
                 * this.parts.minorGrade(CarPart.AIR_FILTER)

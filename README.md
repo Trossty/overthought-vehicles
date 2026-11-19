@@ -26,7 +26,7 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **İç mekân ve animasyon** — direksiyon, vites, pedallar, salınan egzoz dumanı
 - **Animasyonlar** — motorla birlikte yatan sürücü, direksiyondaki/gidondaki eller, dönen gidon ve direksiyon, motor sehpası, römork dili, kilit flaşörü, 3B sprey ve anahtar
 - **Hasar ve tamir** — çarpma hasarı, pert olma, hurda düşürme, liftte onarım
-- **Parçalar ve atölye** — 16 parça aşınıyor, sökme sırası var, servis ekranından teşhis ve değişim
+- **Parçalar ve atölye** — 24 parça aşınıyor, sökme sırası var, servis ekranından teşhis ve değişim
 - **Üretim hattı** — dünyada petrol yatakları, onları çeken pompa (pumpjack), çok bloklu ve bacası tüten rafineri, ham yakıtı temizleyen hidrojenle arıtıcı; organik maddeden ayrıca **biyoyakıt**
 - **Üç jeneratör** — kömür, biyoyakıt ve dizel; borulu şasili, egzozu tüten taşınabilir setler
 - **Test sekmesi** — yaratıcı modda "Araba: Tüm Eşyalar (test)": modun her eşyası ve bloğu, her türüyle (dolu bidonlar, parça çeşitleri, boyalar) ve makinelerin yediği vanilya eşyalar
@@ -401,7 +401,7 @@ Demir külçeyle tamir, gövdenin göçüklerini düzeltiyor. Altındaki parçal
 hiçbir şey yapmıyor — bu da buranın doldurduğu boşluk: hiç çarpmamış bir araba
 bile yoruluyor ve o zaman ihtiyacı olan şey çekiç değil, **teşhis**.
 
-Arabada aşınan, sökülen ve takılan **16 parça** var. Dördü bu sistemi bir aşınma
+Arabada aşınan, sökülen ve takılan **24 parça** var. Dördü bu sistemi bir aşınma
 çubuğu listesinden fazlası yapıyor.
 
 **Hiçbir parçaya bedava ulaşılmıyor.** Her parça, üstünde duran parçayı
@@ -426,23 +426,36 @@ Girinti, neyin neyin altında olduğunu gösteriyor.
 | Sistem | Parça | Adet | Ne yapıyor | Şart mı |
 |--------|-------|------|------------|---------|
 | Motor Bölümü | Hava filtresi | 1 | Hız ve yakıt tüketimi | — |
-| | ↳ Bujiler | silindir başına 1 (4/6/8) | Gaz tepkisi, tekleme | **evet** |
-| | &nbsp;&nbsp;↳ Motor | 1 | Azami hız | **evet** |
+| | ↳ Ateşleme bobinleri | silindir başına 1 | Kıvılcım; yorgunu yalnızca yük altında tekletir | **evet** (benzinli) |
+| | &nbsp;&nbsp;↳ Bujiler | silindir başına 1 (4/6/8) | Gaz tepkisi, tekleme | **evet** |
+| | &nbsp;&nbsp;&nbsp;&nbsp;↳ Motor | 1 | Azami hız | **evet** |
+| | ↳ Enjektörler | silindir başına 1 | Yakıt tüketimi; takılanı silindirini tekletir, zengin yakar | **evet** |
 | | Yağ filtresi | 1 | Motor ve şanzıman ömrü | — |
 | | Radyatör | 1 | Motor sıcaklığı | — |
+| | Devirdaim pompası | 1 | Su dolaşımı; yorulunca sızdırır, yoksa motor kaynar | — |
+| | Termostat | 1 | Isınma; yorulunca açık ya da kapalı takılır | — |
 | Elektrik | Akü | 1 | Çalıştırma ve korna | **evet** |
 | | ↳ Alternatör | 1 | Akü şarjı | — |
 | Aktarma | Şaft | 1 | Güç aktarımı | **evet** |
 | | ↳ Şanzıman | 1 | Hızlanma ve geri vites | **evet** |
 | | &nbsp;&nbsp;↳ Debriyaj | 1 | Kavrama, hızlanma | **evet** |
 | Yürüyen Aksam | Lastikler | 4 | Yol tutuşu | **evet** |
-| | ↳ Fren balataları | 4 | Fren gücü | — |
-| | &nbsp;&nbsp;↳ Fren diskleri | 4 | Fren gücü | — |
+| | ↳ Fren kaliperleri | 4 | Fren; sıkışanı sürter ve aracı o yana çeker | — |
+| | &nbsp;&nbsp;↳ Fren balataları | 4 | Fren gücü | — |
+| | &nbsp;&nbsp;&nbsp;&nbsp;↳ Fren diskleri | 4 | Fren gücü | — |
 | | ↳ Süspansiyon | 4 | Darbe emilimi | — |
+| | ↳ Rotiller | 4 | Direksiyon; aşınınca tıkırdar, araç yolda gezinir | — |
 | | Direksiyon kutusu | 1 | Direksiyon tepkisi | **evet** |
 | Gövde | Egzoz | 1 | Ses ve bir miktar güç | — |
+| | Susturucu | 1 | Ses; çürüdükçe yükselir (OBD görmez) | — |
+| | Yakıt pompası (depo içi) | 1 | Yakıt beslemesi; yorulunca tam gazda öksürür | **evet** |
 
-Motora ulaşmak için önce hava filtresi, sonra bujiler çıkıyor. Debriyaja
+Elektrikli arabada bobin, enjektör, yakıt pompası, termostat ve susturucu
+yok; dizelde bobin yok (enjektörler var). Bir aracın hiç olmayan parçası
+kimsenin yolunu kapatmıyor: dizelde bujiler bobinin arkasında sayılmıyor.
+
+Motora ulaşmak için önce hava filtresi, sonra bobinler, sonra bujiler çıkıyor.
+Balataya ulaşmak için teker ve kaliper. Debriyaja
 ulaşmak için şaft ve şanzıman. Oyun hangisinin yolu kapattığını söylüyor ve
 **en dıştakini** söylüyor — şaft hâlâ takılıyken "debriyajı sök" demenin anlamı
 yok.
@@ -452,7 +465,7 @@ yok.
 Kaputlu bir arabanın motoru elle sökülmüyor, elle takılmıyor, lift de onu
 serbest bırakmıyor: üstten, **motor vinciyle** çıkıyor.
 
-1. Kaputu aç, hava filtresiyle bujileri sök.
+1. Kaputu aç, hava filtresini, bobinleri ve bujileri sök.
 2. Vinci arabanın burnuna koy. Koyarken arabaya bakıyorsan bom kaputun üstüne
    gelir; kanca bölmenin ortasından en çok 1,5 blok uzakta olmalı.
 3. Vince **boş elle** tıkla (ya da motora, ya da servis ekranındaki **Sök**'e):
@@ -540,7 +553,16 @@ Arabanın derdini ölçmeden önce **hissediyorsun**:
 
 | Belirti | Sebebi |
 |---------|--------|
-| Motor tekliyor, hız bir an düşüyor | Yorgun bir buji ya da kompresyonu kaçıran silindir |
+| Motor tekliyor, hız bir an düşüyor | Yorgun bir buji, bobin ya da enjektör, ya da kompresyonu kaçıran silindir |
+| Yalnızca yük altında tekliyor, rölantide temiz | Yorgun ateşleme bobini |
+| Tekliyor, siyah duman, yakıt çabuk gidiyor | Takılan enjektör |
+| Tam gazda öksürüyor, son hız düşük; yavaşta normal | Yorgun yakıt pompası |
+| Motor hiç ısınmıyor, yakıt fazla gidiyor | Açık takılmış termostat (ya da hiç yok) |
+| Radyatör sağlam ama hararet | Kapalı takılmış termostat ya da devirdaim pompası yok |
+| Motorun önünden su damlıyor, antifriz azalıyor | Devirdaim pompasının salmastrası |
+| Fren basmadan bir yana çekiyor, son hız düşük | O köşede sıkışan kaliper |
+| Yolda sağa sola gezinip tıkırdıyor | Aşınmış rotil (direksiyon kutusu hep aynı yana çeker) |
+| Egzoz gürültülü | Çürümüş susturucu — okuyucu görmez, kulakla bulunur |
 | Frenlerken araç bir yana çekiyor | O köşenin balatası/diski diğer taraftan zayıf |
 | Düz yolda bir yana çekiyor | Kot ayarı ya da yorgun bir amortisör |
 | Kaputtan buhar, güç %55'e düşüyor | Radyatör bitmiş ya da yok |
@@ -605,8 +627,8 @@ Nerede görünüyor:
   sınıf kadar işe yarar.
 - **Servis ekranının** sağ panelinde, takılı parçanın durumunun altında. "Bu
   neden yine bitti" sorusunun yarısı orada.
-- **Arabanın kendisinde**: 16 parçanın sınıfı iki bit ile tek bir `int`'e
-  paketli (16 × 2 = tam 32 bit). Araç eşyasında bu sayı yazılıysa
+- **Arabanın kendisinde**: 24 parçanın sınıfı iki bit ile tek bir `long`'a
+  paketli (24 × 2 = 48 bit; eski kayıtlardaki `int` aynen okunur). Araç eşyasında bu sayı yazılıysa
   araç yere o sınıflarla konur.
 
 Sınıf iki kuralı da değiştirdi:
@@ -680,7 +702,7 @@ bakışta okumak için hâlâ en iyi yer — ama anahtar işi artık arabanın �
 yapılıyor.
 
 Yalnızca **erişilebilir** parçalar işaretleniyor; bu da söküm sırasının gözle
-görünür hâli. Motor, hava filtresiyle bujiler sökülene kadar nişan alınacak bir
+görünür hâli. Motor; hava filtresi, bobinler ve bujiler sökülene kadar nişan alınacak bir
 şey değil, çünkü orada henüz bir işaret yok. Bir parçayı söktüğünde onun boş
 yuvası kırmızı işaretle duruyor (yerine takabilmen için) ve altındaki parçanın
 işareti beliriyor.
@@ -797,7 +819,7 @@ olarak oraya basıyor ya da oradan çekiyor.
 ### Parçaların nereden geldiği
 
 Lift tarifi değişmedi: bir araba gövde, motor, şanzıman, 4 süspansiyon ve 4
-lastikten çıkıyor ve **içindeki 16 parçanın hepsi yeni** oluyor. Geri kalan 12
+lastikten çıkıyor ve **içindeki 24 parçanın hepsi yeni** oluyor. Geri kalan 20
 parça ayrı ayrı tezgâhta yapılıyor ve yalnızca **bakım** için gerekiyor — teşhis
 seni tezgâha tek bir şey için gönderiyor. Atölye döngüsünün tamamı bu.
 
@@ -846,6 +868,14 @@ envanterin üstüne taşıyordu.
 | `CarParts` | `BATTERY_DRAIN` | Şarj gelmezken akünün boşalma hızı |
 | `CarEntity` | `FLAT_BATTERY` | Akünün "bitik" sayıldığı eşik |
 | `CarParts` | `PADS_EAT_DISCS` | Bitmiş balatanın diski yeme katsayısı |
+| `CarEntity` | `MISSING_PUMP_COOLING` | Devirdaim pompası yokken kalan soğutma |
+| `CarEntity` | `OPEN_THERMOSTAT_TEMP`, `SHUT_THERMOSTAT_HEAT` | Açık takılı termostatın sıcaklık çarpanı, kapalı takılının eklediği ısı |
+| `CarEntity` | `OPEN_THERMOSTAT_THIRST`, `WORN_INJECTOR_THIRST` | Soğuk motorun ve takılan enjektörün fazla yakıtı |
+| `CarEntity` | `WORN_PUMP_SPEED`, `CALIPER_DRAG_SPEED` | Yorgun yakıt pompasında kalan son hız, sıkışan kaliperin aldığı |
+| `CarEntity` | `MISSING_CALIPER_BRAKE`, `MISSING_JOINTS_STEER` | Kaliper yokken fren, rotil yokken direksiyon |
+| `CarParts` | `WORN_PUMP_FEED` | Bitmiş yakıt pompasının yetiştirdiği gaz |
+| `CarParts` | `WANDER` | Bitmiş rotilin aracı gezdirme payı (derece) |
+| `Upkeep` | `PUMP_WEEP_LOSS` | Salmastrası giden devirdaimin antifriz kaybı çarpanı |
 | `CarEntity` | `WORN_TYRE_GRIP` | Kel lastikte kalan tutuş |
 | `BodyDamage` | `WORN_SPRING_HARSHNESS` | Bitmiş süspansiyonun hasar çarpanı |
 | `BodyDamage` | `SUSPENSION_WEAR_PER_DAMAGE` | Yönsüz hasarda (düşme) dört köşenin süspansiyon aşınması |
@@ -2153,13 +2183,15 @@ geçer. Devir sınırı 4500.
   uzaktaysa ekranda "Eşleşmiş araç yok" / "Sinyal yok" yazar. Ekran
   karanlıkta da parlar.
 - Kodlar gerçekçi: P0420 egzoz, C0040 fren balatası, P0217 hararet, P0172
-  kirli yakıt, B1001–B1004 kaporta (ön, arka, sol, sağ)… Okuyucu yüzde söylemez; bir sensörün sınır
+  kirli yakıt, P2181 radyatör, P2600 devirdaim, P0128 termostat, P0087 yakıt
+  pompası, P0201–P0208 enjektör, P0351–P0358 bobin, C0070 kaliper, C0545
+  rotil, B1001–B1004 kaporta (ön, arka, sol, sağ)… Okuyucu yüzde söylemez; bir sensörün sınır
   dışına çıktığını bilir, kaç milim balata kaldığını değil.
 
 #### Köşe ve silindir başına aşınma
 
-Lastik, balata, disk ve amortisör her tekerlekte; buji her silindirde ayrı
-aşınır (`PartPositions`). Servis ekranı ve işaret takımı setin ortalamasını
+Lastik, kaliper, balata, disk, amortisör ve rotil her tekerlekte; buji, bobin
+ve enjektör her silindirde ayrı aşınır (`PartPositions`). Servis ekranı ve işaret takımı setin ortalamasını
 gösterir, nişan ipucu tek tek köşeleri (`SÖ 82  SğÖ 80 …`, bujide `1 90  2 88`).
 
 - Önden frenleme işin çoğunu yapar: ön balatalar ~1.4, arkalar ~0.6 payla
@@ -2177,12 +2209,13 @@ Bazı kodlar parçayı değil belirtiyi gösterir; tablet altına "Olası: …" 
 
 | Kod | Anlamı | Olası |
 |-----|--------|-------|
-| P0301–P0308 | O silindirde tekleme | Buji, motor (kompresyon) |
-| P0300 | 3+ silindirde rastgele tekleme | Buji, motor |
+| P0301–P0308 | O silindirde tekleme | Buji, bobin, enjektör, motor (kompresyon); dizelde enjektör, motor |
+| P0300 | 3+ silindirde rastgele tekleme | Buji, bobin, enjektör, motor |
 | P0730 | Vites oranı hatalı (kaçırma) | Şanzıman, debriyaj |
 | C0045 | Fren titremesi (köşe) | Disk, balata |
 
 C0040/C0750/C0690 en kötü köşeyi adıyla söyler. Ayırmak oyuncunun işi:
+bobin ve enjektör kendi devre kodunu da (P035N, P020N) yanına düşürür;
 bujileri sökünce kompresyon ölçer contanın iki silindirini, eğik supaplı ya da
 segmanı bitmiş silindiri gösterir; kompresyonu tamam ama teklerse bujidir.
 

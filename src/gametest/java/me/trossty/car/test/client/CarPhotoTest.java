@@ -58,6 +58,7 @@ public class CarPhotoTest {
             scenes.put("garageTools", this::garageTools);
             scenes.put("garageParts", this::garageParts);
             scenes.put("engineInternals", this::engineInternals);
+            scenes.put("fineParts", this::fineParts);
             scenes.put("rapeseed", this::rapeseed);
             scenes.put("itemGrid", this::itemGrid);
             scenes.put("pumpjackLook", this::pumpjackLook);
@@ -2988,6 +2989,67 @@ public class CarPhotoTest {
     }
 
     /** The spray can and the key as 3D items: on display, and in the hand. */
+    /**
+     * The finer parts: the eight of them in a row, the four that live under a
+     * bonnet in an open bay, all eight in the hotbar, and what a car with
+     * each of them tired reads and does, printed for the log.
+     */
+    private void fineParts(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("clear @a");
+        String[] parts = {"water_pump", "thermostat", "tank_pump", "injectors",
+                "ignition_coils", "brake_calipers", "ball_joints", "muffler"};
+        for (int i = 0; i < parts.length; i++) {
+            server.runCommand(("summon item_display %.2f %.2f 8.5 {item:{id:\"car:%s\",count:1},item_display:\"ground\","
+                    + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                    + "translation:[0f,0f,0f],scale:[1.4f,1.4f,1.4f]}}").formatted(-3.0 + i * 0.95, Y + 0.3, parts[i]));
+        }
+        server.runCommand("summon car:car 0.5 %d 0.0 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            for (int i = 0; i < parts.length; i++) {
+                player.getInventory().setItem(i, new net.minecraft.world.item.ItemStack(
+                        net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
+                                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("car", parts[i]))));
+            }
+            var car = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                    new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
+            car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
+            var p = car.parts();
+            float temp = car.settlingTemp(1.0F), speed = car.getMaxSpeed(), noise = car.upkeep().exhaustNoise();
+            p.setCondition(me.trossty.car.entity.CarPart.IGNITION_COILS, 1, 18.0F);
+            p.setCondition(me.trossty.car.entity.CarPart.INJECTORS, 3, 22.0F);
+            p.setCondition(me.trossty.car.entity.CarPart.WATER_PUMP, 15.0F);
+            p.setCondition(me.trossty.car.entity.CarPart.THERMOSTAT, 20.0F);
+            p.setCondition(me.trossty.car.entity.CarPart.TANK_PUMP, 25.0F);
+            p.setCondition(me.trossty.car.entity.CarPart.BRAKE_CALIPERS, 0, 5.0F);
+            p.setCondition(me.trossty.car.entity.CarPart.BALL_JOINTS, 2, 10.0F);
+            p.setCondition(me.trossty.car.entity.CarPart.MUFFLER, 10.0F);
+            System.out.println("car photo fineParts: temp " + temp + " -> " + car.settlingTemp(1.0F)
+                    + " thermostat=" + p.thermostatStuck() + " weep=" + p.pumpWeep()
+                    + " maxSpeed " + speed + " -> " + car.getMaxSpeed()
+                    + " pull=" + car.pull() + " play=" + p.play() + " starve@1=" + p.starvation(1.0F)
+                    + " noise " + noise + " -> " + car.upkeep().exhaustNoise()
+                    + " rich=" + car.upkeep().isRunningRich() + " misfire1@idle=" + p.misfireIn(1, 0.0F)
+                    + " misfire1@full=" + p.misfireIn(1, 1.0F));
+            for (var fault : me.trossty.car.entity.FaultCodes.read(car)) {
+                var where = fault.where();
+                System.out.println("car photo fineParts fault: " + fault.describe().getString()
+                        + (where == null ? "" : " / " + where.getString()));
+            }
+        });
+        context.waitTicks(5);
+        context.runOnClient(client -> client.options.hideGui = true);
+        shot(context, server, "fine_parts_row", 0.4, Y + 1.0, 11.0, 180, 20);
+        shot(context, server, "fine_parts_bay", 0.5, Y + 2.7, 3.4, 180, 55);
+        context.runOnClient(client -> client.options.hideGui = false);
+        shot(context, server, "fine_parts_hotbar", 6.0, Y + 1.0, 6.0, 135, 10);
+        server.runCommand("clear @a");
+    }
+
     private void items3d(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         String[] items = {

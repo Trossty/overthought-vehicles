@@ -85,12 +85,13 @@ public final class ModComponents {
     /**
      * Every fitted part's quality on a pocketed car, two bits each, packed the
      * same way the entity tracks them. One number rather than a list because
-     * quality cannot be anything but one of three things.
+     * quality cannot be anything but one of four things. A long, which also
+     * reads the int it was while every part fitted in one.
      */
-    public static final DataComponentType<Integer> CAR_PART_QUALITY = register("part_quality_bits",
-            DataComponentType.<Integer>builder()
-                    .persistent(Codec.INT)
-                    .networkSynchronized(ByteBufCodecs.INT)
+    public static final DataComponentType<Long> CAR_PART_QUALITY = register("part_quality_bits",
+            DataComponentType.<Long>builder()
+                    .persistent(Codec.LONG)
+                    .networkSynchronized(ByteBufCodecs.VAR_LONG)
                     .build());
 
     /**

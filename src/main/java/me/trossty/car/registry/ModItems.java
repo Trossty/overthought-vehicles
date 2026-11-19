@@ -110,6 +110,14 @@ public final class ModItems {
     public static final Item BRAKE_DISCS = part("brake_discs");
     public static final Item STEERING_RACK = part("steering_rack");
     public static final Item EXHAUST = part("exhaust");
+    public static final Item WATER_PUMP = part("water_pump");
+    public static final Item THERMOSTAT = part("thermostat");
+    public static final Item TANK_PUMP = part("tank_pump");
+    public static final Item INJECTORS = part("injectors");
+    public static final Item IGNITION_COILS = part("ignition_coils");
+    public static final Item BRAKE_CALIPERS = part("brake_calipers");
+    public static final Item BALL_JOINTS = part("ball_joints");
+    public static final Item MUFFLER = part("muffler");
 
     /**
      * The clipboard. Held against a car it reads out every system; it is the

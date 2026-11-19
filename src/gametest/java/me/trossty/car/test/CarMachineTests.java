@@ -952,7 +952,7 @@ public class CarMachineTests {
             }
             boolean trailer = definition.chassis() == me.trossty.car.vehicle.VehicleDefinition.Chassis.TRAILER;
             for (CarPart part : CarPart.values()) {
-                if (trailer && part != CarPart.WHEELS && part != CarPart.SUSPENSION
+                if (trailer && part != CarPart.WHEELS && part != CarPart.SUSPENSION && part != CarPart.BRAKE_CALIPERS
                         && part != CarPart.BRAKE_PADS && part != CarPart.BRAKE_DISCS) {
                     // A trailer has only its running gear (TrailerEntity#hasPart).
                     continue;
@@ -2429,5 +2429,167 @@ public class CarMachineTests {
                     "the car faces " + car.getYRot() + ", not the way the crate did");
             context.succeed();
         });
+    }
+
+    // ---- the finer parts: each tells on itself its own way ----
+
+    /** No water pump boils the engine, a tired one weeps; a thermostat stuck one way runs cold and thirsty, the other cooks it. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void waterPumpAndThermostat(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        float fresh = car.settlingTemp(1.0F);
+        float thirst = car.thirstFactor();
+        context.assertTrue(fresh < CarEntity.OVERHEAT_AT && car.parts().pumpWeep() == 0.0F
+                && car.parts().thermostatStuck() == 0, "a new car runs hot or weeps");
+        car.parts().setCondition(CarPart.WATER_PUMP, 0.0F);
+        context.assertTrue(car.settlingTemp(1.0F) >= CarEntity.OVERHEAT_AT, "no water pump ran at " + car.settlingTemp(1.0F));
+        car.parts().setCondition(CarPart.WATER_PUMP, CarPart.MAX_CONDITION * 0.15F);
+        context.assertTrue(car.parts().pumpWeep() > 0.5F && car.settlingTemp(1.0F) == fresh,
+                "a tired pump did not weep, or cooled worse while it still turned");
+        car.parts().setCondition(CarPart.WATER_PUMP, CarPart.MAX_CONDITION);
+
+        car.parts().setCondition(CarPart.THERMOSTAT, 0.0F);
+        context.assertTrue(car.settlingTemp(1.0F) < fresh * 0.6F && car.thirstFactor() > thirst,
+                "no thermostat ran at " + car.settlingTemp(1.0F) + " for " + car.thirstFactor());
+        car.parts().setCondition(CarPart.THERMOSTAT, CarPart.MAX_CONDITION * 0.2F);
+        int stuck = car.parts().thermostatStuck();
+        context.assertTrue(stuck != 0, "a dead thermostat still worked");
+        context.assertTrue(stuck > 0 ? car.settlingTemp(1.0F) >= CarEntity.OVERHEAT_AT
+                        : car.settlingTemp(1.0F) < fresh * 0.6F,
+                "a thermostat stuck " + (stuck > 0 ? "shut" : "open") + " ran at " + car.settlingTemp(1.0F));
+        context.assertTrue(FaultCodes.read(car).stream().anyMatch(f -> f.code().equals("P0128")), "a stuck thermostat set no code");
+        context.succeed();
+    }
+
+    /** A tired coil only misses with the engine pulling, and the reader names coil and cylinder both. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void coilMissesUnderLoad(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        car.parts().setCondition(CarPart.IGNITION_COILS, 1, CarPart.MAX_CONDITION * 0.2F);
+        context.assertTrue(car.parts().misfireIn(1, 0.0F) < 0.01F, "a tired coil missed at idle");
+        context.assertTrue(car.parts().misfireIn(1, 1.0F) > 0.7F, "a tired coil fired cleanly flat out");
+        var faults = FaultCodes.read(car);
+        var codes = faults.stream().map(FaultCodes.Fault::code).toList();
+        context.assertTrue(codes.contains("P0352") && codes.contains("P0302"), "a tired second coil read " + codes);
+        context.assertTrue(faults.stream().filter(f -> f.code().equals("P0302")).findFirst().get().suspects()
+                .containsAll(java.util.List.of(CarPart.SPARK_PLUGS, CarPart.IGNITION_COILS, CarPart.INJECTORS)),
+                "the misfire did not send the mechanic to plug, coil and injector");
+        context.succeed();
+    }
+
+    /** A sticking injector misfires its own cylinder and runs rich; a diesel has injectors and no coils. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void injectorsPetrolAndDiesel(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        float thirst = car.thirstFactor();
+        car.parts().setCondition(CarPart.INJECTORS, 0, CarPart.MAX_CONDITION * 0.2F);
+        var codes = FaultCodes.read(car).stream().map(FaultCodes.Fault::code).toList();
+        context.assertTrue(codes.contains("P0201") && codes.contains("P0301"), "a sticking first injector read " + codes);
+        context.assertTrue(car.upkeep().isRunningRich() && car.thirstFactor() > thirst,
+                "a sticking injector did not run rich or thirsty");
+
+        CarEntity diesel = car(context, new BlockPos(5, 1, 5), false);
+        diesel.setSetup(CarSetup.withVariant(diesel.getSetup(), CarPart.ENGINE,
+                CarSetup.engineVariant(CarSetup.Layout.INLINE4, CarSetup.Fuel.DIESEL)));
+        context.assertTrue(!diesel.hasPart(CarPart.IGNITION_COILS) && diesel.hasPart(CarPart.INJECTORS),
+                "a diesel has coils, or no injectors");
+        diesel.parts().setCondition(CarPart.IGNITION_COILS, 0.0F);
+        context.assertTrue(diesel.missingEssential() == null, "a diesel would not start without coils");
+        diesel.parts().setCondition(CarPart.INJECTORS, 2, CarPart.MAX_CONDITION * 0.2F);
+        var misfire = FaultCodes.read(diesel).stream().filter(f -> f.code().equals("P0303")).findFirst();
+        context.assertTrue(misfire.isPresent() && misfire.get().part() == CarPart.INJECTORS
+                        && !misfire.get().suspects().contains(CarPart.SPARK_PLUGS),
+                "a diesel's misfire read " + misfire.map(FaultCodes.Fault::suspects));
+        CarEntity electric = car(context, new BlockPos(7, 1, 7), true);
+        context.assertTrue(!electric.hasPart(CarPart.INJECTORS) && !electric.hasPart(CarPart.TANK_PUMP)
+                && !electric.hasPart(CarPart.THERMOSTAT) && !electric.hasPart(CarPart.MUFFLER)
+                && electric.hasPart(CarPart.WATER_PUMP), "an electric car's parts are wrong");
+        context.succeed();
+    }
+
+    /** A seized caliper drags: the car pulls to that corner and loses top speed. None at all and the pads do nothing. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void seizedCaliperDrags(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        float speed = car.getMaxSpeed();
+        float brakes = car.brakeStrength();
+        car.parts().setCondition(CarPart.BRAKE_CALIPERS, 0, CarPart.MAX_CONDITION * 0.4F);
+        context.assertTrue(car.pull() == 0.0F, "a caliper still working pulled " + car.pull());
+        car.parts().setCondition(CarPart.BRAKE_CALIPERS, 0, CarPart.MAX_CONDITION * 0.05F);
+        // The first wheel is the front right one.
+        context.assertTrue(car.pull() > 0.0F, "a seized front right caliper pulled " + car.pull());
+        context.assertTrue(car.getMaxSpeed() < speed * 0.9F, "a seized caliper did not hold the car back");
+        context.assertTrue(car.brakeStrength() == brakes, "a dragging caliper braked worse");
+        car.parts().setCondition(CarPart.BRAKE_CALIPERS, 0.0F);
+        context.assertTrue(car.brakeStrength() < brakes * 0.2F, "brakes bit with no calipers");
+        context.assertTrue(CarPart.BRAKE_PADS.blockedBy().equals(java.util.List.of(CarPart.WHEELS, CarPart.BRAKE_CALIPERS)),
+                "the pads sit behind " + CarPart.BRAKE_PADS.blockedBy());
+        context.succeed();
+    }
+
+    /** Worn ball joints let the car wander one way and then the other, never settling like a bent rack. */
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void wornBallJointsWander(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        float steer = car.steeringFactor();
+        for (int wheel = 0; wheel < car.tyreCount(); wheel++) {
+            car.parts().setCondition(CarPart.BALL_JOINTS, wheel, CarPart.MAX_CONDITION * 0.1F);
+        }
+        context.assertTrue(car.parts().play() > 0.5F, "worn joints have no play");
+        context.assertTrue(car.steeringFactor() == steer, "worn joints already steered worse");
+        float[] seen = {0.0F, 0.0F};
+        for (int tick = 1; tick <= 80; tick++) {
+            context.runAtTickTime(tick, () -> {
+                seen[0] = Math.min(seen[0], car.pull());
+                seen[1] = Math.max(seen[1], car.pull());
+            });
+        }
+        context.runAtTickTime(85, () -> {
+            context.assertTrue(seen[0] < 0.0F && seen[1] > 0.0F, "the car only wandered " + seen[0] + " to " + seen[1]);
+            car.parts().setCondition(CarPart.BALL_JOINTS, 0.0F);
+            context.assertTrue(car.steeringFactor() < steer * 0.5F, "the car steered with no ball joints");
+            context.succeed();
+        });
+    }
+
+    /** A tired tank pump feeds a cruise but not flat out; the silencer is heard, not read. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void tankPumpAndMuffler(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        float speed = car.getMaxSpeed();
+        car.parts().setCondition(CarPart.TANK_PUMP, CarPart.MAX_CONDITION * 0.2F);
+        context.assertTrue(car.parts().starvation(0.3F) == 0.0F && car.parts().starvation(1.0F) > 0.3F,
+                "a tired pump starved at " + car.parts().starvation(0.3F) + " / " + car.parts().starvation(1.0F));
+        context.assertTrue(car.getMaxSpeed() < speed * 0.9F, "a tired pump still made full speed");
+        context.assertTrue(FaultCodes.read(car).stream().anyMatch(f -> f.code().equals("P0087")), "a tired pump set no code");
+        car.parts().setCondition(CarPart.TANK_PUMP, 0.0F);
+        context.assertTrue(car.missingEssential() == CarPart.TANK_PUMP, "the car would run with no fuel pump");
+
+        CarEntity loud = car(context, new BlockPos(5, 1, 5), false);
+        context.assertTrue(loud.upkeep().exhaustNoise() == 1.0F, "a new car is loud");
+        loud.parts().setCondition(CarPart.MUFFLER, CarPart.MAX_CONDITION * 0.1F);
+        float rotten = loud.upkeep().exhaustNoise();
+        context.assertTrue(rotten > 1.4F && rotten < 1.8F, "a rotten silencer sounded " + rotten);
+        loud.parts().setCondition(CarPart.MUFFLER, 0.0F);
+        context.assertTrue(loud.upkeep().exhaustNoise() == 1.8F, "no silencer sounded " + loud.upkeep().exhaustNoise());
+        context.assertTrue(FaultCodes.read(loud).stream().noneMatch(f -> f.part() == CarPart.MUFFLER),
+                "the reader saw the silencer");
+        context.succeed();
+    }
+
+    /** With more parts than an int has room for two bits each, the last part's tier still sticks. */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void lastPartKeepsItsTier(GameTestHelper context) {
+        CarEntity car = car(context, new BlockPos(3, 1, 3), false);
+        CarPart last = CarPart.values()[CarPart.values().length - 1];
+        car.parts().setQuality(last, CarPart.Quality.GOLD);
+        context.assertTrue(car.parts().getQuality(last) == CarPart.Quality.GOLD
+                && car.parts().getQuality(CarPart.ENGINE) == CarPart.Quality.IRON, "the last part lost its tier");
+        net.minecraft.nbt.CompoundTag saved = car.saveWithoutId(new net.minecraft.nbt.CompoundTag());
+        saved.remove("UUID");
+        CarEntity copy = car(context, new BlockPos(5, 1, 5), false);
+        copy.load(saved);
+        context.assertTrue(copy.parts().getQuality(last) == CarPart.Quality.GOLD, "the tier did not survive a save");
+        context.succeed();
     }
 }

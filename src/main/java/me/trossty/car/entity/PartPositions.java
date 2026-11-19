@@ -2,20 +2,21 @@ package me.trossty.car.entity;
 
 /**
  * The parts that sit in more than one place on a car, each place with its own
- * wear: a tyre, a pad, a disc and a spring at every wheel, a plug in every
- * cylinder.
+ * wear: a tyre, a caliper, a pad, a disc, a spring and a ball joint at every
+ * wheel, a plug, a coil and an injector at every cylinder.
  *
  * <p>The car still answers {@link CarEntity#getCondition(CarPart)} for the set
  * as a whole, the average of its places, so everything that asks how good the
  * brakes are goes on working. What the places add is the difference between
  * them: the front pads go first because the front does most of the stopping,
- * the side a car is knocked out of true on eats its tyres, and one fouled plug
+ * the side a car is knocked out of true on eats its tyres, one seized caliper
+ * drags its own corner, and one fouled plug, tired coil or sticking injector
  * misfires in its own cylinder.
  *
  * <p>The server keeps each place to the decimal, since wear comes off a few
  * thousandths at a time. Clients get them in half-per-cent steps, eight to a
  * {@code long}: enough for a reader or a pull to the left, and a car's worth
- * costs five numbers on the wire.
+ * costs nine numbers on the wire.
  */
 public final class PartPositions {
 
@@ -24,7 +25,8 @@ public final class PartPositions {
 
     /** The parts that have places, in the order their numbers are kept. */
     private static final CarPart[] SPREAD = {
-            CarPart.WHEELS, CarPart.BRAKE_PADS, CarPart.BRAKE_DISCS, CarPart.SUSPENSION, CarPart.SPARK_PLUGS};
+            CarPart.WHEELS, CarPart.BRAKE_PADS, CarPart.BRAKE_DISCS, CarPart.SUSPENSION, CarPart.SPARK_PLUGS,
+            CarPart.IGNITION_COILS, CarPart.INJECTORS, CarPart.BRAKE_CALIPERS, CarPart.BALL_JOINTS};
 
     public static final int PARTS = SPREAD.length;
 
@@ -50,7 +52,12 @@ public final class PartPositions {
 
     /** The places that sit at the wheels, rather than in the cylinders. */
     public static boolean atWheels(CarPart part) {
-        return isSpread(part) && part != CarPart.SPARK_PLUGS;
+        return isSpread(part) && !inCylinders(part);
+    }
+
+    /** A plug, a coil and an injector to every cylinder. */
+    public static boolean inCylinders(CarPart part) {
+        return part == CarPart.SPARK_PLUGS || part == CarPart.IGNITION_COILS || part == CarPart.INJECTORS;
     }
 
     public static CarPart part(int slot) {

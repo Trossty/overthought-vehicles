@@ -57,6 +57,9 @@ public final class BodyDamage {
     /** The same for the springs at the side that was hit, which take it all between them. */
     private static final float STRUCK_SPRING_WEAR = 2.2F;
 
+    /** The same for the ball joints at that side: less, they are made to take it. */
+    private static final float STRUCK_JOINT_WEAR = 1.2F;
+
     /** Radiator condition lost per point of damage to the front: a full-speed head-on all but finishes it. */
     private static final float RADIATOR_PER_DAMAGE = 6.0F;
 
@@ -337,6 +340,8 @@ public final class BodyDamage {
             return;
         }
         parts.wearAt(CarPart.SUSPENSION, zone, amount * STRUCK_SPRING_WEAR);
+        // The arm takes the knock through its ball joint, which loosens.
+        parts.wearAt(CarPart.BALL_JOINTS, zone, amount * STRUCK_JOINT_WEAR);
         switch (zone) {
             case FRONT -> parts.wear(CarPart.RADIATOR, amount * RADIATOR_PER_DAMAGE);
             case REAR -> parts.wear(CarPart.EXHAUST, amount * EXHAUST_PER_DAMAGE);
