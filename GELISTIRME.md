@@ -49,7 +49,7 @@ Kod, README ve fotoğraf testleri taranarak hazırlandı (2026-11-12). Liste ön
 | Öncelik | Emek | Konu | Ayrıntı | Durum |
 |---|---|---|---|---|
 | Y | M | Otomatik doğrulama testleri | Tek test dosyası (`CarPhotoTest`, ~1200 satır) ekran görüntüsü alıyor; sayısal kontroller günlüğe yazılıyor ama hiçbiri testi düşürmüyor. Fabric gametest ile "pompa kulesi 200 tick'te petrol üretir", "kablo enerjiyi 10 blok taşır", "rafineri 1:1 dönüştürür" gibi gerçek assertion'lar eklenmeli. Böylece fotoğraf testini yeniden çalıştırmadan gerilemeler yakalanır. | ✅ `CarMachineTests` içinde 26 sunucu gametest'i, hepsi geçiyor. |
-| O | L | `CarEntity` çok büyük | 3109 satır. Sürüş fiziği, hasar, parçalar, ses ve ağ senkronu tek sınıfta. `VehiclePhysics`, `VehicleDamage`, `VehicleParts` gibi bileşenlere bölmek, yeni araç türü eklemeyi ve hata ayıklamayı kolaylaştırır. | ⏸ Ertelendi: büyük bir yeniden düzenleme. Davranış değişmeden yapılmalı ve ayrı bir iş olarak ele alınmalı. |
+| O | L | `CarEntity` çok büyük | 3109 satır. Sürüş fiziği, hasar, parçalar, ses ve ağ senkronu tek sınıfta. `VehiclePhysics`, `VehicleDamage`, `VehicleParts` gibi bileşenlere bölmek, yeni araç türü eklemeyi ve hata ayıklamayı kolaylaştırır. | ✅ 2026-11-18: davranış değişmeden altı bileşene bölündü (`CarParts`, `Gearbox`, `Upkeep`, `Workshop`, `BodyDamage`, `CarEffects`); araba her birini `car.parts()` gibi bir erişimciyle verir. `CarEntity` 6310 satırdan 3885'e indi; sürüş, ağ senkronu ve alt sınıfların ezdiği metodlar orada kaldı. |
 | O | M | Ayar dosyası yok | Jeneratör çıktısı, kablo kapasitesi, rezerv boyutu, yakıt tüketimi kodda sabit. Basit bir JSON ayar dosyası (ya da gamerule) sunucu sahiplerinin dengeyi değiştirmesine izin verir. | ✅ `config/car.json` |
 | O | M | Kablo ağı performansı | Her kablo her tick komşularına bakıyor (`EnergyStorage.SIDED.find` her yön için). Uzun hatlarda ve çok oyunculu sunucularda maliyet artar. Seçenekler: komşu aramasını önbelleğe almak (blok güncellemesinde yenilemek) ya da kabloları her 2–4 tick'te bir çalıştırmak. Gerçek bir ağ (graph) yapısı en iyisi, ama emek L. | ✅ Komşular önbellekte tutuluyor ve blok güncellemesinde yenileniyor. |
 | D | S | Çok oyunculu test | Testler tek oyunculu. İki istemcili bir senaryo (biri sürerken diğerinin izlemesi, tanker hortumu paylaşımı) senkron hatalarını ortaya çıkarabilir. | ✅ `runMpServer`, ardından `runMpAlice` ve `runMpBob`: gerçek bir sunucuda Alice sürer, Bob yolcu olur. Kaza ikisine de hasar veriyor, Bob arabayı aynı hızda görüyor, farlar gece ikisinde de yanıyor. Sunucu işini bitirince kapanıyor. Bu test sunucuda zıplayan hız ölçümünü ve duvarın arkasına sızan far ışığını yakaladı. |
@@ -63,6 +63,21 @@ Kod, README ve fotoğraf testleri taranarak hazırlandı (2026-11-12). Liste ön
 | D | — | Create | Create'in Fabric 1.21.11 sürümü yok; çıktığında kinetik → elektrik dönüştürücü düşünülebilir. Şimdilik beklemede. | ⏸ Beklemede: Create'in Fabric 1.21.11 sürümü hâlâ yok. |
 
 ---
+
+## Mekanik derinlik (2026-11-18)
+
+| Öncelik | Konu | Durum |
+|---|---|---|
+| Y | Köşe başına aşınma (lastik, balata, disk, amortisör) | ✅ `PartPositions`; ön/arka fren payı, frenlerken çekme, köşeye lastik takma. |
+| Y | Silindir başına buji, P0301–P0308 | ✅ Buji sayısı motor düzenine göre; tekleme silindir silindir. |
+| Y | Zorlaşan teşhis | ✅ Kodlarda yüzde yok, çok sebepli kodlar ("Olası: …"), sökmeden görünmeyen aşınma. ⏳ Canlı veri ve donmuş kare (freeze frame) yapılmadı. |
+| Y | Araca özel vites ve tork eğrisi | ✅ `performance.gears`, `CarSetup.torque`. |
+| O | `CarEntity`'nin bölünmesi | ✅ Altı bileşen; yukarıdaki tabloda ayrıntısı. 96 gametest değişmeden geçiyor. |
+| O | Konuma göre hasar | ✅ Gövde dört taraf (`BodyZone`): önden radyatör, arkadan egzoz, yandan o taraftaki lastik ve amortisör; depo önden hiç, yandan yarı olasılıkla delinir; bir taraf bitince pert; çekiç durduğun tarafa; OBD B1001–B1004. Eski kayıtlar `Health` → dört taraf. 7 yeni gametest (103/103). Far kırılması elektrikle birlikte bekliyor. |
+| Y | Motor vinçle çıkıyor, sehpaya oturuyor (CMS akışı) | ✅ `EngineHoistBlockEntity` kancası; kaputlu araçta motor elle ya da liftle girip çıkmıyor; çömelip tıklayınca bom çeyrek tur dönüyor; kanca sehpaya indiriyor, sehpadan alıyor, boş bölmeye takıyor. 3 yeni gametest (106/106). |
+| Y | Motorun gerçek iç parçaları | ✅ `EngineInternals`: silindir başına segman ve supap, tek conta, krank yatakları; motorun durumu dördünün ortalaması. Aşınma sebebine göre bölünüyor (kirli yağ segman ve yatak, kirli yakıt segman ve supap, hararet conta). Yağ yakma en kötü segmandan, conta yanığı contadan, vuruntu yataktan (ya da az yağdan) geliyor. Kopan triger supapları eğiyor ve yeni kayış onları düzeltmiyor; eğik supaplı ya da conta yanığı yanındaki silindir güç vermiyor (`CarParts.firing`). Kompresyon ölçer her silindiri kendi segmanından okuyor. Söküldüğünde iç parçalar motor eşyasında (`engine_internals`), sehpada 4 parçaya (piston, **supap** yeni eşya, conta, krank) silindir silindir ayrılıyor; rastgelelik yok. 1 yeni gametest, 2 güncellendi (107/107). |
+| Y | Motor tamirinin devamı | ⏳ Yağlı kompresyon testi (segman mı supap mı), sıralı söküm ve tek kullanımlık conta, mm ölçümleri, tezgâhta işleme, alıştırma, yağ pompası ve servis geçmişi. |
+| O | Elektrik: far ampulü, sigorta kutusu, kablo demeti | ⏸ Sonraya bırakıldı. Bugün elektrikte yalnızca akü, alternatör ve marş var; farlar ve sinyaller hiç bozulmuyor. Sigorta kutusu ucuz bir teşhis bulmacası olur: yanan sigorta bir devreyi (far, sinyal, marş) susturur, OBD yalnızca devreyi söyler. Önden çarpma farı kırabilir. |
 
 ## Durum özeti (2026-11-12)
 

@@ -41,12 +41,37 @@ public class CarPhotoTest {
             scenes.put("tyres", this::tyres);
             scenes.put("station", this::station);
             scenes.put("driving", this::driving);
+            scenes.put("batteryGauge", this::batteryGauge);
             scenes.put("rideAndLeave", this::rideAndLeave);
             scenes.put("twoWheelsAndTrailer", this::twoWheelsAndTrailer);
             scenes.put("workstation", this::workstation);
             scenes.put("towing", this::towing);
+            scenes.put("flatbed", this::flatbed);
+            scenes.put("planeTow", this::planeTow);
+            scenes.put("stands", this::stands);
+            scenes.put("bedLoad", this::bedLoad);
+            scenes.put("towTruck", this::towTruck);
+            scenes.put("caravan", this::caravan);
+            scenes.put("tyreLooks", this::tyreLooks);
+            scenes.put("lids", this::lids);
+            scenes.put("hoist", this::hoist);
+            scenes.put("garageTools", this::garageTools);
+            scenes.put("garageParts", this::garageParts);
+            scenes.put("engineInternals", this::engineInternals);
+            scenes.put("rapeseed", this::rapeseed);
+            scenes.put("itemGrid", this::itemGrid);
+            scenes.put("pumpjackLook", this::pumpjackLook);
+            scenes.put("hydroCables", this::hydroCables);
+            scenes.put("overlayLook", this::overlayLook);
+            scenes.put("liftHitboxes", this::liftHitboxes);
+            scenes.put("glassWater", this::glassWater);
+            scenes.put("roadLife", this::roadLife);
             scenes.put("leaning", this::leaning);
             scenes.put("items3d", this::items3d);
+            scenes.put("heldParts", this::heldParts);
+            scenes.put("kerbClimb", this::kerbClimb);
+            scenes.put("engineStand", this::engineStand);
+            scenes.put("carGaps", this::carGaps);
             scenes.put("parked", this::parked);
             scenes.put("riderLean", this::riderLean);
             scenes.put("steeringWheel", this::steeringWheel);
@@ -58,10 +83,11 @@ public class CarPhotoTest {
             scenes.put("portableGenerators", this::portableGenerators);
             scenes.put("productionLine", this::productionLine);
             scenes.put("energyCables", this::energyCables);
-            scenes.put("everythingTab", this::everythingTab);
+            scenes.put("modTabs", this::modTabs);
             scenes.put("roadsAndCharging", this::roadsAndCharging);
             scenes.put("paintedRoads", this::paintedRoads);
             scenes.put("markingMenuAndTablet", this::markingMenuAndTablet);
+            scenes.put("menus", this::menus);
             scenes.put("servicingOnLift", this::servicingOnLift);
             scenes.put("blockGallery", this::blockGallery);
             scenes.put("pumpAndLift", this::pumpAndLift);
@@ -78,6 +104,10 @@ public class CarPhotoTest {
             scenes.put("stall", Playtest::stall);
             scenes.put("airturn", Playtest::airturn);
             scenes.put("planecrash", Playtest::planeCrash);
+            scenes.put("newVehicles", this::newVehicles);
+            scenes.put("newRiders", this::newRiders);
+            scenes.put("farmWork", this::farmWork);
+            scenes.put("crateAndIcons", this::crateAndIcons);
             String only = System.getProperty("car.photo.scenes", "");
             List<String> wanted = Boolean.getBoolean("car.photo.all") ? List.copyOf(scenes.keySet())
                     : only.isBlank() ? List.of() : List.of(only.split(","));
@@ -110,7 +140,8 @@ public class CarPhotoTest {
             // The road scenes leave asphalt a layer up, which would bury the lift.
             server.runCommand("fill -6 %d -6 6 %d 6 minecraft:air".formatted(Y, Y + 8));
             server.runCommand("fill -6 %d -6 6 %d 6 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-            server.runCommand("setblock 0 %d 0 car:vehicle_lift[level=4]{WantUp:1b}".formatted(Y - 1));
+            server.runCommand("setblock 0 %d 0 car:%s[level=4]{Stop:2}".formatted(Y,
+                    vehicle[0].equals("car:motorcycle") ? "motorcycle_lift" : "vehicle_lift"));
             server.runCommand("summon %s 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"%s\",Color:14,Tags:[\"lift\"]}"
                     .formatted(vehicle[0], Y, vehicle[1]));
             context.waitTicks(5);
@@ -121,14 +152,17 @@ public class CarPhotoTest {
                 var box = new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10);
                 var car = minecraft.overworld().getEntitiesOfClass(
                         me.trossty.car.entity.CarEntity.class, box, e -> e.getTags().contains("lift")).get(0);
-                car.removePart(player, me.trossty.car.entity.CarPart.WHEELS);
-                car.removePart(player, me.trossty.car.entity.CarPart.AIR_FILTER);
-                car.setCondition(me.trossty.car.entity.CarPart.BATTERY,
+                car.workshop().removePart(player, me.trossty.car.entity.CarPart.WHEELS);
+                if (car.hasLid(me.trossty.car.entity.CarEntity.BONNET_BIT)) {
+                    car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
+                }
+                car.workshop().removePart(player, me.trossty.car.entity.CarPart.AIR_FILTER);
+                car.parts().setCondition(me.trossty.car.entity.CarPart.BATTERY,
                         me.trossty.car.entity.CarPart.MAX_CONDITION * 0.5F);
                 System.out.println("car photo lift " + name + ": servicing="
                         + me.trossty.car.block.VehicleLiftBlock.isServicing(minecraft.overworld(), car)
-                        + " wheels=" + car.isFitted(me.trossty.car.entity.CarPart.WHEELS)
-                        + " filter=" + car.isFitted(me.trossty.car.entity.CarPart.AIR_FILTER)
+                        + " wheels=" + car.parts().isFitted(me.trossty.car.entity.CarPart.WHEELS)
+                        + " filter=" + car.parts().isFitted(me.trossty.car.entity.CarPart.AIR_FILTER)
                         + " tyre at " + car.anchorOf(me.trossty.car.entity.CarPart.WHEELS)
                         + " engine at " + car.anchorOf(me.trossty.car.entity.CarPart.ENGINE));
             });
@@ -136,6 +170,30 @@ public class CarPhotoTest {
             // From the front corner, and then side on from the near side.
             shot(context, server, "lift_" + name + "_corner", -3.0, Y + 0.4, 5.5, -145, 22);
             shot(context, server, "lift_" + name + "_side", -4.5, Y + 0.2, 0.5, -90, 15);
+            shot(context, server, "lift_" + name + "_under", -2.6, Y - 0.2, 0.5, -90, -22);
+            // Lying under it looking up, to see the drivetrain joined up; and
+            // down into the open bay, to see the boxes sit on what they mark.
+            shot(context, server, "lift_" + name + "_belly", -1.2, Y, 0.5, -90, -38);
+            shot(context, server, "lift_" + name + "_belly_rear", 0.5, Y, -1.6, 0, -40);
+            // Over the battery, looking down into the bay at it: its box has
+            // to sit on the battery drawn there.
+            net.minecraft.world.phys.Vec3 battery = context.computeOnClient(client -> {
+                var car = client.level.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                        new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
+                return me.trossty.car.client.render.CarServiceOverlay.boxOf(
+                        car, me.trossty.car.entity.CarPart.BATTERY, 1.0F).getCenter();
+            });
+            System.out.println("car photo lift " + name + " battery box at " + battery);
+            // Up in the air over the bay: flying, or the camera drops to the floor.
+            server.runCommand("gamemode creative @a");
+            server.runOnServer(minecraft -> {
+                var player = minecraft.getPlayerList().getPlayers().get(0);
+                player.getAbilities().flying = true;
+                player.onUpdateAbilities();
+            });
+            server.runCommand("tp @a %.2f %.2f %.2f -90 40".formatted(battery.x - 1.6, battery.y + 1.3 - 1.62, battery.z));
+            context.waitTicks(12);
+            context.takeScreenshot("lift_" + name + "_bay");
             // Aimed at the bare hub: its box lights and the box by the crosshair speaks.
             net.minecraft.world.phys.Vec3 wheel = context.computeOnClient(client -> {
                 var car = client.level.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
@@ -173,6 +231,58 @@ public class CarPhotoTest {
      * the OBD tablet as a solid thing: on display, dropped, held at an angle
      * and in third person.
      */
+    /** Every machine's window, one after another, opened as a click on the block would. */
+    private void menus(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -44 %d -2 64 %d 8 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("clear @a");
+        server.runCommand("give @a minecraft:coal 12");
+        server.runCommand("give @a car:engine 1");
+        String[][] machines = {
+                {"car:vehicle_workbench", "workbench"}, {"car:vehicle_workstation", "workstation"},
+                {"car:fuel_refinery", "refinery"}, {"car:hydrotreater", "hydrotreater"},
+                {"car:pumpjack", "pumpjack"}, {"car:generator", "generator"},
+                {"car:diesel_generator", "diesel_generator"}, {"car:battery_bank", "battery_bank"},
+                {"car:charging_post", "charging_post"}, {"car:toolbox", "toolbox"}};
+        for (int i = 0; i < machines.length; i++) {
+            int x = i * 8 - 40;
+            // Not every one of them turns: a plain setblock stands if the facing one is refused.
+            server.runCommand("setblock %d %d 4 %s".formatted(x, Y, machines[i][0]));
+            place(server, machines[i][0], x, 4);
+            server.runCommand("tp @a %d.5 %d 1.5 0 20".formatted(x, Y));
+            context.waitTicks(10);
+            int at = x;
+            server.runOnServer(minecraft -> {
+                var player = minecraft.getPlayerList().getPlayers().get(0);
+                var world = minecraft.overworld();
+                var pos = at(at, 4);
+                var state = world.getBlockState(pos);
+                // The charging post opens its window to a crouching click.
+                player.setShiftKeyDown(true);
+                state.useWithoutItem(world, player, new net.minecraft.world.phys.BlockHitResult(
+                        net.minecraft.world.phys.Vec3.atCenterOf(pos), net.minecraft.core.Direction.NORTH, pos, false));
+                player.setShiftKeyDown(false);
+            });
+            context.waitTicks(10);
+            context.takeScreenshot("menu_" + machines[i][1]);
+            context.runOnClient(client -> client.setScreen(null));
+        }
+        server.runCommand("summon car:car 60.5 %d 4.5 {Rotation:[0f,0f],Tags:[\"menus\"]}".formatted(Y));
+        server.runCommand("tp @a 60.5 %d 1.5 0 20".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var car = minecraft.overworld().getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                    player.getBoundingBox().inflate(8)).get(0);
+            player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                    (syncId, inventory, opener) -> new me.trossty.car.service.CarServiceScreenHandler(syncId, inventory, car.getId()),
+                    car.getDisplayName()));
+        });
+        context.waitTicks(10);
+        context.takeScreenshot("menu_service");
+        context.runOnClient(client -> client.setScreen(null));
+    }
+
     private void markingMenuAndTablet(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -4 %d 0 4 %d 8 car:asphalt".formatted(Y, Y));
@@ -441,8 +551,8 @@ public class CarPhotoTest {
             for (var car : world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box, e -> true)) {
                 line.append(" | ").append(car.getModelId()).append(" electric=").append(car.isElectric())
                         .append(String.format(java.util.Locale.ROOT, " fuel=%.1f/%.0f dirty=%.2f odo=%.0f health=%.1f asphalt=%s",
-                                car.getFuel(), car.getMaxFuel(), car.getDirtyFuel(), car.getOdometer(),
-                                car.getHealth(), car.onAsphalt()));
+                                car.getFuel(), car.getMaxFuel(), car.getDirtyFuel(), car.parts().getOdometer(),
+                                car.damage().getHealth(), car.onAsphalt()));
             }
             System.out.println(line);
         });
@@ -565,9 +675,9 @@ public class CarPhotoTest {
                 var cooldown = me.trossty.car.entity.CarEntity.class.getDeclaredField("crashCooldown");
                 cooldown.setAccessible(true);
                 while (!tanker.isLeaking() && crashes < 40) {
-                    tanker.setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH);
+                    tanker.damage().setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH);
                     cooldown.setInt(tanker, 0);
-                    tanker.applyReportedCrash(world, 9.0F);
+                    tanker.damage().applyReportedCrash(world, 9.0F);
                     crashes++;
                 }
             } catch (ReflectiveOperationException e) {
@@ -1066,7 +1176,7 @@ public class CarPhotoTest {
             for (int[] c : run) {
                 if (world.getBlockEntity(new net.minecraft.core.BlockPos(c[0], Y + c[1], c[2]))
                         instanceof me.trossty.car.block.entity.EnergyCableBlockEntity cable) {
-                    line.append(" c").append(cable.getEnergy());
+                    line.append(" c").append(cable.getFlow());
                 }
             }
             if (world.getBlockEntity(at(10, 25)) instanceof me.trossty.car.block.entity.FuelRefineryBlockEntity r) {
@@ -1087,30 +1197,73 @@ public class CarPhotoTest {
         shot(context, server, "cable_hotbar", 3.0, Y, 33.0, 180, 30);
     }
 
-    /** The testing tab: it fills without a clash, and it looks right open. */
-    private void everythingTab(ClientGameTestContext context, TestServerContext server) {
+    /** Every tab of ours, open, page by page: what a player browsing them sees. */
+    private void modTabs(ClientGameTestContext context, TestServerContext server) {
+        java.util.List<net.minecraft.world.item.CreativeModeTab> tabs = new java.util.ArrayList<>();
         context.runOnClient(client -> {
-            var group = net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.get(me.trossty.car.registry.ModItems.TEST_GROUP);
             net.minecraft.world.item.CreativeModeTabs.tryRebuildTabContents(client.player.connection.enabledFeatures(),
                     true, client.level.registryAccess());
-            System.out.println("car drive test everything tab: " + group.getDisplayItems().size() + " stacks");
-            var screen = new net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen(client.player,
-                    client.player.connection.enabledFeatures(), true);
-            client.setScreen(screen);
+            for (var entry : net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.entrySet()) {
+                if (entry.getKey().location().getNamespace().equals(me.trossty.car.CarMain.MOD_ID)) {
+                    tabs.add(entry.getValue());
+                    System.out.println("car photo tab " + entry.getKey().location() + ": "
+                            + entry.getValue().getDisplayItems().size() + " stacks: "
+                            + entry.getValue().getDisplayItems().stream()
+                                    .map(stack -> net.minecraft.core.registries.BuiltInRegistries.ITEM
+                                            .getKey(stack.getItem()).getPath())
+                                    .collect(java.util.stream.Collectors.joining(" ")));
+                }
+            }
+            // Nothing of ours left out of every tab.
+            java.util.Set<net.minecraft.world.item.Item> shown = new java.util.HashSet<>();
+            tabs.forEach(tab -> tab.getDisplayItems().forEach(stack -> shown.add(stack.getItem())));
+            String missing = net.minecraft.core.registries.BuiltInRegistries.ITEM.stream()
+                    .filter(item -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item)
+                            .getNamespace().equals(me.trossty.car.CarMain.MOD_ID) && !shown.contains(item))
+                    .map(item -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath())
+                    .collect(java.util.stream.Collectors.joining(" "));
+            System.out.println("car photo tabs missing: [" + missing + "]");
+            client.setScreen(new net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen(client.player,
+                    client.player.connection.enabledFeatures(), true));
         });
         context.waitTicks(3);
-        context.runOnClient(client -> {
-            var group = net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.get(me.trossty.car.registry.ModItems.TEST_GROUP);
-            try {
-                net.neoforged.fml.util.ObfuscationReflectionHelper.findMethod(
-                        net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class, "selectTab",
-                        net.minecraft.world.item.CreativeModeTab.class).invoke(client.screen, group);
-            } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException(e);
+        for (var tab : tabs) {
+            String name = net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab).getPath();
+            int[] pages = new int[1];
+            context.runOnClient(client -> {
+                try {
+                    net.neoforged.fml.util.ObfuscationReflectionHelper.findMethod(
+                            net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class, "selectTab",
+                            net.minecraft.world.item.CreativeModeTab.class).invoke(client.screen, tab);
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+                int rows = (tab.getDisplayItems().size() + 8) / 9;
+                pages[0] = Math.max(1, (rows + 4) / 5);
+            });
+            for (int page = 0; page < pages[0]; page++) {
+                float at = pages[0] == 1 ? 0.0F : page / (float) (pages[0] - 1);
+                context.runOnClient(client -> {
+                    var screen = (net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) client.screen;
+                    screen.getMenu().scrollTo(at);
+                    try {
+                        // The pointer off in the corner, so no tooltip covers the slots.
+                        for (String axis : new String[]{"xpos", "ypos"}) {
+                            var pointer = net.neoforged.fml.util.ObfuscationReflectionHelper.findField(
+                                    net.minecraft.client.MouseHandler.class, axis);
+                            pointer.setDouble(client.mouseHandler, 0.0);
+                        }
+                        var field = net.neoforged.fml.util.ObfuscationReflectionHelper.findField(
+                                net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen.class, "scrollOffs");
+                        field.setFloat(screen, at);
+                    } catch (ReflectiveOperationException e) {
+                        throw new IllegalStateException(e);
+                    }
+                });
+                context.waitTicks(4);
+                context.takeScreenshot("tab_" + name + "_" + page);
             }
-        });
-        context.waitTicks(10);
-        context.takeScreenshot("everything_tab");
+        }
         context.runOnClient(client -> client.setScreen(null));
     }
 
@@ -1119,6 +1272,137 @@ public class CarPhotoTest {
     }
 
     /** Sets a machine down facing south, every part of it, as placing it by hand would. */
+    /** A tank of water beside a car, seen through both its side windows. */
+    private void glassWater(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill 92 %d 94 110 %d 116 minecraft:air".formatted(Y, Y + 6));
+        server.runCommand("fill 92 %d 94 110 %d 116 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        // a glass tank of water standing at window height
+        server.runCommand("fill 103 %d 94 106 %d 105 minecraft:glass".formatted(Y, Y + 3));
+        server.runCommand("fill 104 %d 95 105 %d 104 minecraft:water".formatted(Y, Y + 2));
+        server.runCommand("summon car:car 100.5 %d 99.5 {Rotation:[0f,0f],Color:3}".formatted(Y));
+        context.waitTicks(20);
+        // through both side windows to the tank on the far side
+        shot(context, server, "glass_water_side", 97.0, Y + 1.5, 99.4, -90, 4);
+        shot(context, server, "glass_water_quarter", 97.5, Y + 2.2, 96.0, -60, 20);
+    }
+
+    /** The pumpjack alone, from the side, the front and a three-quarter angle, mid-stroke. */
+    private void pumpjackLook(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        place(server, "car:pumpjack", 0, 0);
+        context.waitTicks(30);
+        shot(context, server, "pumpjack_side", 6.5, Y + 1.6, -1.0, 90, 8);
+        shot(context, server, "pumpjack_front", 0.5, Y + 1.6, 6.0, 180, 8);
+        shot(context, server, "pumpjack_quarter", 5.0, Y + 2.6, 4.5, 135, 16);
+    }
+
+    /** A hydrotreater with a cable on every side it takes power from, to see each plate meet its body. */
+    private void hydroCables(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -4 %d -4 4 %d 4 minecraft:air".formatted(Y, Y + 4));
+        place(server, "car:hydrotreater", 0, 0);
+        // none of them touch each other, so every one ends in a plate on the machine
+        int[][] cables = {{0, 0, -1}, {1, 0, 0}, {0, 1, 1}, {-1, 1, 0}, {0, 2, 0}};
+        for (int[] c : cables) {
+            server.runCommand("setblock %d %d %d car:energy_cable".formatted(c[0], Y + c[1], c[2]));
+        }
+        context.waitTicks(3);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            for (int[] c : cables) {
+                var pos = new net.minecraft.core.BlockPos(c[0], Y + c[1], c[2]);
+                var state = world.getBlockState(pos);
+                for (var side : net.minecraft.core.Direction.values()) {
+                    state = state.updateShape(side, world.getBlockState(pos.relative(side)), world, pos,
+                            pos.relative(side));
+                }
+                world.setBlock(pos, state, 2);
+            }
+        });
+        context.waitTicks(20);
+        shot(context, server, "hydro_cables_ne", 3.2, Y + 0.6, -2.2, 45, 18);
+        shot(context, server, "hydro_cables_sw", -2.2, Y + 1.4, 3.2, 225, 14);
+        shot(context, server, "hydro_cables_north", 0.5, Y, -1.9, 0, 30);
+        shot(context, server, "hydro_cables_east", 2.9, Y, 0.5, 90, 30);
+        shot(context, server, "hydro_cables_south", 0.5, Y + 0.8, 2.9, 180, 26);
+        shot(context, server, "hydro_cables_west", -1.9, Y + 0.8, 0.5, 270, 26);
+        shot(context, server, "hydro_cables_top", 0.5, Y + 3.0, -1.6, 0, 50);
+    }
+
+    /**
+     * What Jade or WTHIT shows over a worn car and a working machine; run with
+     * -Pcar.jade=true or -Pcar.wthit=true to have one of them there.
+     */
+    private void overlayLook(ClientGameTestContext context, TestServerContext server) {
+        String overlay = net.neoforged.fml.ModList.get().isLoaded("wthit") ? "wthit" : "jade";
+        clear(server);
+        server.runCommand("fill -6 %d -6 6 %d 6 minecraft:air".formatted(Y, Y + 4));
+        place(server, "car:hydrotreater", 3, 0);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var wreck = wreck(world);
+            wreck.moveTo(-2.0, Y, 0.5, 90.0F, 0.0F);
+            world.addFreshEntity(wreck);
+            if (world.getBlockEntity(at(3, 0)) instanceof me.trossty.car.block.entity.HydrotreaterBlockEntity h) {
+                h.setEnergy(me.trossty.car.block.entity.HydrotreaterBlockEntity.ENERGY_CAPACITY / 2);
+            }
+        });
+        context.waitTicks(20);
+        shot(context, server, overlay + "_car", -2.0, Y, 5.0, 180, 12);
+        // the overlay asks the server for a machine's tanks and charge and
+        // draws them when the answer comes, so give it a moment on each half
+        server.runCommand("tp @a 3.5 %d 3.0 180 22".formatted(Y));
+        context.waitTicks(40);
+        shot(context, server, overlay + "_machine_low", 3.5, Y, 3.0, 180, 22);
+        server.runCommand("tp @a 3.5 %d 3.0 180 -4".formatted(Y));
+        context.waitTicks(40);
+        shot(context, server, overlay + "_machine_high", 3.5, Y, 3.0, 180, -4);
+    }
+
+    /** The outline the cursor draws on each part of the two lifts: a column, the power unit, the bike deck and vise. */
+    private void liftHitboxes(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -4 %d -4 14 %d 4 minecraft:air".formatted(Y, Y + 4));
+        // x, z and how many stops up: the top for one bike lift, the first for the other
+        int[][] lifts = {{0, 0, 0}, {6, 0, 2}, {10, 0, 1}};
+        server.runCommand("setblock 0 %d 0 car:vehicle_lift[facing=north]".formatted(Y));
+        server.runCommand("setblock 6 %d 0 car:motorcycle_lift[facing=north]".formatted(Y));
+        server.runCommand("setblock 10 %d 0 car:motorcycle_lift[facing=north]".formatted(Y));
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            for (int[] l : lifts) {
+                var pos = at(l[0], l[1]);
+                var state = world.getBlockState(pos);
+                var lift = (me.trossty.car.block.VehicleLiftBlock) state.getBlock();
+                lift.placeParts(world, pos, state);
+                if (world.getBlockEntity(pos) instanceof me.trossty.car.block.entity.VehicleLiftBlockEntity be) {
+                    for (int i = 0; i < l[2]; i++) {
+                        be.step(true);
+                    }
+                }
+            }
+        });
+        context.waitTicks(60);
+        aimedShot(context, server, "lift_hit_column", -3.5, 3.0, -0.8, Y + 1.5, 0.5);
+        aimedShot(context, server, "lift_hit_power", 3.5, 3.2, 1.82, Y + 1.3, 0.8);
+        aimedShot(context, server, "lift_hit_plate", 0.5, 3.5, 0.5, Y + 0.1, 0.5);
+        aimedShot(context, server, "bike_hit_front", 6.5, -3.0, 6.5, Y + 1.06, -0.3);
+        aimedShot(context, server, "bike_hit_vise", 8.5, 3.5, 6.5, Y + 1.3, 1.35);
+        aimedShot(context, server, "bike_hit_legs", 8.0, 3.0, 10.5, Y + 0.3, 0.6);
+    }
+
+    /** A shot from where a player stands at x, z, looking at a point. */
+    private void aimedShot(ClientGameTestContext context, TestServerContext server, String name,
+                           double x, double z, double tx, double ty, double tz) {
+        double dx = tx - x;
+        double dy = ty - (Y + 1.62);
+        double dz = tz - z;
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) Math.toDegrees(Math.atan2(-dy, Math.sqrt(dx * dx + dz * dz)));
+        shot(context, server, name, x, Y, z, yaw, pitch);
+    }
+
     private void place(TestServerContext server, String block, int x, int z) {
         server.runCommand("setblock %d %d %d %s[facing=south]".formatted(x, Y, z, block));
         server.runOnServer(minecraft -> {
@@ -1224,14 +1508,14 @@ public class CarPhotoTest {
         car.setSetup(defined.factory().setup());
         car.refreshDimensions();
         car.setColor(net.minecraft.world.item.DyeColor.LIGHT_GRAY);
-        car.setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH * 0.34F);
-        car.setOdometer(me.trossty.car.entity.CarEntity.HIGH_MILEAGE * 2.5F);
+        car.damage().setHealth(me.trossty.car.entity.CarEntity.MAX_HEALTH * 0.34F);
+        car.parts().setOdometer(me.trossty.car.entity.CarParts.HIGH_MILEAGE * 2.5F);
         var random = net.minecraft.util.RandomSource.create(5);
         for (var part : me.trossty.car.entity.CarPart.values()) {
-            car.setCondition(part, me.trossty.car.entity.CarPart.MAX_CONDITION * (0.12F + 0.5F * random.nextFloat()));
+            car.parts().setCondition(part, me.trossty.car.entity.CarPart.MAX_CONDITION * (0.12F + 0.5F * random.nextFloat()));
         }
-        car.setCondition(me.trossty.car.entity.CarPart.BATTERY, me.trossty.car.entity.CarPart.MAX_CONDITION * 0.05F);
-        car.setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F);
+        car.parts().setCondition(me.trossty.car.entity.CarPart.BATTERY, me.trossty.car.entity.CarPart.MAX_CONDITION * 0.05F);
+        car.parts().setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F);
         car.setFuel(0.0F);
         car.addFuel(1.0F, car.getEngineFuel(), false);
         car.setDirtyFuel(0.8F);
@@ -1332,11 +1616,13 @@ public class CarPhotoTest {
         server.runCommand("setblock -3 %d 4 car:fuel_pump[half=upper,facing=south,nozzle=true]".formatted(Y + 1));
         server.runCommand("setblock -1 %d 4 car:fuel_pump[half=lower,facing=east,nozzle=false]".formatted(Y));
         server.runCommand("setblock -1 %d 4 car:fuel_pump[half=upper,facing=east,nozzle=false]".formatted(Y + 1));
-        for (int level = 0; level <= 4; level++) {
-            server.runCommand("setblock %d %d 4 car:vehicle_lift[level=%d,facing=north]{WantUp:%s}"
-                    .formatted(2 + level * 3, Y - 1, level, level > 0 ? "1b" : "0b"));
+        // The three stops: on the floor, a little way up, right up.
+        int[] stops = {0, 1, 4};
+        for (int stop = 0; stop < stops.length; stop++) {
+            server.runCommand("setblock %d %d 4 car:vehicle_lift[level=%d,facing=north]{Stop:%d}"
+                    .formatted(2 + stop * 4, Y, stops[stop], stop));
         }
-        server.runCommand("setblock 4 %d 13 car:vehicle_lift[level=4,facing=east]{WantUp:1b}".formatted(Y - 1));
+        server.runCommand("setblock 4 %d 13 car:vehicle_lift[level=4,facing=east]{Stop:2}".formatted(Y));
         server.runCommand("summon car:car 4.5 %d 13.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:14}"
                 .formatted(Y + 1));
         context.waitTicks(20);
@@ -1390,7 +1676,7 @@ public class CarPhotoTest {
             fillTank(world, new BlockPos(-2, Y, 10), net.minecraft.world.level.material.Fluids.WATER, 64000);
             fillTank(world, new BlockPos(2, Y, 10), me.trossty.car.registry.ModFluids.MILK, 30000);
         });
-        server.runCommand("setblock 14 %d 4 car:vehicle_lift[level=3]{WantUp:1b}".formatted(Y));
+        server.runCommand("setblock 14 %d 4 car:vehicle_lift[level=3]{Stop:2}".formatted(Y));
         context.waitTicks(10);
         shot(context, server, "blocks_row", -0.5, Y + 2.2, 10.0, 180, 22);
         shot(context, server, "blocks_row_left", -7.5, Y + 1.0, 7.5, 180, 15);
@@ -1493,28 +1779,42 @@ public class CarPhotoTest {
      */
     private void icons(ClientGameTestContext context, TestServerContext server) {
         clear(server);
+        server.runCommand("time set noon");
         String[][] items = {
                 {"car:car", "car:toyota_corolla"},
+                {"car:car", "car:tofas_sahin"},
                 {"car:car", "car:jeep_wrangler"},
                 {"car:car", "car:ford_mustang"},
                 {"car:pickup", "car:toyota_hilux"},
+                {"car:pickup", "car:hilux_tow"},
                 {"car:fuel_tanker", "car:mercedes_atego"},
+                {"car:motorcycle", "car:vespa_primavera"},
+                {"car:motorcycle", "car:honda_cbr600rr"},
                 {"car:motorboat", "car:bayliner_bowrider"},
                 {"car:airplane", "car:cessna_172"},
+                {"car:trailer", "car:box_trailer"},
+                {"car:trailer", "car:flatbed_trailer"},
+                {"car:trailer", "car:caravan"},
+                {"car:trailer", "car:tow_dolly"},
+                {"car:trailer", "car:plane_tow_dolly"},
+                {"car:trailer", "car:wheel_lift"},
         };
+        // Nine to a line, and under each line the same nine dyed.
+        int perLine = 9;
         for (int i = 0; i < items.length; i++) {
-            double x = -7.0 + i * 2.0;
+            double x = -8.0 + (i % perLine) * 2.0;
             for (int row = 0; row < 2; row++) {
                 String color = row == 0 ? "" : ",\"car:color\":14";
                 server.runCommand(("summon minecraft:item_display %.1f %.1f 12.5 {item_display:\"gui\","
                         + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
                         + "translation:[0f,0f,0f],scale:[1.6f,1.6f,1.6f]},"
                         + "item:{id:\"%s\",count:1,components:{\"car:vehicle\":\"%s\"%s}}}")
-                        .formatted(x, Y + 2.8 - row * 1.9, items[i][0], items[i][1], color));
+                        .formatted(x, Y + 6.6 - (i / perLine * 2 + row) * 1.9, items[i][0], items[i][1], color));
             }
         }
         context.runOnClient(client -> client.options.hideGui = true);
-        shot(context, server, "icons", 0.0, Y + 0.3, 20.0, 180, 0);
+        // An item display shows its face to the north.
+        shot(context, server, "icons", 0.0, Y + 2.0, 2.0, 0, 0);
         context.runOnClient(client -> client.options.hideGui = false);
     }
 
@@ -1530,6 +1830,9 @@ public class CarPhotoTest {
         shot(context, server, "plane_front", 0.5, Y + 1.2, -1.0, 0, 5);
         shot(context, server, "plane_back34", 6.5, Y + 2.6, 18.5, 140, 14);
         shot(context, server, "plane_top", 0.5, Y + 12.0, 10.5, 0, 90);
+        shot(context, server, "plane_tail", -4.5, Y + 2.4, 14.6, -90, 4);
+        shot(context, server, "plane_cabin", -3.6, Y + 1.6, 8.6, -90, 6);
+        shot(context, server, "plane_step", -2.6, Y + 0.6, 7.2, -60, 12);
         // People in the seats, seen from outside: two husks up front, then
         // the pilot's own view over the panel.
         server.runCommand("difficulty easy");
@@ -1560,6 +1863,180 @@ public class CarPhotoTest {
             client.options.setCameraType(CameraType.FIRST_PERSON);
             client.options.hideGui = false;
         });
+    }
+
+    /**
+     * The entity, model and factory paint (a dye id: a summon does not apply
+     * it the way placing the item does) of each vehicle added with the
+     * MrCrayfish set.
+     */
+    private static final String[][] NEW_VEHICLES = {
+            {"car:car", "car:massey_ferguson_240", "14"},
+            {"car:trailer", "car:seed_drill", "11"},
+            {"car:trailer", "car:fertilizer_spreader", "1"},
+            {"car:car", "car:john_deere_x350", "13"},
+            {"car:car", "car:honda_fourtrax_rancher", "14"},
+            {"car:car", "car:tony_kart_racer_401", "5"},
+            {"car:car", "car:meyers_manx", "1"},
+            {"car:car", "car:club_car_precedent", "0"},
+            {"car:motorboat", "car:yamaha_waverunner_vx", "11"},
+            {"car:helicopter", "car:robinson_r44", "14"},
+    };
+
+    /** The NBT that summons {@code model} in its factory paint, from {@link #NEW_VEHICLES}. */
+    private static String newVehicle(String model) {
+        for (String[] vehicle : NEW_VEHICLES) {
+            if (vehicle[1].equals(model)) {
+                return "Rotation:[0f,0f],Model:\"%s\",Color:%s".formatted(model, vehicle[2]);
+            }
+        }
+        throw new IllegalArgumentException(model);
+    }
+
+    /** A front three-quarter, a rear three-quarter and a side shot of each new vehicle, alone. */
+    private void newVehicles(ClientGameTestContext context, TestServerContext server) {
+        context.runOnClient(client -> client.options.hideGui = true);
+        for (String[] vehicle : NEW_VEHICLES) {
+            boolean boat = vehicle[0].equals("car:motorboat");
+            clear(server);
+            server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
+            if (boat) {
+                server.runCommand("fill -8 %d 2 8 %d 19 minecraft:water".formatted(Y - 1, Y - 1));
+            }
+            server.runCommand("summon %s 0.5 %d 10.5 {%s}".formatted(vehicle[0], Y, newVehicle(vehicle[1])));
+            String name = vehicle[1].substring(4);
+            double back = vehicle[0].equals("car:helicopter") ? 7.5 : name.equals("massey_ferguson_240") ? 4.5 : 3.6;
+            double up = back > 5 ? 2.2 : 1.0;
+            shot(context, server, "new_" + name + "_front34", 0.5 + back * 0.55, Y + up, 10.5 + back, 151, 12);
+            shot(context, server, "new_" + name + "_rear34", 0.5 - back * 0.55, Y + up, 10.5 - back, -29, 12);
+            shot(context, server, "new_" + name + "_side", 0.5 + back, Y + up * 0.6, 10.5, 90, 6);
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+    }
+
+    /**
+     * Sat on each new vehicle from behind and from the front: hands on the
+     * bars of the quad and the jet ski, on a wheel in the rest.
+     */
+    private void newRiders(ClientGameTestContext context, TestServerContext server) {
+        String[] riders = {"car:honda_fourtrax_rancher", "car:tony_kart_racer_401", "car:meyers_manx",
+                "car:club_car_precedent", "car:john_deere_x350", "car:massey_ferguson_240",
+                "car:yamaha_waverunner_vx", "car:robinson_r44"};
+        for (String model : riders) {
+            String type = model.equals("car:yamaha_waverunner_vx") ? "car:motorboat"
+                    : model.equals("car:robinson_r44") ? "car:helicopter" : "car:car";
+            clear(server);
+            server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
+            if (type.equals("car:motorboat")) {
+                server.runCommand("fill -8 %d 2 8 %d 19 minecraft:water".formatted(Y - 1, Y - 1));
+            }
+            server.runCommand("summon %s 0.5 %d 10.5 {%s,Tags:[\"ride\"]}".formatted(type, Y, newVehicle(model)));
+            server.runCommand("tp @a 3.5 %d 10.5".formatted(Y));
+            context.waitTicks(10);
+            server.runCommand("ride @p mount @e[tag=ride,limit=1]");
+            context.waitTicks(10);
+            context.runOnClient(client -> {
+                client.player.setYRot(0);
+                client.player.setXRot(18);
+                client.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+                client.options.hideGui = true;
+            });
+            context.waitTicks(5);
+            String name = model.substring(4);
+            context.takeScreenshot("rider_" + name + "_back");
+            context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+            context.waitTicks(3);
+            context.takeScreenshot("rider_" + name + "_front");
+            server.runCommand("ride @p dismount");
+            context.waitTicks(5);
+        }
+        context.runOnClient(client -> {
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+            client.options.hideGui = false;
+        });
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+    }
+
+    /** The tractor pulling the seed drill up a strip of farmland, wheat coming up behind it. */
+    private void farmWork(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -2 %d 0 3 %d 24 minecraft:farmland".formatted(Y - 1, Y - 1));
+        String[][] sets = {{"seed_drill", "minecraft:wheat_seeds"}, {"fertilizer_spreader", "minecraft:bone_meal"}};
+        context.runOnClient(client -> client.options.hideGui = true);
+        for (String[] set : sets) {
+            server.runCommand("kill @e[type=!player]");
+            server.runCommand("summon car:car 0.5 %d 6.5 {%s,Tags:[\"tractor\"]}"
+                    .formatted(Y, newVehicle("car:massey_ferguson_240")));
+            server.runCommand("summon car:trailer 0.5 %d 2.5 {%s,Tags:[\"implement\"]}"
+                    .formatted(Y, newVehicle("car:" + set[0])));
+            context.waitTicks(5);
+            server.runOnServer(minecraft -> {
+                var box = new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 30);
+                var world = minecraft.overworld();
+                var tractor = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                        e -> e.getTags().contains("tractor")).get(0);
+                var implement = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box,
+                        e -> e.getTags().contains("implement")).get(0);
+                implement.hitch(tractor);
+                implement.getLoad().setItem(0, new net.minecraft.world.item.ItemStack(
+                        net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
+                                net.minecraft.resources.ResourceLocation.parse(set[1])), 64));
+            });
+            for (int step = 0; step < 40; step++) {
+                server.runCommand("execute as @e[tag=tractor] at @s run tp @s ~ ~ ~0.25");
+                context.waitTicks(1);
+            }
+            context.waitTicks(5);
+            shot(context, server, "farm_" + set[0] + "_front34", 5.0, Y + 2.4, 21.5, 145, 18);
+            shot(context, server, "farm_" + set[0] + "_rear34", -4.5, Y + 2.8, 2.5, -30, 24);
+            shot(context, server, "farm_" + set[0] + "_side", 7.5, Y + 1.4, 13.0, 90, 10);
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+    }
+
+    /**
+     * A shut crate, one half prised open and one open with the car out, then
+     * the new items as the inventory draws them.
+     */
+    private void crateAndIcons(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        String inside = "{id:\"car:car\",count:1,components:{\"car:vehicle\":\"car:honda_fourtrax_rancher\"}}";
+        server.runCommand("setblock -3 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s}".formatted(Y, inside));
+        server.runCommand("setblock 0 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s,Pries:2}".formatted(Y, inside));
+        server.runCommand("setblock 3 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s,Pries:3,Opening:15}"
+                .formatted(Y, inside));
+        context.runOnClient(client -> client.options.hideGui = true);
+        shot(context, server, "crates_front34", 4.5, Y + 2.6, 16.5, 155, 20);
+        shot(context, server, "crates_front", 0.5, Y + 1.6, 16.5, 180, 10);
+        clear(server);
+        server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
+        String[][] items = new String[NEW_VEHICLES.length + 2][];
+        for (int i = 0; i < NEW_VEHICLES.length; i++) {
+            items[i] = new String[] {NEW_VEHICLES[i][0], ",components:{\"car:vehicle\":\"" + NEW_VEHICLES[i][1] + "\"}"};
+        }
+        items[NEW_VEHICLES.length] = new String[] {"car:vehicle_crate",
+                ",components:{\"minecraft:block_entity_data\":{id:\"car:vehicle_crate\",Vehicle:" + inside + "}}"};
+        items[NEW_VEHICLES.length + 1] = new String[] {"car:wrench", ""};
+        for (int i = 0; i < items.length; i++) {
+            double x = -5.0 + (i % 6) * 2.0;
+            double y = Y + 2.8 - (i / 6) * 1.9;
+            server.runCommand(("summon minecraft:item_display %.1f %.1f 12.5 {item_display:\"gui\","
+                    + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                    + "translation:[0f,0f,0f],scale:[1.6f,1.6f,1.6f]},"
+                    + "item:{id:\"%s\",count:1%s}}").formatted(x, y, items[i][0], items[i][1]));
+        }
+        shot(context, server, "new_icons", 0.0, Y + 1.9, 20.0, 180, 0);
+        context.runOnClient(client -> client.options.hideGui = false);
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
     }
 
     private void tyres(ClientGameTestContext context, TestServerContext server) {
@@ -1623,6 +2100,69 @@ public class CarPhotoTest {
         context.takeScreenshot("dash_faster");
         context.getInput().releaseKey(options -> options.keyUp);
     }
+
+    /**
+     * An electric car's battery gauge in the fuel dial's place: full, over
+     * half, low (amber), nearly flat (red), and on charge, with the bolt lit.
+     * The last one again in Turkish, where the per cent sign comes first.
+     */
+    private void batteryGauge(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -10 20 %d 40 minecraft:gravel".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:3,Tags:[\"photo\"]}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> photoCar(minecraft).setSetup(me.trossty.car.entity.CarSetup.withVariant(
+                me.trossty.car.entity.CarSetup.DEFAULT, me.trossty.car.entity.CarPart.ENGINE,
+                me.trossty.car.entity.CarSetup.ELECTRIC_MOTOR)));
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(5);
+        context.runOnClient(client -> {
+            client.player.setYRot(0);
+            client.player.setXRot(20);
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+        });
+        float[] levels = {1.0F, 0.64F, 0.18F, 0.07F};
+        String[] names = {"full", "64", "low", "flat"};
+        for (int i = 0; i < levels.length; i++) {
+            float level = levels[i];
+            server.runOnServer(minecraft -> {
+                var car = photoCar(minecraft);
+                car.setFuel(car.getMaxFuel() * level);
+            });
+            context.waitTicks(30);
+            context.takeScreenshot("battery_" + names[i]);
+        }
+        // A post's worth of charge each tick, with the car standing still.
+        server.runOnServer(minecraft -> {
+            var car = photoCar(minecraft);
+            car.setFuel(car.getMaxFuel() * 0.45F);
+        });
+        for (int i = 0; i < 30; i++) {
+            server.runOnServer(minecraft -> photoCar(minecraft).charge(0.02F));
+            context.waitTicks(1);
+        }
+        context.takeScreenshot("battery_charging");
+        context.runOnClient(client -> {
+            client.getLanguageManager().setSelected("tr_tr");
+            client.reloadResourcePacks();
+        });
+        for (int i = 0; i < 80; i++) {
+            server.runOnServer(minecraft -> photoCar(minecraft).charge(0.02F));
+            context.waitTicks(1);
+        }
+        context.takeScreenshot("battery_charging_tr");
+        context.runOnClient(client -> {
+            client.getLanguageManager().setSelected("en_us");
+            client.reloadResourcePacks();
+        });
+        context.waitTicks(60);
+    }
+
+    private static me.trossty.car.entity.CarEntity photoCar(net.minecraft.server.MinecraftServer minecraft) {
+        var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 50);
+        return minecraft.overworld().getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                e -> e.getTags().contains("photo")).get(0);
+    }
     /**
      * Driving across a flat field and getting out: the car has to stay on the
      * ground, with no hop, and the driver has to end up beside it, on their feet.
@@ -1667,7 +2207,7 @@ public class CarPhotoTest {
         // The odometer counts the blocks driven, and the client sees it too.
         context.runOnClient(client -> {
             var car = (me.trossty.car.entity.CarEntity) client.player.getVehicle();
-            System.out.println("car photo ride odometer: %.1f blocks, z %.1f".formatted(car.getOdometer(), car.getZ() + 6.5));
+            System.out.println("car photo ride odometer: %.1f blocks, z %.1f".formatted(car.parts().getOdometer(), car.getZ() + 6.5));
         });
         context.getInput().pressKey(options -> options.keyShift);
         // Where the car is drawn after getting out: it has to stay put, not
@@ -1742,6 +2282,625 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.setScreen(null));
         server.runCommand("gamemode creative @a");
         server.runCommand("clear @a");
+    }
+
+    /**
+     * Flat bed trailers: one on a pickup's hitch with a Mustang winched on,
+     * one with a boat, one with an engine; then one walked by its drawbar and
+     * dropped on a car's tow ball. Logs how much each load takes off the pull.
+     */
+    private void flatbed(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("clear @a");
+        server.runCommand("fill -25 %d -20 30 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 18.5 %d 14.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:11,Tags:[\"tractor2\"]}".formatted(Y));
+        server.runCommand("summon car:trailer 18.5 %d 9.1 {Rotation:[0f,0f],Model:\"car:tow_dolly\",Tags:[\"bed_dolly\"]}".formatted(Y));
+        server.runCommand("summon car:car 18.5 %d 3.0 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon car:pickup 0.5 %d 7.5 {Rotation:[0f,0f],Color:14,Tags:[\"tractor\"]}".formatted(Y));
+        String bed = "summon car:trailer %.1f %d %.1f {Rotation:[0f,0f],Model:\"car:flatbed_trailer\",Tags:[\"%s\"]}";
+        server.runCommand(bed.formatted(0.5, Y, -1.5, "bed_car"));
+        server.runCommand(bed.formatted(8.5, Y, -1.5, "bed_boat"));
+        server.runCommand(bed.formatted(-7.5, Y, -1.5, "bed_engine"));
+        server.runCommand(bed.formatted(-7.5, Y, 14.5, "bed_walked"));
+        server.runCommand(bed.formatted(-15.5, Y, -1.5, "bed_bike"));
+        server.runCommand("summon car:motorcycle -15.5 %d -7.5 {Rotation:[0f,0f],Model:\"car:honda_cbr600rr\",Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d -9.5 {Rotation:[0f,0f],Model:\"car:ford_mustang\",Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon car:motorboat 8.5 %d -11.5 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon car:car -1.5 %d 19.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Tags:[\"walk_to\"]}".formatted(Y));
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 50);
+            java.util.function.Function<String, me.trossty.car.entity.TrailerEntity> bedOf = tag -> world
+                    .getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box, e -> e.getTags().contains(tag)).get(0);
+            var tractor = world.getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box, e -> true).get(0);
+            var carBed = bedOf.apply("bed_car");
+            carBed.hitch(tractor);
+            bedOf.apply("bed_dolly").hitch(world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                    e -> e.getTags().contains("tractor2")).get(0));
+            System.out.println("car photo flatbed: alone pull=" + tractor.throttleStep() + " top=" + tractor.getMaxSpeed());
+            player.setShiftKeyDown(true);
+            for (String tag : new String[] {"bed_car", "bed_boat", "bed_bike", "bed_dolly"}) {
+                var trailer = bedOf.apply(tag);
+                player.moveTo(trailer.getX() + 2.0, trailer.getY(), trailer.getZ());
+                System.out.println("car photo flatbed: winch " + tag + " -> "
+                        + trailer.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                        + " cargo=" + trailer.hasCargo() + " towed=" + trailer.towedMass());
+            }
+            player.setShiftKeyDown(false);
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                    new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE));
+            System.out.println("car photo flatbed: engine -> " + bedOf.apply("bed_engine")
+                    .interact(player, net.minecraft.world.InteractionHand.MAIN_HAND));
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+            var walked = bedOf.apply("bed_walked");
+            player.moveTo(-7.5, Y, 19.0, 180.0F, 0.0F);
+            System.out.println("car photo flatbed: grab -> "
+                    + walked.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                    + " held=" + (me.trossty.car.entity.TrailerEntity.heldBy(player) == walked));
+        });
+        // Walk the drawbar across behind the Corolla, then click the car.
+        server.runCommand("tp @p -1.5 %d 15.6 0 0".formatted(Y));
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 50);
+            var corolla = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                    e -> e.getTags().contains("walk_to")).get(0);
+            System.out.println("car photo flatbed: hitch by hand -> "
+                    + corolla.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                    + " held=" + me.trossty.car.entity.TrailerEntity.heldBy(player));
+        });
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 50);
+            for (var car : world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                    e -> e.getTags().contains("tractor") || e.getTags().contains("walk_to")
+                            || e.getTags().contains("tractor2"))) {
+                System.out.println("car photo flatbed: " + car.getTags() + " towing=" + car.isTowing(null)
+                        + " ratio=" + car.towRatio() + " pull=" + car.throttleStep() + " top=" + car.getMaxSpeed());
+            }
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "flatbed_rear", 13.0, Y + 4.0, -19.0, 34, 14);
+        shot(context, server, "flatbed_front", -9.0, Y + 3.0, 9.0, 218, 14);
+        shot(context, server, "flatbed_walked", -10.5, Y + 2.5, 22.5, 210, 14);
+        shot(context, server, "flatbed_car_side", 7.0, Y + 2.2, -1.5, 90, 12);
+        shot(context, server, "flatbed_boat_side", 15.5, Y + 2.4, -1.5, 90, 12);
+        shot(context, server, "flatbed_bike_side", -19.0, Y + 1.8, -1.5, 270, 12);
+        shot(context, server, "dolly_side", 25.5, Y + 1.8, 8.0, 90, 8);
+        shot(context, server, "dolly_rear34", 24.0, Y + 3.0, -2.0, 30, 15);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A pickup pulling a Cessna by its nose wheel on the aircraft tow dolly. */
+    private void planeTow(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("clear @a");
+        server.runCommand("fill -20 %d -30 20 %d 30 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:pickup 0.5 %d 10.5 {Rotation:[0f,0f],Color:0,Tags:[\"tractor\"]}".formatted(Y));
+        server.runCommand("summon car:trailer 0.5 %d 5.0 {Rotation:[0f,0f],Model:\"car:plane_tow_dolly\",Color:4,Tags:[\"tug\"]}".formatted(Y));
+        server.runCommand("summon car:airplane 0.5 %d -2.0 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -40, 30, Y + 10, 40);
+            var tractor = world.getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box, e -> true).get(0);
+            var tug = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box,
+                    e -> e.getTags().contains("tug")).get(0);
+            tug.hitch(tractor);
+            player.setShiftKeyDown(true);
+            player.moveTo(tug.getX() + 2.0, tug.getY(), tug.getZ());
+            System.out.println("car photo plane tow: winch -> "
+                    + tug.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                    + " cargo=" + tug.hasCargo() + " towed=" + tug.towedMass());
+            player.setShiftKeyDown(false);
+        });
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -40, 30, Y + 10, 40);
+            var tractor = minecraft.overworld().getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box,
+                    e -> true).get(0);
+            System.out.println("car photo plane tow: ratio=" + tractor.towRatio() + " pull=" + tractor.throttleStep()
+                    + " top=" + tractor.getMaxSpeed());
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "plane_tow_side", 15.0, Y + 3.0, 2.0, 90, 12);
+        shot(context, server, "plane_tow_rear34", 12.0, Y + 5.0, -14.0, 40, 18);
+        shot(context, server, "plane_tow_cradle", 3.5, Y + 1.6, 7.5, 125, 25);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /**
+     * A boat let down off a flatbed on to its cradle and a plane jacked up off
+     * its wheels: the two vehicles no lift takes, up where they can be worked on.
+     */
+    private void stands(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("clear @a");
+        server.runCommand("fill -24 %d -30 24 %d 30 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:trailer -6.5 %d 8.0 {Rotation:[0f,0f],Model:\"car:flatbed_trailer\",Tags:[\"bed\"]}".formatted(Y));
+        server.runCommand("summon car:motorboat -3.5 %d 1.0 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("setblock -7 %d 0 car:boat_cradle[facing=south]".formatted(Y));
+        server.runCommand("setblock -13 %d 6 car:boat_cradle[facing=south]".formatted(Y));
+        server.runCommand("setblock 8 %d -1 car:aircraft_jack[raised=true]".formatted(Y));
+        server.runCommand("setblock 14 %d 8 car:aircraft_jack".formatted(Y));
+        server.runCommand("summon car:airplane 8.5 %d -2.1 {Rotation:[0f,0f],Tags:[\"jacked\"]}".formatted(Y));
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -40, 30, Y + 10, 40);
+            var bed = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box,
+                    e -> e.getTags().contains("bed")).get(0);
+            player.setShiftKeyDown(true);
+            player.moveTo(bed.getX() + 2.0, bed.getY(), bed.getZ());
+            bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            System.out.println("car photo stands: boat winched on=" + bed.hasCargo());
+            bed.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+            System.out.println("car photo stands: boat let down, on bed=" + bed.hasCargo());
+            player.setShiftKeyDown(false);
+        });
+        context.waitTicks(10);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -40, 30, Y + 10, 40);
+            var boat = world.getEntitiesOfClass(me.trossty.car.entity.MotorboatEntity.class, box, e -> true).get(0);
+            var plane = world.getEntitiesOfClass(me.trossty.car.entity.AirplaneEntity.class, box, e -> true).get(0);
+            System.out.println("car photo stands: boat at " + boat.position() + " servicing="
+                    + me.trossty.car.block.VehicleLiftBlock.isServicing(world, boat));
+            System.out.println("car photo stands: plane y=" + (plane.getY() - Y) + " servicing="
+                    + me.trossty.car.block.VehicleLiftBlock.isServicing(world, plane));
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "stands_boat", -1.5, Y + 2.2, -3.5, 48, 15);
+        shot(context, server, "stands_plane_side", 17.0, Y + 1.5, 0.0, 90, 5);
+        shot(context, server, "stands_overview", 2.0, Y + 7.0, 16.0, 180, 30);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** What is in a pickup's bed and a box trailer, drawn sitting in them. */
+    private void bedLoad(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:pickup 0.5 %d 0.5 {Rotation:[0f,0f],Color:11}".formatted(Y));
+        server.runCommand("summon car:trailer 4.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:box_trailer\"}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 30);
+            var pickup = world.getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box, e -> true).get(0);
+            var trailer = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box, e -> true).get(0);
+            net.minecraft.world.item.Item[] things = {
+                    net.minecraft.world.item.Items.OAK_LOG, net.minecraft.world.item.Items.HAY_BLOCK,
+                    net.minecraft.world.item.Items.IRON_INGOT, net.minecraft.world.item.Items.CHEST,
+                    net.minecraft.world.item.Items.APPLE, net.minecraft.world.item.Items.COBBLESTONE,
+                    net.minecraft.world.item.Items.DIAMOND_PICKAXE, net.minecraft.world.item.Items.PUMPKIN,
+                    net.minecraft.world.item.Items.BREAD};
+            for (int i = 0; i < things.length; i++) {
+                pickup.getBed().setItem(i, new net.minecraft.world.item.ItemStack(things[i], 16));
+            }
+            for (int i = 0; i < 5; i++) {
+                trailer.getLoad().setItem(i, new net.minecraft.world.item.ItemStack(things[i * 2 % things.length], 8));
+            }
+            System.out.println("car photo bedLoad: pickup shows " + pickup.shownLoad().size()
+                    + ", trailer shows " + trailer.shownLoad().size());
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "bed_load_above", 2.5, Y + 5.0, -6.0, 0, 40);
+        shot(context, server, "bed_load_side", 9.0, Y + 2.6, -3.0, 60, 22);
+        shot(context, server, "bed_load_trailer", 4.5, Y + 6.0, -2.0, 0, 55);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A Corolla on a flat front tyre, and one with two tyres taken off. */
+    /** Bonnets and boot lids up: a Corolla, a Mustang, a Hilux. */
+    private void lids(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Lids:3,Boot:{Items:[{Slot:0b,id:\"minecraft:chest\",count:1},{Slot:1b,id:\"minecraft:bread\",count:4},{Slot:2b,id:\"minecraft:oak_log\",count:8},{Slot:3b,id:\"car:jerry_can\",count:1},{Slot:4b,id:\"minecraft:apple\",count:3}]}}".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d 8.5 {Rotation:[0f,0f],Model:\"car:ford_mustang\",Color:14,Lids:3}".formatted(Y));
+        server.runCommand("summon car:pickup 0.5 %d -8.5 {Rotation:[0f,0f],Model:\"car:toyota_hilux\",Color:11,Lids:1}".formatted(Y));
+        server.runCommand("summon car:car 6.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:1,Boot:{Items:[{Slot:0b,id:\"minecraft:chest\",count:1},{Slot:1b,id:\"minecraft:oak_log\",count:8}]}}".formatted(Y));
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(20);
+        shot(context, server, "lids_side", -6.5, Y + 1.6, 0.5, -90, 8);
+        shot(context, server, "lids_corner", -4.5, Y + 2.2, 4.5, -135, 14);
+        shot(context, server, "lids_rear", -3.5, Y + 2.2, -3.5, -40, 14);
+        shot(context, server, "lids_bay", 0.5, Y + 3.0, 6.0, 180, 26);
+        shot(context, server, "lids_boot", 0.5, Y + 3.0, -5.0, 0, 26);
+        shot(context, server, "lids_closed", 10.5, Y + 2.2, 4.5, 130, 20);
+        shot(context, server, "lids_top", 0.5, Y + 3.4, 3.3, 180, 70);
+        shot(context, server, "lids_boot_top", 0.5, Y + 3.2, -1.7, 0, 72);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A Corolla on the ground, bonnet up, an engine hoist pushed up to its nose. */
+    private void hoist(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Lids:1}".formatted(Y));
+        server.runCommand("setblock 0 %d 3 car:engine_hoist[facing=north]".formatted(Y));
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(20);
+        shot(context, server, "hoist_corner", -3.5, Y + 2.0, 5.5, -145, 18);
+        shot(context, server, "hoist_side", -4.5, Y + 1.2, 2.5, -90, 8);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A car on the dyno, a drain pan, a toolbox and an engine opened up on its stand. */
+    private void garageTools(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("setblock 0 %d 0 car:dyno".formatted(Y - 1));
+        server.runCommand("setblock 0 %d 1 car:dyno".formatted(Y - 1));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        server.runCommand("setblock 3 %d 0 car:drain_pan".formatted(Y));
+        server.runCommand("setblock 3 %d 2 car:toolbox[facing=east]".formatted(Y));
+        server.runCommand("setblock 3 %d -2 car:engine_stand[facing=east]".formatted(Y));
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var pos = new net.minecraft.core.BlockPos(3, Y, -2);
+            if (world.getBlockEntity(pos) instanceof me.trossty.car.block.entity.EngineStandBlockEntity stand) {
+                stand.setEngine(new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE));
+                stand.strip();
+            }
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(20);
+        shot(context, server, "garage_tools", 7.5, Y + 2.2, 0.5, 90, 18);
+        shot(context, server, "garage_tools_close", 5.5, Y + 1.4, -1.5, 70, 25);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /**
+     * The engine's insides in game: a worn engine opened up on its stand, its
+     * four insides out, the valves up close and in the hand, the cylinder by
+     * cylinder tooltip, and a compression test on a car whose belt has
+     * snapped, read off in chat.
+     */
+    private void engineInternals(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("clear @a");
+        server.runCommand("setblock 0 %d 4 car:engine_stand[facing=south]".formatted(Y));
+        String[] parts = {"pistons", "valves", "head_gasket", "crankshaft"};
+        for (int i = 0; i < parts.length; i++) {
+            server.runCommand(("summon item_display %.2f %.2f 4.5 {item:{id:\"car:%s\",count:1},"
+                    + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                    + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(2.6 + i * 0.85, Y + 0.45, parts[i]));
+        }
+        server.runCommand("summon car:car 0.5 %d -3.0 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            if (world.getBlockEntity(new BlockPos(0, Y, 4)) instanceof me.trossty.car.block.entity.EngineStandBlockEntity stand) {
+                // Worn unevenly: cylinder 2's rings tired, 1 and 3's valves bent by a belt.
+                var engine = new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE);
+                var inside = new me.trossty.car.entity.EngineInternals.Snapshot(
+                        List.of(80, 35, 75, 70), List.of(0, 90, 0, 85), 60, 45);
+                engine.set(me.trossty.car.registry.ModComponents.PART_CONDITION, Math.round(inside.condition()));
+                inside.stamp(engine);
+                stand.setEngine(engine);
+                stand.strip();
+                for (int i = 0; i < stand.getInternals().size(); i++) {
+                    player.getInventory().setItem(i, stand.getInternals().get(i).copy());
+                }
+            }
+            player.getInventory().setItem(4, new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.COMPRESSION_TESTER));
+
+            var car = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                    new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
+            float speed = car.getMaxSpeed();
+            car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
+            car.upkeep().snapBelt();
+            car.parts().setCondition(me.trossty.car.entity.CarPart.SPARK_PLUGS, 0.0F);
+            var reading = me.trossty.car.item.CompressionTesterItem.read(car);
+            System.out.println("car photo internals: verdict=" + reading.verdict()
+                    + " spec=" + reading.spec() + " bar=" + java.util.Arrays.toString(reading.cylinders())
+                    + " firing=" + car.parts().firing() + " maxSpeed " + speed + " -> " + car.getMaxSpeed()
+                    + " engine=" + car.parts().getCondition(me.trossty.car.entity.CarPart.ENGINE)
+                    + " burningOil=" + car.upkeep().isBurningOil() + " gasket=" + car.upkeep().isGasketBlown()
+                    + " knocking=" + car.upkeep().isKnocking());
+            me.trossty.car.item.CompressionTesterItem.test(car, player);
+        });
+        context.waitTicks(5);
+        // What the player would read on each of the insides; the valves in hand
+        // (the slot held is the client's to pick).
+        context.runOnClient(client -> {
+            client.player.getInventory().selected = 1;
+            for (int i = 0; i < 4; i++) {
+                var stack = client.player.getInventory().getItem(i);
+                var lines = stack.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(client.level),
+                        client.player, net.minecraft.world.item.TooltipFlag.NORMAL);
+                System.out.println("car photo internals tooltip " + i + ": "
+                        + lines.stream().map(net.minecraft.network.chat.Component::getString)
+                        .collect(java.util.stream.Collectors.joining(" | ")));
+            }
+        });
+        // The chat first, before it fades: the test was read off just now.
+        shot(context, server, "internals_compression", 3.5, Y + 2.0, 0.5, 140, 25);
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "internals_stand", 0.5, Y + 1.5, 6.6, 180, 25);
+        shot(context, server, "internals_parts", 3.85, Y + 1.15, 6.0, 180, 30);
+        context.runOnClient(client -> client.options.hideGui = false);
+        shot(context, server, "internals_hand", 6.0, Y + 1.0, 8.0, 135, 10);
+        // Each set's tooltip, the pointer held over it in the inventory: the
+        // survival one, as creative swaps in its own.
+        server.runCommand("gamemode survival @a");
+        context.waitTicks(3);
+        context.runOnClient(client -> client.setScreen(
+                new net.minecraft.client.gui.screens.inventory.InventoryScreen(client.player)));
+        context.waitTicks(3);
+        for (int i = 0; i < 2; i++) {
+            int slot = i;
+            context.runOnClient(client -> {
+                var screen = (net.minecraft.client.gui.screens.inventory.InventoryScreen) client.screen;
+                var window = client.getWindow();
+                double x = (screen.getGuiLeft() + 8 + slot * 18 + 8) * (double) window.getScreenWidth() / window.getGuiScaledWidth();
+                double y = (screen.getGuiTop() + 142 + 8) * (double) window.getScreenHeight() / window.getGuiScaledHeight();
+                try {
+                    for (String[] axis : new String[][]{{"xpos", String.valueOf(x)}, {"ypos", String.valueOf(y)}}) {
+                        net.neoforged.fml.util.ObfuscationReflectionHelper.findField(
+                                net.minecraft.client.MouseHandler.class, axis[0])
+                                .setDouble(client.mouseHandler, Double.parseDouble(axis[1]));
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+            context.waitTicks(4);
+            context.takeScreenshot("internals_tooltip_" + parts[i]);
+        }
+        context.runOnClient(client -> client.setScreen(null));
+        server.runCommand("gamemode creative @a");
+    }
+
+    /**
+     * The new parts laid out on the floor, a bare dyno, and a scanner plugged
+     * into a car with three faults pointing them out.
+     */
+    private void garageParts(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        String[] parts = {"pistons", "crankshaft", "head_gasket", "timing_belt", "catalytic_converter", "tyre_pump", "compression_tester", "seismic_survey"};
+        for (int i = 0; i < parts.length; i++) {
+            server.runCommand(("summon item_display -6.5 %.2f %.2f {item:{id:\"car:%s\",count:1},"
+                    + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                    + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(Y + 0.45, -3.3 + i * 0.85, parts[i]));
+        }
+        server.runCommand("setblock 6 %d 0 car:dyno".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var car = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
+                    new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
+            car.setLidOpen(me.trossty.car.entity.CarEntity.BONNET_BIT, true);
+            car.upkeep().setBeltWear(0.9F);
+            car.upkeep().setCatClog(0.9F);
+            car.upkeep().setTyrePressure(0.3F);
+            var scanner = new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.OBD_SCANNER);
+            scanner.set(me.trossty.car.registry.ModComponents.OBD_LINK, car.getUUID());
+            minecraft.getPlayerList().getPlayers().get(0).setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, scanner);
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "garage_parts", -9.0, Y + 1.3, -0.25, -90, 18);
+        shot(context, server, "garage_dyno", 6.5, Y + 0.2, -2.2, 0, 50);
+        context.runOnClient(client -> client.options.hideGui = false);
+        shot(context, server, "garage_obd_front", 0.5, Y + 2.2, 5.0, 180, 25);
+        shot(context, server, "garage_obd_rear", 3.5, Y + 1.4, -4.0, 40, 15);
+    }
+
+    /** Every item of the mod as it shows in an inventory, a page of 40 at a time on a plain wall. */
+    private void itemGrid(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (var key : net.minecraft.core.registries.BuiltInRegistries.ITEM.keySet()) {
+            if (key.getNamespace().equals("car")) {
+                ids.add(key.getPath());
+            }
+        }
+        java.util.Collections.sort(ids);
+        System.out.println("car photo itemGrid: " + ids);
+        server.runCommand("time set noon");
+        server.runCommand("fill -8 %d 6 8 %d 6 minecraft:light_gray_concrete".formatted(Y - 1, Y + 8));
+        context.runOnClient(client -> client.options.hideGui = true);
+        int perPage = 40;
+        for (int page = 0; page * perPage < ids.size(); page++) {
+            server.runCommand("kill @e[type=item_display]");
+            for (int i = 0; i < perPage && page * perPage + i < ids.size(); i++) {
+                double x = 3.5 - (i % 8);
+                double y = Y + 4.6 - (i / 8) * 1.05;
+                server.runCommand(("summon item_display %.2f %.2f 5.4 {item:{id:\"car:%s\",count:1},item_display:\"gui\","
+                        + "Rotation:[0f,0f],brightness:{sky:15,block:15},"
+                        + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                        + "translation:[0f,0f,0f],scale:[0.9f,0.9f,0.9f]}}").formatted(x, y, ids.get(page * perPage + i)));
+            }
+            context.waitTicks(10);
+            shot(context, server, "items_" + page, 0.0, Y + 1.0, -1.4, 0, 0);
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A rapeseed field at each stage of growth, sprout to ripe pods, with the seed beside it. */
+    private void rapeseed(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -12 12 %d 12 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -4 %d -3 3 %d 3 minecraft:farmland[moisture=7]".formatted(Y - 1, Y - 1));
+        int[] ages = {0, 2, 4, 5, 6, 7, 7, 7};
+        for (int x = -4; x <= 3; x++) {
+            server.runCommand("fill %d %d -3 %d %d 3 car:rapeseed_crop[age=%d]".formatted(x, Y, x, Y, ages[x + 4]));
+        }
+        server.runCommand(("summon item_display -5.5 %.2f 0.5 {item:{id:\"car:rapeseed\",count:1},"
+                + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
+                + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(Y + 0.45));
+        server.runCommand("time set noon");
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(20);
+        shot(context, server, "rapeseed_field", 0.0, Y + 2.6, 7.5, 180, 25);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /**
+     * What driving leaves behind: ruts and dust over dirt and a muddy car,
+     * sparks off a wall, rubber from a slide on stone, and a dirty car beside
+     * a clean one.
+     */
+    private void roadLife(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -12 %d -6 12 %d 24 minecraft:dirt".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -12 %d 25 12 %d 60 minecraft:stone".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -6 %d 44 6 %d 45 minecraft:stone_bricks".formatted(Y, Y + 2));
+        server.runCommand("summon car:car 0.5 %d -2.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:14,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("tp @a 0.5 %d -2.5".formatted(Y));
+        context.waitTicks(20);
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            client.player.setYRot(0);
+            client.options.hideGui = true;
+        });
+        lampCamera(context, server, 11.0, Y + 4.0, 14.0, 110, 22);
+        context.getInput().holdKey(options -> options.keyUp);
+        int shots = 0;
+        StringBuilder trace = new StringBuilder("car photo roadLife:");
+        for (int t = 0; t < 140 && shots < 8; t++) {
+            context.waitTicks(1);
+            double z = context.computeOnClient(client -> client.player.getVehicle() == null
+                    ? 99.0 : client.player.getVehicle().getZ());
+            trace.append(" %.1f".formatted(z));
+            if (z > 9.0 && z < 24.0 && t % 3 == 0 && shots < 3) {
+                context.takeScreenshot("road_dirt_" + shots++);
+            }
+            if (z > 40.5 && shots < 8) {
+                if (shots < 3) {
+                    shots = 3;
+                }
+                if (shots == 3) {
+                    lampCamera(context, server, 8.0, Y + 2.0, 37.5, 62, 12);
+                }
+                context.takeScreenshot("road_crash_" + (shots++ - 3));
+            }
+        }
+        context.getInput().releaseKey(options -> options.keyUp);
+        System.out.println(trace);
+        float dirt = context.computeOnClient(client -> client.player.getVehicle()
+                instanceof me.trossty.car.entity.CarEntity car ? car.upkeep().getDirt() : -1.0F);
+        System.out.println("car photo roadLife dirt after the dirt road: " + dirt);
+        lampCamera(context, server, 9.0, Y + 6.0, 6.0, 120, 35);
+        context.takeScreenshot("road_ruts");
+
+        // A slide on stone: up to speed, then the wheel hard over.
+        server.runCommand("ride @p dismount");
+        server.runCommand("kill @e[tag=photo]");
+        clear(server);
+        server.runCommand("fill -30 %d -30 30 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 15.5 %d -24.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("tp @a 15.5 %d -24.5".formatted(Y));
+        context.waitTicks(20);
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(10);
+        context.runOnClient(client -> client.player.setYRot(0));
+        lampCamera(context, server, 15.5, Y + 20.0, -14.0, 0, 55);
+        context.getInput().holdKey(options -> options.keyUp);
+        context.waitTicks(45);
+        // The handbrake with the wheel over: the back steps out.
+        context.getInput().holdKey(options -> options.keyLeft);
+        context.getInput().holdKey(options -> options.keyJump);
+        context.waitTicks(25);
+        context.getInput().releaseKey(options -> options.keyUp);
+        context.getInput().releaseKey(options -> options.keyLeft);
+        context.getInput().releaseKey(options -> options.keyJump);
+        context.waitTicks(15);
+        context.takeScreenshot("road_skid");
+        server.runCommand("ride @p dismount");
+        server.runCommand("kill @e[tag=camera]");
+        context.runOnClient(client -> client.setCameraEntity(client.player));
+
+        // Clean and filthy, side by side.
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car -2.0 %d 0.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:0}".formatted(Y));
+        server.runCommand("summon car:car -2.0 %d 6.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:0,Dirt:1.0f}".formatted(Y));
+        context.waitTicks(10);
+        shot(context, server, "road_clean_and_dirty", 6.0, Y + 1.0, 3.5, 90, 8);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    private void tyreLooks(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,FlatTyre:0}".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d 8.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:14,TyresOff:5}".formatted(Y));
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "tyre_flat", -3.5, Y + 0.6, 3.6, -120, 6);
+        shot(context, server, "tyre_off", -3.5, Y + 0.6, 11.6, -120, 6);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A caravan on a Jeep's tow ball, from the door side and from behind. */
+    private void caravan(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -25 20 %d 20 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:car 0.5 %d 4.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:13}".formatted(Y));
+        server.runCommand("summon car:trailer 0.5 %d -2.0 {Rotation:[0f,0f],Model:\"car:caravan\",Color:11}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 30);
+            var jeep = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class, box,
+                    e -> !(e instanceof me.trossty.car.entity.TrailerEntity)).get(0);
+            world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box, e -> true).get(0).hitch(jeep);
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "caravan_door", -9.0, Y + 2.5, -3.0, -90, 10);
+        shot(context, server, "caravan_rear", 6.0, Y + 3.5, -12.0, 30, 14);
+        shot(context, server, "caravan_front", -5.0, Y + 3.0, 10.0, -150, 14);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** The tow truck with its wheel lift on, a Corolla's front wheels up in it. */
+    private void towTruck(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -20 %d -25 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
+        server.runCommand("summon car:pickup 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:hilux_tow\",Color:4}".formatted(Y));
+        server.runCommand("summon car:trailer 0.5 %d -4.0 {Rotation:[0f,0f],Model:\"car:wheel_lift\",Color:4}".formatted(Y));
+        server.runCommand("summon car:car 0.5 %d -8.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        context.waitTicks(5);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var player = minecraft.getPlayerList().getPlayers().get(0);
+            var box = new net.minecraft.world.phys.AABB(-30, Y - 5, -30, 30, Y + 10, 30);
+            var truck = world.getEntitiesOfClass(me.trossty.car.entity.PickupEntity.class, box, e -> true).get(0);
+            var lift = world.getEntitiesOfClass(me.trossty.car.entity.TrailerEntity.class, box, e -> true).get(0);
+            lift.hitch(truck);
+            player.setShiftKeyDown(true);
+            player.moveTo(lift.getX() + 2.0, lift.getY(), lift.getZ());
+            System.out.println("car photo towTruck: winch -> "
+                    + lift.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
+                    + " cargo=" + lift.hasCargo());
+            player.setShiftKeyDown(false);
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "tow_truck_side", 6.0, Y + 2.0, -3.5, 90, 12);
+        shot(context, server, "tow_truck_rear", -3.5, Y + 3.0, -2.5, -60, 30);
+        shot(context, server, "tow_truck_front", 4.5, Y + 2.5, 6.5, 150, 14);
+        context.runOnClient(client -> client.options.hideGui = false);
     }
 
     /** A car pulling the trailer round a right-hand bend, seen from in front. */
@@ -1858,6 +3017,109 @@ public class CarPhotoTest {
         shot(context, server, "items3d_third_person", 0.5, Y, 0.5, 0, 10);
         context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
         context.runOnClient(client -> client.options.hideGui = false);
+        server.runCommand("clear @a");
+    }
+
+    /** Each car close up from the rear three-quarter and the side, to find where light shows through. */
+    private void carGaps(ClientGameTestContext context, TestServerContext server) {
+        String only = System.getProperty("car.photo.cars", "ford_mustang,toyota_corolla,tofas_sahin,jeep_wrangler,toyota_hilux,mercedes_atego");
+        for (String name : only.split(",")) {
+            clear(server);
+            String type = name.equals("toyota_hilux") ? "car:pickup" : name.equals("mercedes_atego") ? "car:fuel_tanker" : "car:car";
+            server.runCommand("summon %s 0.5 %d 10.5 {Rotation:[0f,0f],Color:11}".formatted(type, Y) .replace("{Rotation", "{Model:\"car:" + name + "\",Rotation"));
+            context.runOnClient(client -> client.options.hideGui = true);
+            context.waitTicks(10);
+            shot(context, server, "gap_" + name + "_rear34", 4.5, Y + 1.4, 5.5, 36, 12);
+            shot(context, server, "gap_" + name + "_side", 5.5, Y + 1.0, 10.5, 90, 6);
+            shot(context, server, "gap_" + name + "_front34", -4.0, Y + 1.4, 15.5, -141, 12);
+        }
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** A car driven up a one-block step, watched from the side a frame at a time. */
+    /** Engine stands: two with an engine on, turned two ways, and an empty one. */
+    private void engineStand(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runOnServer(minecraft -> {
+            var world = minecraft.overworld();
+            var stand = me.trossty.car.registry.ModBlocks.ENGINE_STAND.defaultBlockState();
+            var facing = me.trossty.car.block.EngineStandBlock.FACING;
+            Direction[] ways = {Direction.SOUTH, Direction.EAST, Direction.SOUTH};
+            for (int i = 0; i < 3; i++) {
+                BlockPos pos = new BlockPos(-2 + i * 2, Y, 6);
+                world.setBlockAndUpdate(pos, stand.setValue(facing, ways[i]));
+                if (i < 2 && world.getBlockEntity(pos) instanceof me.trossty.car.block.entity.EngineStandBlockEntity on) {
+                    on.setEngine(new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.ENGINE));
+                }
+            }
+        });
+        context.runOnClient(client -> client.options.hideGui = true);
+        context.waitTicks(10);
+        shot(context, server, "engine_stand_front", -0.5, Y + 1.0, 9.8, 180, 15);
+        shot(context, server, "engine_stand_side", 3.6, Y + 1.2, 7.8, 125, 20);
+    }
+
+    private void kerbClimb(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -6 %d 8 6 %d 30 minecraft:stone".formatted(Y, Y));
+        server.runCommand("summon car:car 0.5 %d -2.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("tp @a 0.5 %d -2.5".formatted(Y));
+        context.waitTicks(20);
+        server.runCommand("ride @p mount @e[tag=photo,limit=1]");
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            client.player.setYRot(0);
+            client.options.hideGui = true;
+        });
+        lampCamera(context, server, 9.5, Y + 1.6, 9.0, 90, 8);
+        context.getInput().holdKey(options -> options.keyUp);
+        StringBuilder trace = new StringBuilder("car photo kerb:");
+        int shots = 0;
+        for (int t = 0; t < 80 && shots < 6; t++) {
+            context.waitTicks(1);
+            String line = context.computeOnClient(client -> client.player.getVehicle()
+                    instanceof me.trossty.car.entity.CarEntity car
+                    ? " %.1f/%.2f/%.1f".formatted(car.getZ(), car.getY() - Y + car.getStepOffset(1.0F),
+                    car.getBodyPitch(1.0F)) : " out");
+            trace.append(line);
+            boolean climbing = context.computeOnClient(client -> client.player.getVehicle()
+                    instanceof me.trossty.car.entity.CarEntity car && car.getZ() > 5.0);
+            if (climbing && t % 2 == 0) {
+                context.takeScreenshot("kerb_" + shots++);
+            }
+        }
+        context.getInput().releaseKey(options -> options.keyUp);
+        System.out.println(trace);
+        server.runCommand("ride @p dismount");
+        context.runOnClient(client -> {
+            client.setCameraEntity(client.player);
+            client.options.hideGui = false;
+        });
+        server.runCommand("kill @e[tag=camera]");
+    }
+
+    /** The parts people carry, each in the hand: in first person and from in front. */
+    private void heldParts(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        String[] items = {"car_key", "jerry_can", "spark_plugs", "wheel", "brake_discs"};
+        for (String item : items) {
+            server.runCommand("clear @a");
+            server.runCommand("item replace entity @p weapon.mainhand with car:" + item);
+            context.runOnClient(client -> {
+                client.options.hideGui = false;
+                client.options.setCameraType(CameraType.FIRST_PERSON);
+            });
+            shot(context, server, "held_" + item, 0.5, Y, 0.5, 0, 10);
+            context.runOnClient(client -> {
+                client.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+                client.options.hideGui = true;
+            });
+            shot(context, server, "held_" + item + "_front", 0.5, Y, 0.5, 0, 10);
+        }
+        context.runOnClient(client -> {
+            client.options.setCameraType(CameraType.FIRST_PERSON);
+            client.options.hideGui = false;
+        });
         server.runCommand("clear @a");
     }
 

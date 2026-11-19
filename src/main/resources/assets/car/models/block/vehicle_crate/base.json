@@ -1,0 +1,146 @@
+{
+  "textures": {
+    "particle": "minecraft:block/spruce_planks",
+    "planks": "minecraft:block/spruce_planks",
+    "batten": "minecraft:block/stripped_spruce_log",
+    "deck": "minecraft:block/dark_oak_planks",
+    "runner": "minecraft:block/stripped_dark_oak_log"
+  },
+  "elements": [
+    {
+      "name": "deck",
+      "from": [
+        0,
+        1,
+        0
+      ],
+      "to": [
+        16,
+        2,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#deck"
+        },
+        "south": {
+          "texture": "#deck"
+        },
+        "east": {
+          "texture": "#deck"
+        },
+        "west": {
+          "texture": "#deck"
+        },
+        "up": {
+          "texture": "#deck"
+        },
+        "down": {
+          "texture": "#deck"
+        }
+      }
+    },
+    {
+      "name": "runner_back",
+      "from": [
+        0,
+        0,
+        1
+      ],
+      "to": [
+        16,
+        1,
+        3
+      ],
+      "faces": {
+        "north": {
+          "texture": "#runner"
+        },
+        "south": {
+          "texture": "#runner"
+        },
+        "east": {
+          "texture": "#runner"
+        },
+        "west": {
+          "texture": "#runner"
+        },
+        "up": {
+          "texture": "#runner"
+        },
+        "down": {
+          "texture": "#runner",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "name": "runner_middle",
+      "from": [
+        0,
+        0,
+        7
+      ],
+      "to": [
+        16,
+        1,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#runner"
+        },
+        "south": {
+          "texture": "#runner"
+        },
+        "east": {
+          "texture": "#runner"
+        },
+        "west": {
+          "texture": "#runner"
+        },
+        "up": {
+          "texture": "#runner"
+        },
+        "down": {
+          "texture": "#runner",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "name": "runner_front",
+      "from": [
+        0,
+        0,
+        13
+      ],
+      "to": [
+        16,
+        1,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#runner"
+        },
+        "south": {
+          "texture": "#runner"
+        },
+        "east": {
+          "texture": "#runner"
+        },
+        "west": {
+          "texture": "#runner"
+        },
+        "up": {
+          "texture": "#runner"
+        },
+        "down": {
+          "texture": "#runner",
+          "cullface": "down"
+        }
+      }
+    }
+  ]
+}

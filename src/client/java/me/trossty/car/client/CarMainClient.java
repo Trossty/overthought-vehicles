@@ -22,6 +22,7 @@ import me.trossty.car.client.screen.CarServiceScreen;
 import me.trossty.car.client.screen.FuelRefineryScreen;
 import me.trossty.car.client.screen.MachineScreen;
 import me.trossty.car.client.screen.RoadMarkingScreen;
+import me.trossty.car.client.screen.ToolboxScreen;
 import me.trossty.car.client.screen.VehicleWorkbenchScreen;
 import me.trossty.car.client.screen.VehicleWorkstationScreen;
 import me.trossty.car.client.sound.CarEngineSoundInstance;
@@ -98,7 +99,8 @@ public class CarMainClient {
         RoadPaintItem.openMenu = hand -> Minecraft.getInstance().setScreen(new RoadMarkingScreen(hand));
         // The driving client is the only side that sees its car hit something,
         // so give the common code a way to pass that on to the server.
-        CarNetworking.setCrashReporter(severity -> PacketDistributor.sendToServer(new CrashC2SPayload(severity)));
+        CarNetworking.setCrashReporter((severity, zone) -> PacketDistributor.sendToServer(
+                new CrashC2SPayload(severity, (byte) (zone == null ? -1 : zone.ordinal()))));
 
         modBus.addListener((RegisterKeyMappingsEvent event) -> event.register(HORN_KEY));
         modBus.addListener((FMLClientSetupEvent event) -> event.enqueueWork(() -> {
@@ -108,6 +110,7 @@ public class CarMainClient {
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.ASPHALT, RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.FUEL_DRUM, RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.OIL_SEEP, RenderType.cutout());
+            ItemBlockRenderTypes.setRenderLayer(ModBlocks.RAPESEED_CROP, RenderType.cutout());
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.FUEL_TANK, RenderType.translucent());
             ItemBlockRenderTypes.setRenderLayer(ModBlocks.FUEL_PUMP, RenderType.translucent());
             ItemLooks.registerProperties();
@@ -141,9 +144,18 @@ public class CarMainClient {
             event.registerEntityRenderer(ModEntities.MOTORCYCLE, CarEntityRenderer::new);
             event.registerEntityRenderer(ModEntities.MOTORBOAT, CarEntityRenderer::new);
             event.registerEntityRenderer(ModEntities.AIRPLANE, CarEntityRenderer::new);
+            event.registerEntityRenderer(ModEntities.HELICOPTER, CarEntityRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.FUEL_TANK, FuelTankRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.PUMPJACK, PumpjackRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.VEHICLE_CRATE,
+                    me.trossty.car.client.render.VehicleCrateRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.FUEL_PUMP, FuelPumpRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.DYNO,
+                    me.trossty.car.client.render.DynoRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.ENGINE_STAND,
+                    me.trossty.car.client.render.EngineStandRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.ENGINE_HOIST,
+                    me.trossty.car.client.render.EngineHoistRenderer::new);
         });
         modBus.addListener((RegisterMenuScreensEvent event) -> {
             event.register(ModScreenHandlers.VEHICLE_WORKBENCH, VehicleWorkbenchScreen::new);
@@ -152,6 +164,7 @@ public class CarMainClient {
             event.register(ModScreenHandlers.FUELLED_MACHINE, MachineScreen::new);
             event.register(ModScreenHandlers.VEHICLE_WORKSTATION, VehicleWorkstationScreen::new);
             event.register(ModScreenHandlers.CAR_SERVICE, CarServiceScreen::new);
+            event.register(ModScreenHandlers.TOOLBOX, ToolboxScreen::new);
         });
         modBus.addListener((RegisterGuiLayersEvent event) -> {
             event.registerAbove(VanillaGuiLayers.HOTBAR, CarMain.id("dashboard"), new DashboardHud());
@@ -206,6 +219,7 @@ public class CarMainClient {
                     client.renderBuffers().bufferSource(), camera,
                     new Matrix4f(event.getModelViewMatrix()).mul(event.getPoseStack().last().pose()));
             WorldLabels.begin(context);
+            me.trossty.car.client.render.TyreMarkRenderer.render(context);
             CarServiceOverlay.render(context);
             FuelHoseRenderer.render(context);
         });
@@ -223,6 +237,7 @@ public class CarMainClient {
             if (viewer != null && viewer.getVehicle() instanceof me.trossty.car.entity.CarEntity vehicle) {
                 float back = switch (vehicle.chassis()) {
                     case PLANE -> 11.0F;
+                    case HELICOPTER -> 9.0F;
                     case BOAT -> 7.0F;
                     default -> 0.0F;
                 };

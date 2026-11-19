@@ -2,6 +2,7 @@ package me.trossty.car.service;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.Workshop;
 import me.trossty.car.registry.ModScreenHandlers;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
@@ -16,7 +17,7 @@ import net.minecraft.world.item.ItemStack;
  * buttons that are the whole job.
  *
  * <p>It owns no slots. Nothing is dragged in or out — the car's own
- * {@link CarEntity#fitPart} and {@link CarEntity#removePart} reach into the
+ * {@link Workshop#fitPart} and {@link Workshop#removePart} reach into the
  * player's inventory, and they are the same two methods a plain right click
  * goes through, so the rules about lifts and what is bolted on top of what are
  * stated once and obeyed everywhere.
@@ -73,16 +74,18 @@ public class CarServiceScreenHandler extends AbstractContainerMenu {
      * will be worn out again before the good one has got going.
      */
     public ItemStack spareFor(CarPart part) {
+        CarEntity car = this.car();
+        int needed = car == null ? part.count() : car.parts().countOf(part);
         ItemStack best = ItemStack.EMPTY;
         int bestGrade = -1;
         float bestCondition = -1.0F;
         for (int slot = 0; slot < this.inventory.getContainerSize(); slot++) {
             ItemStack stack = this.inventory.getItem(slot);
-            if (!stack.is(part.item()) || stack.getCount() < part.count()) {
+            if (!stack.is(part.item()) || stack.getCount() < needed) {
                 continue;
             }
-            int grade = CarEntity.qualityOf(stack).ordinal();
-            float condition = CarEntity.conditionOf(stack);
+            int grade = Workshop.qualityOf(stack).ordinal();
+            float condition = Workshop.conditionOf(stack);
             if (grade > bestGrade || (grade == bestGrade && condition > bestCondition)) {
                 best = stack;
                 bestGrade = grade;
@@ -104,13 +107,13 @@ public class CarServiceScreenHandler extends AbstractContainerMenu {
         }
         CarPart part = this.selectedPart();
         if (id == REMOVE_BUTTON) {
-            car.removePart(player, part);
+            car.workshop().removePart(player, part);
             return true;
         }
         if (id == FIT_BUTTON) {
             ItemStack spares = this.spareFor(part);
             if (!spares.isEmpty()) {
-                car.fitPart(player, spares, part);
+                car.workshop().fitPart(player, spares, part);
             }
             return true;
         }

@@ -3,14 +3,15 @@ package me.trossty.car.block;
 import com.mojang.serialization.MapCodec;
 import me.trossty.car.block.entity.VehicleLiftBlockEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import me.trossty.car.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
@@ -25,6 +26,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 /**
  * The ramp a car is assembled on, the only place one can be worked on
@@ -39,11 +44,17 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * <em>up</em>, so the job happens where a garage would do it, on a car you can
  * get under.
  *
- * <p>A plain right click opens the window. A sneaking one works the lift, which
- * is the one control it has besides redstone;
+ * <p>A right click takes the lift up a stop and a sneaking one down a stop,
+ * the one control it has besides redstone;
  * {@link VehicleLiftBlockEntity} explains how the two get along.
+ *
+ * <p>It is wider than a block, so it is built like the other machines: the
+ * plate is the controller, and each column stands in a block of its own, two
+ * high, that can be aimed at, clicked and broken like the plate. The parts
+ * carry the lift's height as well, so a deck that rises through them is
+ * where the cursor finds it.
  */
-public class VehicleLiftBlock extends ModelEntityBlock {
+public class VehicleLiftBlock extends MultiblockBlock {
 
     public static final MapCodec<VehicleLiftBlock> CODEC = simpleCodec(VehicleLiftBlock::new);
 
@@ -51,13 +62,10 @@ public class VehicleLiftBlock extends ModelEntityBlock {
     public static final IntegerProperty LEVEL =
             IntegerProperty.create("level", 0, VehicleLiftBlockEntity.MAX_LEVEL);
 
-    /**
-     * Which way the platform runs. It is longer than the block — a car is —
-     * so it is laid along the way the player was looking when it went down,
-     * which is the way a car will be driven on to it.
-     */
-    public static final net.minecraft.world.level.block.state.properties.EnumProperty<net.minecraft.core.Direction> FACING =
-            net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING;
+    /** The plate, the column either side of it, and the tops of the two columns. */
+    public static final IntegerProperty PART = IntegerProperty.create("part", 0, 4);
+
+    private static final int[][] CELLS = {{0, 0, 0}, {-1, 0, 0}, {1, 0, 0}, {-1, 1, 0}, {1, 1, 0}};
 
     /**
      * How far from a lift a car still counts as being on it. The car is 2.5
@@ -66,15 +74,42 @@ public class VehicleLiftBlock extends ModelEntityBlock {
      */
     private static final int REACH = 2;
 
-    /** The floor plate, which is the whole block when the lift is down. */
-    private static final VoxelShape PLATE = Block.box(0.0, 0.0, 0.0, 16.0, 16.0, 16.0);
+    /**
+     * What of the lift a body bumps into, in pixels with the lift facing
+     * north, one box a row: the plate a car is driven on to, the two
+     * columns, and the power unit on the east one. The arms are only drawn:
+     * the car is held by the lift itself, not stood on a shape, and the space
+     * under a raised car is left clear to walk into.
+     */
+    private static final double[][] SOLID = {
+            {0, 0, 0, 16, 2, 16},
+            {-15.2, 0, 4.8, -10.3, 31.6, 11.2},
+            {26.3, 0, 4.8, 31.2, 31.6, 11.2},
+            {27.6, 16, 11, 30.8, 25.2, 14.4}};
 
-    private final VoxelShape[] shapes = buildShapes();
+    /** And what the cursor finds: that, the columns' feet and the cable covers a wheel rolls over. */
+    private static final double[][] OUTLINE = java.util.stream.Stream.concat(java.util.Arrays.stream(SOLID),
+            java.util.stream.Stream.of(
+                    new double[] {-16, 0, 2.6, -9, 1.1, 13.4},
+                    new double[] {25, 0, 2.6, 32, 1.1, 13.4},
+                    new double[] {-7.2, 0, 6.6, 0, 0.4, 9.4},
+                    new double[] {16, 0, 6.6, 23.2, 0.4, 9.4})).toArray(double[][]::new);
+
+    private final Map<BlockState, VoxelShape> outlines = new IdentityHashMap<>();
+    private final Map<BlockState, VoxelShape> solids = new IdentityHashMap<>();
 
     public VehicleLiftBlock(Properties settings) {
         super(settings);
         this.registerDefaultState(this.getStateDefinition().any().setValue(LEVEL, 0)
-                .setValue(FACING, net.minecraft.core.Direction.NORTH));
+                .setValue(FACING, Direction.NORTH).setValue(this.partProperty(), 0));
+        // every cell's share of the lift, at every height and facing, worked out once
+        for (BlockState state : this.getStateDefinition().getPossibleStates()) {
+            int[] cell = this.cells()[this.partOf(state)];
+            Direction facing = state.getValue(FACING);
+            int level = state.getValue(LEVEL);
+            this.outlines.put(state, this.cut(this.drawing(level, false), cell, facing));
+            this.solids.put(state, this.cut(this.drawing(level, true), cell, facing));
+        }
     }
 
     @Override
@@ -83,46 +118,121 @@ public class VehicleLiftBlock extends ModelEntityBlock {
     }
 
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(LEVEL, FACING);
-    }
-
-    /**
-     * One shape per level: the plate, the ram that comes out of it and the deck
-     * on top. The deck is what a car — or a player who climbed up — stands on,
-     * so it has to be in the collision shape and not just in the model.
-     */
-    private static VoxelShape[] buildShapes() {
-        VoxelShape[] shapes = new VoxelShape[VehicleLiftBlockEntity.MAX_LEVEL + 1];
-        shapes[0] = PLATE;
-        for (int level = 1; level < shapes.length; level++) {
-            double deck = 12.0 + 4.0 * level;
-            shapes[level] = Shapes.or(
-                    PLATE,
-                    Block.box(6.0, 16.0, 6.0, 10.0, deck, 10.0),
-                    Block.box(1.0, deck, 1.0, 15.0, deck + 4.0, 15.0));
-        }
-        return shapes;
+    public int[][] cells() {
+        return CELLS;
     }
 
     @Override
-    public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
-        return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection());
+    public IntegerProperty partProperty() {
+        return PART;
+    }
+
+    /** A lift has no light to put on; it has its height instead. */
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FACING, LEVEL, this.partProperty());
+    }
+
+    /**
+     * The lift as it is drawn facing north, in pixels from the plate's corner,
+     * at a height: what the cursor finds on it, or with {@code solid} what a
+     * body bumps into. It is cut up between the cells by {@link #cut}.
+     */
+    protected double[][] drawing(int level, boolean solid) {
+        return solid ? SOLID : OUTLINE;
+    }
+
+    /**
+     * One cell's share of the drawing, in that cell's own pixels and turned
+     * to the facing. A cell with no cell of the lift above it keeps whatever
+     * rises out of its top, such as a deck going up, so the cursor still
+     * finds that from above.
+     */
+    private VoxelShape cut(double[][] boxes, int[] cell, Direction facing) {
+        boolean roofed = false;
+        for (int[] other : this.cells()) {
+            roofed |= other[0] == cell[0] && other[1] == cell[1] + 1 && other[2] == cell[2];
+        }
+        double ox = cell[0] * 16.0;
+        double oy = cell[1] * 16.0;
+        double oz = cell[2] * 16.0;
+        VoxelShape shape = Shapes.empty();
+        for (double[] box : boxes) {
+            double x1 = Math.max(box[0], ox) - ox;
+            double x2 = Math.min(box[3], ox + 16.0) - ox;
+            double y1 = Math.max(box[1], oy) - oy;
+            double y2 = (roofed ? Math.min(box[4], oy + 16.0) : box[4]) - oy;
+            double z1 = Math.max(box[2], oz) - oz;
+            double z2 = Math.min(box[5], oz + 16.0) - oz;
+            if (x1 < x2 && y1 < y2 && z1 < z2) {
+                shape = Shapes.or(shape, turned(facing, x1, y1, z1, x2, y2, z2));
+            }
+        }
+        return shape.optimize();
+    }
+
+    /** A box drawn with the lift facing north, turned to {@code facing} about the middle of its block. */
+    private static VoxelShape turned(Direction facing, double x1, double y1, double z1, double x2, double y2, double z2) {
+        // each quarter turn clockwise takes (x, z) to (16 - z, x), as the blockstate turns the model
+        for (int turn = 0; turn < ((facing.get2DDataValue() + 2) & 3); turn++) {
+            double nx1 = 16.0 - z2;
+            double nx2 = 16.0 - z1;
+            z1 = x1;
+            z2 = x2;
+            x1 = nx1;
+            x2 = nx2;
+        }
+        return Block.box(x1, y1, z1, x2, y2, z2);
+    }
+
+    /**
+     * The platform is longer than the block — a car is — so it is laid along
+     * the way the player was looking when it went down, which is the way a
+     * car will be driven on to it.
+     */
+    @Override
+    protected Direction facingFor(BlockPlaceContext context) {
+        return context.getHorizontalDirection();
+    }
+
+    /**
+     * Puts down whichever part is missing: around a lift placed by hand, one
+     * set down by a command, or one standing in a world from before its
+     * columns were blocks of their own. A cell something else already stands
+     * in is left alone; that lift goes without a part there rather than
+     * knocking a wall down.
+     */
+    @Override
+    public void placeParts(Level world, BlockPos pos, BlockState controller) {
+        Direction facing = controller.getValue(FACING);
+        int[][] cells = this.cells();
+        for (int i = 1; i < cells.length; i++) {
+            BlockPos at = cellPos(pos, facing, cells[i]);
+            BlockState there = world.getBlockState(at);
+            if (!this.isPart(there, i, facing) && there.canBeReplaced() && world.isInWorldBounds(at)) {
+                world.setBlock(at, controller.setValue(this.partProperty(), i), Block.UPDATE_ALL);
+            }
+        }
+    }
+
+    /** Takes the lift, every cell of it, to a height. */
+    public void setLevel(Level world, BlockPos controller, BlockState state, int level) {
+        this.setOnEveryCell(world, controller, state, LEVEL, level);
     }
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        return this.shapes[state.getValue(LEVEL)];
+        return this.outlines.get(state);
     }
 
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        return this.shapes[state.getValue(LEVEL)];
+        return this.solids.get(state);
     }
 
     @Override
-    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new VehicleLiftBlockEntity(pos, state);
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return this.isController(state) ? new VehicleLiftBlockEntity(pos, state) : null;
     }
 
     @Override
@@ -131,7 +241,8 @@ public class VehicleLiftBlock extends ModelEntityBlock {
         if (world.isClientSide()) {
             return null;
         }
-        return createTickerHelper(type, ModBlockEntities.VEHICLE_LIFT, VehicleLiftBlockEntity::tick);
+        return createTickerHelper(type, VehicleLiftBlockEntity.forBikes(state)
+                ? ModBlockEntities.MOTORCYCLE_LIFT : ModBlockEntities.VEHICLE_LIFT, VehicleLiftBlockEntity::tick);
     }
 
     @Override
@@ -140,34 +251,57 @@ public class VehicleLiftBlock extends ModelEntityBlock {
         if (world.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        return working(world, pos, player);
+        return working(world, this.controllerOf(pos, state), player);
     }
 
-    /** A click is the lift's lever: latch it up, latch it down. It has no window. */
+    /**
+     * A click is the lift's lever: up a stop, or down one when sneaking. It
+     * has no window.
+     */
     private static InteractionResult working(Level world, BlockPos pos, Player player) {
         if (!(world.getBlockEntity(pos) instanceof VehicleLiftBlockEntity lift)) {
             return InteractionResult.CONSUME;
         }
-        boolean up = lift.toggle();
+        boolean up = !player.isShiftKeyDown();
+        int before = lift.getStop();
+        int stop = lift.step(up);
         world.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.4F, up ? 1.1F : 0.8F);
-        player.displayClientMessage(Component.translatable(up ? "message.car.lift_up" : "message.car.lift_down"), true);
+        Component where = Component.translatable("message.car.lift_stop_" + stop);
+        player.displayClientMessage(stop == before
+                ? Component.translatable(up ? "message.car.lift_at_top" : "message.car.lift_at_bottom", where)
+                : Component.translatable("message.car.lift_stop", where), true);
         return InteractionResult.CONSUME;
     }
 
     /**
-     * True when there is a lift close enough under a vehicle to work on it, and
-     * that lift has the car in the air. A car on its wheels is a car you cannot
+     * True when a lift under a vehicle has it up in the air on its platform;
+     * a car parked beside a raised lift is not on it. A car on its wheels is a car you cannot
      * get under, which is the point of owning the lift in the first place.
+     * A boat or a plane, which no lift takes, is up on its cradle or jack.
      */
     public static boolean isServicing(Level world, Entity vehicle) {
+        if (vehicle instanceof me.trossty.car.entity.CarEntity car && ServiceStandBlock.isServicing(world, car)) {
+            return true;
+        }
         BlockPos at = vehicle.blockPosition();
         for (BlockPos pos : BlockPos.betweenClosed(
                 at.offset(-REACH, -3, -REACH), at.offset(REACH, 0, REACH))) {
             BlockState state = world.getBlockState(pos);
-            if (state.is(ModBlocks.VEHICLE_LIFT) && state.getValue(LEVEL) > 0) {
+            if (state.getBlock() instanceof VehicleLiftBlock lift && lift.isController(state)
+                    && VehicleLiftBlockEntity.holdsUp(state, pos, vehicle)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** What to tell somebody working on a vehicle that is not up where it can be. */
+    public static Component needsLift(me.trossty.car.entity.CarEntity vehicle) {
+        return Component.translatable(switch (vehicle.chassis()) {
+            case BOAT -> "message.car.needs_cradle";
+            case PLANE -> "message.car.needs_jack";
+            case MOTORCYCLE -> "message.car.needs_bike_lift";
+            default -> "message.car.needs_lift";
+        });
     }
 }

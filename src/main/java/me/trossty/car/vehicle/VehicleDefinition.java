@@ -9,7 +9,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -37,6 +39,22 @@ import java.util.Optional;
  *
  * <p>{@code lights} is how far the head lamps throw their light down the
  * road, and how wide it has spread at the far end, both in blocks.
+ *
+ * <p>{@code implement} is farm work the vehicle does as it goes: a seed drill
+ * sows, a spreader feeds the crops, a mower cuts the grass.
+ *
+ * <p>{@code handlebars} puts the driver astride, steering with bars instead
+ * of sitting behind a wheel: a quad bike, a jet ski.
+ *
+ * <p>{@code steering_wheel_rise} is how far over the driver's hips the
+ * middle of the steering wheel goes, where it is not where a car's goes: a
+ * ride-on mower's is down by the rider's belly. Left out, the wheel goes
+ * where the dashboard puts it.
+ *
+ * <p>{@code steering_wheel_rake} is how far, in degrees, the steering wheel
+ * leans back from upright, its column running down the same angle the other
+ * way: a kart's lies well back on a column that dives to the front of the
+ * frame. Left out, a car's 28.
  */
 public record VehicleDefinition(
         Chassis chassis,
@@ -50,7 +68,147 @@ public record VehicleDefinition(
         List<Box> shape,
         List<Cost> materials,
         float tank,
-        Lights lights) {
+        Lights lights,
+        float mass,
+        Carrying carrying,
+        Implement implement,
+        Controls controls) {
+
+    /**
+     * What it weighs, in kilograms, when the definition does not say:
+     * {@code mass} is what a towing vehicle feels of it. {@code deck} is how
+     * high a flat bed stands, in the model's pixels, on a trailer that carries
+     * a vehicle; 0 for anything else. {@code dolly} makes that bed a tow
+     * dolly: it takes only a car's front wheels, and the back ones roll on
+     * the road behind. {@code takes} is what kinds of vehicle the bed or
+     * dolly will carry; left out, any.
+     */
+    public float massKg() {
+        if (this.mass > 0.0F) {
+            return this.mass;
+        }
+        return switch (this.chassis) {
+            case PICKUP -> 2000.0F;
+            case TANKER -> 7500.0F;
+            case TRAILER -> 400.0F;
+            case MOTORCYCLE -> 180.0F;
+            case BOAT -> 1300.0F;
+            case PLANE -> 750.0F;
+            default -> 1300.0F;
+        };
+    }
+
+    /** Whether this is a flat bed another vehicle rides on. */
+    public boolean carriesVehicles() {
+        return this.deck() > 0.0F;
+    }
+
+    public float deck() {
+        return this.carrying.deck();
+    }
+
+    public boolean dolly() {
+        return this.carrying.dolly();
+    }
+
+    public List<Chassis> takes() {
+        return this.carrying.takes();
+    }
+
+    /** Where a bed's or box's loose load is shown, if it has one. */
+    public Optional<Area> load() {
+        return this.carrying.load();
+    }
+
+    /**
+     * The closed lid's boxes, all of them in one, in pixels with +z to the
+     * front; null when this vehicle has no such lid.
+     */
+    public @Nullable AABB lidBounds(String lid) {
+        AABB bounds = null;
+        for (Box box : this.shape) {
+            if (box.opens().equals(lid)) {
+                AABB one = new AABB(
+                        box.from().x(), box.from().y(), box.from().z(),
+                        box.to().x(), box.to().y(), box.to().z());
+                bounds = bounds == null ? one : bounds.minmax(one);
+            }
+        }
+        return bounds;
+    }
+
+    /** Whether there are beds inside: a caravan, slept in at night. */
+    public boolean camper() {
+        return this.carrying.camper();
+    }
+
+    /** The only vehicles that may pull this, by id; empty when anything with a tow ball may. */
+    public List<net.minecraft.resources.ResourceLocation> pulledBy() {
+        return this.carrying.pulledBy();
+    }
+
+    /**
+     * What it carries, written flat in the file beside everything else:
+     * {@code deck}, {@code dolly} and {@code takes} for a bed that carries a
+     * vehicle, and {@code load} — a {@code from}/{@code to} box, in pixels —
+     * for the open bed or box whose chest contents are shown sitting in it.
+     * {@code pulled_by} keeps a trailer to the trucks built for it: a wheel
+     * lift goes only on the back of a tow truck. {@code camper} is a
+     * caravan's: there are beds in it.
+     */
+    public record Carrying(float deck, boolean dolly, List<Chassis> takes, Optional<Area> load,
+                           List<net.minecraft.resources.ResourceLocation> pulledBy, boolean camper) {
+        public static final com.mojang.serialization.MapCodec<Carrying> MAP_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                        Codec.floatRange(0.0F, 64.0F).optionalFieldOf("deck", 0.0F).forGetter(Carrying::deck),
+                        Codec.BOOL.optionalFieldOf("dolly", false).forGetter(Carrying::dolly),
+                        Chassis.CODEC.listOf().optionalFieldOf("takes", List.of()).forGetter(Carrying::takes),
+                        Area.CODEC.optionalFieldOf("load").forGetter(Carrying::load),
+                        net.minecraft.resources.ResourceLocation.CODEC.listOf()
+                                .optionalFieldOf("pulled_by", List.of()).forGetter(Carrying::pulledBy),
+                        Codec.BOOL.optionalFieldOf("camper", false).forGetter(Carrying::camper)
+                ).apply(instance, Carrying::new));
+    }
+
+    /** Whether the driver sits astride and steers with bars. */
+    public boolean handlebars() {
+        return this.controls.handlebars();
+    }
+
+    /** How far over the driver's hips the steering wheel goes, if the definition says. */
+    public Optional<Float> steeringWheelRise() {
+        return this.controls.steeringWheelRise();
+    }
+
+    /** How far back from upright the steering wheel leans, in degrees, if the definition says. */
+    public Optional<Float> steeringWheelRake() {
+        return this.controls.steeringWheelRake();
+    }
+
+    /**
+     * How the driver drives it, written flat in the file beside everything
+     * else: {@code handlebars}, {@code steering_wheel_rise} and
+     * {@code steering_wheel_rake}.
+     */
+    public record Controls(boolean handlebars, Optional<Float> steeringWheelRise,
+                           Optional<Float> steeringWheelRake) {
+        public static final com.mojang.serialization.MapCodec<Controls> MAP_CODEC = RecordCodecBuilder.mapCodec(
+                instance -> instance.group(
+                        Codec.BOOL.optionalFieldOf("handlebars", false).forGetter(Controls::handlebars),
+                        Codec.floatRange(3.0F, 20.0F).optionalFieldOf("steering_wheel_rise")
+                                .forGetter(Controls::steeringWheelRise),
+                        Codec.floatRange(0.0F, 75.0F).optionalFieldOf("steering_wheel_rake")
+                                .forGetter(Controls::steeringWheelRake)
+                ).apply(instance, Controls::new));
+    }
+
+    /** A box in the model's pixels, corner to corner. */
+    public record Area(org.joml.Vector3f from, org.joml.Vector3f to) {
+        public static final Codec<Area> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                ExtraCodecs.VECTOR3F.fieldOf("from").forGetter(Area::from),
+                ExtraCodecs.VECTOR3F.fieldOf("to").forGetter(Area::to)
+        ).apply(instance, Area::new));
+    }
 
     /** A tank nobody wrote down: a family car's, fifty litres. */
     public static final float DEFAULT_TANK_LITRES = 50.0F;
@@ -84,7 +242,9 @@ public record VehicleDefinition(
         /** Floats: driven on water by a propeller, stranded on land. */
         BOAT,
         /** Taxies on its wheels, lifts off with enough speed and flies. */
-        PLANE;
+        PLANE,
+        /** Sits on its skids; lifts straight up off them and flies any way it likes. */
+        HELICOPTER;
 
         public static final Codec<Chassis> CODEC = Codec.STRING.xmap(
                 name -> switch (name.toLowerCase(Locale.ROOT)) {
@@ -94,9 +254,30 @@ public record VehicleDefinition(
                     case "motorcycle" -> MOTORCYCLE;
                     case "boat" -> BOAT;
                     case "plane" -> PLANE;
+                    case "helicopter" -> HELICOPTER;
                     default -> CAR;
                 },
                 chassis -> chassis.name().toLowerCase(Locale.ROOT));
+    }
+
+    /** Farm work done to the ground a vehicle passes over. */
+    public enum Implement {
+        NONE,
+        /** A trailer that sows seeds from its load into the tilled ground under it. */
+        SEEDER,
+        /** A trailer that spreads bone meal from its load over the crops under it. */
+        FERTILIZER,
+        /** Cuts the grass and flowers it drives over, into whatever it tows. */
+        MOWER;
+
+        public static final Codec<Implement> CODEC = Codec.STRING.xmap(
+                name -> switch (name.toLowerCase(Locale.ROOT)) {
+                    case "seeder" -> SEEDER;
+                    case "fertilizer", "fertiliser" -> FERTILIZER;
+                    case "mower" -> MOWER;
+                    default -> NONE;
+                },
+                implement -> implement.name().toLowerCase(Locale.ROOT));
     }
 
     /** One wheel: where its centre is, how big it is, and whether it steers. */
@@ -127,11 +308,31 @@ public record VehicleDefinition(
      * to all of it (1).
      */
     public record Performance(float speed, float acceleration, float fuelUse,
-                              float braking, float steering, float offroad) {
+                              float braking, float steering, float offroad, List<Float> gears) {
 
-        public static final Performance PLAIN = new Performance(1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F);
+        /**
+         * The gearbox a definition gets when it does not give one: five
+         * forward, short low gears and long high ones. Each number is how much
+         * of the top speed that gear reaches at the redline, so the last is
+         * always 1. A single 1 is one fixed ratio, a scooter's belt drive.
+         */
+        public static final List<Float> FIVE_SPEED = List.of(0.24F, 0.42F, 0.61F, 0.81F, 1.0F);
+
+        public static final Performance PLAIN = new Performance(1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, FIVE_SPEED);
 
         private static final Codec<Float> FACTOR = Codec.floatRange(0.25F, 3.0F);
+
+        private static final Codec<List<Float>> GEARS = Codec.floatRange(0.05F, 1.0F).listOf(1, 12)
+                .validate(gears -> {
+                    for (int i = 1; i < gears.size(); i++) {
+                        if (gears.get(i) <= gears.get(i - 1)) {
+                            return com.mojang.serialization.DataResult.error(
+                                    () -> "gears must climb from first to top: " + gears);
+                        }
+                    }
+                    return gears.get(gears.size() - 1) == 1.0F ? com.mojang.serialization.DataResult.success(gears)
+                            : com.mojang.serialization.DataResult.error(() -> "top gear must reach 1: " + gears);
+                });
 
         public static final Codec<Performance> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 FACTOR.optionalFieldOf("speed", 1.0F).forGetter(Performance::speed),
@@ -139,7 +340,8 @@ public record VehicleDefinition(
                 FACTOR.optionalFieldOf("fuel_use", 1.0F).forGetter(Performance::fuelUse),
                 FACTOR.optionalFieldOf("braking", 1.0F).forGetter(Performance::braking),
                 FACTOR.optionalFieldOf("steering", 1.0F).forGetter(Performance::steering),
-                Codec.floatRange(0.0F, 1.0F).optionalFieldOf("offroad", 0.0F).forGetter(Performance::offroad)
+                Codec.floatRange(0.0F, 1.0F).optionalFieldOf("offroad", 0.0F).forGetter(Performance::offroad),
+                GEARS.optionalFieldOf("gears", FIVE_SPEED).forGetter(Performance::gears)
         ).apply(instance, Performance::new));
     }
 
@@ -194,13 +396,20 @@ public record VehicleDefinition(
      * {@code roll} leans it about its own middle the other way, about the
      * line from back to front, in degrees: positive lifts its left-hand end
      * (+x) — a wing strut, a landing-gear leg. {@code spins} turns it with
-     * the engine about the middle of the first box that spins: a propeller.
+     * the engine about the middle of the first box that spins about the same
+     * {@code spin_axis}: {@code z}, the way along the body, for a propeller
+     * (the default), {@code y} for a helicopter's rotor, {@code x} for its tail rotor.
      * {@code yaw} turns it about its own upright, in degrees: positive swings
      * its front towards the left (+x) — a panel along a tapering tail. A box
      * is tilted first, then turned, then rolled.
      */
     public record Box(org.joml.Vector3f from, org.joml.Vector3f to, String color, float tilt, boolean steers,
-                      float roll, boolean spins, float yaw) {
+                      float roll, boolean spins, float yaw, String opens,
+                      net.minecraft.core.Direction.Axis spinAxis) {
+        /** The lids a box can belong to: it swings up with that lid. */
+        public static final String BONNET = "bonnet";
+        public static final String BOOT = "boot";
+
         public static final Codec<Box> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 ExtraCodecs.VECTOR3F.fieldOf("from").forGetter(Box::from),
                 ExtraCodecs.VECTOR3F.fieldOf("to").forGetter(Box::to),
@@ -209,7 +418,13 @@ public record VehicleDefinition(
                 Codec.BOOL.optionalFieldOf("steers", false).forGetter(Box::steers),
                 Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("roll", 0.0F).forGetter(Box::roll),
                 Codec.BOOL.optionalFieldOf("spins", false).forGetter(Box::spins),
-                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("yaw", 0.0F).forGetter(Box::yaw)
+                Codec.floatRange(-90.0F, 90.0F).optionalFieldOf("yaw", 0.0F).forGetter(Box::yaw),
+                Codec.STRING.validate(lid -> lid.isEmpty() || lid.equals(BONNET) || lid.equals(BOOT)
+                        ? com.mojang.serialization.DataResult.success(lid)
+                        : com.mojang.serialization.DataResult.error(() -> "opens must be bonnet or boot: " + lid))
+                        .optionalFieldOf("opens", "").forGetter(Box::opens),
+                net.minecraft.core.Direction.Axis.CODEC.optionalFieldOf("spin_axis", net.minecraft.core.Direction.Axis.Z)
+                        .forGetter(Box::spinAxis)
         ).apply(instance, Box::new));
     }
 
@@ -227,7 +442,11 @@ public record VehicleDefinition(
             Cost.CODEC.listOf(0, 16).optionalFieldOf("materials", List.of()).forGetter(VehicleDefinition::materials),
             Codec.floatRange(0.0F, 1000.0F).optionalFieldOf("tank", DEFAULT_TANK_LITRES)
                     .forGetter(VehicleDefinition::tank),
-            Lights.CODEC.optionalFieldOf("lights", Lights.PLAIN).forGetter(VehicleDefinition::lights)
+            Lights.CODEC.optionalFieldOf("lights", Lights.PLAIN).forGetter(VehicleDefinition::lights),
+            Codec.floatRange(0.0F, 100000.0F).optionalFieldOf("mass", 0.0F).forGetter(VehicleDefinition::mass),
+            Carrying.MAP_CODEC.forGetter(VehicleDefinition::carrying),
+            Implement.CODEC.optionalFieldOf("implement", Implement.NONE).forGetter(VehicleDefinition::implement),
+            Controls.MAP_CODEC.forGetter(VehicleDefinition::controls)
     ).apply(instance, VehicleDefinition::new));
 
     /**
@@ -243,6 +462,7 @@ public record VehicleDefinition(
             case CAR -> "toyota_corolla";
             case BOAT -> "bayliner_bowrider";
             case PLANE -> "cessna_172";
+            case HELICOPTER -> "robinson_r44";
         });
     }
 

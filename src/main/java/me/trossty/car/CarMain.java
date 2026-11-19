@@ -53,5 +53,8 @@ public class CarMain {
                 event.dataPackRegistry(VehicleDefinition.KEY, VehicleDefinition.CODEC, VehicleDefinition.CODEC));
         modBus.addListener(ModFluids::registerCapabilities);
         modBus.addListener(CarNetworking::register);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                me.trossty.car.entity.TrailerEntity::keepSleeping);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(me.trossty.car.entity.TrailerEntity::wakeUp);
     }
 }

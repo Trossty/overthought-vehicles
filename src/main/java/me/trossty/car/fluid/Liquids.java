@@ -63,6 +63,24 @@ public final class Liquids {
     }
 
     /**
+     * Moves up to {@code max} millibuckets of the first of {@code from}'s
+     * liquids that {@code to} will take: a machine with two outputs is not held
+     * up by the one nothing wants.
+     */
+    public static int moveAny(IFluidHandler from, IFluidHandler to, int max) {
+        for (int tank = 0; tank < from.getTanks(); tank++) {
+            Fluid fluid = from.getFluidInTank(tank).getFluid();
+            if (!isBlank(fluid)) {
+                int moved = move(from, to, fluid, max);
+                if (moved > 0) {
+                    return moved;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
      * Moves up to {@code max} millibuckets of whatever {@code from} gives first
      * (or of {@code only}, when set) into {@code to}; how much went.
      */

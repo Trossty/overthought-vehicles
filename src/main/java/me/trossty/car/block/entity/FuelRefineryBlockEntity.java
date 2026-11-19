@@ -65,6 +65,13 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
     /** Heat ticks one piece of organic matter needs, and what it yields. */
     public static final int DISTILL_TIME = 120;
     public static final int BIOMASS_PER_ITEM = 100;
+    /** An oilseed is mostly oil, and cooks down to far more than leaves and stalks. */
+    public static final int BIOMASS_PER_OILSEED = 3 * BIOMASS_PER_ITEM;
+
+    /** What one piece of this organic matter cooks down to. */
+    public static int biomassOf(ItemStack stack) {
+        return stack.is(me.trossty.car.registry.ModItems.RAPESEED) ? BIOMASS_PER_OILSEED : BIOMASS_PER_ITEM;
+    }
 
     /** One catalyst turns this much feed into this much product. */
     public static final int REFINE_TIME = 100;
@@ -322,6 +329,26 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
         return (int) Math.min(Integer.MAX_VALUE, found / ModFluids.UNIT);
     }
 
+    /**
+     * What a container of crude oil is left as once it is poured out: an
+     * empty bucket, another mod's empty cell or tank. Asked of the container
+     * itself, so a reusable one comes back instead of vanishing.
+     */
+    private static ItemStack pouredOut(ItemStack stack) {
+        net.neoforged.neoforge.fluids.capability.IFluidHandlerItem held = stack.copyWithCount(1).getCapability(
+                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.ITEM);
+        if (held == null) {
+            return ItemStack.EMPTY;
+        }
+        for (int tank = 0; tank < held.getTanks(); tank++) {
+            FluidStack view = held.getFluidInTank(tank);
+            if (!view.isEmpty() && isCrudeOil(view.getFluid())) {
+                held.drain(view.copy(), IFluidHandler.FluidAction.EXECUTE);
+            }
+        }
+        return held.getContainer();
+    }
+
     /** Draws power for one tick of work, or says there is not enough. */
     private boolean draw(int amount) {
         if (this.energy.amount < amount) {
@@ -401,7 +428,7 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
         int carried = oilIn(oil);
         if (carried > 0 && refinery.biomass + carried <= BIOMASS_CAPACITY
                 && (refinery.biomass == 0 || refinery.feed == FEED_CRUDE)) {
-            ItemStack emptied = oil.getCraftingRemainingItem();
+            ItemStack emptied = pouredOut(oil);
             if (oil.getCount() == 1 || emptied.isEmpty()) {
                 refinery.biomass += carried;
                 refinery.feed = FEED_CRUDE;
@@ -418,15 +445,15 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
         ItemStack organic = refinery.inventory.get(ORGANIC_SLOT);
         boolean canDistill = !organic.isEmpty()
                 && (refinery.biomass == 0 || refinery.feed == FEED_BIOMASS)
-                && refinery.biomass + BIOMASS_PER_ITEM <= BIOMASS_CAPACITY;
+                && refinery.biomass + biomassOf(organic) <= BIOMASS_CAPACITY;
 
         if (canDistill && refinery.draw(DISTILL_POWER)) {
             worked = true;
             refinery.distillProgress++;
             if (refinery.distillProgress >= DISTILL_TIME) {
                 refinery.distillProgress = 0;
+                refinery.biomass += biomassOf(organic);
                 organic.shrink(1);
-                refinery.biomass += BIOMASS_PER_ITEM;
                 refinery.feed = FEED_BIOMASS;
                 dirty = true;
             }

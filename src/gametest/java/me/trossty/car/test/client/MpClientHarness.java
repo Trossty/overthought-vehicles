@@ -94,7 +94,7 @@ final class MpClientHarness {
                 if (this.seated % 10 == 0) {
                     log("t=%d time=%d sees car %.2f %.2f yaw %.0f speed %.2f hp %.1f, own hp %.1f".formatted(
                             this.seated, client.level.getGameTime(), car.getX(), car.getZ(), car.getYRot(),
-                            car.getEngineSpeed(), car.getHealth(), client.player.getHealth()));
+                            car.getEngineSpeed(), car.damage().getHealth(), client.player.getHealth()));
                 }
                 if (!this.ridingShot && car.getEngineSpeed() > 0.3F) {
                     this.ridingShot = true;

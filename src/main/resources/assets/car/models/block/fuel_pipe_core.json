@@ -1,22 +1,9 @@
 {
   "parent": "minecraft:block/block",
-  "textures": {
-    "particle": "car:block/fuel_pipe",
-    "pipe": "car:block/fuel_pipe",
-    "core": "car:block/fuel_pipe_core"
-  },
+  "textures": {"particle": "car:block/fuel_pipe", "p": "car:block/palette"},
   "elements": [
-    {
-      "from": [4.5, 4.5, 4.5],
-      "to": [11.5, 11.5, 11.5],
-      "faces": {
-        "north": { "uv": [4, 4, 12, 12], "texture": "#core" },
-        "south": { "uv": [4, 4, 12, 12], "texture": "#core" },
-        "west": { "uv": [4, 4, 12, 12], "texture": "#core" },
-        "east": { "uv": [4, 4, 12, 12], "texture": "#core" },
-        "up": { "uv": [4, 4, 12, 12], "texture": "#core" },
-        "down": { "uv": [4, 4, 12, 12], "texture": "#core" }
-      }
-    }
+    {"from": [4.4, 5, 5], "to": [11.6, 11, 11], "faces": {"north": {"uv": [1.275, 0.3125, 1.725, 0.6875], "texture": "#p"}, "south": {"uv": [1.275, 0.3125, 1.725, 0.6875], "texture": "#p"}, "east": {"uv": [1.3125, 0.3125, 1.6875, 0.6875], "texture": "#p"}, "west": {"uv": [1.3125, 0.3125, 1.6875, 0.6875], "texture": "#p"}, "up": {"uv": [1.275, 0.3125, 1.725, 0.6875], "texture": "#p"}, "down": {"uv": [1.275, 0.3125, 1.725, 0.6875], "texture": "#p"}}},
+    {"from": [5, 4.4, 5], "to": [11, 11.6, 11], "faces": {"north": {"uv": [1.3125, 0.275, 1.6875, 0.725], "texture": "#p"}, "south": {"uv": [1.3125, 0.275, 1.6875, 0.725], "texture": "#p"}, "east": {"uv": [1.3125, 0.275, 1.6875, 0.725], "texture": "#p"}, "west": {"uv": [1.3125, 0.275, 1.6875, 0.725], "texture": "#p"}, "up": {"uv": [1.3125, 0.3125, 1.6875, 0.6875], "texture": "#p"}, "down": {"uv": [1.3125, 0.3125, 1.6875, 0.6875], "texture": "#p"}}},
+    {"from": [5, 5, 4.4], "to": [11, 11, 11.6], "faces": {"north": {"uv": [1.3125, 0.3125, 1.6875, 0.6875], "texture": "#p"}, "south": {"uv": [1.3125, 0.3125, 1.6875, 0.6875], "texture": "#p"}, "east": {"uv": [1.275, 0.3125, 1.725, 0.6875], "texture": "#p"}, "west": {"uv": [1.275, 0.3125, 1.725, 0.6875], "texture": "#p"}, "up": {"uv": [1.3125, 0.275, 1.6875, 0.725], "texture": "#p"}, "down": {"uv": [1.3125, 0.275, 1.6875, 0.725], "texture": "#p"}}}
   ]
 }

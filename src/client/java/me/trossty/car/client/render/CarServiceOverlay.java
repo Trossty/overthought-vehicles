@@ -132,7 +132,7 @@ public final class CarServiceOverlay {
         // a car to read: how beaten up it is and what is in the tank. Those
         // two come up whenever you look at one, so that walking up to your car
         // tells you what a menu used to have to.
-        boolean servicing = VehicleLiftBlock.isServicing(player.level(), car);
+        boolean servicing = car.workshop().isWorkable();
 
         float tickProgress = client.getTimer().getGameTimeDeltaPartialTick(true);
 
@@ -140,7 +140,9 @@ public final class CarServiceOverlay {
         // the same pick the right click will use, so a lit mark is a promise.
         boolean inReach = client.hitResult instanceof EntityHitResult hit
                 && CarEntity.of(hit.getEntity()) == car;
-        if (!servicing && !inReach) {
+        // A scanner plugged into this car points at what is wrong with it.
+        java.util.Set<CarPart> faulty = scannedFaults(player, car);
+        if (!servicing && !inReach && faulty.isEmpty()) {
             return;
         }
 
@@ -161,7 +163,7 @@ public final class CarServiceOverlay {
             Vec3 end = eye.add(player.getViewVector(tickProgress).scale(reach));
             double nearest = Double.MAX_VALUE;
             for (CarPart part : CarPart.values()) {
-                if (!car.canReach(part)) {
+                if (!car.workshop().canWorkOn(part)) {
                     continue;
                 }
                 for (AABB box : boxesOf(car, part, tickProgress)) {
@@ -187,16 +189,28 @@ public final class CarServiceOverlay {
             Vec3 camera = context.camera();
             PoseStack matrices = context.matrices();
             for (CarPart part : CarPart.values()) {
-                if (!servicing || !car.canReach(part)) {
+                if (!servicing || !car.workshop().canWorkOn(part)) {
                     continue;
                 }
-                boolean fitted = car.isFitted(part);
+                boolean fitted = car.parts().isFitted(part);
                 for (AABB box : boxesOf(car, part, tickProgress)) {
                     boolean lit = part == aiming && box.equals(aimingBox);
                     AABB frame = lit ? box.inflate(chase(part)) : box;
                     context.outline(consumers.getBuffer(RenderType.lines()), frame,
                             lit ? LINE_AIMED : (fitted ? LINE_FITTED : LINE_ABSENT));
                 }
+            }
+            if (!faulty.isEmpty()) {
+                int pulse = 0x80 + (int) (0x7F * (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 180.0)));
+                int colour = (pulse << 24) | (BAD & 0xFFFFFF);
+                for (CarPart part : faulty) {
+                    for (AABB box : boxesOf(car, part, tickProgress)) {
+                        context.outline(consumers.getBuffer(RenderType.lines()), box.inflate(0.03), colour);
+                    }
+                }
+            }
+            if (!servicing && !inReach) {
+                return;
             }
             // Each plate hangs on a short leader from its own mark; the car's
             // renderer writes the plate itself (see labelsFor).
@@ -264,7 +278,7 @@ public final class CarServiceOverlay {
                 || player.isSpectator() || player.getVehicle() == car || nearestCar(player) != car) {
             return List.of();
         }
-        boolean servicing = VehicleLiftBlock.isServicing(player.level(), car);
+        boolean servicing = car.workshop().isWorkable();
         boolean inReach = client.hitResult instanceof EntityHitResult hit && CarEntity.of(hit.getEntity()) == car;
         if (!servicing && !inReach) {
             return List.of();
@@ -276,7 +290,7 @@ public final class CarServiceOverlay {
         if (servicing) {
             CarPart aimed = aimedCar() == car ? aimedPart : null;
             for (CarPart part : CarPart.values()) {
-                if (part == aimed || !car.canReach(part)) {
+                if (part == aimed || !car.workshop().canWorkOn(part)) {
                     continue;
                 }
                 int colour = colourOf(car, part);
@@ -292,7 +306,7 @@ public final class CarServiceOverlay {
                     at = at.add(0.0, PLATE_STEP, 0.0);
                 }
                 labels.add(new PartLabel(at, name, colour, mark,
-                        car.isFitted(part) ? LINE_FITTED : LINE_ABSENT));
+                        car.parts().isFitted(part) ? LINE_FITTED : LINE_ABSENT));
             }
         }
         return labels;
@@ -347,9 +361,12 @@ public final class CarServiceOverlay {
         CarPart.Anchor specAt = new CarPart.Anchor(0.0F, y + (float) PLATE_STEP, front, 0.01F);
         CarPart.Anchor tankAt = new CarPart.Anchor(0.0F, y, -front, 0.01F);
 
-        float body = car.getHealthFraction();
+        // The worst side, and which it is once anything is dented: the side to walk round to with the iron.
+        float body = car.damage().getHealthFraction();
+        int percent = Math.round(body * 100.0F);
         stack(labels, new PartLabel(bodyAt.box(pos, yaw).getCenter().subtract(pos),
-                Component.translatable("gui.car.plate_body", Math.round(body * 100.0F)),
+                body >= 1.0F ? Component.translatable("gui.car.plate_body", percent)
+                        : Component.translatable("gui.car.plate_body_at", percent, car.damage().worstZone().displayName()),
                 body >= 0.75F ? GOOD : (body > 0.35F ? FAIR : BAD)));
 
         if (car instanceof me.trossty.car.entity.TrailerEntity trailer) {
@@ -389,7 +406,7 @@ public final class CarServiceOverlay {
     /** What the plate over a mark says: the part, and how worn it is. */
     private static Component nameOf(CarEntity car, CarPart part) {
         Component name = Component.translatable("part.car." + part.key());
-        if (!car.isFitted(part)) {
+        if (!car.parts().isFitted(part)) {
             return Component.translatable("gui.car.hologram_absent", name);
         }
         if (me.trossty.car.entity.CarSetup.variantsOf(part) > 1) {
@@ -399,15 +416,18 @@ public final class CarServiceOverlay {
                 name = Component.translatable("gui.car.with_turbo", name);
             }
         }
+        if (!car.workshop().canInspect(part)) {
+            return Component.translatable("gui.car.hologram_hidden", name);
+        }
         return Component.translatable("gui.car.hologram_worn", name,
-                Math.round(car.getConditionFraction(part) * 100.0F));
+                Math.round(car.parts().getConditionFraction(part) * 100.0F));
     }
 
     private static int colourOf(CarEntity car, CarPart part) {
-        if (!car.isFitted(part)) {
+        if (!car.parts().isFitted(part) || !car.workshop().canInspect(part)) {
             return ABSENT;
         }
-        float fraction = car.getConditionFraction(part);
+        float fraction = car.parts().getConditionFraction(part);
         return fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD);
     }
 
@@ -425,6 +445,29 @@ public final class CarServiceOverlay {
         lines.addVertex(entry, (float) (to.x - camera.x), (float) (to.y - camera.y),
                         (float) (to.z - camera.z))
                 .setColor(colour).setNormal(entry, 0.0F, 1.0F, 0.0F);
+    }
+
+    /**
+     * The parts a scanner in the player's hand, paired with this car, says
+     * to go and look at. Empty without a paired scanner.
+     */
+    private static java.util.Set<CarPart> scannedFaults(LocalPlayer player, CarEntity car) {
+        boolean paired = false;
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            net.minecraft.world.item.ItemStack held = player.getItemInHand(hand);
+            if (held.is(me.trossty.car.registry.ModItems.OBD_SCANNER)
+                    && car.getUUID().equals(held.get(me.trossty.car.registry.ModComponents.OBD_LINK))) {
+                paired = true;
+            }
+        }
+        if (!paired) {
+            return java.util.Set.of();
+        }
+        java.util.Set<CarPart> parts = java.util.EnumSet.noneOf(CarPart.class);
+        for (me.trossty.car.entity.FaultCodes.Fault fault : me.trossty.car.entity.FaultCodes.read(car)) {
+            parts.addAll(fault.lookAt());
+        }
+        return parts;
     }
 
     /** The nearest car in sight, or null. */

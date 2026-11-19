@@ -21,9 +21,10 @@ import me.trossty.car.energy.EnergyBuffer;
  * a night's worth of a coal generator, and the buffer a charging post draws a
  * car's whole battery from in one go.
  *
- * <p>Five faces take energy in and never give it back; the front gives it out
- * and never takes. So a cable feeding the back and another leading off the
- * front make a line with the bank in it, not a loop the charge sloshes round.
+ * <p>The front only gives, and pushes out of its own accord, so a cable feeding
+ * the back and another leading off the front make a line with the bank in it.
+ * The other five faces are an ordinary store: on a run it fills once the
+ * machines have had theirs and gives back to them when the generators stop.
  * Broken, it keeps its charge in the item.
  */
 public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.car.machine.GaugeSource {
@@ -34,15 +35,33 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
 
     private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, RATE, RATE) {
         @Override
+        public int receiveEnergy(int toReceive, boolean simulate) {
+            int accepted = super.receiveEnergy(toReceive, simulate);
+            if (!simulate) {
+                BatteryBankBlockEntity.this.cameIn += accepted;
+            }
+            return accepted;
+        }
+
+        @Override
+        public int extractEnergy(int toExtract, boolean simulate) {
+            int given = super.extractEnergy(toExtract, simulate);
+            if (!simulate) {
+                BatteryBankBlockEntity.this.wentOut += given;
+            }
+            return given;
+        }
+
+        @Override
         protected void onChanged() {
             BatteryBankBlockEntity.this.setChanged();
         }
     };
-    private final IEnergyStorage input = OneWayEnergy.in(this.energy);
     private final IEnergyStorage output = OneWayEnergy.out(this.energy);
 
-    /** Where the amount stood at the end of the last tick, to tell what came in since. */
-    private long lastAmount = -1;
+    /** Moved in and out since the last tick, by anyone. */
+    private int cameIn;
+    private int wentOut;
     private int flowIn;
     private int flowOut;
 
@@ -50,11 +69,11 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
         super(ModBlockEntities.BATTERY_BANK, pos, state);
     }
 
-    /** What a neighbour on this face sees: the front gives, the rest take. */
+    /** What a neighbour on this face sees: the front only gives, the rest both take and give. */
     public IEnergyStorage sideStorage(Direction side) {
         BlockState state = this.getBlockState();
         Direction front = state.hasProperty(BatteryBankBlock.FACING) ? state.getValue(BatteryBankBlock.FACING) : Direction.NORTH;
-        return side == front ? this.output : this.input;
+        return side == front ? this.output : this.energy;
     }
 
     public long getEnergy() {
@@ -75,9 +94,6 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
     }
 
     public static void tick(Level world, BlockPos pos, BlockState state, BatteryBankBlockEntity bank) {
-        long before = bank.energy.amount;
-        bank.flowIn = bank.lastAmount < 0 ? 0 : (int) Math.max(0, before - bank.lastAmount);
-
         long moved = 0;
         Direction front = state.getValue(BatteryBankBlock.FACING);
         if (bank.energy.amount > 0) {
@@ -86,14 +102,16 @@ public class BatteryBankBlockEntity extends BlockEntity implements me.trossty.ca
                 moved = EnergyBuffer.move(bank.output, target, RATE);
             }
         }
-        bank.flowOut = (int) moved;
-        bank.lastAmount = bank.energy.amount;
+        bank.flowIn = bank.cameIn;
+        bank.flowOut = bank.wentOut;
+        bank.cameIn = 0;
+        bank.wentOut = 0;
 
         int level = levelOf(bank.energy.amount);
         if (state.getValue(BatteryBankBlock.LEVEL) != level) {
             world.setBlock(pos, state.setValue(BatteryBankBlock.LEVEL, level), Block.UPDATE_CLIENTS);
         }
-        if (moved > 0 || bank.flowIn > 0) {
+        if (moved > 0) {
             bank.setChanged();
         }
     }

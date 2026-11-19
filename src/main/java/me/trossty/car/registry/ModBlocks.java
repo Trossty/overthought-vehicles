@@ -23,13 +23,19 @@ public final class ModBlocks {
     public static final Block VEHICLE_WORKBENCH = register(
             "vehicle_workbench",
             VehicleWorkbenchBlock::new,
-            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().sound(SoundType.METAL));
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion().sound(SoundType.METAL));
 
     /** The ramp cars are assembled on, and the only place they can be repaired. */
     public static final Block VEHICLE_LIFT = register(
             "vehicle_lift",
             VehicleLiftBlock::new,
-            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().sound(SoundType.METAL));
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion().sound(SoundType.METAL));
+
+    /** The narrow table a motorbike is wheeled on to and raised on. */
+    public static final Block MOTORCYCLE_LIFT = register(
+            "motorcycle_lift",
+            me.trossty.car.block.MotorcycleLiftBlock::new,
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion().sound(SoundType.METAL));
 
     /** The plant that cracks biomass and crude. Its boiler house glows while it works. */
     public static final Block FUEL_REFINERY = register(
@@ -171,7 +177,7 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of()
                     .strength(0.8F)
                     .noOcclusion()
-                    .sound(SoundType.WOOL));
+                    .sound(SoundType.COPPER));
 
     /** Where petrol waits: the buffer between a refinery and a station. */
     public static final Block FUEL_TANK = register(
@@ -193,6 +199,16 @@ public final class ModBlocks {
                     .noOcclusion()
                     .sound(SoundType.METAL));
 
+    /** A new vehicle, crated: a wrench gets it out. Carried off whole when broken. */
+    public static final Block VEHICLE_CRATE = register(
+            "vehicle_crate",
+            me.trossty.car.block.VehicleCrateBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(2.0F, 3.0F)
+                    .noOcclusion()
+                    .sound(SoundType.WOOD),
+            block -> new me.trossty.car.item.VehicleCrateItem(block, new Item.Properties().stacksTo(1)));
+
     /** One-way, and faster than levelling: how a line is given a destination. */
     public static final Block FUEL_VALVE = register(
             "fuel_valve",
@@ -210,6 +226,55 @@ public final class ModBlocks {
             BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
                     .sound(SoundType.METAL));
 
+    /** A wheeled stand an engine out of a car is hung on to be looked over. */
+    public static final Block ENGINE_STAND = register(
+            "engine_stand",
+            me.trossty.car.block.EngineStandBlock::new,
+            BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** A folding crane that lifts an engine out of the top of a car with the bonnet up. */
+    public static final Block ENGINE_HOIST = register(
+            "engine_hoist",
+            me.trossty.car.block.EngineHoistBlock::new,
+            BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** A shallow pan slid under a car on the lift to catch its old oil. */
+    public static final Block DRAIN_PAN = register(
+            "drain_pan",
+            me.trossty.car.block.DrainPanBlock::new,
+            BlockBehaviour.Properties.of().strength(1.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** Rollers in the floor that measure what a car driven on to them does. */
+    public static final Block DYNO = register(
+            "dyno",
+            me.trossty.car.block.DynoBlock::new,
+            BlockBehaviour.Properties.of().strength(3.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** A rolling tool chest. */
+    public static final Block TOOLBOX = register(
+            "toolbox",
+            me.trossty.car.block.ToolboxBlock::new,
+            BlockBehaviour.Properties.of().strength(2.5F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** Padded bunks a boat is set down on out of the water to be worked on. */
+    public static final Block BOAT_CRADLE = register(
+            "boat_cradle",
+            me.trossty.car.block.ServiceStandBlock::new,
+            BlockBehaviour.Properties.of().strength(2.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
+    /** A hydraulic jack pumped up under a plane's belly to take it off its wheels. */
+    public static final Block AIRCRAFT_JACK = register(
+            "aircraft_jack",
+            me.trossty.car.block.AircraftJackBlock::new,
+            BlockBehaviour.Properties.of().strength(2.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()
+                    .sound(SoundType.METAL));
+
     /**
      * Road made from the refinery's leftovers: tar bound with gravel and sand,
      * laid a layer at a time like snow and painted with road paint. Plain
@@ -225,6 +290,12 @@ public final class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.STONE));
 
+    /** Rapeseed in the ground; its item is the seed, {@link ModItems#RAPESEED}. */
+    public static final Block RAPESEED_CROP = registerWithoutItem(
+            "rapeseed_crop",
+            me.trossty.car.block.RapeseedCropBlock::new,
+            BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.WHEAT));
+
     /** Whether this is laid road. */
     public static boolean isAsphalt(net.minecraft.world.level.block.state.BlockState state) {
         return state.is(ASPHALT);
@@ -236,15 +307,29 @@ public final class ModBlocks {
     private static Block register(String name,
                                   java.util.function.Function<BlockBehaviour.Properties, Block> factory,
                                   BlockBehaviour.Properties settings) {
+        return register(name, factory, settings, block -> new BlockItem(block, new Item.Properties()));
+    }
+
+    private static Block register(String name,
+                                  java.util.function.Function<BlockBehaviour.Properties, Block> factory,
+                                  BlockBehaviour.Properties settings,
+                                  java.util.function.Function<Block, Item> item) {
         ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, CarMain.id(name));
         Block block = Registry.register(
                 BuiltInRegistries.BLOCK, blockKey, factory.apply(settings));
 
         // Every block here is meant to be carried, so it always gets an item.
         ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, CarMain.id(name));
-        Registry.register(BuiltInRegistries.ITEM, itemKey,
-                new BlockItem(block, new Item.Properties()));
+        Registry.register(BuiltInRegistries.ITEM, itemKey, item.apply(block));
         return block;
+    }
+
+    /** A block whose item is something else: a crop, planted from its seed. */
+    private static Block registerWithoutItem(String name,
+                                             java.util.function.Function<BlockBehaviour.Properties, Block> factory,
+                                             BlockBehaviour.Properties settings) {
+        return Registry.register(BuiltInRegistries.BLOCK,
+                ResourceKey.create(Registries.BLOCK, CarMain.id(name)), factory.apply(settings));
     }
 
     /** Forces class loading so the static fields above are registered. */

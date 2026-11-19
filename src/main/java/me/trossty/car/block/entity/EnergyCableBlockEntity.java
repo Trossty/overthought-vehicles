@@ -1,159 +1,116 @@
 package me.trossty.car.block.entity;
 
+import me.trossty.car.block.EnergyCableBlock;
+import me.trossty.car.network.EnergyNetwork;
+import me.trossty.car.network.Network;
+import me.trossty.car.network.NetworkBlockEntity;
 import me.trossty.car.registry.ModBlockEntities;
-import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import me.trossty.car.util.ValueInput;
-import me.trossty.car.util.ValueOutput;
 import net.neoforged.neoforge.energy.IEnergyStorage;
-import me.trossty.car.energy.EnergyBuffer;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * One length of cable, and the charge standing in it.
- *
- * <p>Like the fuel pipe there is no network: each length is a small buffer
- * that, every tick, does two things —
- *
- * <ol>
- *   <li>hands what it holds to every machine against it that will take power
- *       (a generator will not: it only gives), and</li>
- *   <li>levels itself with the cables beside it, half the difference at a
- *       time.</li>
- * </ol>
- *
- * <p>A generator pushes into the first length; a machine drinking at the far
- * end pulls the level down there, and the charge runs downhill towards it.
- * Branches, loops and a length dug out of the middle need no bookkeeping.
+ * One length of cable. It holds no charge: the run it is part of works as one
+ * {@link EnergyNetwork}, taking from what gives and handing it straight to what
+ * takes, so a long line delivers as fast as a short one and loses nothing.
  */
-public class EnergyCableBlockEntity extends BlockEntity {
+public class EnergyCableBlockEntity extends NetworkBlockEntity<EnergyNetwork> {
 
-    /** What one length holds. */
-    public static final int CAPACITY = 1_000;
-
-    /** The most one length passes on, to a machine or along the line, a tick, by default (see {@link #rate()}). */
-    public static final int RATE = 250;
-
-    private final EnergyBuffer energy = new EnergyBuffer(CAPACITY, RATE, RATE) {
-        @Override
-        protected void onChanged() {
-            EnergyCableBlockEntity.this.setChanged();
-        }
-    };
+    private final IEnergyStorage[] doors = new IEnergyStorage[7];
 
     public EnergyCableBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.ENERGY_CABLE, pos, state);
     }
 
-    public IEnergyStorage getEnergyStorage() {
-        return this.energy;
+    @Override
+    public Network.Link link(Direction side) {
+        return switch (this.getBlockState().getValue(EnergyCableBlock.SIDES.get(side))) {
+            case NONE -> Network.Link.NONE;
+            case CABLE -> Network.Link.MEMBER;
+            case DEVICE -> Network.Link.PORT;
+        };
     }
 
-    public int getEnergy() {
-        return (int) this.energy.amount;
+    @Override
+    protected Object linkIn(BlockState state, Direction side) {
+        return state.getValue(EnergyCableBlock.SIDES.get(side));
     }
 
-    public void setEnergy(int amount) {
-        this.energy.amount = Math.max(0, Math.min(CAPACITY, amount));
-        this.setChanged();
+    @Override
+    protected EnergyNetwork gather(ServerLevel world) {
+        return Network.gather(world, this, EnergyNetwork::new);
     }
 
-    /** The most one length passes on a tick, as the config has it. */
-    public static long rate() {
-        return me.trossty.car.CarConfig.get().cableRate;
+    /** Energy the run moved in its last tick. */
+    public int getFlow() {
+        EnergyNetwork network = this.network();
+        return network == null ? 0 : network.flow();
     }
 
-    /** At or above this the stripe lights; it goes out only when the length is empty. */
-    public static final int GLOW_ON = 50;
-    /** How often the stripe is looked at, so a flickering line is not a storm of block updates. */
-    private static final int GLOW_EVERY = 10;
+    /** Lights or darkens the copper stripe. */
+    public void showPowered(boolean lit) {
+        BlockState state = this.getBlockState();
+        if (this.level != null && state.hasProperty(EnergyCableBlock.POWERED)
+                && state.getValue(EnergyCableBlock.POWERED) != lit) {
+            this.level.setBlock(this.worldPosition, state.setValue(EnergyCableBlock.POWERED, lit), Block.UPDATE_CLIENTS);
+        }
+    }
 
     /**
-     * One lookup cache per side. Finding what is next door is the costly part
-     * of a cable's tick; a cache remembers the answer and is told by the world
-     * when the neighbour changes, so a long line costs little more than a short one.
+     * The cable as another mod's cable or machine sees it on one face: power
+     * pushed in goes on along the run, and drawing from it draws from what the
+     * run reaches.
      */
-    @SuppressWarnings("unchecked")
-    private final BlockCapabilityCache<IEnergyStorage, Direction>[] neighbours = new BlockCapabilityCache[6];
-
-    private BlockCapabilityCache<IEnergyStorage, Direction> neighbour(ServerLevel world, Direction side) {
-        BlockCapabilityCache<IEnergyStorage, Direction> cache = this.neighbours[side.ordinal()];
-        if (cache == null) {
-            cache = BlockCapabilityCache.create(Capabilities.EnergyStorage.BLOCK, world,
-                    this.worldPosition.relative(side), side.getOpposite());
-            this.neighbours[side.ordinal()] = cache;
+    public IEnergyStorage getEnergyStorage(@Nullable Direction side) {
+        int index = side == null ? 6 : side.ordinal();
+        if (this.doors[index] == null) {
+            BlockPos from = side == null ? this.worldPosition : this.worldPosition.relative(side);
+            this.doors[index] = new Door(from);
         }
-        return cache;
+        return this.doors[index];
     }
 
-    public static void tick(Level world, BlockPos pos, BlockState state, EnergyCableBlockEntity cable) {
-        // Spread over the ten ticks by position, so a long line does not all update at once.
-        if (Math.floorMod(world.getGameTime() + pos.hashCode(), GLOW_EVERY) == 0) {
-            cable.updateGlow(world, pos, state);
-        }
-        if (cable.energy.amount <= 0 || !(world instanceof ServerLevel server)) {
-            return;
-        }
-        // Machines first: whatever stands against the cable and takes power.
-        EnergyCableBlockEntity[] cables = new EnergyCableBlockEntity[6];
-        for (Direction side : Direction.values()) {
-            BlockCapabilityCache<IEnergyStorage, Direction> cache = cable.neighbour(server, side);
-            if (server.getBlockEntity(cache.pos()) instanceof EnergyCableBlockEntity other) {
-                cables[side.ordinal()] = other;
-                continue;
-            }
-            if (cable.energy.amount <= 0) {
-                continue;
-            }
-            IEnergyStorage target = cache.getCapability();
-            if (target != null && target.canReceive()) {
-                EnergyBuffer.move(cable.energy, target, rate());
-            }
-        }
-        // Then level with the cables either side, downhill only.
-        for (EnergyCableBlockEntity other : cables) {
-            if (other == null || other.isRemoved()) {
-                continue;
-            }
-            long difference = cable.energy.amount - other.energy.amount;
-            if (difference > 1) {
-                long moved = Math.min(difference / 2, rate());
-                cable.energy.amount -= moved;
-                other.energy.amount += moved;
-                cable.setChanged();
-                other.setChanged();
-            }
-        }
-    }
+    private final class Door implements IEnergyStorage {
+        private final BlockPos from;
 
-    private void updateGlow(Level world, BlockPos pos, BlockState state) {
-        if (!state.hasProperty(me.trossty.car.block.EnergyCableBlock.POWERED)) {
-            return;
+        Door(BlockPos from) {
+            this.from = from;
         }
-        boolean lit = state.getValue(me.trossty.car.block.EnergyCableBlock.POWERED);
-        boolean wanted = lit ? this.energy.amount > 0 : this.energy.amount >= GLOW_ON;
-        if (wanted != lit) {
-            world.setBlock(pos, state.setValue(me.trossty.car.block.EnergyCableBlock.POWERED, wanted),
-                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+
+        @Override
+        public int receiveEnergy(int toReceive, boolean simulate) {
+            EnergyNetwork network = EnergyCableBlockEntity.this.network();
+            return network == null ? 0 : network.insert(toReceive, simulate, this.from);
         }
-    }
 
-    @Override
-    protected void loadAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
-        ValueInput view = ValueInput.of(tag, registries);
-        super.loadAdditional(tag, registries);
-        this.energy.amount = Math.max(0, Math.min(CAPACITY, view.getIntOr("Energy", 0)));
-    }
+        @Override
+        public int extractEnergy(int toExtract, boolean simulate) {
+            EnergyNetwork network = EnergyCableBlockEntity.this.network();
+            return network == null ? 0 : network.extract(toExtract, simulate, this.from);
+        }
 
-    @Override
-    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
-        ValueOutput view = ValueOutput.of(tag, registries);
-        super.saveAdditional(tag, registries);
-        view.putInt("Energy", (int) this.energy.amount);
+        @Override
+        public int getEnergyStored() {
+            return 0;
+        }
+
+        @Override
+        public int getMaxEnergyStored() {
+            return EnergyNetwork.rate();
+        }
+
+        @Override
+        public boolean canExtract() {
+            return true;
+        }
+
+        @Override
+        public boolean canReceive() {
+            return true;
+        }
     }
 }

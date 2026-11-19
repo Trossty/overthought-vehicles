@@ -622,7 +622,7 @@ public class GenVehicles {
         v.height = 2.1;
         v.stretch = 15.0 / 14.0;
         v.performance = "\"speed\": 0.92, \"acceleration\": 1.05, \"fuel_use\": 1.25, "
-                + "\"braking\": 0.95, \"steering\": 0.9, \"offroad\": 0.8";
+                + "\"braking\": 0.95, \"steering\": 0.9, \"offroad\": 0.8, \"gears\": [0.17, 0.3, 0.45, 0.62, 0.8, 1.0]";
         v.factory = "\"engine\": \"v6\", \"fuel\": \"petrol\", \"tyres\": \"dirt\"";
         v.materials = new String[] {"minecraft:iron_block", "2", "minecraft:iron_bars", "2", "minecraft:leather", "2"};
         String top = ACCENT;
@@ -727,7 +727,7 @@ public class GenVehicles {
         v.height = 2.05;
         v.stretch = 16.0 / 15.0;
         v.performance = "\"speed\": 0.95, \"acceleration\": 0.95, \"fuel_use\": 1.05, "
-                + "\"braking\": 0.95, \"steering\": 0.92, \"offroad\": 0.5";
+                + "\"braking\": 0.95, \"steering\": 0.92, \"offroad\": 0.5, \"gears\": [0.18, 0.32, 0.48, 0.64, 0.82, 1.0]";
         v.factory = "\"engine\": \"inline4\", \"fuel\": \"diesel\", \"tyres\": \"road\", \"turbo\": true";
         double roof = 30.7;
 
@@ -901,7 +901,7 @@ public class GenVehicles {
         v.height = 1.65;
         v.stretch = 15.0 / 14.0;
         v.performance = "\"speed\": 1.3, \"acceleration\": 1.3, \"fuel_use\": 1.35, "
-                + "\"braking\": 1.1, \"steering\": 1.0, \"offroad\": 0.0";
+                + "\"braking\": 1.1, \"steering\": 1.0, \"offroad\": 0.0, \"gears\": [0.2, 0.33, 0.47, 0.62, 0.8, 1.0]";
         v.factory = "\"engine\": \"v8\", \"fuel\": \"petrol\", \"tyres\": \"sport\"";
         v.materials = new String[] {"minecraft:iron_block", "1", "minecraft:iron_ingot", "2", "minecraft:redstone_block", "1"};
         double roof = 23.5;
@@ -1005,7 +1005,7 @@ public class GenVehicles {
         v.between = LONG_BETWEEN;
         v.overhang = LONG_OVERHANG;
         v.performance = "\"speed\": 1.0, \"acceleration\": 1.0, \"fuel_use\": 2.4, "
-                + "\"braking\": 1.0, \"steering\": 1.0, \"offroad\": 0.2";
+                + "\"braking\": 1.0, \"steering\": 1.0, \"offroad\": 0.2, \"gears\": [0.1, 0.17, 0.25, 0.35, 0.47, 0.61, 0.79, 1.0]";
         v.factory = "\"engine\": \"inline6\", \"fuel\": \"diesel\", \"tyres\": \"road\"";
         String tank = "#C3C9CF";
         String band = "#8E959C";
@@ -1176,7 +1176,7 @@ public class GenVehicles {
         v.between = 1;
         v.overhang = 1;
         v.performance = "\"speed\": 0.72, \"acceleration\": 1.1, \"fuel_use\": 0.4, "
-                + "\"braking\": 1.1, \"steering\": 1.4, \"offroad\": 0";
+                + "\"braking\": 1.1, \"steering\": 1.4, \"offroad\": 0, \"gears\": [1.0]";
         v.factory = "\"engine\": \"inline4\", \"fuel\": \"petrol\", \"tyres\": \"road\"";
         v.materials = new String[] {"minecraft:iron_ingot", "2", "minecraft:leather", "1"};
 
@@ -1246,7 +1246,7 @@ public class GenVehicles {
         v.between = 1;
         v.overhang = 1;
         v.performance = "\"speed\": 1.25, \"acceleration\": 1.55, \"fuel_use\": 0.7, "
-                + "\"braking\": 1.25, \"steering\": 1.3, \"offroad\": 0";
+                + "\"braking\": 1.25, \"steering\": 1.3, \"offroad\": 0, \"gears\": [0.32, 0.47, 0.6, 0.73, 0.86, 1.0]";
         v.factory = "\"engine\": \"inline4\", \"fuel\": \"petrol\", \"tyres\": \"sport\"";
         v.materials = new String[] {"minecraft:iron_ingot", "3", "minecraft:redstone", "2",
                 "minecraft:leather", "1"};

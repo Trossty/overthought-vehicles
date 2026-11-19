@@ -2,6 +2,7 @@ package me.trossty.car.client.render;
 
 import me.trossty.car.CarMain;
 import me.trossty.car.entity.CarEntity;
+import me.trossty.car.entity.CarParts;
 import me.trossty.car.entity.FaultCodes;
 import me.trossty.car.item.ObdScannerItem;
 import me.trossty.car.registry.ModComponents;
@@ -100,12 +101,12 @@ public final class ObdTabletRenderer {
         Component sub = car.isElectric()
                 ? Component.translatable("obd.car.tablet.electric")
                 : Component.translatable("fuel.car." + car.getTankFuel().key());
-        screen.text(Component.empty().append(CarEntity.formatOdometer(car.getOdometer())).append("  ·  ").append(sub),
+        screen.text(Component.empty().append(CarEntity.formatOdometer(car.parts().getOdometer())).append("  ·  ").append(sub),
                 5, 27, 0.6F, DIM, 118);
 
         // The three gauges a mechanic looks at first.
         float tank = car.getFuel() / Math.max(1.0F, car.getMaxFuel());
-        float body = car.getHealthFraction();
+        float body = car.damage().getHealthFraction();
         float temp = car.getEngineTemp();
         screen.gauge(Component.translatable(car.isElectric() ? "obd.car.tablet.charge" : "obd.car.tablet.fuel"),
                 35, tank, tank < 0.15F ? BAD : car.getDirtyFuel() >= 0.25F ? AMBER : CYAN);
@@ -130,8 +131,15 @@ public final class ObdTabletRenderer {
         if (faults.size() > shown) {
             screen.text(Component.translatable("obd.car.more", faults.size() - shown).withStyle(ChatFormatting.ITALIC),
                     5, y, 0.55F, DIM, 118);
+            y += 7.0F;
         }
-        float mileage = CarEntity.mileageFactor(car.getOdometer());
+        // Where to start looking: the worst fault's place on the car, which a
+        // scanner in hand also lights up on the car itself.
+        Component where = faults.isEmpty() ? null : faults.get(0).where();
+        if (where != null && y < 114.0F) {
+            screen.text(where, 5, y + 1.0F, 0.55F, AMBER, 118);
+        }
+        float mileage = CarParts.mileageFactor(car.parts().getOdometer());
         if (mileage > 1.05F) {
             screen.text(Component.translatable("obd.car.high_mileage", Math.round((mileage - 1.0F) * 100.0F)),
                     5, 120, 0.5F, DIM, 118);

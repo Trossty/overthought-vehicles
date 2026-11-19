@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "roller=false": {
+      "model": "car:block/dyno"
+    },
+    "roller=true": {
+      "model": "car:block/dyno_roller"
+    }
+  }
+}

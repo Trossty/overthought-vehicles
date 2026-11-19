@@ -4,6 +4,7 @@ import me.trossty.car.client.render.CarServiceOverlay;
 import me.trossty.car.client.render.WorldLabels;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.Workshop;
 import me.trossty.car.workbench.BenchWork;
 import me.trossty.car.workbench.VehicleRecipe;
 import net.minecraft.client.gui.LayeredDraw;
@@ -125,6 +126,27 @@ public class ServiceHud implements LayeredDraw.Layer {
         context.pose().popPose();
     }
 
+    /**
+     * Each place of a part that has several, coloured as the condition row is:
+     * "FL 82  FR 80  RL 91  RR 90", or a plug a cylinder, "1 90  2 88".
+     */
+    private static Component places(CarEntity car, CarPart part) {
+        net.minecraft.network.chat.MutableComponent line = Component.empty();
+        for (int place = 0; place < car.parts().placesOf(part); place++) {
+            if (part == CarPart.WHEELS && !car.isTyreOn(place)) {
+                continue;
+            }
+            if (!line.getSiblings().isEmpty()) {
+                line.append("  ");
+            }
+            float fraction = car.parts().getCondition(part, place) / CarPart.MAX_CONDITION;
+            int colour = fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD);
+            line.append(Component.translatable("tooltip.car.place", car.parts().placeShort(part, place),
+                    Math.round(fraction * 100.0F)).withColor(colour & 0xFFFFFF));
+        }
+        return line;
+    }
+
     /** The part of a car under the crosshair, or null if there is none. */
     private static Tooltip partTooltip(Minecraft client) {
         CarEntity car = CarServiceOverlay.aimedCar();
@@ -133,23 +155,32 @@ public class ServiceHud implements LayeredDraw.Layer {
             return null;
         }
 
-        boolean fitted = car.isFitted(part);
+        boolean fitted = car.parts().isFitted(part);
         ItemStack held = client.player.getMainHandItem();
         boolean offering = held.is(part.item());
         List<Row> rows = new ArrayList<>();
-        if (fitted) {
-            float fraction = car.getConditionFraction(part);
+        CarPart hidden = fitted ? car.workshop().hiddenBy(part) : null;
+        if (fitted && hidden != null) {
+            rows.add(new Row(Component.translatable("gui.car.status_hidden",
+                    Component.translatable("part.car." + hidden.key())), GREY));
+        } else if (fitted) {
+            float fraction = car.parts().getConditionFraction(part);
             rows.add(new Row(
                     Component.translatable("tooltip.car.condition", Math.round(fraction * 100.0F)),
                     fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD)));
+            if (car.parts().placesOf(part) > 1) {
+                rows.add(new Row(places(car, part), GREY));
+            }
+        }
+        if (fitted) {
             rows.add(new Row(
-                    Component.translatable("quality.car." + car.getQuality(part).key()), GREY));
+                    Component.translatable("quality.car." + car.parts().getQuality(part).key()), GREY));
         } else {
             rows.add(new Row(Component.translatable("gui.car.part_missing"), BAD));
         }
         if (offering) {
             rows.add(new Row(Component.translatable("gui.car.spare",
-                    Math.round(CarEntity.conditionOf(held) / CarPart.MAX_CONDITION * 100.0F) + "%"), GOOD));
+                    Math.round(Workshop.conditionOf(held) / CarPart.MAX_CONDITION * 100.0F) + "%"), GOOD));
         }
         rows.add(new Row(Component.translatable(fitted
                         ? (offering ? "gui.car.service_swap" : "gui.car.service_remove")

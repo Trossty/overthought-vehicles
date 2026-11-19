@@ -35,7 +35,14 @@ public final class ItemLooks {
             CarMain.id("toyota_corolla"), CarMain.id("tofas_sahin"), CarMain.id("jeep_wrangler"),
             CarMain.id("ford_mustang"), CarMain.id("mercedes_atego"),
             CarMain.id("vespa_primavera"), CarMain.id("honda_cbr600rr"), CarMain.id("toyota_hilux"),
-            CarMain.id("box_trailer"), CarMain.id("bayliner_bowrider"), CarMain.id("cessna_172"));
+            CarMain.id("box_trailer"), CarMain.id("bayliner_bowrider"), CarMain.id("cessna_172"),
+            CarMain.id("flatbed_trailer"), CarMain.id("tow_dolly"),
+            CarMain.id("plane_tow_dolly"), CarMain.id("hilux_tow"), CarMain.id("wheel_lift"),
+            CarMain.id("caravan"),
+            CarMain.id("robinson_r44"), CarMain.id("massey_ferguson_240"), CarMain.id("seed_drill"),
+            CarMain.id("fertilizer_spreader"), CarMain.id("john_deere_x350"),
+            CarMain.id("honda_fourtrax_rancher"), CarMain.id("tony_kart_racer_401"), CarMain.id("meyers_manx"),
+            CarMain.id("club_car_precedent"), CarMain.id("yamaha_waverunner_vx"));
 
     /** Bare steel: an empty drum's paint. */
     public static final int EMPTY_DRUM = 0x9AA1A8;
@@ -53,7 +60,8 @@ public final class ItemLooks {
     public static void registerProperties() {
         ResourceLocation vehicle = CarMain.id("vehicle");
         for (Item item : List.of(ModItems.CAR, ModItems.FUEL_TANKER, ModItems.PICKUP,
-                ModItems.TRAILER, ModItems.MOTORCYCLE, ModItems.MOTORBOAT, ModItems.AIRPLANE)) {
+                ModItems.TRAILER, ModItems.MOTORCYCLE, ModItems.MOTORBOAT, ModItems.AIRPLANE,
+                ModItems.HELICOPTER)) {
             ItemProperties.register(item, vehicle, (stack, level, entity, seed) -> {
                 ResourceLocation id = stack.get(ModComponents.CAR_VEHICLE);
                 return id == null ? 0 : VEHICLES.indexOf(id) + 1;
@@ -71,7 +79,7 @@ public final class ItemLooks {
     public static void registerColors(RegisterColorHandlersEvent.Item event) {
         event.register((stack, tint) -> tint < SHADES.length ? paint(stack, SHADES[tint]) : -1,
                 ModItems.CAR, ModItems.FUEL_TANKER, ModItems.PICKUP, ModItems.TRAILER, ModItems.MOTORCYCLE,
-                ModItems.MOTORBOAT, ModItems.AIRPLANE);
+                ModItems.MOTORBOAT, ModItems.AIRPLANE, ModItems.HELICOPTER);
         event.register((stack, tint) -> {
             if (tint != 0) {
                 return -1;

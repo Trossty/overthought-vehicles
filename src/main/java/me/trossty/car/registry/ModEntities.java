@@ -77,6 +77,14 @@ public final class ModEntities {
                     .eyeHeight(1.9F)
                     .clientTrackingRange(16));
 
+    /** The cabin only: the rotor turns over everything, through what it meets. */
+    public static final EntityType<me.trossty.car.entity.HelicopterEntity> HELICOPTER = register(
+            "helicopter",
+            EntityType.Builder.of(me.trossty.car.entity.HelicopterEntity::new, MobCategory.MISC)
+                    .sized(2.0F, 2.4F)
+                    .eyeHeight(1.6F)
+                    .clientTrackingRange(16));
+
     private ModEntities() {
     }
 

@@ -5,8 +5,8 @@ import net.neoforged.neoforge.energy.IEnergyStorage;
 /**
  * One face of a store that only lets energy one way: an input face that takes
  * and never gives, or an output face that gives and never takes. A battery
- * bank shows the first on five sides and the second on its front, so a cable
- * on the front is fed and never pushes back into it.
+ * bank shows the second on its front, so a cable on the front is fed and never
+ * pushes back into it.
  */
 public final class OneWayEnergy implements IEnergyStorage {
 

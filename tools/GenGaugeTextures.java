@@ -3,7 +3,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 
 /**
- * Generates the two dashboard dial faces.
+ * Generates the dashboard dial faces, and the ring cell an electric car's
+ * battery gauge is drawn from.
  *
  * Everything that never changes is baked here — bezel, face, tick marks, the
  * fuel gauge's red band and its (unlit) pump icon — so the HUD only has to draw
@@ -259,6 +260,38 @@ public class GenGaugeTextures {
         return img;
     }
 
+    // ---- the battery gauge's ring (mirrored in DashboardHud) ----
+    // An electric car's gauge is a ring of cells round the needles' sweep.
+    // Every cell is the same wedge, so the HUD draws each one from this single
+    // white texture, rotated into place and tinted lit or unlit. It is baked
+    // finer than the dial, CELL_SCALE texels to a dial pixel, because it is
+    // drawn turned and a coarse wedge would come out ragged.
+    static final int CELL_SCALE = 4;
+    static final float CELL_INNER = 23.0F;
+    static final float CELL_OUTER = 29.0F;
+    /** Half a cell's width in degrees: 9 of each cell's 12, the rest the gap. */
+    static final float CELL_HALF_ANGLE = 4.5F;
+    /** The texture's box in dial pixels along the cell's own centre line. */
+    static final int CELL_X0 = 22;
+    static final int CELL_W = 8;
+    static final int CELL_H = 6;
+
+    static BufferedImage cellTexture() {
+        BufferedImage cell = new BufferedImage(CELL_W * CELL_SCALE, CELL_H * CELL_SCALE, BufferedImage.TYPE_INT_ARGB);
+        for (int x = 0; x < cell.getWidth(); x++) {
+            for (int y = 0; y < cell.getHeight(); y++) {
+                double lx = CELL_X0 + (x + 0.5) / CELL_SCALE;
+                double ly = -CELL_H / 2.0 + (y + 0.5) / CELL_SCALE;
+                double rho = Math.hypot(lx, ly);
+                double angle = Math.abs(Math.toDegrees(Math.atan2(ly, lx)));
+                if (rho >= CELL_INNER && rho < CELL_OUTER && angle < CELL_HALF_ANGLE) {
+                    cell.setRGB(x, y, 0xFFFFFFFF);
+                }
+            }
+        }
+        return cell;
+    }
+
     static BufferedImage scale(BufferedImage src, int f) {
         BufferedImage out = new BufferedImage(src.getWidth() * f, src.getHeight() * f, BufferedImage.TYPE_INT_ARGB);
         for (int x = 0; x < out.getWidth(); x++) {
@@ -284,7 +317,9 @@ public class GenGaugeTextures {
         img = new BufferedImage(TEX, TEX, BufferedImage.TYPE_INT_ARGB);
         drawBody();
         ImageIO.write(img, "PNG", new File(dir, "gauge_rpm.png"));
-        System.out.println("wrote " + dir + "/gauge_{speed,fuel,temp,rpm}.png");
+        // The battery gauge sits on the same bare face; this is its ring cell.
+        ImageIO.write(cellTexture(), "PNG", new File(dir, "gauge_cell.png"));
+        System.out.println("wrote " + dir + "/gauge_{speed,fuel,temp,rpm,cell}.png");
 
         if (args.length > 1) {
             BufferedImage sheet = new BufferedImage(TEX * 2 + TEMP_TEX, TEX, BufferedImage.TYPE_INT_ARGB);

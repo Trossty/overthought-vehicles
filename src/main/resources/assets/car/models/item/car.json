@@ -24,6 +24,42 @@
         "car:vehicle": 4
       },
       "model": "car:item/vehicle_ford_mustang"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 19
+      },
+      "model": "car:item/vehicle_massey_ferguson_240"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 22
+      },
+      "model": "car:item/vehicle_john_deere_x350"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 23
+      },
+      "model": "car:item/vehicle_honda_fourtrax_rancher"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 24
+      },
+      "model": "car:item/vehicle_tony_kart_racer_401"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 25
+      },
+      "model": "car:item/vehicle_meyers_manx"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 26
+      },
+      "model": "car:item/vehicle_club_car_precedent"
     }
   ]
 }

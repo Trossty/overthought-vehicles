@@ -31,15 +31,15 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 /**
  * The valve that gives a line of pipe a destination.
  *
- * <p>It points somewhere, and that is the whole interface: fuel goes in the
- * back and out the front, never the other way, and faster than pipe levelling
- * can move it. {@link FuelValveBlockEntity} explains why that amounts to
- * priority.
+ * <p>It points somewhere, and that is the whole interface: liquid is drawn
+ * in at the back and pushed out of the front, never the other way.
+ * {@link FuelValveBlockEntity} explains why a line needs one to pull from a
+ * tank.
  *
  * <p>Placed against a block it feeds that block, the way a hopper does, so you
- * aim it by clicking the thing you want filled. A bare right click turns it
- * through the six directions if you aimed wrong, and says which way it is
- * pointing and whether redstone currently has it shut.
+ * aim it by clicking the thing you want filled. A bare right click opens or
+ * closes it; a wrench turns it through the six directions if you aimed wrong.
+ * Redstone shuts it too, whatever the handle says.
  */
 public class FuelValveBlock extends ModelEntityBlock {
 
@@ -47,6 +47,8 @@ public class FuelValveBlock extends ModelEntityBlock {
 
     public static final EnumProperty<Direction> FACING = BlockStateProperties.FACING;
     public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
+    /** The handle: closed by hand, whatever the redstone says. */
+    public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
 
     /** The valve body, a little fatter than the pipe it sits in. */
     private static final VoxelShape BODY = Block.box(4.0, 4.0, 4.0, 12.0, 12.0, 12.0);
@@ -55,7 +57,8 @@ public class FuelValveBlock extends ModelEntityBlock {
         super(settings);
         this.registerDefaultState(this.getStateDefinition().any()
                 .setValue(FACING, Direction.NORTH)
-                .setValue(POWERED, false));
+                .setValue(POWERED, false)
+                .setValue(OPEN, true));
     }
 
     @Override
@@ -65,7 +68,7 @@ public class FuelValveBlock extends ModelEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, POWERED);
+        builder.add(FACING, POWERED, OPEN);
     }
 
     /** Points at the block you clicked, so you aim it at what you want filled. */
@@ -104,21 +107,43 @@ public class FuelValveBlock extends ModelEntityBlock {
         return createTickerHelper(type, ModBlockEntities.FUEL_VALVE, FuelValveBlockEntity::tick);
     }
 
-    /** A bare click turns the valve; aiming one is not worth a dedicated tool. */
+    /** A bare click opens or closes it, the way a tap does. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos,
                                  Player player, BlockHitResult hit) {
         if (world.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        Direction turned = next(state.getValue(FACING));
-        world.setBlock(pos, state.setValue(FACING, turned), Block.UPDATE_ALL);
-        world.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.4F, 1.4F);
-
-        player.displayClientMessage(Component.translatable(
-                state.getValue(POWERED) ? "message.car.valve_shut" : "message.car.valve_open",
-                Component.translatable("direction.car." + turned.getSerializedName())), true);
+        boolean open = !state.getValue(OPEN);
+        world.setBlock(pos, state.setValue(OPEN, open), Block.UPDATE_ALL);
+        world.playSound(null, pos, open ? SoundEvents.IRON_TRAPDOOR_OPEN : SoundEvents.IRON_TRAPDOOR_CLOSE,
+                SoundSource.BLOCKS, 0.5F, 1.3F);
+        report(player, state.setValue(OPEN, open));
         return InteractionResult.CONSUME;
+    }
+
+    /** A wrench turns it to point somewhere else. */
+    @Override
+    protected net.minecraft.world.ItemInteractionResult useItemOn(net.minecraft.world.item.ItemStack held, BlockState state,
+            Level world, BlockPos pos, Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
+        if (!held.is(me.trossty.car.registry.ModItems.WRENCH)) {
+            return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (world.isClientSide()) {
+            return net.minecraft.world.ItemInteractionResult.SUCCESS;
+        }
+        BlockState turned = state.setValue(FACING, next(state.getValue(FACING)));
+        world.setBlock(pos, turned, Block.UPDATE_ALL);
+        world.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.4F, 1.4F);
+        report(player, turned);
+        return net.minecraft.world.ItemInteractionResult.CONSUME;
+    }
+
+    private static void report(Player player, BlockState state) {
+        String key = !state.getValue(OPEN) ? "message.car.valve_closed"
+                : state.getValue(POWERED) ? "message.car.valve_shut" : "message.car.valve_open";
+        player.displayClientMessage(Component.translatable(key,
+                Component.translatable("direction.car." + state.getValue(FACING).getSerializedName())), true);
     }
 
     /** North, east, south, west, up, down, and round again. */

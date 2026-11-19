@@ -6,6 +6,12 @@
         "car:vehicle": 8
       },
       "model": "car:item/vehicle_toyota_hilux"
+    },
+    {
+      "predicate": {
+        "car:vehicle": 15
+      },
+      "model": "car:item/vehicle_hilux_tow"
     }
   ]
 }

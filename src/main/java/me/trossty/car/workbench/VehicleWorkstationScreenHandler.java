@@ -2,6 +2,7 @@ package me.trossty.car.workbench;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.CarParts;
 import me.trossty.car.entity.CarSetup;
 import me.trossty.car.item.CarItem;
 import me.trossty.car.registry.ModBlocks;
@@ -50,8 +51,8 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
     public static final int BUILD_ID = 1000;
 
     public static final int PLAYER_INVENTORY_LEFT = 48;
-    public static final int PLAYER_INVENTORY_TOP = 146;
-    public static final int HOTBAR_TOP = 204;
+    public static final int PLAYER_INVENTORY_TOP = 149;
+    public static final int HOTBAR_TOP = 207;
 
     private final ContainerLevelAccess context;
     private final Player player;
@@ -184,8 +185,10 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
                 if (built.isEmpty()) {
                     return;
                 }
-                if (!player.getInventory().add(built)) {
-                    player.drop(built, false);
+                // It leaves the shop crated: a wrench gets it out where it is wanted.
+                ItemStack crate = me.trossty.car.block.entity.VehicleCrateBlockEntity.crateOf(built);
+                if (!player.getInventory().add(crate)) {
+                    player.drop(crate, false);
                 }
                 world.playSound(null, pos, SoundEvents.ANVIL_USE, SoundSource.BLOCKS, 0.7F, 1.2F);
                 world.playSound(null, pos, SoundEvents.SMITHING_TABLE_USE, SoundSource.BLOCKS, 1.0F, 1.0F);
@@ -230,7 +233,7 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
             }
             CarPart.Quality taken = BenchWork.consume(pockets, material.item(), material.count());
             if (part != null && taken != null) {
-                tiers = CarEntity.withQuality(tiers, part, taken);
+                tiers = CarParts.withQuality(tiers, part, taken);
             }
         }
         result.set(ModComponents.CAR_SETUP, setup);

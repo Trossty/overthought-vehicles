@@ -1,6 +1,5 @@
 package me.trossty.car.block.entity;
 
-import me.trossty.car.block.FuelPumpBlock;
 import me.trossty.car.registry.ModBlockEntities;
 import me.trossty.car.registry.ModFluids;
 import net.minecraft.core.BlockPos;
@@ -56,22 +55,13 @@ public class FuelTankBlockEntity extends BlockEntity {
     /** No tank is grown past this many cells by looking for its neighbours. */
     private static final int MAX_CELLS = 512;
 
-    /** Drawn from a touching refinery each tick: twice what a pump manages. */
-    private static final int DRAW_RATE = 8;
-
-    /** Pushed into a touching pump each tick. */
-    private static final int FEED_RATE = 16;
-
-    /**
-     * Goes up whenever a cell is placed, broken, loaded or unloaded anywhere:
-     * a group built before that might be the wrong shape now, and is built
-     * again the next time it is asked for.
-     */
-    private static final java.util.concurrent.atomic.AtomicLong SHAPE_VERSION =
-            new java.util.concurrent.atomic.AtomicLong();
+    /** What a cell gives a touching block, or takes from it, a tick: what a pipe connection moves. */
+    private static final int RATE = me.trossty.car.network.FluidNetwork.RATE;
 
     private Fluid fluid = Fluids.EMPTY;
     private long amount;
+    /** The liquid a wrench has locked the tank to; every cell keeps a copy. */
+    private Fluid lock = Fluids.EMPTY;
 
     /** What the clients were last told, so they are not told it every tick. */
     private Fluid sentFluid = Fluids.EMPTY;
@@ -83,9 +73,26 @@ public class FuelTankBlockEntity extends BlockEntity {
         super(ModBlockEntities.FUEL_TANK, pos, state);
     }
 
-    /** Something about the shape of the tanks has changed somewhere. */
-    public static void reshape() {
-        SHAPE_VERSION.incrementAndGet();
+    /**
+     * A cell was put down or taken away at {@code pos}: the tanks it touches
+     * are a different shape now, and are worked out again when next asked.
+     * Nothing further away is touched.
+     */
+    public static void reshapeAround(Level world, BlockPos pos) {
+        forgetGroupAt(world, pos);
+        for (Direction side : Direction.values()) {
+            forgetGroupAt(world, pos.relative(side));
+        }
+    }
+
+    private static void forgetGroupAt(Level world, BlockPos pos) {
+        // CHECK, not the usual lookup: this runs while a cell is being set up,
+        // and the usual one would make it again, and again.
+        if (world.isLoaded(pos) && world.getChunkAt(pos).getBlockEntity(pos,
+                net.minecraft.world.level.chunk.LevelChunk.EntityCreationType.CHECK) instanceof FuelTankBlockEntity cell
+                && cell.group != null) {
+            cell.group.invalidate();
+        }
     }
 
     // ---- this cell ----
@@ -118,7 +125,7 @@ public class FuelTankBlockEntity extends BlockEntity {
 
     /** The tank this cell is part of, worked out again if the shape may have changed. */
     public Group getGroup() {
-        if (this.group == null || this.group.version != SHAPE_VERSION.get() || this.isRemoved()) {
+        if (this.group == null || !this.group.valid || this.isRemoved()) {
             this.group = Group.build(this);
         }
         return this.group;
@@ -173,29 +180,34 @@ public class FuelTankBlockEntity extends BlockEntity {
     // ---- ticking ----
 
     public static void tick(Level world, BlockPos pos, BlockState state, FuelTankBlockEntity tank) {
+        // What the tank touches directly is served by the same rules as a
+        // pipe line: it draws off a machine's output, and feeds anything that
+        // only takes (a pump, a generator, the crude side of a refinery).
+        // Another store is left alone, and a pipe or valve does its own work.
         Group whole = tank.getGroup();
-        boolean petrol = whole.fluid == Fluids.EMPTY || whole.fluid == ModFluids.PETROL;
-        if (petrol) {
-            for (Direction side : Direction.values()) {
-                BlockPos next = pos.relative(side);
-                BlockEntity neighbour = me.trossty.car.block.MultiblockBlock.controllerEntity(world, next);
-                if (neighbour instanceof me.trossty.car.fluid.PetrolSource refinery) {
-                    int room = (int) Math.min(DRAW_RATE, (whole.capacity - whole.amount) / ModFluids.UNIT);
-                    if (room > 0) {
-                        tank.fill(refinery.drainPetrol(room));
-                    }
-                    continue;
-                }
-                if (neighbour instanceof FuelTankBlockEntity) {
-                    continue;
-                }
-                FuelPumpBlockEntity pump = FuelPumpBlock.tankAt(world, next);
-                if (pump != null && whole.fluid == ModFluids.PETROL) {
-                    int offer = Math.min(FEED_RATE, tank.getPetrol());
-                    if (offer > 0) {
-                        tank.drain(pump.fill(offer));
-                    }
-                }
+        for (Direction side : Direction.values()) {
+            if (state.getValue(net.minecraft.world.level.block.PipeBlock.PROPERTY_BY_DIRECTION.get(side))) {
+                continue;
+            }
+            BlockPos next = pos.relative(side);
+            Block block = world.getBlockState(next).getBlock();
+            if (block instanceof me.trossty.car.block.FuelPipeBlock || block instanceof me.trossty.car.block.FuelValveBlock) {
+                continue;
+            }
+            IFluidHandler other = world.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+                    next, side.getOpposite());
+            if (other == null) {
+                continue;
+            }
+            boolean maker = me.trossty.car.fluid.FluidSource.at(world, next);
+            if (!maker && me.trossty.car.network.FluidNetwork.isStore(world.getBlockEntity(next), other)) {
+                continue;
+            }
+            if (maker) {
+                me.trossty.car.fluid.Liquids.moveAny(other, whole, RATE);
+            }
+            if (!whole.isResourceBlank()) {
+                me.trossty.car.fluid.Liquids.move(whole, other, whole.getResource(), RATE);
             }
         }
 
@@ -228,6 +240,7 @@ public class FuelTankBlockEntity extends BlockEntity {
             this.fluid = Fluids.EMPTY;
             this.amount = 0;
         }
+        this.lock = view.read("Lock", me.trossty.car.fluid.Liquids.CODEC).orElse(Fluids.EMPTY);
     }
 
     @Override
@@ -237,6 +250,9 @@ public class FuelTankBlockEntity extends BlockEntity {
         if (this.fluid != Fluids.EMPTY && this.amount > 0) {
             view.store("Fluid", me.trossty.car.fluid.Liquids.CODEC, this.fluid);
             view.putLong("Amount", this.amount);
+        }
+        if (this.lock != Fluids.EMPTY) {
+            view.store("Lock", me.trossty.car.fluid.Liquids.CODEC, this.lock);
         }
     }
 
@@ -253,13 +269,71 @@ public class FuelTankBlockEntity extends BlockEntity {
     @Override
     public void setRemoved() {
         super.setRemoved();
-        reshape();
+        if (this.group != null) {
+            this.group.invalidate();
+        }
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        if (this.group != null) {
+            this.group.invalidate();
+        }
     }
 
     @Override
     public void clearRemoved() {
         super.clearRemoved();
-        reshape();
+        if (this.level != null) {
+            reshapeAround(this.level, this.worldPosition);
+        }
+    }
+
+    // ---- the lock ----
+
+    public Fluid getLock() {
+        return this.getGroup().lock;
+    }
+
+    /** A wrench on any cell locks or frees the whole tank. */
+    public void toggleLock(net.minecraft.world.entity.player.Player player) {
+        Group whole = this.getGroup();
+        Fluid now = me.trossty.car.block.LiquidStores.toggleLock(this.level, this.worldPosition, player,
+                whole.lock, whole.fluid);
+        whole.setLock(now);
+    }
+
+    // ---- travelling in the item ----
+
+    /** A cell put down from an item that carries liquid pours it back in. */
+    @Override
+    protected void applyImplicitComponents(BlockEntity.DataComponentInput components) {
+        me.trossty.car.registry.ModComponents.StoredFluid held = components.get(me.trossty.car.registry.ModComponents.STORED_FLUID);
+        if (held != null) {
+            this.setContents(held.fluid(), Math.min(held.amount(), CELL_CAPACITY));
+            // The tank it joined may already have been worked out without this cell's share.
+            if (this.group != null) {
+                this.group.invalidate();
+            }
+        }
+    }
+
+    /** A cell broken out of a tank takes the share that was in it, not lose it. */
+    @Override
+    protected void collectImplicitComponents(net.minecraft.core.component.DataComponentMap.Builder builder) {
+        super.collectImplicitComponents(builder);
+        if (this.fluid != Fluids.EMPTY && this.amount > 0) {
+            builder.set(me.trossty.car.registry.ModComponents.STORED_FLUID,
+                    new me.trossty.car.registry.ModComponents.StoredFluid(this.fluid, this.amount));
+        }
+    }
+
+    @Override
+    public void removeComponentsFromTag(CompoundTag tag) {
+        super.removeComponentsFromTag(tag);
+        tag.remove("Fluid");
+        tag.remove("Amount");
     }
 
     // ---- the group ----
@@ -272,14 +346,14 @@ public class FuelTankBlockEntity extends BlockEntity {
     public static final class Group implements IFluidHandler {
 
         private final List<FuelTankBlockEntity> cells;
-        private final long version;
         private final long capacity;
         private Fluid fluid;
         private long amount;
+        private Fluid lock = Fluids.EMPTY;
+        private boolean valid = true;
 
         private Group(List<FuelTankBlockEntity> cells, Fluid fluid, long amount) {
             this.cells = cells;
-            this.version = SHAPE_VERSION.get();
             this.capacity = cells.size() * CELL_CAPACITY;
             this.fluid = amount > 0 ? fluid : Fluids.EMPTY;
             this.amount = Math.min(amount, this.capacity);
@@ -331,15 +405,53 @@ public class FuelTankBlockEntity extends BlockEntity {
             }
             cells.sort(Comparator.comparingInt((FuelTankBlockEntity cell) -> cell.getBlockPos().getY()));
             Group group = new Group(cells, liquid, total);
+            Fluid lock = Fluids.EMPTY;
             for (FuelTankBlockEntity cell : cells) {
                 cell.group = group;
+                if (lock == Fluids.EMPTY) {
+                    lock = cell.lock;
+                }
             }
+            // A cell added to a locked tank is locked with it.
+            group.setLock(lock);
             group.settle();
             return group;
         }
 
         public int size() {
             return this.cells.size();
+        }
+
+        /** The cells' shape may have changed: they work the tank out again when next asked. */
+        void invalidate() {
+            if (!this.valid) {
+                return;
+            }
+            this.valid = false;
+            for (FuelTankBlockEntity cell : this.cells) {
+                if (cell.group == this) {
+                    cell.group = null;
+                }
+            }
+        }
+
+        public Fluid getLock() {
+            return this.lock;
+        }
+
+        void setLock(Fluid lock) {
+            this.lock = lock;
+            for (FuelTankBlockEntity cell : this.cells) {
+                if (cell.lock != lock) {
+                    cell.lock = lock;
+                    cell.setChanged();
+                }
+            }
+        }
+
+        private boolean takes(Fluid liquid) {
+            return (this.lock == Fluids.EMPTY || liquid == this.lock)
+                    && (this.isResourceBlank() || liquid == this.fluid);
         }
 
         /**
@@ -403,7 +515,7 @@ public class FuelTankBlockEntity extends BlockEntity {
 
         @Override
         public boolean isFluidValid(int tank, FluidStack stack) {
-            return this.isResourceBlank() || stack.is(this.fluid);
+            return this.takes(stack.getFluid());
         }
 
         @Override
@@ -411,7 +523,7 @@ public class FuelTankBlockEntity extends BlockEntity {
             if (resource.isEmpty() || !resource.isComponentsPatchEmpty()) {
                 return 0;
             }
-            if (!this.isResourceBlank() && !resource.is(this.fluid)) {
+            if (!this.takes(resource.getFluid())) {
                 return 0;
             }
             int taken = (int) Math.min(resource.getAmount(), this.capacity - this.amount);

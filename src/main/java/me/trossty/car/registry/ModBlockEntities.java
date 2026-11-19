@@ -45,15 +45,59 @@ public final class ModBlockEntities {
             BlockEntityType.Builder.of(me.trossty.car.block.entity.FuelDrumBlockEntity::new,
                     ModBlocks.FUEL_DRUM).build(null));
 
+    public static final BlockEntityType<me.trossty.car.block.entity.VehicleCrateBlockEntity> VEHICLE_CRATE = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            CarMain.id("vehicle_crate"),
+            BlockEntityType.Builder.of(me.trossty.car.block.entity.VehicleCrateBlockEntity::new,
+                    ModBlocks.VEHICLE_CRATE).build(null));
+
     public static final BlockEntityType<FuelValveBlockEntity> FUEL_VALVE = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             CarMain.id("fuel_valve"),
             BlockEntityType.Builder.of(FuelValveBlockEntity::new, ModBlocks.FUEL_VALVE).build(null));
 
+    public static final BlockEntityType<me.trossty.car.block.entity.DynoBlockEntity> DYNO = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            CarMain.id("dyno"),
+            BlockEntityType.Builder.of(me.trossty.car.block.entity.DynoBlockEntity::new,
+                    ModBlocks.DYNO).build(null));
+
+    public static final BlockEntityType<me.trossty.car.block.entity.DrainPanBlockEntity> DRAIN_PAN = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            CarMain.id("drain_pan"),
+            BlockEntityType.Builder.of(me.trossty.car.block.entity.DrainPanBlockEntity::new,
+                    ModBlocks.DRAIN_PAN).build(null));
+
+    public static final BlockEntityType<me.trossty.car.block.entity.ToolboxBlockEntity> TOOLBOX = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            CarMain.id("toolbox"),
+            BlockEntityType.Builder.of(me.trossty.car.block.entity.ToolboxBlockEntity::new,
+                    ModBlocks.TOOLBOX).build(null));
+
+    public static final BlockEntityType<me.trossty.car.block.entity.EngineStandBlockEntity> ENGINE_STAND =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, CarMain.id("engine_stand"),
+                    BlockEntityType.Builder.of(me.trossty.car.block.entity.EngineStandBlockEntity::new,
+                            ModBlocks.ENGINE_STAND).build(null));
+
+    public static final BlockEntityType<me.trossty.car.block.entity.EngineHoistBlockEntity> ENGINE_HOIST =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, CarMain.id("engine_hoist"),
+                    BlockEntityType.Builder.of(me.trossty.car.block.entity.EngineHoistBlockEntity::new,
+                            ModBlocks.ENGINE_HOIST).build(null));
+
+    public static final BlockEntityType<me.trossty.car.block.entity.ServiceStandBlockEntity> SERVICE_STAND =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, CarMain.id("service_stand"),
+                    BlockEntityType.Builder.of(me.trossty.car.block.entity.ServiceStandBlockEntity::new,
+                            ModBlocks.BOAT_CRADLE, ModBlocks.AIRCRAFT_JACK).build(null));
+
     public static final BlockEntityType<VehicleLiftBlockEntity> VEHICLE_LIFT = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             CarMain.id("vehicle_lift"),
             BlockEntityType.Builder.of(VehicleLiftBlockEntity::new, ModBlocks.VEHICLE_LIFT).build(null));
+
+    public static final BlockEntityType<VehicleLiftBlockEntity> MOTORCYCLE_LIFT = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            CarMain.id("motorcycle_lift"),
+            BlockEntityType.Builder.of(VehicleLiftBlockEntity::new, ModBlocks.MOTORCYCLE_LIFT).build(null));
 
     public static final BlockEntityType<me.trossty.car.block.entity.GeneratorBlockEntity> GENERATOR =
             Registry.register(

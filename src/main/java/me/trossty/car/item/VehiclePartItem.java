@@ -2,7 +2,9 @@ package me.trossty.car.item;
 
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
+import me.trossty.car.entity.CarParts;
 import me.trossty.car.entity.CarSetup;
+import me.trossty.car.entity.Workshop;
 import me.trossty.car.registry.ModComponents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -79,11 +81,24 @@ public class VehiclePartItem extends Item {
                         .withStyle(ChatFormatting.DARK_AQUA));
             }
         }
-        CarPart.Quality quality = CarEntity.qualityOf(stack);
+        java.util.List<Integer> cylinders = stack.get(me.trossty.car.registry.ModComponents.PART_CYLINDERS);
+        if (cylinders != null) {
+            // Pistons and valves out of an engine: each cylinder's own, a bent one at nothing.
+            net.minecraft.network.chat.MutableComponent line = Component.translatable("tooltip.car.cylinders");
+            for (int i = 0; i < cylinders.size(); i++) {
+                int condition = cylinders.get(i);
+                line.append(" ").append(Component.translatable("tooltip.car.cylinder", i + 1, condition)
+                        .withStyle(condition / CarPart.MAX_CONDITION <= me.trossty.car.entity.FaultCodes.CRITICAL
+                                ? ChatFormatting.RED : condition / CarPart.MAX_CONDITION <= me.trossty.car.entity.FaultCodes.WARNING
+                                ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+            }
+            tooltip.accept(line.withStyle(ChatFormatting.GRAY));
+        }
+        CarPart.Quality quality = Workshop.qualityOf(stack);
         tooltip.accept(Component.translatable("tooltip.car.part_quality",
                         Component.translatable("quality.car." + quality.key()))
                 .withStyle(colorOf(quality)));
-        if (part != null && CarEntity.gradeIsFelt(part) && quality.performance() != 1.0F) {
+        if (part != null && CarParts.gradeIsFelt(part) && quality.performance() != 1.0F) {
             // A grade is felt on the road as well as in how long the part lasts.
             int percent = Math.round((quality.performance() - 1.0F) * 100.0F);
             tooltip.accept(Component.translatable("tooltip.car.grade_effect",

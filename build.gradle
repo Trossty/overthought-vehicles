@@ -100,8 +100,8 @@ neoForge {
 }
 
 repositories {
-    // Jade, compiled against but never shipped: its tooltip plugin only loads
-    // when the player has Jade installed.
+    // Jade and WTHIT, compiled against but never shipped: their tooltip
+    // plugins only load when the player has that mod installed.
     exclusiveContent {
         forRepository {
             maven {
@@ -120,6 +120,28 @@ dependencies {
     // loaded by Jade itself, so the mod runs the same without it.
     compileOnly("maven.modrinth:jade:15.10.6+neoforge") {
         transitive = false
+    }
+    // WTHIT the same way, for players who use it instead of Jade.
+    compileOnly("maven.modrinth:wthit:neo-12.10.2") {
+        transitive = false
+    }
+    // -Pcar.jade=true or -Pcar.wthit=true puts that one in the dev game too,
+    // to see the plugin at work; left out otherwise so neither overlay ends
+    // up on the photos. WTHIT needs Bad Packets to run.
+    def overlays = [
+            'car.jade' : ["maven.modrinth:jade:15.10.6+neoforge"],
+            'car.wthit': ["maven.modrinth:wthit:neo-12.10.2", "maven.modrinth:badpackets:neo-0.8.2"],
+    ]
+    overlays.each { property, mods ->
+        if (project.findProperty(property) == 'true') {
+            for (String runtime : ['runtimeOnly', 'gametestRuntimeOnly']) {
+                for (String mod : mods) {
+                    add(runtime, mod) {
+                        transitive = false
+                    }
+                }
+            }
+        }
     }
 }
 

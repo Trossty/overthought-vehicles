@@ -50,6 +50,12 @@ public final class ModItems {
             settings -> new CarItem(settings, ModEntities.AIRPLANE),
             new Item.Properties().stacksTo(1));
 
+    /** ...and the air with nowhere to land but a field. */
+    public static final Item HELICOPTER = register(
+            "helicopter",
+            settings -> new CarItem(settings, ModEntities.HELICOPTER),
+            new Item.Properties().stacksTo(1));
+
     /**
      * Portable fuel. Durability is the fuel gauge, read backwards, in tank
      * units — see {@link me.trossty.car.item.JerryCans}. The can itself is
@@ -66,6 +72,10 @@ public final class ModItems {
      */
     public static final Item FUEL_NOZZLE = register(
             "fuel_nozzle", me.trossty.car.item.FuelNozzleItem::new, new Item.Properties().stacksTo(1));
+
+    /** A charging post's plug, on the end of its lead: taken off the post and put back the same way. */
+    public static final Item CHARGING_PLUG = register(
+            "charging_plug", me.trossty.car.item.ChargingPlugItem::new, new Item.Properties().stacksTo(1));
 
     /**
      * The parts a car is made of. Each is built at the vehicle workbench and is
@@ -112,6 +122,15 @@ public final class ModItems {
      * A handheld code reader: plugged into a car (or used from the driver's
      * seat) it reads out the fault codes, worst first, and the mileage.
      */
+    /**
+     * Rapeseed: planted, it grows into {@link ModBlocks#RAPESEED_CROP}; in the
+     * refinery's boiler it is worth three of anything else organic.
+     */
+    public static final Item RAPESEED = register(
+            "rapeseed",
+            settings -> new net.minecraft.world.item.ItemNameBlockItem(ModBlocks.RAPESEED_CROP, settings),
+            new Item.Properties());
+
     /** The heavy end of crude oil, left in the refinery's column: what roads are bound with. */
     public static final Item TAR = register("tar", Item::new, new Item.Properties());
 
@@ -145,6 +164,55 @@ public final class ModItems {
     public static final Item TURBO =
             register("turbo", me.trossty.car.item.TurboItem::new, new Item.Properties().stacksTo(16));
 
+    /** A bottle of motor oil, poured in under the bonnet to top up the sump. */
+    public static final Item MOTOR_OIL =
+            register("motor_oil", Item::new, new Item.Properties().stacksTo(16));
+
+    /** A bottle of brake fluid, poured into the reservoir under the bonnet. */
+    public static final Item BRAKE_FLUID =
+            register("brake_fluid", Item::new, new Item.Properties().stacksTo(16));
+
+    /**
+     * A spanner: sets the tracking of a car on the lift straight, opens an
+     * engine on its stand, and prises the lid off a vehicle crate.
+     */
+    public static final Item WRENCH = register("wrench", Item::new, new Item.Properties().stacksTo(1));
+
+    /** Jump leads: from a car with a good battery to one with a flat. */
+    public static final Item JUMPER_CABLES =
+            register("jumper_cables", Item::new, new Item.Properties().stacksTo(1));
+
+    /** A new timing belt, for an engine whose old one is due or gone. */
+    public static final Item TIMING_BELT =
+            register("timing_belt", Item::new, new Item.Properties().stacksTo(16));
+
+    /** A new catalytic converter, for an exhaust choked with soot. */
+    public static final Item CATALYTIC_CONVERTER =
+            register("catalytic_converter", Item::new, new Item.Properties().stacksTo(16));
+
+    /** A foot pump: a stroke of air into every tyre. */
+    /** A sledgehammer and a plate: the echo finds oil under the ground. */
+    public static final Item SEISMIC_SURVEY = register("seismic_survey", me.trossty.car.item.SeismicSurveyItem::new,
+            new Item.Properties().durability(128));
+
+    /** A gauge on a hose that screws into a plug hole: reads each cylinder. */
+    public static final Item COMPRESSION_TESTER =
+            register("compression_tester", Item::new, new Item.Properties().stacksTo(1));
+
+    public static final Item TYRE_PUMP =
+            register("tyre_pump", Item::new, new Item.Properties().stacksTo(1));
+
+    /** The insides of an engine, as they come out of one opened up on its stand. */
+    public static final Item PISTONS = part("pistons");
+    public static final Item VALVES = part("valves");
+    public static final Item HEAD_GASKET = part("head_gasket");
+    public static final Item CRANKSHAFT = part("crankshaft");
+
+    /** The insides of an engine in the order the stand keeps them. */
+    public static Item[] engineInternals() {
+        return new Item[] {PISTONS, VALVES, HEAD_GASKET, CRANKSHAFT};
+    }
+
     /** Car paint in a can, any colour the dyes mixed into it make. */
     public static final Item SPRAY_CAN = register("spray_can", me.trossty.car.item.SprayCanItem::new,
             new Item.Properties().durability(me.trossty.car.item.SprayCanItem.CHARGES));
@@ -166,22 +234,43 @@ public final class ModItems {
         return Registry.register(BuiltInRegistries.ITEM, key, factory.apply(settings));
     }
 
-    /** The mod's own tab in the creative inventory, with a car on it. */
+    /** The mod's own tabs in the creative inventory: vehicles, then parts and tools, then machines and roads. */
     public static final ResourceKey<net.minecraft.world.item.CreativeModeTab> GROUP =
             ResourceKey.create(Registries.CREATIVE_MODE_TAB, CarMain.id("vehicles"));
+    public static final ResourceKey<net.minecraft.world.item.CreativeModeTab> PARTS_GROUP =
+            ResourceKey.create(Registries.CREATIVE_MODE_TAB, CarMain.id("parts"));
+    public static final ResourceKey<net.minecraft.world.item.CreativeModeTab> MACHINES_GROUP =
+            ResourceKey.create(Registries.CREATIVE_MODE_TAB, CarMain.id("machines"));
 
-    /** Just enough of a tab's entries to add stacks and items to. */
-    private interface Entries {
-        void add(net.minecraft.world.item.ItemStack stack);
+    /**
+     * Just enough of a tab's entries to add stacks and items to. A tab refuses
+     * the same stack twice, and a default can may well equal a full one, so
+     * everything goes through here and a repeat is quietly skipped.
+     */
+    private static final class Entries {
+        private final net.minecraft.world.item.CreativeModeTab.Output output;
+        private final java.util.List<net.minecraft.world.item.ItemStack> added = new java.util.ArrayList<>();
 
-        default void add(net.minecraft.world.level.ItemLike item) {
-            this.add(new net.minecraft.world.item.ItemStack(item));
+        Entries(net.minecraft.world.item.CreativeModeTab.Output output) {
+            this.output = output;
+        }
+
+        void add(net.minecraft.world.item.ItemStack stack) {
+            for (net.minecraft.world.item.ItemStack there : this.added) {
+                if (net.minecraft.world.item.ItemStack.isSameItemSameComponents(there, stack)) {
+                    return;
+                }
+            }
+            this.added.add(stack);
+            this.output.accept(stack);
+        }
+
+        void add(net.minecraft.world.level.ItemLike... items) {
+            for (net.minecraft.world.level.ItemLike item : items) {
+                this.add(new net.minecraft.world.item.ItemStack(item));
+            }
         }
     }
-
-    /** The testing tab: every item the mod has, every kind of each, and what the machines eat. */
-    public static final ResourceKey<net.minecraft.world.item.CreativeModeTab> TEST_GROUP =
-            ResourceKey.create(Registries.CREATIVE_MODE_TAB, CarMain.id("everything"));
 
     public static void register() {
         Registry.register(BuiltInRegistries.RECIPE_SERIALIZER, CarMain.id("spray_can_refill"),
@@ -190,160 +279,97 @@ public final class ModItems {
                 net.minecraft.world.item.CreativeModeTab.builder()
                         .icon(() -> new net.minecraft.world.item.ItemStack(CAR))
                         .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.vehicles"))
-                        .displayItems(ModItems::vehicles)
+                        .withTabsBefore(net.minecraft.world.item.CreativeModeTabs.SPAWN_EGGS)
+                        .displayItems((context, output) -> vehicles(context, new Entries(output)))
                         .build());
-        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, TEST_GROUP,
+        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, PARTS_GROUP,
                 net.minecraft.world.item.CreativeModeTab.builder()
-                        .icon(() -> new net.minecraft.world.item.ItemStack(ModBlocks.FUEL_REFINERY))
-                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.everything"))
-                        .displayItems(ModItems::everything)
+                        .icon(() -> new net.minecraft.world.item.ItemStack(ENGINE))
+                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.parts"))
+                        .withTabsBefore(GROUP)
+                        .displayItems((context, output) -> parts(new Entries(output)))
                         .build());
-    }
-
-    /** The vehicles tab: every vehicle the data packs describe, then parts, tools and blocks. */
-    private static void vehicles(net.minecraft.world.item.CreativeModeTab.ItemDisplayParameters context,
-                                 net.minecraft.world.item.CreativeModeTab.Output entries) {
-        {
-            // Every vehicle the loaded data packs describe, as it leaves the factory.
-            context.holders()
-                    .lookup(me.trossty.car.vehicle.VehicleDefinition.KEY)
-                    .ifPresent(registry -> registry.listElements().forEach(entry ->
-                            entries.accept(me.trossty.car.item.CarItem.stackOf(
-                                    entry.key().location(), entry.value()))));
-            entries.accept(JERRY_CAN);
-            entries.accept(CAR_KEY);
-            entries.accept(SPRAY_CAN);
-            for (net.minecraft.world.item.DyeColor dye : net.minecraft.world.item.DyeColor.values()) {
-                net.minecraft.world.item.ItemStack can = new net.minecraft.world.item.ItemStack(SPRAY_CAN);
-                can.set(net.minecraft.core.component.DataComponents.DYED_COLOR,
-                        new net.minecraft.world.item.component.DyedItemColor(dye.getTextureDiffuseColor() & 0xFFFFFF, true));
-                entries.accept(can);
-            }
-            entries.accept(CAR_BODY);
-            entries.accept(DIAGNOSTIC_SHEET);
-            entries.accept(OBD_SCANNER);
-            // In teardown order, so the group reads the way a car comes apart.
-            for (me.trossty.car.entity.CarPart part : me.trossty.car.entity.CarPart.values()) {
-                entries.accept(part.item());
-            }
-            // Then every other kind of the parts that come in kinds.
-            for (me.trossty.car.entity.CarPart part : me.trossty.car.entity.CarPart.values()) {
-                for (int variant = 1;
-                     variant < me.trossty.car.entity.CarSetup.variantsOf(part); variant++) {
-                    net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(part.item());
-                    stack.set(ModComponents.PART_VARIANT, variant);
-                    entries.accept(stack);
-                }
-            }
-            entries.accept(TURBO);
-            net.minecraft.world.item.ItemStack diesel = new net.minecraft.world.item.ItemStack(JERRY_CAN);
-            diesel.set(ModComponents.FUEL_KIND, 1);
-            entries.accept(diesel);
-            net.minecraft.world.item.ItemStack bio = new net.minecraft.world.item.ItemStack(JERRY_CAN);
-            bio.set(ModComponents.FUEL_KIND, 2);
-            entries.accept(bio);
-            entries.accept(TANKER_BARREL);
-            entries.accept(PICKUP_BED);
-            entries.accept(ModBlocks.VEHICLE_WORKSTATION);
-            entries.accept(ModBlocks.VEHICLE_WORKBENCH);
-            entries.accept(ModBlocks.VEHICLE_LIFT);
-            entries.accept(ModBlocks.PUMPJACK);
-            entries.accept(ModBlocks.FUEL_REFINERY);
-            entries.accept(ModBlocks.HYDROTREATER);
-            entries.accept(ModBlocks.GENERATOR);
-            entries.accept(ModBlocks.BIOFUEL_GENERATOR);
-            entries.accept(ModBlocks.DIESEL_GENERATOR);
-            entries.accept(ModBlocks.ENERGY_CABLE);
-            entries.accept(ModBlocks.BATTERY_BANK);
-            net.minecraft.world.item.ItemStack charged = new net.minecraft.world.item.ItemStack(ModBlocks.BATTERY_BANK);
-            charged.set(ModComponents.STORED_ENERGY, me.trossty.car.block.entity.BatteryBankBlockEntity.CAPACITY);
-            entries.accept(charged);
-            entries.accept(ModBlocks.CHARGING_POST);
-            entries.accept(ModBlocks.OIL_DEPOSIT);
-            entries.accept(ModBlocks.OIL_SEEP);
-            entries.accept(ModBlocks.FUEL_PUMP);
-            entries.accept(ModBlocks.FUEL_PIPE);
-            entries.accept(ModBlocks.FUEL_VALVE);
-            entries.accept(ModBlocks.FUEL_TANK);
-            entries.accept(ModBlocks.FUEL_DRUM);
-            entries.accept(TAR);
-            entries.accept(ModBlocks.ASPHALT);
-            entries.accept(WHITE_ROAD_PAINT);
-            entries.accept(YELLOW_ROAD_PAINT);
-            entries.accept(RED_ROAD_PAINT);
-            entries.accept(BLUE_ROAD_PAINT);
-        }
+        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, MACHINES_GROUP,
+                net.minecraft.world.item.CreativeModeTab.builder()
+                        .icon(() -> new net.minecraft.world.item.ItemStack(ModBlocks.PUMPJACK))
+                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.machines"))
+                        .withTabsBefore(PARTS_GROUP)
+                        .displayItems((context, output) -> machines(new Entries(output)))
+                        .build());
     }
 
     /**
-     * The testing tab's contents, so nothing has to be crafted to try it:
-     * every vehicle, every item and block the mod registers (read from the
-     * registry, so a new one turns up without being listed), each kind of the
-     * things that come in kinds, full and empty cans of every fuel, and the
-     * vanilla things the machines run on.
+     * Every vehicle the loaded data packs describe, as it leaves the factory,
+     * kind by kind — cars, pickups, tankers, trailers, motorbikes, boats,
+     * aircraft — then the crate one ships in, the key and full cans to get
+     * going with.
      */
-    private static void everything(net.minecraft.world.item.CreativeModeTab.ItemDisplayParameters context,
-                                   net.minecraft.world.item.CreativeModeTab.Output group) {
-        // A tab refuses the same stack twice, and a default can may well equal a
-        // full one, so everything goes through here first.
-        java.util.List<net.minecraft.world.item.ItemStack> added = new java.util.ArrayList<>();
-        Entries entries = new Entries() {
-            @Override
-            public void add(net.minecraft.world.item.ItemStack stack) {
-                for (net.minecraft.world.item.ItemStack there : added) {
-                    if (net.minecraft.world.item.ItemStack.isSameItemSameComponents(there, stack)) {
-                        return;
-                    }
-                }
-                added.add(stack);
-                group.accept(stack);
-            }
-        };
-        context.holders().lookup(me.trossty.car.vehicle.VehicleDefinition.KEY)
-                .ifPresent(registry -> registry.listElements().forEach(entry ->
-                        entries.add(me.trossty.car.item.CarItem.stackOf(
+    private static void vehicles(net.minecraft.world.item.CreativeModeTab.ItemDisplayParameters context,
+                                 Entries entries) {
+        context.holders()
+                .lookup(me.trossty.car.vehicle.VehicleDefinition.KEY)
+                .ifPresent(registry -> registry.listElements()
+                        .sorted(java.util.Comparator
+                                .<net.minecraft.core.Holder.Reference<me.trossty.car.vehicle.VehicleDefinition>>comparingInt(
+                                        entry -> entry.value().chassis().ordinal())
+                                .thenComparing(entry -> entry.key().location().getPath()))
+                        .forEach(entry -> entries.add(me.trossty.car.item.CarItem.stackOf(
                                 entry.key().location(), entry.value()))));
-        // Every item of ours, in the order they were registered.
-        for (Item item : BuiltInRegistries.ITEM) {
-            if (BuiltInRegistries.ITEM.getKey(item).getNamespace().equals(CarMain.MOD_ID) && item != CAR) {
-                entries.add(item);
-            }
-        }
-        // Cans of every fuel, full and empty.
+        entries.add(ModBlocks.VEHICLE_CRATE, CAR_KEY);
         for (int kind = 0; kind < 3; kind++) {
-            net.minecraft.world.item.ItemStack full = new net.minecraft.world.item.ItemStack(JERRY_CAN);
-            full.set(ModComponents.FUEL_KIND, kind);
-            me.trossty.car.item.JerryCans.setUnits(full, me.trossty.car.item.JerryCans.CAPACITY);
-            entries.add(full);
+            entries.add(jerryCan(kind, me.trossty.car.item.JerryCans.CAPACITY));
         }
-        net.minecraft.world.item.ItemStack empty = new net.minecraft.world.item.ItemStack(JERRY_CAN);
-        me.trossty.car.item.JerryCans.setUnits(empty, 0);
-        entries.add(empty);
-        // Every other kind of the parts that come in kinds, and every paint.
-        for (me.trossty.car.entity.CarPart part : me.trossty.car.entity.CarPart.values()) {
-            for (int variant = 1; variant < me.trossty.car.entity.CarSetup.variantsOf(part); variant++) {
-                net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(part.item());
-                stack.set(ModComponents.PART_VARIANT, variant);
-                entries.add(stack);
-            }
+    }
+
+    /** Tools first, then every part in teardown order, each with its other kinds beside it. */
+    private static void parts(Entries entries) {
+        entries.add(OBD_SCANNER, COMPRESSION_TESTER, DIAGNOSTIC_SHEET, CAR_KEY);
+        for (int kind = 0; kind < 3; kind++) {
+            entries.add(jerryCan(kind, me.trossty.car.item.JerryCans.CAPACITY));
         }
+        entries.add(jerryCan(0, 0));
+        entries.add(SPRAY_CAN);
         for (net.minecraft.world.item.DyeColor dye : net.minecraft.world.item.DyeColor.values()) {
             net.minecraft.world.item.ItemStack can = new net.minecraft.world.item.ItemStack(SPRAY_CAN);
             can.set(net.minecraft.core.component.DataComponents.DYED_COLOR,
                     new net.minecraft.world.item.component.DyedItemColor(dye.getTextureDiffuseColor() & 0xFFFFFF, true));
             entries.add(can);
         }
-        // What the machines eat: generator fuel, refinery catalysts and organic matter, crude by the bucket.
-        for (Item item : new Item[]{
-                net.minecraft.world.item.Items.COAL, net.minecraft.world.item.Items.CHARCOAL, net.minecraft.world.item.Items.COAL_BLOCK,
-                net.minecraft.world.item.Items.LAVA_BUCKET, net.minecraft.world.item.Items.REDSTONE,
-                net.minecraft.world.item.Items.BLAZE_POWDER, net.minecraft.world.item.Items.GLOWSTONE_DUST,
-                net.minecraft.world.item.Items.SUGAR_CANE, net.minecraft.world.item.Items.KELP, net.minecraft.world.item.Items.WHEAT,
-                net.minecraft.world.item.Items.BAMBOO, net.minecraft.world.item.Items.CACTUS, net.minecraft.world.item.Items.MELON_SLICE,
-                net.minecraft.world.item.Items.COPPER_INGOT, net.minecraft.world.item.Items.IRON_INGOT,
-                net.minecraft.world.item.Items.DRIED_KELP, net.minecraft.world.item.Items.BUCKET,
-                net.minecraft.world.item.Items.COMPARATOR}) {
-            entries.add(item);
+        entries.add(CAR_BODY);
+        for (me.trossty.car.entity.CarPart part : me.trossty.car.entity.CarPart.values()) {
+            entries.add(part.item());
+            for (int variant = 1; variant < me.trossty.car.entity.CarSetup.variantsOf(part); variant++) {
+                net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(part.item());
+                stack.set(ModComponents.PART_VARIANT, variant);
+                entries.add(stack);
+            }
         }
+        entries.add(TURBO, MOTOR_OIL, BRAKE_FLUID, WRENCH, JUMPER_CABLES, TIMING_BELT, CATALYTIC_CONVERTER, TYRE_PUMP, PISTONS, VALVES, HEAD_GASKET, CRANKSHAFT,
+                TANKER_BARREL, PICKUP_BED);
+    }
+
+    /** The garage, then oil from the ground to the pump, then power, then road building. */
+    private static void machines(Entries entries) {
+        entries.add(ModBlocks.VEHICLE_WORKSTATION, ModBlocks.VEHICLE_WORKBENCH, ModBlocks.VEHICLE_LIFT, ModBlocks.MOTORCYCLE_LIFT,
+                ModBlocks.ENGINE_STAND, ModBlocks.ENGINE_HOIST, ModBlocks.DRAIN_PAN, ModBlocks.DYNO,
+                ModBlocks.TOOLBOX, ModBlocks.BOAT_CRADLE, ModBlocks.AIRCRAFT_JACK);
+        entries.add(SEISMIC_SURVEY, ModBlocks.OIL_DEPOSIT, ModBlocks.OIL_SEEP, ModBlocks.PUMPJACK, ModBlocks.FUEL_REFINERY,
+                ModBlocks.HYDROTREATER, ModBlocks.FUEL_TANK, ModBlocks.FUEL_DRUM, ModBlocks.FUEL_PIPE,
+                ModBlocks.FUEL_VALVE, ModBlocks.FUEL_PUMP, FUEL_NOZZLE);
+        entries.add(ModBlocks.GENERATOR, ModBlocks.BIOFUEL_GENERATOR, ModBlocks.DIESEL_GENERATOR,
+                ModBlocks.BATTERY_BANK);
+        net.minecraft.world.item.ItemStack charged = new net.minecraft.world.item.ItemStack(ModBlocks.BATTERY_BANK);
+        charged.set(ModComponents.STORED_ENERGY, me.trossty.car.block.entity.BatteryBankBlockEntity.CAPACITY);
+        entries.add(charged);
+        entries.add(ModBlocks.ENERGY_CABLE, ModBlocks.CHARGING_POST);
+        entries.add(RAPESEED, TAR, ModBlocks.ASPHALT, WHITE_ROAD_PAINT, YELLOW_ROAD_PAINT, RED_ROAD_PAINT, BLUE_ROAD_PAINT);
+    }
+
+    /** A jerry can of one fuel (0 petrol, 1 diesel, 2 biofuel) holding this much. */
+    private static net.minecraft.world.item.ItemStack jerryCan(int kind, int units) {
+        net.minecraft.world.item.ItemStack can = new net.minecraft.world.item.ItemStack(JERRY_CAN);
+        can.set(ModComponents.FUEL_KIND, kind);
+        me.trossty.car.item.JerryCans.setUnits(can, units);
+        return can;
     }
 }

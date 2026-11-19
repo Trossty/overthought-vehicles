@@ -248,6 +248,14 @@ public final class ModVehicleRecipes {
                     new VehicleRecipe.Material(ModItems.SUSPENSION, 3),
                     new VehicleRecipe.Material(ModItems.WHEEL, 3));
         }
+        if (chassis == me.trossty.car.vehicle.VehicleDefinition.Chassis.HELICOPTER) {
+            // A cabin, the engine and the gearbox that turns the rotors. It
+            // stands on skids: nothing to roll on, nothing to spring.
+            return List.of(
+                    new VehicleRecipe.Material(ModItems.CAR_BODY, 1),
+                    new VehicleRecipe.Material(ModItems.ENGINE, 1),
+                    new VehicleRecipe.Material(ModItems.TRANSMISSION, 1));
+        }
         net.minecraft.world.item.Item item = me.trossty.car.item.CarItem.itemFor(chassis);
         for (VehicleRecipe recipe : VEHICLES) {
             if (recipe.result() == item) {

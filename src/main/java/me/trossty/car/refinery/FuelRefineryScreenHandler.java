@@ -20,24 +20,25 @@ import net.minecraft.world.level.Level;
  */
 public class FuelRefineryScreenHandler extends AbstractContainerMenu {
 
-    public static final int ORGANIC_X = 18;
-    public static final int ORGANIC_Y = 17;
-    public static final int HEAT_X = 18;
-    public static final int HEAT_Y = 52;
-    public static final int CATALYST_X = 70;
-    public static final int CATALYST_Y = 17;
-    /**
-     * Everything sits a few pixels higher than feels natural: the burner slot
-     * reaches y 70 as it is, and the "Inventory" label starts at 72.
-     */
-    public static final int CAN_X = 134;
-    public static final int CAN_Y = 35;
+    /** What goes in, stacked at the left of the panel: organic matter over a bucket of crude. */
+    public static final int ORGANIC_X = 12;
+    public static final int ORGANIC_Y = 23;
+    public static final int HEAT_X = 12;
+    public static final int HEAT_Y = 48;
+    /** The catalyst, in the hopper over the column. */
+    public static final int CATALYST_X = 78;
+    public static final int CATALYST_Y = 23;
+    /** The can the product is poured into, at the right of the panel. */
+    public static final int CAN_X = 142;
+    public static final int CAN_Y = 23;
     /** Tar comes out under the can. */
-    public static final int TAR_X = 134;
-    public static final int TAR_Y = 56;
+    public static final int TAR_X = 142;
+    public static final int TAR_Y = 48;
 
-    private static final int PLAYER_INVENTORY_TOP = 84;
-    private static final int HOTBAR_TOP = 142;
+    /** The window is wider than vanilla's, so the inventory is set in from its edge. */
+    private static final int PLAYER_INVENTORY_LEFT = 18;
+    private static final int PLAYER_INVENTORY_TOP = 103;
+    private static final int HOTBAR_TOP = 161;
 
     private final Container inventory;
     private final ContainerData properties;
@@ -69,11 +70,11 @@ public class FuelRefineryScreenHandler extends AbstractContainerMenu {
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
                 this.addSlot(new Slot(playerInventory, column + row * 9 + 9,
-                        8 + column * 18, PLAYER_INVENTORY_TOP + row * 18));
+                        PLAYER_INVENTORY_LEFT + column * 18, PLAYER_INVENTORY_TOP + row * 18));
             }
         }
         for (int column = 0; column < 9; column++) {
-            this.addSlot(new Slot(playerInventory, column, 8 + column * 18, HOTBAR_TOP));
+            this.addSlot(new Slot(playerInventory, column, PLAYER_INVENTORY_LEFT + column * 18, HOTBAR_TOP));
         }
 
         this.addDataSlots(properties);

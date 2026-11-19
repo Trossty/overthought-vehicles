@@ -19,6 +19,13 @@ public class CarRenderState {
     /** Whether the tyres are on; off, the wheels are drawn as bare hubs, or not at all with the discs off too. */
     public boolean tyresOn = true;
     public boolean discsOn = true;
+    /** One bit a wheel: set where that wheel's tyre has been taken off. */
+    public int tyresOff;
+    /** The wheel whose tyre is flat, or -1. */
+    public int flatTyre = -1;
+    /** How far up the bonnet and the boot lid are, 0 shut to 1 open. */
+    public float bonnetOpen;
+    public float bootOpen;
     /** The service plates hanging over the car, if you are looking at it. */
     public java.util.List<CarServiceOverlay.PartLabel> labels = java.util.List.of();
     public float wheelAngle;
@@ -33,6 +40,8 @@ public class CarRenderState {
     public boolean headlights;
     /** Slowing hard enough to light the brake lamps. */
     public boolean braking;
+    /** Mud on the bodywork, 0 clean to 1 caked. */
+    public float dirt;
     /** How settled into its parked pose: a bike on its stand, a trailer on its jockey wheel. */
     public float restPose;
     public int damageWobbleSide;

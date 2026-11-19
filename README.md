@@ -44,6 +44,10 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **Römork** — tek akslı kasalı römork; aracın arkasına bağlanır, 27 slotluk yük taşır, yük çekeni yavaşlatır
 - **İki tekerliler** — Vespa scooter ve Honda CBR spor motor; virajda yatıyorlar
 - **Gerçek araçlar** — Toyota Corolla, Tofaş Şahin, Jeep Wrangler, Ford Mustang (yarış arabası), Toyota Hilux, Mercedes-Benz Atego tanker, Vespa Primavera, Honda CBR600RR ve kasalı römork; eski deneme arabası yok
+- **Araç Kasası ve İngiliz anahtarı** — Araç İstasyonu aracı tahta bir kasada verir; kasayı koy, İngiliz anahtarıyla dört kez sağ tıkla, kapak kalkar, yanlar düşer, araç çıkar
+- **Helikopter** — Robinson R44; zıplama tuşuyla dikine kalkar, ileri/geri burnu eğer, sağ/sol kuyruk rotoruyla yerinde döner, bırakınca yavaşça iner; motor havada durursa otorotasyonla iner
+- **Tarım** — Massey Ferguson 240 traktör, arkasına takılan ekim makinesi (yükündeki tohumu sürülmüş toprağa eker) ve gübre serpme makinesi (yükündeki kemik tozunu ekinlere serper); John Deere X350 çim biçme traktörü üstünden geçtiği otu ve çiçeği biçip çektiği römorka doldurur
+- **Küçük araçlar** — Honda FourTrax Rancher ATV, Tony Kart Racer 401 go-kart, Meyers Manx plaj arabası, Club Car Precedent golf arabası (elektrikli) ve Yamaha WaveRunner VX jet ski; ATV'de ve jet skide direksiyon değil gidon var
 - **3B istasyon blokları** — pompa, rafineri, arıtıcı, pumpjack, jeneratörler ve depo küp değil, kaideli/kolonlu/bacalı modeller
 - **Makine ekranları** — jeneratör, arıtıcı, pompa kulesi, akü ve şarj direği: depo, enerji, akış ve çalışıyor/boşta lambası
 - **Akü bankası ve şarj direği** — 200 000 E'lik depo (önünden verir, öbür yüzlerinden alır), yanındaki elektrikli aracı şarj eden direk
@@ -422,7 +426,7 @@ Girinti, neyin neyin altında olduğunu gösteriyor.
 | Sistem | Parça | Adet | Ne yapıyor | Şart mı |
 |--------|-------|------|------------|---------|
 | Motor Bölümü | Hava filtresi | 1 | Hız ve yakıt tüketimi | — |
-| | ↳ Bujiler | 4 | Gaz tepkisi, tekleme | **evet** |
+| | ↳ Bujiler | silindir başına 1 (4/6/8) | Gaz tepkisi, tekleme | **evet** |
 | | &nbsp;&nbsp;↳ Motor | 1 | Azami hız | **evet** |
 | | Yağ filtresi | 1 | Motor ve şanzıman ömrü | — |
 | | Radyatör | 1 | Motor sıcaklığı | — |
@@ -442,6 +446,61 @@ Motora ulaşmak için önce hava filtresi, sonra bujiler çıkıyor. Debriyaja
 ulaşmak için şaft ve şanzıman. Oyun hangisinin yolu kapattığını söylüyor ve
 **en dıştakini** söylüyor — şaft hâlâ takılıyken "debriyajı sök" demenin anlamı
 yok.
+
+### Motor vinçle çıkıyor, sehpaya oturuyor
+
+Kaputlu bir arabanın motoru elle sökülmüyor, elle takılmıyor, lift de onu
+serbest bırakmıyor: üstten, **motor vinciyle** çıkıyor.
+
+1. Kaputu aç, hava filtresiyle bujileri sök.
+2. Vinci arabanın burnuna koy. Koyarken arabaya bakıyorsan bom kaputun üstüne
+   gelir; kanca bölmenin ortasından en çok 1,5 blok uzakta olmalı.
+3. Vince **boş elle** tıkla (ya da motora, ya da servis ekranındaki **Sök**'e):
+   motor kancaya çıkıyor. Cebe hiç girmiyor. Turbo varsa motorla birlikte
+   sökülüp sana geliyor.
+4. **Çömelip** tıklamak bomu saat yönünde çeyrek tur döndürüyor; motor kancada
+   onunla dönüyor.
+5. Kanca bir **motor sehpasının** üstüne gelince tıkla: motor sehpaya oturuyor.
+   Oradan anahtarla açılıyor, iç parçaları tek tek çıkıyor.
+
+Geri takmak aynı yolun tersi: toplanmış motoru sehpadan kancaya al (açık
+motor kaldırılmıyor), bomu bölmeye çevir, tıkla. Motor yalnızca **boş
+bölmeye** iniyor; içeride motor varsa önce o çıkıyor. Dükkândan alınmış bir
+motor elde vince tıklanınca boş kancaya asılıyor. Vinç kırılırsa kancadaki
+motor yere düşüyor.
+
+Kaputu olmayan araçlarda (motosiklet, tekne, uçak) motor eskisi gibi liftten
+elle sökülüyor.
+
+### Motorun içi
+
+Motorun tek bir yüzdesi yok; o yüzde içindekilerin ortalaması:
+
+| İç parça | Ne aşındırır | Bitince |
+|----------|--------------|---------|
+| Segmanlar (silindir başına) | Kilometre, kirli yağ, kirli yakıt | O silindirin kompresyonu düşer; en kötüsü yağ yakar (mavi duman) |
+| Supaplar (silindir başına) | Kirli yakıt; kopan triger kayışı **eğer** | Eğik supaplı silindir neredeyse hiç sıkıştırmaz, teklemeyle güç kaybı |
+| Silindir kapak contası | Hararet (motor kaynarken çok hızlı) | Conta yanar: iki komşu silindir düşer, su eksilir, beyaz duman |
+| Krank yatakları | Az ya da kirli yağ | Vuruntu, yağ dolu olsa bile |
+
+Silindirler birbirinin aynısı aşınmıyor; her aracın kendine göre zayıf bir
+silindiri olur. Kopan kayış her zaman ilk silindirin ve aşağı yukarı yarısının
+supaplarını eğer; yeni kayış motoru çalıştırır ama eğik supaplar eğik kalır,
+o silindirler güç vermez. Kompresyon ölçer her silindiri kendi segmanından,
+supabından ve contasından okur.
+
+Motor söküldüğünde içindekiler **motor eşyasında** kalır. Sehpada anahtarla
+açınca dört parça çıkar: **pistonlar**, **supaplar**, **conta** ve **krank mili**.
+Piston ve supap takımı her silindirin değerini taşır; ipucunda
+`Silindir silindir: 1: %90 2: %30 …` diye görünür, eğik supap %0'dır. Aynı
+parçaları geri takmak aynı motoru verir; kötüsünü yenisiyle değiştirmek yalnızca
+o kısmı düzeltir. Supaplar demirden yapılır:
+
+```
+N N
+N N      N = demir parçası, I = demir külçe
+I I
+```
 
 ### Servis ekranı
 
@@ -481,7 +540,9 @@ Arabanın derdini ölçmeden önce **hissediyorsun**:
 
 | Belirti | Sebebi |
 |---------|--------|
-| Motor tekliyor, hız bir an düşüyor | Yorgun bujiler |
+| Motor tekliyor, hız bir an düşüyor | Yorgun bir buji ya da kompresyonu kaçıran silindir |
+| Frenlerken araç bir yana çekiyor | O köşenin balatası/diski diğer taraftan zayıf |
+| Düz yolda bir yana çekiyor | Kot ayarı ya da yorgun bir amortisör |
 | Kaputtan buhar, güç %55'e düşüyor | Radyatör bitmiş ya da yok |
 | Fren tutmuyor | Balata, disk, lastik |
 | Yakıt çabuk bitiyor | Tıkalı hava filtresi |
@@ -534,7 +595,7 @@ malzeme panelinin altında üç düğme var (Eko / Std / Per) ve seçilen sını
 malzeme sayılarını yerinde çarpıyor — düğmeye bastığında panelde yazan sayılar
 değişiyor, yani neye ne ödediğini görüyorsun.
 
-Aşınma tarafı tek bir yerde hissediliyor: `CarEntity.wear()`. Yukarıdaki bütün
+Aşınma tarafı tek bir yerde hissediliyor: `CarParts.wear()`. Yukarıdaki bütün
 kurallar aşınmayı bu metoda veriyor, dolayısıyla ucuz parça yaptığı her işte
 daha hızlı bitiyor ve o kuralların hiçbirinin sınıfı bilmesi gerekmiyor.
 
@@ -777,20 +838,20 @@ envanterin üstüne taşıyordu.
 | `CarPart.Quality` | `DEFAULT` | Sınıfı yazılmamış parçanın sayıldığı sınıf |
 | `CarEntity` | `WORN_ENGINE_SPEED` | Bitmiş motorda kalan azami hız |
 | `CarEntity` | `WORN_PLUGS_THROTTLE` | Bitmiş bujide kalan gaz tepkisi |
-| `CarEntity` | `MISFIRE_CHANCE` | Bitmiş bujide tik başına tekleme olasılığı |
-| `CarEntity` | `WORN_OIL_WEAR` | Kirli yağın aşınma çarpanı |
+| `CarParts` | `MISFIRE_CHANCE` | Bitmiş bujide tik başına tekleme olasılığı |
+| `CarParts` | `WORN_OIL_WEAR` | Kirli yağın aşınma çarpanı |
 | `CarEntity` | `WORN_RADIATOR_COOLING` | Bitmiş radyatörde kalan soğutma |
 | `CarEntity` | `OVERHEAT_AT` | Kaynama eşiği |
 | `CarEntity` | `OVERHEATING_POWER` | Kaynarken kalan güç |
-| `CarEntity` | `BATTERY_DRAIN` | Şarj gelmezken akünün boşalma hızı |
+| `CarParts` | `BATTERY_DRAIN` | Şarj gelmezken akünün boşalma hızı |
 | `CarEntity` | `FLAT_BATTERY` | Akünün "bitik" sayıldığı eşik |
-| `CarEntity` | `PADS_EAT_DISCS` | Bitmiş balatanın diski yeme katsayısı |
+| `CarParts` | `PADS_EAT_DISCS` | Bitmiş balatanın diski yeme katsayısı |
 | `CarEntity` | `WORN_TYRE_GRIP` | Kel lastikte kalan tutuş |
-| `CarEntity` | `WORN_SPRING_HARSHNESS` | Bitmiş süspansiyonun hasar çarpanı |
-| `CarEntity` | `SUSPENSION_WEAR_PER_DAMAGE` | Hasar başına süspansiyon aşınması |
+| `BodyDamage` | `WORN_SPRING_HARSHNESS` | Bitmiş süspansiyonun hasar çarpanı |
+| `BodyDamage` | `SUSPENSION_WEAR_PER_DAMAGE` | Yönsüz hasarda (düşme) dört köşenin süspansiyon aşınması |
 | `CarEntity` | `LOW_FUEL_FRACTION`, `STARVING_FRACTION` | Çanın çaldığı ve motorun öksürmeye başladığı yakıt oranı |
 | `CarEntity` | `COAST_MARGIN`, `CLIMB_LOAD`, `TOWING_THIRST` | Ayak gazdan çekildi sayılan yavaşlama, yokuş yükü, römork çarpanı |
-| `CarEntity` | `LEAK_PER_TICK`, `PUNCTURE_MIN_DAMAGE`, `PUNCTURE_SPREAD` | Delik deponun sızıntısı ve delinme olasılığı |
+| `CarEntity`, `BodyDamage` | `LEAK_PER_TICK`, `PUNCTURE_MIN_DAMAGE`, `PUNCTURE_SPREAD` | Delik deponun sızıntısı ve delinme olasılığı |
 | `JerryCans` | `CAPACITY`, `POUR`, `LITRES_PER_UNIT` | Bidonun birimi, bir dökümü, birimin litresi |
 | `CarEntity` | `CAN_FLOW`, `NOZZLE_FLOW`, `FILLER_RADIUS` | Bidonun ve tabancanın tik başına akışı, kapağa nişan toleransı |
 | `FuelPumpBlockEntity` | `HOSE_LENGTH` | Hortumun pompadan ele uzanabildiği mesafe |
@@ -858,7 +919,8 @@ devam ediyor, yani yol kenarına çekebiliyorsun. Motor sesi de susuyor.
 ### Delinen depo
 
 Sert bir çarpışma (en az 4 hasar) depoyu delebiliyor: 4'te ~%10, 9'da %60
-(tavan). Delik depo sürücü olsun olmasın **sızdırıyor**: tick başına 0.03 birim,
+(tavan). Bu arkadan çarpmanın olasılığı; yandan yarısı, önden hiç (arada motor
+var). Delik depo sürücü olsun olmasın **sızdırıyor**: tick başına 0.03 birim,
 dolu bir Corolla deposu ~3 dakikada boşalıyor. Sol marşpiyelden, arka tekerin
 önünden damla damla yakıt akıyor ve yerde ıslaklık bırakıyor; göstergede
 menzilin yerine yanıp sönen kırmızı **SIZINTI** yazıyor, servis etiketinde
@@ -1535,6 +1597,12 @@ kuruluyor, boyası araç boyandıkça yeniden üretiliyor.
 - `seats`: binenin **kalçasının** yeri; ilk koltuk sürücü. En çok 16 koltuk.
 - `wheels`: yuvarlak (16 kenarlı) teker ve jant kendiliğinden çiziliyor;
   `steers` olanlar direksiyonla dönüyor.
+- `steering_wheel_rise` (isteğe bağlı): direksiyonun ortası kalçadan kaç
+  piksel yukarıda. Yazılmazsa torpidoya göre kendisi bulur (en az 9). Çim
+  biçme traktöründe 6: orada direksiyon karın hizasında.
+- `steering_wheel_rake` (isteğe bağlı): direksiyonun dikten kaç derece
+  geriye yattığı; kolonu da aynı açıyla öne iner. Yazılmazsa arabanınki
+  gibi 28. Go-kartta 55: simit iyice yatık, kolon şasinin önüne dalıyor.
 - `shape`: gövde kutuları (en çok 512). `color` ya `paint` / `paint_dark` /
   `paint_light` (aracın boyasını izler), sabit `#RRGGBB` ya da yarı saydam
   `#AARRGGBB` (cam böyle yapılıyor: içerisi arkasından görünür). `tilt` kutuyu
@@ -1806,11 +1874,21 @@ Arabaya binince eşya çubuğunun iki yanında, ekranın altında tek sıra hâl
 analog kadranlar beliriyor: solda hızölçer ve onun dışında **devir saati**,
 sağda yakıt ve onun dışında küçük sıcaklık kadranı.
 
-**Devir saati:** 5 ileri vitesli otomatik şanzıman (`CarEntity.tickGearbox/getEngineRpm`);
-kısa alt vitesler, uzun üst vitesler; devir kırmızı çizginin %90'ına gelince vites
+**Devir saati:** otomatik şanzıman (`Gearbox.tick/getEngineRpm`); vites
+sayısı ve oranları aracın tanımından gelir (`performance.gears`, her vitesin
+kırmızı çizgide ulaştığı azami hız payı, sonuncusu 1): verilmezse 5 ileri,
+Mustang/Jeep/Hilux/CBR 6, Atego 8, Vespa tek oranlı (CVT). Kısa alt vitesler,
+uzun üst vitesler; devir kırmızı çizginin %90'ına gelince vites
 büyür, %36'nın altına düşünce küçülür. Her geçiş 6 tik sürer: çekiş kısa bir an
 kesilir, devir yeni vitese iner, motor sesi alçalıp kısılır, sonra yeniden çeker.
-Ortadaki pencerede vites (`R`, `1`–`5`).
+Ortadaki pencerede vites (`R`, `1`–`8`).
+
+Her vitesin itişi beşlinin kendi değerlerinden okunur (aradakiler logaritmik
+ara değer), sonra **motorun tork eğrisiyle** çarpılır (`CarSetup.torque`):
+sıralı dört yüksek devirde (%70), sıralı altı ve V6 ortada, V8 aşağıda (%50),
+dizel erkenden (%40) tepe yapar; elektrik motoru kalkışta tam iter, %45'ten
+sonra gücü tükenir. Eğri vites aralığında ortalama 1'dir: araç toplamda aynı
+yolu alır, yalnızca farklı hisseder.
 
 | | Hızölçer | Yakıt | Sıcaklık |
 |---|---|---|---|
@@ -1857,7 +1935,8 @@ okunmayacağı için kadranlar hiç çizilmiyor.
 | Yer | Sabit | Etkisi |
 |-----|-------|--------|
 | `DashboardHud` | `DIAL_STEP_KMH`, `DIAL_HEADROOM` | Hız kadranının yuvarlama adımı ve azami hızın üstündeki pay |
-| `CarEntity` | `GEARS`, `UPSHIFT` | Vites sayısı ve vites atılan devir oranı |
+| `vehicle/*.json` | `performance.gears` | Aracın vites sayısı ve oranları |
+| `CarSetup` | `UPSHIFT`, `DOWNSHIFT`, `torque` | Vites atılan devir oranları ve tork eğrisi |
 | `DashboardHud` | `NEEDLE_RESPONSE` | İbre yumuşatması (büyük = daha çevik) |
 | `DashboardHud` | `WARNING_FRACTION` | Pompa ikonunun yandığı yakıt oranı |
 | `CarEntity` | `DAMAGE_WARNING_FRACTION` | Anahtar ikonunun yandığı hasar oranı |
@@ -1923,7 +2002,8 @@ Hırpalanan araba:
 
 - **Yavaşlıyor.** Üst hız durumla birlikte düşüyor, boş durumda `MAX_SPEED`'in
   yarısına kadar — ama oraya varmadan dağılıyor. %35'te ~8 blok/sn.
-- **Tütüyor.** %35'in altında kaputun önünden duman çıkıyor, %15'in altında
+- **Tütüyor.** %35'in altında en çok ezilen tarafın üstünden duman çıkıyor
+  (kafa kafaya sonrası kaputtan, geri geri vurunca bagajdan), %15'in altında
   duman kalınlaşıyor.
 - **Uyarı veriyor.** Hızölçerdeki anahtar ikonu kırmızı yanıyor.
 
@@ -1936,18 +2016,52 @@ geri veriyor.
 durumdan tama dört külçe gidiyor. Araba sapasağlamsa tıklama normal biniş
 davranışına düşüyor, külçe boşa harcanmıyor.
 
+### Nereden çarptığın önemli
+
+Gövde tek bir sayı değil, dört taraf: **ön, arka, sol, sağ**
+([`BodyZone`](src/main/java/me/trossty/car/entity/BodyZone.java)). Her çarpma
+tek bir tarafa iniyor ve o tarafın arkasındaki parçaları yoruyor:
+
+| Taraf | Arkasında yorulan |
+|-------|-------------------|
+| Ön | **radyatör**, ön amortisörler; direksiyon ayarı kayar. Depo hiç delinmez (arada motor var). |
+| Arka | **egzoz**, arka amortisörler; depo delinebilir. Arka tekerler dönmediği için ayar bozulmaz. |
+| Sol / Sağ | o taraftaki **lastikler** ve amortisörler; araba vurulan tarafa çeker. Depoya yarı olasılıkla ulaşır. |
+
+- **Tarafı ne belirliyor?** Sürerken çarptığın yön. Vurulunca vuruşun geldiği
+  yer: yumrukta oyuncu, okta ok, patlamada patlamanın merkezi. Bir nokta ön tekerin yanındaysa ön değil yan
+  sayılıyor: araba eninin iki katı uzunluğunda kabul ediliyor
+  (`LENGTH_TO_WIDTH`). Düşme gibi yönü olmayan hasar dört tarafa birden iniyor,
+  yani pert olma süresi eskisiyle aynı.
+- **Pert olmak için bir tarafın bitmesi yetiyor.** Önü 3'e düşmüş arabaya
+  arkadan 4 vurmak bir şey yapmaz; önden 4 vurmak dağıtır. Servis etiketi ve
+  Jade satırı en kötü tarafı adıyla yazıyor ("Gövde · %15 (ön)").
+- **Çekiç durduğun tarafa iniyor.** Külçeyle tıklayınca önce yanında
+  durduğun taraf, o sağlamsa en kötü taraf düzeltiliyor; aksiyon çubuğu hangi
+  tarafın kaç olduğunu söylüyor.
+- **OBD tarafı söylüyor.** %35'in altındaki her taraf ayrı kod: B1001 ön,
+  B1002 arka, B1003 sol yan, B1004 sağ yan.
+- Eski kayıtlardaki tek `Health` değeri yüklenirken dört tarafa birden
+  yazılıyor; yeni kayıt `Body` dizisi.
+
 ### Ayarlar
 
 | Yer | Sabit | Etkisi |
 |-----|-------|--------|
 | `CarEntity` | `MAX_HEALTH` | Durum puanı |
-| `CarEntity` | `MIN_CRASH_SPEED` | Çarpışma sayılması için engelin yutması gereken yol |
-| `CarEntity` | `CRASH_COOLDOWN` | Çarpma sonrası hasar muafiyeti (tik) |
-| `CarEntity` | `CRASH_DAMAGE_PER_SPEED` | Çarpışmanın sertliği |
+| `BodyDamage` | `MIN_CRASH_SPEED` | Çarpışma sayılması için engelin yutması gereken yol |
+| `BodyDamage` | `CRASH_COOLDOWN` | Çarpma sonrası hasar muafiyeti (tik) |
+| `BodyDamage` | `CRASH_DAMAGE_PER_SPEED` | Çarpışmanın sertliği |
 | `CarEntity` | `SAFE_FALL_BLOCKS` | Hasarsız düşme yüksekliği |
 | `CarEntity` | `WRECKED_SPEED_FACTOR` | Boş durumdaki üst hız çarpanı |
-| `CarEntity` | `REPAIR_PER_INGOT` | Bir külçenin tamir ettiği puan |
-| `CarEntity` | `WRECK_SCRAP` | Dağılan arabadan düşen hurda |
+| `BodyDamage` | `REPAIR_PER_INGOT` | Bir külçenin tamir ettiği puan |
+| `BodyZone` | `LENGTH_TO_WIDTH` | Bir noktanın uca mı yana mı sayılacağını belirleyen boy/en oranı |
+| `BodyDamage` | `STRUCK_SPRING_WEAR` | Vurulan taraftaki amortisörlerin hasar başına aşınması |
+| `BodyDamage` | `RADIATOR_PER_DAMAGE` | Önden çarpmada radyatörün hasar başına aşınması |
+| `BodyDamage` | `EXHAUST_PER_DAMAGE` | Arkadan çarpmada egzozun hasar başına aşınması |
+| `BodyDamage` | `KERBED_TYRE_WEAR` | Yandan çarpmada o taraftaki lastiklerin aşınması |
+| `BodyDamage` | `SIDE_TANK_EXPOSURE` | Yandan çarpmanın depoya ulaşma payı (arkadan 1, önden 0) |
+| `BodyDamage` | `WRECK_SCRAP` | Dağılan arabadan düşen hurda |
 
 ## Sesler
 
@@ -2038,8 +2152,46 @@ geçer. Devir sınırı 4500.
   araca binince her zaman bindiğin aracı okur. Eşleşme yoksa ya da araç
   uzaktaysa ekranda "Eşleşmiş araç yok" / "Sinyal yok" yazar. Ekran
   karanlıkta da parlar.
-- Kodlar gerçekçi: P0300 buji, P0420 egzoz, C0040 fren balatası, P0217
-  hararet, P0172 kirli yakıt, B1000 kaporta…
+- Kodlar gerçekçi: P0420 egzoz, C0040 fren balatası, P0217 hararet, P0172
+  kirli yakıt, B1001–B1004 kaporta (ön, arka, sol, sağ)… Okuyucu yüzde söylemez; bir sensörün sınır
+  dışına çıktığını bilir, kaç milim balata kaldığını değil.
+
+#### Köşe ve silindir başına aşınma
+
+Lastik, balata, disk ve amortisör her tekerlekte; buji her silindirde ayrı
+aşınır (`PartPositions`). Servis ekranı ve işaret takımı setin ortalamasını
+gösterir, nişan ipucu tek tek köşeleri (`SÖ 82  SğÖ 80 …`, bujide `1 90  2 88`).
+
+- Önden frenleme işin çoğunu yapar: ön balatalar ~1.4, arkalar ~0.6 payla
+  aşınır. Her kaliper biraz farklı tutar (araca özgü ±%12).
+- Kotu bozuk aracın ön lastikleri, inik lastik kendisi, conta yanığının iki
+  silindirindeki bujiler daha hızlı gider.
+- Bir köşesi zayıf fren, frenlerken aracı **güçlü tarafa çeker**; yorgun bir
+  amortisör düz yolda kendi tarafına.
+- Lastik takarken yeni lastik **kendi köşesine** gider, diğerleriyle ortalanmaz.
+- V6/sıralı altı 6, V8 8 buji ister.
+
+#### Birden çok olası sebep
+
+Bazı kodlar parçayı değil belirtiyi gösterir; tablet altına "Olası: …" yazar:
+
+| Kod | Anlamı | Olası |
+|-----|--------|-------|
+| P0301–P0308 | O silindirde tekleme | Buji, motor (kompresyon) |
+| P0300 | 3+ silindirde rastgele tekleme | Buji, motor |
+| P0730 | Vites oranı hatalı (kaçırma) | Şanzıman, debriyaj |
+| C0045 | Fren titremesi (köşe) | Disk, balata |
+
+C0040/C0750/C0690 en kötü köşeyi adıyla söyler. Ayırmak oyuncunun işi:
+bujileri sökünce kompresyon ölçer contanın iki silindirini, eğik supaplı ya da
+segmanı bitmiş silindiri gösterir; kompresyonu tamam ama teklerse bujidir.
+
+#### Sökmeden görünmeyen aşınma
+
+Bir parçanın üstüne başka parça takılıysa aşınması **görünmez**: servis
+ekranında `?`, işaret plakasında `?`, ipucunda "Görünmüyor: önce X sökülmeli".
+Debriyaj şanzıman ve şaft çıkmadan, motor bujiler çıkmadan görülmez. Balata
+ve disk için bir tekerleği sökmek yeter (disk balatanın arkasından görünür).
 
 ### Yakıt kalitesi
 
@@ -2195,6 +2347,72 @@ Her dosyanın tek bir sahibi var: hangi üreticiyi çalıştırırsan çalışt�
 - [`tools/GenTablet.java`](tools/GenTablet.java) — OBD tabletinin çerçeve/ekran ve arka yüz dokuları, eşya simgesi ve 3B eşya modeli
 - [`tools/LangCheck.java`](tools/LangCheck.java) — iki dil dosyasının anahtar kümesini, yer tutucu sayılarını ve koddaki `translatable` anahtarlarını karşılaştırır (`java tools/LangCheck.java`)
 
+## MrCrayfish seti
+
+MrCrayfish'in araç modundaki kasa, helikopter, tarım araçları ve küçük
+araçlar. Minibüs bilerek eklenmedi.
+
+### Araç Kasası
+
+Araç İstasyonu'nda üretilen araç artık eşya olarak değil, içinde o araç
+olan bir **Araç Kasası** olarak çıkar. Kasanın ipucu içindekini söyler
+("Honda FourTrax Rancher (Kasada)"). Yere koyulan kasa ancak **İngiliz
+anahtarıyla** açılır (atölyenin rot ayarı ve motor sehpası için kullandığı
+aynı anahtar; dört demir külçeden, çalışma masasında yapılır):
+
+- her sağ tık kapağı biraz daha kaldırır, dördüncüsünde kapak gider;
+- yanlar bir buçuk saniyede yere yatar ve araç, kasanın yerinde durur;
+- aracın çıkacağı yer doluysa kasa daha ilk tıkta "yer yok" der, açılmaz.
+
+Kasayı kırınca içindeki araçla birlikte düşer, araç kaybolmaz.
+
+### Helikopter
+
+Robinson R44'ün kendi biçimi var: burundan tavana tek eğimde çıkan, ortadaki
+dikmede sivri birleşen iki parça ön camlı balon kabin, kabinin arkasında
+rotor direğinin yuvarlak kaportası ve oradan daralıp ince bir kuyruk
+konisine inen gövde. Kuyruk rotoru solda. Kabin, oturan oyuncunun kafası
+tavana değmeyecek kadar yüksek.
+
+Kızakları üstünde durur, yerde gitmez. **Zıplama** kolektifi
+çeker ve dikine kalkar; havada **ileri/geri** rotoru eğer, o yöne uçar,
+**sağ/sol** kuyruk rotoruyla olduğu yerde döner. Bırakınca yavaşça alçalır,
+altındaki neyse üstüne konacak kadar yumuşak. Hızlanınca burnu düşer,
+dönüşe yatar; bunu her taraf aynı görsün diye sürat ve dönüşten hesaplar.
+
+Motor havada durursa rotor alttan gelen rüzgârla döner: daha hızlı ama
+kontrollü iner, düz yere otorotasyon sadece kızakları biraz büker. Çok sert
+ya da hızlı inmek her araçtaki gibi kazadır.
+
+### Tarım
+
+Tarım aracının ne yaptığı tanımındaki `implement` alanından gelir
+(`seeder`, `fertilizer`, `mower`). Araç her yeni bloğa geçtiğinde o bloğun
+sırasında, aracın genişliği kadar blok boyunca iş yapar:
+
+| Araç | Ne yapar | Şartı |
+|---|---|---|
+| Ekim makinesi | Yükündeki ilk uygun tohumu (buğday, havuç, patates, pancar, kabak/karpuz çekirdeği...) boş sürülmüş toprağa eker | Bir traktöre takılı olmalı |
+| Gübre serpme makinesi | Yükündeki kemik tozunu büyüyen ekinlere serper; kendinden bir blok geniş serper | Bir traktöre takılı olmalı |
+| Çim biçme traktörü | Ot, eğrelti, çiçek, kuru çalı ve iki bloklu bitkileri biçer, düşeni çektiği römorkun yüküne koyar (yer yoksa yere bırakır) | Motoru çalışıyor olmalı |
+
+Ekim makinesi ve gübre serpme makinesi römork gibi takılır: traktörün
+arkasına koy ve boş elle tıkla. Yüklerini doldurmak için eğilip tıkla.
+
+### Gidonlu araçlar
+
+ATV ve jet ski tanımlarında `handlebars: true` var. Bunlarda kendiliğinden
+direksiyon çizilmez, sürücü motorsikletteki gibi elleri gidonda, dizleri
+içeride oturur, gidon da ön tekerlerin ortası (jet skide kendi ortası)
+etrafında döner.
+
+### Oturanlar araca bakar
+
+Bir araçta oturanın gövdesi artık hep aracın baktığı yöne bakar, kafası
+iki yana 105°'ye kadar döner (vanilya teknesindeki gibi). Önceden gövde,
+binerken nereye bakıyorsan orada kalıyordu; dar araçlarda (çim biçme
+traktörü, go-kart) bacak kaportanın yanından dışarı çıkıyordu.
+
 ## Sırada ne var
 
 Henüz yapılmadı, MrCrayfish'te olan katmanlar:
@@ -2202,7 +2420,8 @@ Henüz yapılmadı, MrCrayfish'te olan katmanlar:
 - **Daha fazla araç tipi** — yarış arabası (Mustang)
   eklendi; yeni bir araç artık `tools/GenVehicles.java`'da bir yöntem ve bir
   tarif dosyası demek
+- **MrCrayfish'ten kalanlar** — hız rampaları (boost pad); minibüs bilerek
+  yok
 - **Ertelenenler** ([GELISTIRME.md](GELISTIRME.md)'de nedenleriyle):
-  arıtıcının 2×2 yapılması, `CarEntity`'nin bileşenlere bölünmesi, iki
-  istemcili çok oyunculu test, EMI/REI tarif gösterimi, WTHIT ve Create
-  uyumunun oyun içinde denenmesi
+  arıtıcının 2×2 yapılması, iki istemcili çok oyunculu test, EMI/REI tarif
+  gösterimi, WTHIT ve Create uyumunun oyun içinde denenmesi

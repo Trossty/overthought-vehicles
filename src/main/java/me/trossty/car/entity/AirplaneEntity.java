@@ -262,7 +262,7 @@ public class AirplaneEntity extends CarEntity {
      * the end of the aircraft.
      */
     private void checkTouchdown(double sink) {
-        if (this.recentlyCrashed()) {
+        if (this.damage().recentlyCrashed()) {
             return;
         }
         float tooSteep = (float) Math.max(0.0, sink - SAFE_SINK) * SINK_DAMAGE;
@@ -271,7 +271,7 @@ public class AirplaneEntity extends CarEntity {
         float tooFast = this.ticksAirborne < FLOWN_TICKS ? 0.0F
                 : Math.max(0.0F, Math.abs(this.getEngineSpeed()) - SAFE_TOUCHDOWN_LIFT * this.takeoffSpeed())
                         * FAST_TOUCHDOWN_DAMAGE;
-        this.reportImpact(tooSteep + tooFast);
+        this.damage().reportImpact(tooSteep + tooFast);
     }
 
     /** A crashed aircraft goes up: its fuel catches. Nothing round it is blown apart. */
@@ -436,6 +436,50 @@ public class AirplaneEntity extends CarEntity {
             flown = this.entityData.get(DATA_BANK);
         }
         this.bank += (flown - this.bank) * 0.3F;
+        if (this.level().isClientSide() && !this.onGround() && this.getControllingPassenger() != null) {
+            this.emitVapour();
+        }
+    }
+
+    /** Above this height the air is cold enough for a trail off the wingtips in level flight. */
+    private static final double CONTRAIL_HEIGHT = 160.0;
+    /** Banked this hard, the tips pull a trail of vapour at any height. */
+    private static final float VAPOUR_BANK = 28.0F;
+
+    /** Where the wingtips are, in blocks out from the middle; worked out once. */
+    private double wingtip = Double.NaN;
+
+    /**
+     * Wisps of vapour off the wingtips: always high up where the air is cold,
+     * and lower down whenever a hard turn pulls the air into them.
+     */
+    private void emitVapour() {
+        boolean cold = this.getY() > CONTRAIL_HEIGHT;
+        boolean pulling = Math.abs(this.bank) > VAPOUR_BANK;
+        if (!cold && !pulling || this.lift() < 0.9F) {
+            return;
+        }
+        if (Double.isNaN(this.wingtip)) {
+            me.trossty.car.vehicle.VehicleDefinition defined = this.getDefinition();
+            double tip = this.getBbWidth() / 2.0;
+            if (defined != null) {
+                for (me.trossty.car.vehicle.VehicleDefinition.Box box : defined.shape()) {
+                    tip = Math.max(tip, Math.max(Math.abs(box.from().x()), Math.abs(box.to().x())) / 16.0);
+                }
+            }
+            this.wingtip = tip;
+        }
+        float yawRad = this.getYRot() * ((float) Math.PI / 180.0F);
+        double rightX = Mth.cos(yawRad);
+        double rightZ = Mth.sin(yawRad);
+        double rise = Math.sin(Math.toRadians(this.bank)) * this.wingtip;
+        double height = this.getY() + 1.4;
+        for (int side = -1; side <= 1; side += 2) {
+            double x = this.getX() + rightX * side * this.wingtip;
+            double z = this.getZ() + rightZ * side * this.wingtip;
+            this.level().addParticle(net.minecraft.core.particles.ParticleTypes.CLOUD,
+                    x, height + side * rise, z, 0.0, 0.0, 0.0);
+        }
     }
 
     /** The bank the ailerons hold now, as the side flying it has it: level on the ground. */

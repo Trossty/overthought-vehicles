@@ -3,6 +3,7 @@
   "values": [
     "car:vehicle_workbench",
     "car:vehicle_lift",
+    "car:motorcycle_lift",
     "car:fuel_refinery",
     "car:generator",
     "car:fuel_pump",
@@ -18,6 +19,13 @@
     "car:oil_deposit",
     "car:battery_bank",
     "car:charging_post",
-    "car:asphalt"
+    "car:asphalt",
+    "car:engine_stand",
+    "car:boat_cradle",
+    "car:aircraft_jack",
+    "car:engine_hoist",
+    "car:drain_pan",
+    "car:dyno",
+    "car:toolbox"
   ]
 }

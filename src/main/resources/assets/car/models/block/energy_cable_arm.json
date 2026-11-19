@@ -1,71 +1,14 @@
 {
   "parent": "minecraft:block/block",
-  "textures": {
-    "particle": "car:block/energy_cable",
-    "cable": "car:block/energy_cable",
-    "core": "car:block/energy_cable_core"
-  },
+  "textures": {"particle": "car:block/energy_cable", "p": "car:block/palette"},
   "elements": [
-    {
-      "from": [
-        6,
-        6,
-        0
-      ],
-      "to": [
-        10,
-        10,
-        8
-      ],
-      "faces": {
-        "west": {
-          "uv": [
-            0,
-            6,
-            8,
-            10
-          ],
-          "texture": "#cable"
-        },
-        "east": {
-          "uv": [
-            0,
-            6,
-            8,
-            10
-          ],
-          "texture": "#cable"
-        },
-        "up": {
-          "uv": [
-            0,
-            6,
-            8,
-            10
-          ],
-          "texture": "#cable",
-          "rotation": 90
-        },
-        "down": {
-          "uv": [
-            0,
-            6,
-            8,
-            10
-          ],
-          "texture": "#cable",
-          "rotation": 90
-        },
-        "north": {
-          "uv": [
-            6,
-            6,
-            10,
-            10
-          ],
-          "texture": "#core"
-        }
-      }
-    }
+    {"from": [6.152, 7.235, 0], "to": [9.848, 8.765, 8], "faces": {"north": {"uv": [3.3845, 2.4522, 3.6155, 2.5478], "texture": "#p", "cullface": "north"}, "south": {"uv": [3.3845, 2.4522, 3.6155, 2.5478], "texture": "#p"}, "east": {"uv": [8.5, 2.4522, 9, 2.5478], "texture": "#p"}, "west": {"uv": [8, 2.4522, 8.5, 2.5478], "texture": "#p"}}},
+    {"from": [7.235, 6.152, 0], "to": [8.765, 9.848, 8], "faces": {"north": {"uv": [3.4522, 2.3845, 3.5478, 2.6155], "texture": "#p", "cullface": "north"}, "south": {"uv": [3.4522, 2.3845, 3.5478, 2.6155], "texture": "#p"}, "up": {"uv": [8.4522, 2, 8.5478, 2.5], "texture": "#p"}, "down": {"uv": [8.4522, 2.5, 8.5478, 3], "texture": "#p"}}},
+    {"from": [6.152, 7.235, 0], "to": [9.848, 8.765, 8], "rotation": {"origin": [8, 8, 4], "axis": "z", "angle": 45}, "faces": {"north": {"uv": [3.3845, 2.4522, 3.6155, 2.5478], "texture": "#p"}, "south": {"uv": [3.3845, 2.4522, 3.6155, 2.5478], "texture": "#p"}, "east": {"uv": [8.5, 2.4522, 9, 2.5478], "texture": "#p"}, "west": {"uv": [8, 2.4522, 8.5, 2.5478], "texture": "#p"}}},
+    {"from": [7.235, 6.152, 0], "to": [8.765, 9.848, 8], "rotation": {"origin": [8, 8, 4], "axis": "z", "angle": 45}, "faces": {"north": {"uv": [3.4522, 2.3845, 3.5478, 2.6155], "texture": "#p"}, "south": {"uv": [3.4522, 2.3845, 3.5478, 2.6155], "texture": "#p"}, "up": {"uv": [8.4522, 2, 8.5478, 2.5], "texture": "#p"}, "down": {"uv": [8.4522, 2.5, 8.5478, 3], "texture": "#p"}}},
+    {"from": [5.799, 7.071, -0.03], "to": [10.201, 8.929, 1.23], "faces": {"north": {"uv": [1.3624, 0.4419, 1.6376, 0.5581], "texture": "#p"}, "south": {"uv": [1.3624, 0.4419, 1.6376, 0.5581], "texture": "#p"}, "east": {"uv": [1.9213, 0.4419, 2, 0.5581], "texture": "#p"}, "west": {"uv": [1.9213, 0.4419, 2, 0.5581], "texture": "#p"}}},
+    {"from": [7.071, 5.799, -0.03], "to": [8.929, 10.201, 1.23], "faces": {"north": {"uv": [1.4419, 0.3624, 1.5581, 0.6376], "texture": "#p"}, "south": {"uv": [1.4419, 0.3624, 1.5581, 0.6376], "texture": "#p"}, "up": {"uv": [1.4419, 0.9213, 1.5581, 1], "texture": "#p"}, "down": {"uv": [1.4419, 0.9213, 1.5581, 1], "texture": "#p"}}},
+    {"from": [5.829, 7.101, 0], "to": [10.171, 8.899, 1.2], "rotation": {"origin": [8, 8, 0.6], "axis": "z", "angle": 45}, "faces": {"north": {"uv": [1.3643, 0.4438, 1.6357, 0.5562], "texture": "#p"}, "south": {"uv": [1.3643, 0.4438, 1.6357, 0.5562], "texture": "#p"}, "east": {"uv": [1.925, 0.4438, 2, 0.5562], "texture": "#p"}, "west": {"uv": [1, 0.4438, 1.075, 0.5562], "texture": "#p"}}},
+    {"from": [7.101, 5.829, 0], "to": [8.899, 10.171, 1.2], "rotation": {"origin": [8, 8, 0.6], "axis": "z", "angle": 45}, "faces": {"north": {"uv": [1.4438, 0.3643, 1.5562, 0.6357], "texture": "#p"}, "south": {"uv": [1.4438, 0.3643, 1.5562, 0.6357], "texture": "#p"}, "up": {"uv": [1.4438, 0, 1.5562, 0.075], "texture": "#p"}, "down": {"uv": [1.4438, 0.925, 1.5562, 1], "texture": "#p"}}}
   ]
 }

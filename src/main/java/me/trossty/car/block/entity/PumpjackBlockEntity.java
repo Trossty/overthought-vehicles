@@ -26,7 +26,8 @@ import me.trossty.car.energy.EnergyBuffer;
  * side, for {@linkplain ModBlocks#OIL_DEPOSIT oil-bearing rock}. Each block of
  * it gives {@link #CRUDE_PER_DEPOSIT} units and is then spent: it turns back
  * into the stone or deepslate around it, so a deposit runs dry in the end and
- * the jack has to move on. Crude goes out by itself into anything that will
+ * the jack has to move on, or make do with what still seeps into a well
+ * that has run dry: a tenth of what it drew. Crude goes out by itself into anything that will
  * take it standing against any part of the jack — a refinery bolted on, or
  * another mod's pipe — and into a tanker's hose.
  */
@@ -40,6 +41,8 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
     public static final int RATE = 10;
     /** What one block of deposit is worth. */
     public static final int CRUDE_PER_DEPOSIT = 1_000;
+    /** Crude per tick from a well that has run dry: oil still seeps back into it. */
+    public static final int TRICKLE = 1;
     /** How far out to each side of the wellhead it looks. */
     public static final int REACH = 2;
     /** How long to wait before looking again after finding nothing. */
@@ -60,6 +63,8 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
     private int left;
     private int scanCooldown;
     private boolean working;
+    /** Whether this well has ever struck oil: a dry one still trickles. */
+    private boolean struck;
 
     public PumpjackBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PUMPJACK, pos, state);
@@ -77,18 +82,25 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
         if (jack.target == null && --jack.scanCooldown <= 0) {
             jack.target = findDeposit(world, pos);
             jack.left = CRUDE_PER_DEPOSIT;
+            if (jack.target != null) {
+                jack.struck = true;
+            }
             jack.scanCooldown = jack.target == null ? IDLE_SCAN : 0;
             dirty = true;
         }
 
         boolean wasWorking = jack.working;
-        int batch = Math.min(RATE, Math.min(jack.left, jack.crude.room()));
-        jack.working = jack.target != null && batch > 0 && jack.energy.amount >= ENERGY_PER_TICK;
+        boolean dry = jack.target == null;
+        int batch = dry ? (jack.struck ? Math.min(TRICKLE, jack.crude.room()) : 0)
+                : Math.min(RATE, Math.min(jack.left, jack.crude.room()));
+        jack.working = batch > 0 && jack.energy.amount >= ENERGY_PER_TICK;
         if (jack.working) {
             jack.energy.amount -= ENERGY_PER_TICK;
             jack.crude.fill(ModFluids.CRUDE_OIL, batch);
-            jack.left -= batch;
-            if (jack.left <= 0) {
+            if (!dry) {
+                jack.left -= batch;
+            }
+            if (!dry && jack.left <= 0) {
                 spend(world, jack.target);
                 jack.target = null;
                 jack.scanCooldown = 0;
@@ -147,8 +159,7 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
             BlockPos at = MultiblockBlock.cellPos(pos, facing, cell);
             for (Direction side : Direction.values()) {
                 BlockPos next = at.relative(side);
-                if (world.getBlockState(next).is(state.getBlock())
-                        || world.getBlockState(next).getBlock() instanceof me.trossty.car.block.FuelPipeBlock) {
+                if (world.getBlockState(next).is(state.getBlock())) {
                     continue;
                 }
                 var other = world.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
@@ -256,6 +267,11 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
         this.setChanged();
     }
 
+    /** Whether this well has struck oil, and so still trickles once dry. */
+    public boolean hasStruck() {
+        return this.struck;
+    }
+
     public boolean isWorking() {
         return this.working;
     }
@@ -269,6 +285,7 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
         this.left = view.getIntOr("Left", 0);
         this.working = view.getBooleanOr("Working", false);
         this.target = view.read("Target", BlockPos.CODEC).orElse(null);
+        this.struck = view.getBooleanOr("Struck", this.target != null);
     }
 
     @Override
@@ -279,6 +296,7 @@ public class PumpjackBlockEntity extends BlockEntity implements FluidSource, me.
         view.putInt("Energy", (int) this.energy.amount);
         view.putInt("Left", this.left);
         view.putBoolean("Working", this.working);
+        view.putBoolean("Struck", this.struck);
         if (this.target != null) {
             view.store("Target", BlockPos.CODEC, this.target);
         }

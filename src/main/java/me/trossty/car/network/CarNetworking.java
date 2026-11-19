@@ -1,5 +1,6 @@
 package me.trossty.car.network;
 
+import me.trossty.car.entity.BodyZone;
 import me.trossty.car.entity.CarEntity;
 import me.trossty.car.entity.CarPart;
 import me.trossty.car.registry.ModBlocks;
@@ -15,6 +16,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 public final class CarNetworking {
 
@@ -70,7 +72,7 @@ public final class CarNetworking {
             if (context.player().getVehicle() instanceof CarEntity car
                     && car.getControllingPassenger() == context.player()
                     && car.level() instanceof ServerLevel world) {
-                car.applyReportedCrash(world, payload.severity());
+                car.damage().applyReportedCrash(world, payload.severity(), payload.side());
             }
         });
     }
@@ -96,7 +98,7 @@ public final class CarNetworking {
                 || car.distanceToSqr(player) > SERVICE_RANGE_SQUARED) {
             return;
         }
-        car.serviceByHand(player, part);
+        car.workshop().serviceByHand(player, part);
     }
 
     /**
@@ -139,17 +141,17 @@ public final class CarNetworking {
      * collisions directly.
      */
     public interface CrashReporter {
-        void report(float severity);
+        void report(float severity, @Nullable BodyZone zone);
     }
 
-    private static CrashReporter crashReporter = severity -> {
+    private static CrashReporter crashReporter = (severity, zone) -> {
     };
 
     public static void setCrashReporter(CrashReporter reporter) {
         crashReporter = reporter;
     }
 
-    public static void reportCrash(float severity) {
-        crashReporter.report(severity);
+    public static void reportCrash(float severity, @Nullable BodyZone zone) {
+        crashReporter.report(severity, zone);
     }
 }

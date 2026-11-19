@@ -66,7 +66,7 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
     }
 
     /** Smoothstep: the pose settles rather than stopping dead. */
-    private static float ease(float t) {
+    static float ease(float t) {
         return t * t * (3.0F - 2.0F * t);
     }
 
@@ -84,8 +84,10 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.vehicle = car.getDefinition();
         state.vehicleId = state.vehicle == null ? null : car.getModelId();
         state.tyre = me.trossty.car.entity.CarSetup.tyre(car.getSetup()).key();
-        state.tyresOn = car.isFitted(me.trossty.car.entity.CarPart.WHEELS);
-        state.discsOn = car.isFitted(me.trossty.car.entity.CarPart.BRAKE_DISCS);
+        state.tyresOn = car.parts().isFitted(me.trossty.car.entity.CarPart.WHEELS);
+        state.discsOn = car.parts().isFitted(me.trossty.car.entity.CarPart.BRAKE_DISCS);
+        state.tyresOff = car.tyresOff();
+        state.flatTyre = car.getFlatTyre();
         state.labels = CarServiceOverlay.labelsFor(car, tickProgress);
         state.wheelAngle = car.getWheelAngle(tickProgress);
         state.steerAngle = car.getSteerAngle(tickProgress);
@@ -94,7 +96,10 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         state.engineRunning = car.isEngineRunning();
         state.headlights = lampsOn(car);
         state.braking = car.areBrakeLampsOn();
+        state.dirt = car.upkeep().getDirt();
         state.restPose = car.getRestPose(tickProgress);
+        state.bonnetOpen = car.getBonnetSwing(tickProgress);
+        state.bootOpen = car.getBootSwing(tickProgress);
         state.damageWobbleTicks = car.getHurtTime() - tickProgress;
         state.damageWobbleSide = car.getHurtDir();
         state.damageWobbleStrength = Math.max(car.getDamage() - tickProgress, 0.0F);
@@ -105,6 +110,568 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
      * already turned and flipped): nothing for most vehicles.
      */
     protected void submitExtras(CarRenderState state, PoseStack matrices, MultiBufferSource buffers) {
+    }
+
+    /**
+     * What rides on a flat bed, drawn in the bed's own frame (turned, and
+     * tipped with it when it rests on its jockey wheel): a vehicle by its
+     * own renderer, an engine as the part.
+     */
+    private static void drawCargo(me.trossty.car.entity.TrailerEntity trailer, float yaw, float tickProgress,
+                                  PoseStack matrices, MultiBufferSource buffers, int light) {
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+        float deck = trailer.deckHeight();
+        net.minecraft.world.entity.Entity cargo = trailer.cargoView();
+        matrices.pushPose();
+        matrices.translate(0.0F, deck, 0.0F);
+        if (cargo != null) {
+            // Stand the copy where the bed is, so anything it looks up about
+            // its place (its light, its shadow) is the bed's.
+            cargo.setPos(trailer.getX(), trailer.getY() + deck, trailer.getZ());
+            cargo.xo = cargo.xOld = cargo.getX();
+            cargo.yo = cargo.yOld = cargo.getY();
+            cargo.zo = cargo.zOld = cargo.getZ();
+            cargo.setYRot(yaw);
+            cargo.yRotO = yaw;
+            if (trailer.isDolly() && cargo instanceof CarEntity towed) {
+                // Front wheels in the dolly's trays, back ones on the road
+                // behind: the car leans nose up about its front tyres.
+                float[] axles = axles(towed);
+                float wheelbase = axles[0] - axles[1];
+                float lean = (float) Math.toDegrees(Math.asin(Mth.clamp(deck / wheelbase, 0.0F, 1.0F)));
+                // Forward is -z in this frame; a turn about +x lifts it.
+                matrices.mulPose(Axis.XP.rotationDegrees(lean));
+                matrices.translate(0.0F, 0.0F, axles[0]);
+            }
+            // Its renderer turns it to the yaw itself; the bed is already turned.
+            matrices.mulPose(Axis.YP.rotationDegrees(-(180.0F - yaw)));
+            client.getEntityRenderDispatcher().render(cargo, 0.0, 0.0, 0.0, yaw, tickProgress,
+                    matrices, buffers, light);
+        } else {
+            matrices.translate(0.0F, 0.42F, 0.0F);
+            matrices.scale(1.3F, 1.3F, 1.3F);
+            client.getItemRenderer().renderStatic(trailer.getCargoItem(),
+                    net.minecraft.world.item.ItemDisplayContext.FIXED, light,
+                    net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, matrices, buffers,
+                    trailer.level(), 0);
+        }
+        matrices.popPose();
+    }
+
+    /** How far the wheels hang below where they ride when a lift takes the car's weight off them, in pixels. */
+    private static final float WHEEL_DROOP = 1.5F;
+    /** How much of a wheel's radius a corner drops when its tyre is off and it stands on the hub. */
+    private static final float BARE_HUB_DROP = 0.3F;
+
+    /** A car, a pickup or a lorry: four wheels on springs, an engine in front, a floor underneath. */
+    private static boolean carLike(me.trossty.car.vehicle.VehicleDefinition vehicle) {
+        return switch (vehicle.chassis()) {
+            case CAR, PICKUP, TANKER -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * A car with a tyre off, standing on the ground, sits down on that hub:
+     * the corner drops by the rubber that is gone, tipping about the wheel
+     * across from it, which stays where it was.
+     */
+    private static void sitOnBareHub(CarRenderState state, PoseStack matrices) {
+        if (state.vehicle == null || !carLike(state.vehicle) || !state.tyresOn || state.tyresOff == 0) {
+            return;
+        }
+        java.util.List<me.trossty.car.vehicle.VehicleDefinition.Wheel> wheels = state.vehicle.wheels();
+        int bare = Integer.numberOfTrailingZeros(state.tyresOff);
+        if (bare >= wheels.size()) {
+            return;
+        }
+        me.trossty.car.vehicle.VehicleDefinition.Wheel off = wheels.get(bare);
+        // The wheel across from it, front to back and side to side.
+        me.trossty.car.vehicle.VehicleDefinition.Wheel across = null;
+        double far = -1.0;
+        for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : wheels) {
+            double distance = Math.hypot(wheel.at().x() - off.at().x(), wheel.at().z() - off.at().z());
+            if (distance > far) {
+                far = distance;
+                across = wheel;
+            }
+        }
+        if (across == null || far < 1.0) {
+            return;
+        }
+        // Here, after the turn, the model's x and z run the other way.
+        float vx = -(off.at().x() - across.at().x()) / 16.0F;
+        float vz = -(off.at().z() - across.at().z()) / 16.0F;
+        float length = (float) Math.hypot(vx, vz);
+        float angle = off.radius() * BARE_HUB_DROP / 16.0F / length;
+        float px = -across.at().x() / 16.0F;
+        float pz = -across.at().z() / 16.0F;
+        matrices.translate(px, 0.0F, pz);
+        // About the level line square to the one from the good wheel to the
+        // bare one, the way that takes the bare one down.
+        matrices.mulPose(new org.joml.Quaternionf().rotationAxis(angle, vz / length, 0.0F, -vx / length));
+        matrices.translate(-px, 0.0F, -pz);
+    }
+
+    /** Things in a boot are drawn smaller than in a bed, so they sit under the lid. */
+    private static final float BOOT_SIZE = 0.6F;
+    /**
+     * The engine in its bay and the luggage in the boot, in the hollows cut
+     * under the lids: there whether the lids are up or not, the way they are
+     * in a real car, and moving with the body as it sways.
+     */
+    private static void drawUnderLids(CarEntity car, CarRenderState state, PoseStack matrices,
+                                      MultiBufferSource buffers) {
+        net.minecraft.world.phys.AABB bay = me.trossty.car.vehicle.LidCavity.of(
+                state.vehicle, me.trossty.car.vehicle.VehicleDefinition.Box.BONNET);
+        net.minecraft.world.phys.AABB boot = me.trossty.car.vehicle.LidCavity.of(
+                state.vehicle, me.trossty.car.vehicle.VehicleDefinition.Box.BOOT);
+        boolean underneath = carLike(state.vehicle);
+        if (bay == null && boot == null && !underneath) {
+            return;
+        }
+        matrices.pushPose();
+        DefinedVehicleModel.applyBody(matrices, state);
+        // Back out of the model's upside-down frame into the one the loads
+        // are laid out in.
+        matrices.scale(-1.0F, -1.0F, 1.0F);
+        if (underneath) {
+            drawUnderside(car, state.vehicle, bay, matrices, buffers, state.lightCoords);
+        }
+        if (bay != null && state.bonnetOpen > 0.999F) {
+            drawBonnetStay(state.vehicle, bay, matrices, buffers, state.lightCoords);
+        }
+        if (boot != null) {
+            // One layer, small enough to go under the lid.
+            drawLoad(car, car.shownBoot(), boot.deflate(0.6, 0.0, 0.6), BOOT_SIZE,
+                    matrices, buffers, state.lightCoords);
+        }
+        if (bay != null) {
+            drawBay(car, bay, matrices, buffers, state.lightCoords);
+        }
+        matrices.popPose();
+    }
+
+
+    /**
+     * What is fitted in the engine bay, each part's own model where it goes;
+     * a turbo, if there is one, beside the engine. Nothing stands taller than
+     * the bay is deep, so the bonnet shuts over all of it.
+     */
+    private static void drawBay(CarEntity car, net.minecraft.world.phys.AABB bay,
+                                PoseStack matrices, MultiBufferSource buffers, int light) {
+        net.minecraft.client.renderer.entity.ItemRenderer items =
+                net.minecraft.client.Minecraft.getInstance().getItemRenderer();
+        float width = (float) (bay.maxX - bay.minX) / 16.0F;
+        float midX = (float) (bay.minX + bay.maxX) / 32.0F;
+        float length = (float) (bay.maxZ - bay.minZ) / 16.0F;
+        float back = (float) bay.minZ / 16.0F;
+        float floor = (float) bay.minY / 16.0F;
+        float deep = (float) (bay.maxY - bay.minY) / 16.0F * 0.92F;
+        java.util.List<me.trossty.car.entity.PartLayout.BaySpot> spots = new java.util.ArrayList<>(me.trossty.car.entity.PartLayout.BAY);
+        if (car.hasTurbo()) {
+            spots.add(new me.trossty.car.entity.PartLayout.BaySpot(null, -0.3F, 0.3F, 0.18F, 3.5F, 12.5F, 0.0F));
+        }
+        int seed = 0;
+        for (me.trossty.car.entity.PartLayout.BaySpot spot : spots) {
+            net.minecraft.world.item.ItemStack stack;
+            if (spot.part() == null) {
+                stack = new net.minecraft.world.item.ItemStack(me.trossty.car.registry.ModItems.TURBO);
+            } else if (car.parts().isFitted(spot.part())) {
+                stack = new net.minecraft.world.item.ItemStack(spot.part().item());
+            } else {
+                continue;
+            }
+            float scale = spot.scale(bay);
+            float x = midX + spot.across() * width / 2.0F;
+            float z = back + spot.along() * length;
+            matrices.pushPose();
+            // A model is drawn about its middle: this stands its lowest
+            // pixel on the floor of the bay.
+            matrices.translate(-x, floor + scale * (0.5F - spot.bottom() / 16.0F), -z);
+            matrices.mulPose(Axis.YP.rotationDegrees(spot.turn()));
+            matrices.scale(scale, scale, scale);
+            items.renderStatic(stack, net.minecraft.world.item.ItemDisplayContext.NONE, light,
+                    net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, matrices, buffers,
+                    car.level(), car.getId() * 17 + seed++);
+            matrices.popPose();
+        }
+        // What joins them: the top and bottom hoses from the radiator back
+        // to the engine, and the lead from the battery to it. Each runs from
+        // the middle of one to the middle of the other, so only the stretch
+        // between them shows.
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.ENGINE)) {
+            float engineZ = back + 0.48F * length;
+            if (car.parts().isFitted(me.trossty.car.entity.CarPart.RADIATOR)) {
+                float radiatorZ = back + 0.92F * length;
+                pipe(matrices, buffers, light, HOSE, midX - 0.22F * width / 2.0F, floor + deep * 0.62F,
+                        engineZ, radiatorZ);
+                pipe(matrices, buffers, light, HOSE, midX + 0.22F * width / 2.0F, floor + deep * 0.22F,
+                        engineZ, radiatorZ);
+            }
+            if (car.parts().isFitted(me.trossty.car.entity.CarPart.BATTERY)) {
+                float batteryX = midX - 0.7F * width / 2.0F;
+                float z = back + 0.2F * length;
+                matrices.pushPose();
+                matrices.translate(-batteryX, floor + deep * 0.5F, -z);
+                // Across, then forward to the engine.
+                drawBar(matrices, buffers, light, LEAD, 0.0F, 0.0F, 0.0F, batteryX - midX, 0.04F, 0.04F);
+                matrices.popPose();
+                pipe(matrices, buffers, light, LEAD, midX, floor + deep * 0.5F, z, engineZ);
+            }
+        }
+    }
+
+    /**
+     * What is under the floor, seen with the car up on a lift: the gearbox
+     * behind the engine, the prop shaft back to the rear axle, the exhaust
+     * down one side to the back bumper, the steering rack across the front
+     * axle and a spring inboard of every wheel. Each only if it is fitted.
+     *
+     * <p>And what joins them, so the underneath reads as one machine rather
+     * than parts hung up in a row: the gearbox bolted to the back of the
+     * engine, the prop shaft into the gearbox at one end and a differential
+     * at the other, half shafts out from both to the hubs, and the exhaust
+     * coming down from the engine and out past the back bumper.
+     */
+    private static void drawUnderside(CarEntity car, me.trossty.car.vehicle.VehicleDefinition vehicle,
+                                      net.minecraft.world.phys.AABB bay,
+                                      PoseStack matrices, MultiBufferSource buffers, int light) {
+        java.util.List<me.trossty.car.vehicle.VehicleDefinition.Wheel> wheels = vehicle.wheels();
+        if (wheels.size() < 4) {
+            return;
+        }
+        float front = -Float.MAX_VALUE;
+        float rear = Float.MAX_VALUE;
+        float track = 0.0F;
+        for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : wheels) {
+            front = Math.max(front, wheel.at().z());
+            rear = Math.min(rear, wheel.at().z());
+            track = Math.max(track, Math.abs(wheel.at().x()) - wheel.width() / 2.0F);
+        }
+        // The floor: the lowest of the bodywork across the middle between the axles.
+        float floor = Float.MAX_VALUE;
+        float tail = Float.MAX_VALUE;
+        for (me.trossty.car.vehicle.VehicleDefinition.Box box : vehicle.shape()) {
+            float minX = Math.min(box.from().x(), box.to().x());
+            float maxX = Math.max(box.from().x(), box.to().x());
+            float minZ = Math.min(box.from().z(), box.to().z());
+            float maxZ = Math.max(box.from().z(), box.to().z());
+            tail = Math.min(tail, minZ);
+            if (minX <= 0.0F && maxX >= 0.0F && minZ < (front + rear) / 2.0F && maxZ > (front + rear) / 2.0F) {
+                floor = Math.min(floor, Math.min(box.from().y(), box.to().y()));
+            }
+        }
+        float gap = floor - 0.6F;
+        if (floor == Float.MAX_VALUE || gap < 1.2F) {
+            return;
+        }
+        float tall = Math.min(gap * 0.85F, 3.0F);
+        float middle = (front + rear) / 2.0F;
+        // Where the engine is, for what has to reach it: the middle of its
+        // bay, low down, or just behind the front axle with no bay to go by.
+        float engineZ = bay != null ? (float) (bay.minZ + 0.48 * (bay.maxZ - bay.minZ)) : front + 2.0F;
+        float engineY = bay != null ? (float) bay.minY + 1.5F : floor;
+        boolean engine = car.parts().isFitted(me.trossty.car.entity.CarPart.ENGINE);
+        boolean gearbox = car.parts().isFitted(me.trossty.car.entity.CarPart.TRANSMISSION);
+        boolean shaft = car.parts().isFitted(me.trossty.car.entity.CarPart.DRIVESHAFT);
+        float gearboxZ = front - (front - rear) * 0.3F;
+        float gearboxY = floor - tall * 0.5F;
+        float shaftY = floor - tall * 0.6F + Math.min(tall * 0.5F, 1.4F) / 2.0F;
+        float rod = 0.9F;
+
+        // The gearbox hangs off the back of the engine; the front wheels are
+        // driven from it.
+        if (gearbox) {
+            if (engine) {
+                rod(matrices, buffers, light, METAL, 0.0F, gearboxY, gearboxZ + tall * 0.4F,
+                        0.0F, engineY, engineZ, tall * 0.55F);
+            }
+            for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : wheels) {
+                if (wheel.at().z() > front - 0.5F) {
+                    hubShaft(matrices, buffers, light, wheel, 0.0F, gearboxY, gearboxZ + tall * 0.3F, rod);
+                }
+            }
+        }
+        // The prop shaft runs into the gearbox at the front and a
+        // differential at the back, and that drives the back wheels.
+        if (shaft) {
+            if (gearbox) {
+                rod(matrices, buffers, light, METAL, 0.0F, shaftY, front - (front - rear) * 0.38F,
+                        0.0F, gearboxY, gearboxZ - tall * 0.3F, rod * 1.2F);
+            }
+            float axleY = wheels.get(0).at().y();
+            for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : wheels) {
+                if (wheel.at().z() < rear + 0.5F) {
+                    axleY = wheel.at().y();
+                    hubShaft(matrices, buffers, light, wheel, 0.0F, axleY, rear, rod);
+                }
+            }
+            rod(matrices, buffers, light, METAL, 0.0F, shaftY, rear + 0.8F, 0.0F, axleY, rear, rod * 1.2F);
+            rod(matrices, buffers, light, HOSE, 0.0F, axleY - 1.4F, rear, 0.0F, axleY + 1.4F, rear, 3.0F);
+        }
+        // Gearbox: behind the engine, up in the tunnel.
+        if (gearbox) {
+            float size = tall / 12.15F * 16.0F;
+            underItem(car, me.trossty.car.entity.CarPart.TRANSMISSION, matrices, buffers, light,
+                    0.0F, floor - tall, front - (front - rear) * 0.3F, size / 16.0F, size / 16.0F, size / 16.0F,
+                    1.93F, 0.0F);
+        }
+        // Prop shaft: down the middle from the gearbox to the rear axle.
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.DRIVESHAFT)) {
+            float from = rear;
+            float to = front - (front - rear) * 0.38F;
+            float thick = Math.min(tall * 0.5F, 1.4F) / 4.4F;
+            underItem(car, me.trossty.car.entity.CarPart.DRIVESHAFT, matrices, buffers, light,
+                    0.0F, floor - tall * 0.6F, (from + to) / 2.0F, (to - from) / 17.6F, thick, thick, 5.8F, 90.0F);
+        }
+        // Exhaust: down one side from under the engine to the back bumper.
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.EXHAUST)) {
+            float from = tail + 1.0F;
+            float to = front - (front - rear) * 0.2F;
+            float thick = Math.min(tall * 0.6F, 1.8F) / 6.28F;
+            underItem(car, me.trossty.car.entity.CarPart.EXHAUST, matrices, buffers, light,
+                    -track * 0.45F, floor - tall * 0.75F, (from + to) / 2.0F, (to - from) / 17.6F, thick, thick,
+                    4.86F, 90.0F);
+            // Down from the manifold at the engine, and the tail pipe out
+            // past the bumper.
+            float x = -track * 0.45F;
+            float y = floor - tall * 0.75F + thick * 3.14F;
+            float bore = thick * 16.0F * 0.45F;
+            if (engine) {
+                rod(matrices, buffers, light, METAL, x, y, to - 0.5F, -track * 0.15F, engineY, engineZ - 1.0F, bore);
+            }
+            rod(matrices, buffers, light, METAL, x, y, from + 0.5F, x, y, tail - 0.8F, bore);
+        }
+        // Steering rack: across the front axle, a little behind it.
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.STEERING_RACK)) {
+            float thick = Math.min(tall * 0.5F, 1.4F) / 5.6F;
+            underItem(car, me.trossty.car.entity.CarPart.STEERING_RACK, matrices, buffers, light,
+                    0.0F, floor - tall * 0.55F, front - 2.0F, track * 1.4F / 19.0F, thick, thick, 5.2F, 0.0F);
+        }
+        // Springs: inboard of each wheel, from the hub up to the body.
+        if (car.parts().isFitted(me.trossty.car.entity.CarPart.SUSPENSION)) {
+            for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : wheels) {
+                float side = Math.signum(wheel.at().x());
+                float x = wheel.at().x() - side * (wheel.width() / 2.0F + 1.4F);
+                float height = wheel.radius() * 1.6F;
+                float size = height / 14.2F;
+                underItem(car, me.trossty.car.entity.CarPart.SUSPENSION, matrices, buffers, light,
+                        x, wheel.at().y() - wheel.radius() * 0.4F, wheel.at().z(), size, size, size, 0.9F, 0.0F);
+            }
+        }
+    }
+
+    private static final net.minecraft.world.level.block.state.BlockState METAL =
+            net.minecraft.world.level.block.Blocks.GRAY_CONCRETE.defaultBlockState();
+
+    /** A half shaft from (x, y, z) out to the hub of a wheel, stopping at the inside of its tyre. */
+    private static void hubShaft(PoseStack matrices, MultiBufferSource buffers, int light,
+                                 me.trossty.car.vehicle.VehicleDefinition.Wheel wheel,
+                                 float x, float y, float z, float thick) {
+        float side = Math.signum(wheel.at().x());
+        float hubX = wheel.at().x() - side * (wheel.width() / 2.0F - 0.2F);
+        rod(matrices, buffers, light, METAL, x, y, z, hubX, wheel.at().y(), wheel.at().z(), thick);
+    }
+
+    /**
+     * A square bar from one point to another, both in the definition's pixels
+     * with +z to the front, {@code thick} pixels across; drawn in the load
+     * frame, where x and z run the other way.
+     */
+    private static void rod(PoseStack matrices, MultiBufferSource buffers, int light,
+                            net.minecraft.world.level.block.state.BlockState stuff,
+                            float x1, float y1, float z1, float x2, float y2, float z2, float thick) {
+        float dx = -(x2 - x1) / 16.0F;
+        float dy = (y2 - y1) / 16.0F;
+        float dz = -(z2 - z1) / 16.0F;
+        float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (length < 1.0E-3F) {
+            return;
+        }
+        float t = thick / 16.0F;
+        matrices.pushPose();
+        matrices.translate(-x1 / 16.0F, y1 / 16.0F, -z1 / 16.0F);
+        matrices.mulPose(new org.joml.Quaternionf().rotationTo(0.0F, 1.0F, 0.0F, dx / length, dy / length, dz / length));
+        matrices.translate(-t / 2.0F, 0.0F, -t / 2.0F);
+        matrices.scale(t, length, t);
+        net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(stuff, matrices,
+                buffers, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+        matrices.popPose();
+    }
+
+    /**
+     * One part's model under the car: x, its lowest point and z in pixels
+     * with +z the front, stretched by sx, sy, sz (blocks to the model's 16
+     * pixels), turned about the upright, its model's lowest pixel given.
+     */
+    private static void underItem(CarEntity car, me.trossty.car.entity.CarPart part, PoseStack matrices,
+                                  MultiBufferSource buffers, int light, float x, float bottom, float z,
+                                  float sx, float sy, float sz, float modelBottom, float turn) {
+        matrices.pushPose();
+        matrices.translate(-x / 16.0F, bottom / 16.0F + sy * (0.5F - modelBottom / 16.0F), -z / 16.0F);
+        matrices.mulPose(Axis.YP.rotationDegrees(turn));
+        matrices.scale(sx, sy, sz);
+        net.minecraft.client.Minecraft.getInstance().getItemRenderer().renderStatic(
+                new net.minecraft.world.item.ItemStack(part.item()),
+                net.minecraft.world.item.ItemDisplayContext.NONE, light,
+                net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, matrices, buffers,
+                car.level(), car.getId() * 31 + part.ordinal());
+        matrices.popPose();
+    }
+
+    /**
+     * The stay that holds a bonnet up: a thin rod from the slam panel by the
+     * left headlamp to the underside of the raised bonnet. Only once the
+     * bonnet is all the way up; nobody props it half open.
+     */
+    private static void drawBonnetStay(me.trossty.car.vehicle.VehicleDefinition vehicle,
+                                       net.minecraft.world.phys.AABB bay, PoseStack matrices,
+                                       MultiBufferSource buffers, int light) {
+        net.minecraft.world.phys.AABB lid = vehicle.lidBounds(me.trossty.car.vehicle.VehicleDefinition.Box.BONNET);
+        if (lid == null) {
+            return;
+        }
+        float x = (float) bay.maxX - 1.6F;
+        float baseY = (float) bay.maxY - 0.6F;
+        float baseZ = (float) bay.maxZ - 1.2F;
+        float swing = me.trossty.car.entity.CarEntity.BONNET_SWING_DEGREES * Mth.DEG_TO_RAD;
+        float reach = (baseZ - (float) lid.minZ) * 0.8F;
+        float underside = (float) (lid.maxY - lid.minY);
+        float topY = (float) lid.maxY + reach * Mth.sin(swing) - underside * Mth.cos(swing);
+        float topZ = (float) lid.minZ + reach * Mth.cos(swing) + underside * Mth.sin(swing);
+        // In the load frame x and z run the other way.
+        float dy = (topY - baseY) / 16.0F;
+        float dz = -(topZ - baseZ) / 16.0F;
+        float length = (float) Math.hypot(dy, dz);
+        matrices.pushPose();
+        matrices.translate(-x / 16.0F, baseY / 16.0F, -baseZ / 16.0F);
+        matrices.mulPose(new org.joml.Quaternionf().rotationTo(0.0F, 1.0F, 0.0F, 0.0F, dy / length, dz / length));
+        matrices.translate(-0.02F, 0.0F, -0.02F);
+        matrices.scale(0.04F, length, 0.04F);
+        net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(
+                net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState(), matrices, buffers, light,
+                net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+        matrices.popPose();
+    }
+
+    private static final net.minecraft.world.level.block.state.BlockState HOSE =
+            net.minecraft.world.level.block.Blocks.BLACK_CONCRETE.defaultBlockState();
+    private static final net.minecraft.world.level.block.state.BlockState LEAD =
+            net.minecraft.world.level.block.Blocks.RED_CONCRETE.defaultBlockState();
+
+    /** A hose running front to back at x, its middle at height y, from z to z, in the load frame. */
+    private static void pipe(PoseStack matrices, MultiBufferSource buffers, int light,
+                             net.minecraft.world.level.block.state.BlockState stuff,
+                             float x, float y, float fromZ, float toZ) {
+        matrices.pushPose();
+        matrices.translate(-x, y, -Math.min(fromZ, toZ));
+        drawBar(matrices, buffers, light, stuff, 0.0F, 0.0F, 0.0F, 0.07F, 0.07F, -Math.abs(toZ - fromZ));
+        matrices.popPose();
+    }
+
+    /** A block squashed into a bar from the corner (x, y, z), d long each way, centred on the corner in the thin ones. */
+    private static void drawBar(PoseStack matrices, MultiBufferSource buffers, int light,
+                                net.minecraft.world.level.block.state.BlockState stuff,
+                                float x, float y, float z, float dx, float dy, float dz) {
+        matrices.pushPose();
+        float sx = Math.abs(dx), sy = Math.abs(dy), sz = Math.abs(dz);
+        matrices.translate(x + Math.min(dx, 0.0F) - (sx < 0.1F ? sx / 2.0F : 0.0F),
+                y - sy / 2.0F,
+                z + Math.min(dz, 0.0F) - (sz < 0.1F ? sz / 2.0F : 0.0F));
+        matrices.scale(sx, sy, sz);
+        net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(stuff, matrices,
+                buffers, light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+        matrices.popPose();
+    }
+
+    /** How much floor each thing in an open bed gets, in blocks. */
+    private static final float LOAD_CELL = 0.42F;
+
+    /**
+     * What is in an open bed or box, sitting in it: one of each thing it
+     * holds, in rows from the front of the bed back, a block as a small
+     * block and anything flat lying down. A full bed is stacked a layer
+     * higher where the sides are tall enough.
+     */
+    private static void drawLoad(CarEntity car, java.util.List<net.minecraft.world.item.ItemStack> load,
+                                 net.minecraft.world.phys.AABB area, float size,
+                                 PoseStack matrices, MultiBufferSource buffers, int light) {
+        if (load.isEmpty()) {
+            return;
+        }
+        float minX = (float) area.minX / 16.0F;
+        float maxX = (float) area.maxX / 16.0F;
+        float minY = (float) area.minY / 16.0F;
+        float maxY = (float) area.maxY / 16.0F;
+        float minZ = (float) area.minZ / 16.0F;
+        float maxZ = (float) area.maxZ / 16.0F;
+        // Smaller things are packed closer.
+        float cellSize = LOAD_CELL * size;
+        int cols = Math.max(1, (int) ((maxX - minX) / cellSize));
+        int rows = Math.max(1, (int) ((maxZ - minZ) / cellSize));
+        int layers = Math.max(1, (int) ((maxY - minY) / cellSize));
+        float stepX = (maxX - minX) / cols;
+        float stepZ = (maxZ - minZ) / rows;
+        net.minecraft.client.renderer.entity.ItemRenderer items =
+                net.minecraft.client.Minecraft.getInstance().getItemRenderer();
+        int shown = Math.min(load.size(), cols * rows * layers);
+        for (int i = 0; i < shown; i++) {
+            net.minecraft.world.item.ItemStack stack = load.get(i);
+            int layer = i / (cols * rows);
+            int cell = i % (cols * rows);
+            float x = minX + (cell % cols + 0.5F) * stepX;
+            float z = maxZ - (cell / cols + 0.5F) * stepZ;
+            float y = minY + layer * cellSize;
+            matrices.pushPose();
+            // The model's x and z run the other way to this frame's: its
+            // front is +z, this frame's is -z.
+            matrices.translate(-x, y, -z);
+            // Not lined up like a shop shelf: each a little askew.
+            matrices.mulPose(Axis.YP.rotationDegrees(((i * 37) % 7 - 3) * 6.0F));
+            boolean block = items.getModel(stack, car.level(), null, 0).isGui3d();
+            if (block) {
+                // A block in a frame is a half-block cube about its middle.
+                matrices.translate(0.0F, 0.18F * size, 0.0F);
+                matrices.scale(0.72F * size, 0.72F * size, 0.72F * size);
+            } else {
+                matrices.translate(0.0F, 0.02F, 0.0F);
+                matrices.mulPose(Axis.XP.rotationDegrees(90.0F));
+                matrices.scale(0.4F * size, 0.4F * size, 0.4F * size);
+            }
+            items.renderStatic(stack, net.minecraft.world.item.ItemDisplayContext.FIXED, light,
+                    net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, matrices, buffers,
+                    car.level(), car.getId() * 31 + i);
+            matrices.popPose();
+        }
+    }
+
+    /**
+     * How far ahead of its middle a car's front axle is, and its back axle,
+     * in blocks (the back one negative): from its steering wheels and the
+     * rest, or a family car's when it gives none.
+     */
+    private static float[] axles(CarEntity car) {
+        me.trossty.car.vehicle.VehicleDefinition defined = car.getDefinition();
+        float front = 0.0F;
+        float back = 0.0F;
+        int fronts = 0;
+        int backs = 0;
+        if (defined != null) {
+            for (me.trossty.car.vehicle.VehicleDefinition.Wheel wheel : defined.wheels()) {
+                if (wheel.steers()) {
+                    front += wheel.at().z();
+                    fronts++;
+                } else {
+                    back += wheel.at().z();
+                    backs++;
+                }
+            }
+        }
+        if (fronts == 0 || backs == 0) {
+            return new float[] {1.6F, -1.6F};
+        }
+        return new float[] {front / fronts / 16.0F, back / backs / 16.0F};
     }
 
     @Override
@@ -128,6 +695,10 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
         matrices.pushPose();
         matrices.translate(0.0F, car.getStepOffset(tickProgress), 0.0F);
         matrices.mulPose(Axis.YP.rotationDegrees(180.0F - state.yaw));
+        boolean lifted = me.trossty.car.block.VehicleLiftBlock.isServicing(car.level(), car);
+        if (!lifted) {
+            sitOnBareHub(state, matrices);
+        }
 
         // Two wheels lean into the turn, more the faster they go, about the
         // line where the tyres touch the road.
@@ -169,6 +740,16 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             matrices.translate(0.0F, axleY, axleZ);
             matrices.mulPose(Axis.XP.rotationDegrees(-NOSE_DROP * ease(state.restPose)));
             matrices.translate(0.0F, -axleY, -axleZ);
+        }
+
+        if (car instanceof me.trossty.car.entity.TrailerEntity trailer && trailer.hasCargo()) {
+            drawCargo(trailer, state.yaw, tickProgress, matrices, buffers, state.lightCoords);
+        }
+        if (state.vehicle != null && state.vehicle.load().isPresent()) {
+            me.trossty.car.vehicle.VehicleDefinition.Area area = state.vehicle.load().get();
+            drawLoad(car, car.shownLoad(), new net.minecraft.world.phys.AABB(
+                    area.from().x(), area.from().y(), area.from().z(), area.to().x(), area.to().y(), area.to().z()),
+                    1.0F, matrices, buffers, state.lightCoords);
         }
 
         if (state.damageWobbleTicks > 0.0F) {
@@ -218,9 +799,18 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
             }
         }
         this.submitExtras(state, matrices, buffers);
+        if (state.vehicle != null) {
+            drawUnderLids(car, state, matrices, buffers);
+        }
         if (state.vehicle != null && state.vehicleId != null) {
             VehicleModel wheels = DefinedVehicleModel.wheelsOf(state.vehicleId, state.vehicle);
+            matrices.pushPose();
+            if (lifted && carLike(state.vehicle)) {
+                // Off the ground the springs let the wheels down.
+                matrices.translate(0.0F, WHEEL_DROOP / 16.0F, 0.0F);
+            }
             draw(wheels, state, matrices, buffers, wheels.renderType(DefinedVehicleModel.wheelTexture(state.tyre)));
+            matrices.popPose();
         }
         matrices.popPose();
 
@@ -480,7 +1070,24 @@ public class CarEntityRenderer extends EntityRenderer<CarEntity> {
     private static void draw(VehicleModel model, CarRenderState state, PoseStack matrices,
                              MultiBufferSource buffers, net.minecraft.client.renderer.RenderType type) {
         model.setupAnim(state);
-        model.renderToBuffer(matrices, buffers.getBuffer(type), state.lightCoords, OverlayTexture.NO_OVERLAY, -1);
+        model.renderToBuffer(matrices, buffers.getBuffer(type), state.lightCoords, OverlayTexture.NO_OVERLAY,
+                grime(state.dirt));
+    }
+
+    /** The colour mud lends a dirty car: a dull brown, laid over by at most this much. */
+    private static final int MUD = 0x8A6A48;
+    private static final float MAX_GRIME = 0.6F;
+
+    /** The tint a car this dirty is drawn in: white when clean, browner the dirtier. */
+    private static int grime(float dirt) {
+        if (dirt <= 0.0F) {
+            return -1;
+        }
+        float t = Math.min(dirt, 1.0F) * MAX_GRIME;
+        int r = (int) Mth.lerp(t, 255, MUD >> 16 & 0xFF);
+        int g = (int) Mth.lerp(t, 255, MUD >> 8 & 0xFF);
+        int b = (int) Mth.lerp(t, 255, MUD & 0xFF);
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
     private static final int PLATE_BACKGROUND = 0xA0101418;

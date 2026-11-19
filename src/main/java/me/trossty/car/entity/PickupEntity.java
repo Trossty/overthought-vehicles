@@ -70,7 +70,7 @@ public class PickupEntity extends CarEntity {
     /** Top speed with all {@link #BED_SLOTS} slots full. */
     private static final float LADEN_SPEED_FACTOR = 0.74F;
 
-    private final SimpleContainer bed = new SimpleContainer(BED_SLOTS);
+    private final SimpleContainer bed = this.carriedChest(BED_SLOTS);
 
     public PickupEntity(EntityType<?> type, Level world) {
         super(type, world);
@@ -206,6 +206,7 @@ public class PickupEntity extends CarEntity {
         ValueInput view = ValueInput.of(tag, this.registryAccess());
         super.readAdditionalSaveData(tag);
         ContainerHelper.loadAllItems(view.tag(), this.bed.getItems(), view.registries());
+        this.showLoad(this.bed);
     }
 
     @Override

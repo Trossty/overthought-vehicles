@@ -44,7 +44,8 @@ public abstract class MultiblockBlock extends ModelEntityBlock {
     public static final BooleanProperty LIT = BlockStateProperties.LIT;
 
     protected MultiblockBlock(Properties settings) {
-        super(settings);
+        // a piston would push a part, which has no block entity to stop it, out of its machine
+        super(settings.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK));
     }
 
     /** The cells, part 0 first and at the origin. */
@@ -93,9 +94,14 @@ public abstract class MultiblockBlock extends ModelEntityBlock {
         return world.getBlockEntity(pos);
     }
 
+    /** Which way a machine put down from this context faces: out towards whoever put it down. */
+    protected Direction facingFor(BlockPlaceContext context) {
+        return context.getHorizontalDirection().getOpposite();
+    }
+
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
-        Direction facing = context.getHorizontalDirection().getOpposite();
+        Direction facing = this.facingFor(context);
         BlockPos origin = context.getClickedPos();
         Level world = context.getLevel();
         int[][] cells = this.cells();
@@ -105,7 +111,7 @@ public abstract class MultiblockBlock extends ModelEntityBlock {
                 return null;
             }
         }
-        return this.defaultBlockState().setValue(FACING, facing).setValue(LIT, false).setValue(this.partProperty(), 0);
+        return this.defaultBlockState().setValue(FACING, facing).trySetValue(LIT, false).setValue(this.partProperty(), 0);
     }
 
     @Override
@@ -132,12 +138,16 @@ public abstract class MultiblockBlock extends ModelEntityBlock {
         Direction facing = state.getValue(FACING);
         int[][] cells = this.cells();
         for (int i = 1; i < cells.length; i++) {
-            BlockState there = world.getBlockState(cellPos(controller, facing, cells[i]));
-            if (!there.is(this) || this.partOf(there) != i || there.getValue(FACING) != facing) {
+            if (!this.isPart(world.getBlockState(cellPos(controller, facing, cells[i])), i, facing)) {
                 return false;
             }
         }
         return true;
+    }
+
+    /** Whether {@code there} is part {@code part} of a machine of this kind facing {@code facing}. */
+    protected boolean isPart(BlockState there, int part, Direction facing) {
+        return there.is(this) && this.partOf(there) == part && there.getValue(FACING) == facing;
     }
 
     /**
@@ -145,16 +155,22 @@ public abstract class MultiblockBlock extends ModelEntityBlock {
      * so a chimney knows to smoke and a lamp three blocks up knows to glow.
      */
     public void setLit(Level world, BlockPos controller, BlockState state, boolean lit) {
-        if (state.getValue(LIT) == lit) {
-            return;
+        if (state.getValue(LIT) != lit) {
+            this.setOnEveryCell(world, controller, state, LIT, lit);
         }
+    }
+
+    /** Sets a property on every cell of the machine that is still standing, the controller's too. */
+    protected <T extends Comparable<T>> void setOnEveryCell(Level world, BlockPos controller, BlockState state,
+                                                            net.minecraft.world.level.block.state.properties.Property<T> property,
+                                                            T value) {
         Direction facing = state.getValue(FACING);
         int[][] cells = this.cells();
         for (int i = 0; i < cells.length; i++) {
             BlockPos at = cellPos(controller, facing, cells[i]);
             BlockState there = world.getBlockState(at);
-            if (there.is(this)) {
-                world.setBlock(at, there.setValue(LIT, lit), Block.UPDATE_CLIENTS);
+            if (this.isPart(there, i, facing)) {
+                world.setBlock(at, there.setValue(property, value), Block.UPDATE_CLIENTS);
             }
         }
     }

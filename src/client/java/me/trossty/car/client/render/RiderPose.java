@@ -32,7 +32,9 @@ public record RiderPose(int grip, float steer, float lean, float leanPivot, floa
         boolean bike = vehicle.chassis() == VehicleDefinition.Chassis.MOTORCYCLE;
         float steer = vehicle.getSteerAngle(tickProgress);
         boolean driving = vehicle.getControllingPassenger() == rider;
-        int grip = !driving ? GRIP_NONE : bike ? GRIP_BARS : GRIP_WHEEL;
+        VehicleDefinition defined = vehicle.getDefinition();
+        boolean bars = bike || defined != null && defined.handlebars();
+        int grip = !driving ? GRIP_NONE : bars ? GRIP_BARS : GRIP_WHEEL;
         float lean = bike ? CarEntityRenderer.leanDegrees(steer, vehicle.getEngineSpeed()) : 0.0F;
         float pivot = CarEntityRenderer.LEAN_PIVOT
                 - (float) (rider.getPosition(tickProgress).y - vehicle.getPosition(tickProgress).y);

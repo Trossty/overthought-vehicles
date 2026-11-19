@@ -94,6 +94,24 @@ public final class ModComponents {
                     .build());
 
     /**
+     * A set's condition cylinder by cylinder, as it came out of an engine:
+     * pistons and valves wear unevenly, and a bent valve stays bent. A set
+     * without it is alike all through, at its {@link #PART_CONDITION}.
+     */
+    public static final DataComponentType<java.util.List<Integer>> PART_CYLINDERS = register("part_cylinders",
+            DataComponentType.<java.util.List<Integer>>builder()
+                    .persistent(Codec.intRange(0, 100).listOf())
+                    .networkSynchronized(ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()))
+                    .build());
+
+    /** What is inside an engine off the car that has worn unevenly; one without it is alike all through. */
+    public static final DataComponentType<me.trossty.car.entity.EngineInternals.Snapshot> ENGINE_INTERNALS =
+            register("engine_internals", DataComponentType.<me.trossty.car.entity.EngineInternals.Snapshot>builder()
+                    .persistent(me.trossty.car.entity.EngineInternals.Snapshot.CODEC)
+                    .networkSynchronized(me.trossty.car.entity.EngineInternals.Snapshot.STREAM_CODEC)
+                    .build());
+
+    /**
      * Which kind of a part this is: which engine, which tyre, which filter.
      * See {@code CarSetup}. A part without it is the plain kind.
      */
@@ -108,6 +126,13 @@ public final class ModComponents {
      * end of that pump's hose, so it goes back the moment it is out of reach.
      */
     public static final DataComponentType<net.minecraft.core.BlockPos> PUMP = register("pump",
+            DataComponentType.<net.minecraft.core.BlockPos>builder()
+                    .persistent(net.minecraft.core.BlockPos.CODEC)
+                    .networkSynchronized(net.minecraft.core.BlockPos.STREAM_CODEC)
+                    .build());
+
+    /** Which charging post a plug was taken off; it only ever reaches as far as that post's lead. */
+    public static final DataComponentType<net.minecraft.core.BlockPos> CHARGER = register("charger",
             DataComponentType.<net.minecraft.core.BlockPos>builder()
                     .persistent(net.minecraft.core.BlockPos.CODEC)
                     .networkSynchronized(net.minecraft.core.BlockPos.STREAM_CODEC)

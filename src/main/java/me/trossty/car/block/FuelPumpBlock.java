@@ -240,12 +240,16 @@ public class FuelPumpBlock extends ModelEntityBlock {
 
         if (!me.trossty.car.item.JerryCans.isFull(held)) {
             // A can with room in it: top it up out of the pump.
-            if (me.trossty.car.item.JerryCans.topUp(held, pump.getPetrol(), pump::drain) > 0) {
-                me.trossty.car.entity.CarEntity.markFuel(held, me.trossty.car.entity.CarSetup.Fuel.PETROL);
+            // Only the same fuel goes on top of what is in the can.
+            if ((me.trossty.car.item.JerryCans.isEmpty(held)
+                    || me.trossty.car.entity.CarEntity.fuelIn(held) == pump.getFuel())
+                    && me.trossty.car.item.JerryCans.topUp(held, pump.getPetrol(), pump::drain) > 0) {
+                me.trossty.car.entity.CarEntity.markFuel(held, pump.getFuel());
                 playPumpSound(world, pos, 1.1F);
             }
         } else if (me.trossty.car.item.JerryCans.emptyInto(
-                held, pump.getCapacity() - pump.getPetrol(), pump::fill) > 0) {
+                held, pump.getCapacity() - pump.getPetrol(),
+                amount -> pump.fill(me.trossty.car.entity.CarEntity.fuelIn(held), amount)) > 0) {
             // A full can: tip it in, as far as the pump has room.
             playPumpSound(world, pos, 0.8F);
         }
