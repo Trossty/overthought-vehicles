@@ -50,6 +50,11 @@ import java.util.Optional;
  * middle of the steering wheel goes, where it is not where a car's goes: a
  * ride-on mower's is down by the rider's belly. Left out, the wheel goes
  * where the dashboard puts it.
+ *
+ * <p>{@code steering_wheel_rake} is how far, in degrees, the steering wheel
+ * leans back from upright, its column running down the same angle the other
+ * way: a kart's lies well back on a column that dives to the front of the
+ * frame. Left out, a car's 28.
  */
 public record VehicleDefinition(
         Chassis chassis,
@@ -175,16 +180,25 @@ public record VehicleDefinition(
         return this.controls.steeringWheelRise();
     }
 
+    /** How far back from upright the steering wheel leans, in degrees, if the definition says. */
+    public Optional<Float> steeringWheelRake() {
+        return this.controls.steeringWheelRake();
+    }
+
     /**
      * How the driver drives it, written flat in the file beside everything
-     * else: {@code handlebars} and {@code steering_wheel_rise}.
+     * else: {@code handlebars}, {@code steering_wheel_rise} and
+     * {@code steering_wheel_rake}.
      */
-    public record Controls(boolean handlebars, Optional<Float> steeringWheelRise) {
+    public record Controls(boolean handlebars, Optional<Float> steeringWheelRise,
+                           Optional<Float> steeringWheelRake) {
         public static final com.mojang.serialization.MapCodec<Controls> MAP_CODEC = RecordCodecBuilder.mapCodec(
                 instance -> instance.group(
                         Codec.BOOL.optionalFieldOf("handlebars", false).forGetter(Controls::handlebars),
                         Codec.floatRange(3.0F, 20.0F).optionalFieldOf("steering_wheel_rise")
-                                .forGetter(Controls::steeringWheelRise)
+                                .forGetter(Controls::steeringWheelRise),
+                        Codec.floatRange(0.0F, 75.0F).optionalFieldOf("steering_wheel_rake")
+                                .forGetter(Controls::steeringWheelRake)
                 ).apply(instance, Controls::new));
     }
 

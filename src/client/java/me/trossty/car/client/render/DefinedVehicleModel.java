@@ -67,7 +67,7 @@ public class DefinedVehicleModel extends VehicleModel {
     private static final float WHEEL_REACH = 10.0F;
     /** How far the top of the dash stands over the middle of the wheel, at the most: a car's 2.6. */
     private static final float CLUSTER_OVER_WHEEL = 2.6F;
-    /** Degrees the wheel leans back towards the driver. */
+    /** Degrees a car's wheel leans back towards the driver; a definition can say otherwise. */
     private static final float WHEEL_RAKE = 28.0F;
     private static final float WHEEL_RIM = 2.8F;
     /** The rim is this many pieces round, and this thick. */
@@ -327,7 +327,7 @@ public class DefinedVehicleModel extends VehicleModel {
         float reach = WHEEL_REACH;
         // The whole rim, not only its hub: raked back, its top leans forward
         // towards the dash by this much and its bottom away from it.
-        float rake = WHEEL_RAKE * DEGREES;
+        float rake = wheelRake(definition) * DEGREES;
         float top = wheelY + (WHEEL_RIM + RIM_THICK) * Mth.cos(rake);
         float bottom = wheelY - (WHEEL_RIM + RIM_THICK) * Mth.cos(rake);
         float lean = (WHEEL_RIM + RIM_THICK) * Mth.sin(rake);
@@ -379,6 +379,11 @@ public class DefinedVehicleModel extends VehicleModel {
             }
         }
         return Math.max(WHEEL_RISE, dash - CLUSTER_OVER_WHEEL);
+    }
+
+    /** How far back from upright the wheel leans, in degrees: where the vehicle says, or a car's. */
+    private static float wheelRake(VehicleDefinition definition) {
+        return definition.steeringWheelRake().orElse(WHEEL_RAKE);
     }
 
     private static ModelPart build(VehicleDefinition definition, List<String> colours, boolean glass) {
@@ -458,7 +463,8 @@ public class DefinedVehicleModel extends VehicleModel {
             int[] badge = uv(colours, "#C9CDD2");
             PartDefinition mount = frame.addOrReplaceChild(STEERING_WHEEL, CubeListBuilder.create(),
                     PartPose.offsetAndRotation((float) seat.x, -(float) seat.y - wheelRise(definition, seat),
-                            -(float) seat.z - wheelReach(definition, seat), WHEEL_RAKE * DEGREES, 0.0F, 0.0F));
+                            -(float) seat.z - wheelReach(definition, seat), wheelRake(definition) * DEGREES,
+                            0.0F, 0.0F));
             int[] spoke = uv(colours, "#3A3A3E");
             int[] shroud = uv(colours, "#2A2A2D");
             mount.addOrReplaceChild("shroud", CubeListBuilder.create().texOffs(shroud[0], shroud[1])

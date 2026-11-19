@@ -1600,6 +1600,9 @@ kuruluyor, boyası araç boyandıkça yeniden üretiliyor.
 - `steering_wheel_rise` (isteğe bağlı): direksiyonun ortası kalçadan kaç
   piksel yukarıda. Yazılmazsa torpidoya göre kendisi bulur (en az 9). Çim
   biçme traktöründe 6: orada direksiyon karın hizasında.
+- `steering_wheel_rake` (isteğe bağlı): direksiyonun dikten kaç derece
+  geriye yattığı; kolonu da aynı açıyla öne iner. Yazılmazsa arabanınki
+  gibi 28. Go-kartta 55: simit iyice yatık, kolon şasinin önüne dalıyor.
 - `shape`: gövde kutuları (en çok 512). `color` ya `paint` / `paint_dark` /
   `paint_light` (aracın boyasını izler), sabit `#RRGGBB` ya da yarı saydam
   `#AARRGGBB` (cam böyle yapılıyor: içerisi arkasından görünür). `tilt` kutuyu

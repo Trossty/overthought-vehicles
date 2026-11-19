@@ -14,7 +14,9 @@
  *
  * Groups carry what a box does: everything under a top-level group called
  * "bonnet" or "boot" swings up with that lid, "steer" turns with the front
- * wheel, "propeller" spins with the engine. A group whose name begins with
+ * wheel, "propeller" spins with the engine about the line along the body,
+ * "rotor" about the upright and "tail_rotor" about the line across, each
+ * about the middle of its group's first box. A group whose name begins with
  * an underscore is for looking at only (the wheels, a seated figure) and is
  * left out of the definition.
  *
@@ -36,7 +38,11 @@
         light_blue: '#3AB3DA', blue: '#3C44AA', purple: '#8932B8', magenta: '#C74EBD', pink: '#F38BAA',
         brown: '#835432'
     };
-    const FLAGS = {bonnet: 'opens', boot: 'opens', steer: 'steers', propeller: 'spins'};
+    const FLAGS = {
+        bonnet: {opens: 'bonnet'}, boot: {opens: 'boot'}, steer: {steers: true}, propeller: {spins: true},
+        rotor: {spins: true, spin_axis: 'y'}, tail_rotor: {spins: true, spin_axis: 'x'}
+    };
+    const SPINNERS = {z: 'propeller', y: 'rotor', x: 'tail_rotor'};
     const DEG = Math.PI / 180;
 
     /** The colours every vehicle shares, by name. */
@@ -747,6 +753,98 @@
             this.group = keep;
         }
 
+        /**
+         * Draws, to look at, a player in every seat and the steering wheel the
+         * game puts in front of the driver. A seat is where the hips go: the
+         * feet hang 9.6 below it, the body starts 2.4 over it, and a player is
+         * drawn a pixel to a sixteenth, so the figure is the game's own size.
+         */
+        referenceRiders() {
+            const keep = this.group;
+            this.group = '_riders';
+            const SKIN = '#C69C7A', SHIRT = '#3E8FB0', LEGS = '#3B3F8C';
+            for (const [x, y, z] of this.seats) {
+                const hip = y + 2.4;
+                this.box(x - 4, hip, z - 2, x + 4, hip + 12, z + 2, SHIRT, {name: 'body'});
+                this.box(x - 4, hip + 12, z - 4, x + 4, hip + 20, z + 4, SKIN, {name: 'head'});
+                for (const s of [-1, 1]) {
+                    // the legs out in front, a little down at the feet, as the game sits a rider
+                    this.beam([x + s * 2, hip, z], [x + s * 2, hip - 1.9, z + 11.8], 4, 4, LEGS, {name: 'leg'});
+                    this.box(x + s * 4, hip, z - 2, x + s * 8, hip + 12, z + 2, SHIRT, {name: 'arm'});
+                }
+            }
+            const wheel = this.steeringWheel();
+            if (wheel) {
+                const [x, y, z] = wheel;
+                this.box(x - 2.8, y - 2.8, z - 0.35, x + 2.8, y + 2.8, z + 0.35, '#1E1E21',
+                    {tilt: this.wheelRake(), name: 'wheel'});
+            }
+            this.group = keep;
+        }
+
+        /**
+         * Where the game puts the middle of the steering wheel, as
+         * DefinedVehicleModel works it out from the seat and the dash in
+         * front of it; null for what steers with bars, a stick or a yoke.
+         */
+        steeringWheel() {
+            const def = Object.assign({}, this.def, this.overrides);
+            const bars = def.handlebars || (def.controls && def.controls.handlebars);
+            if (!this.seats.length || bars || ['motorcycle', 'plane', 'helicopter', 'trailer'].includes(def.chassis)) {
+                return null;
+            }
+            const [sx, sy, sz] = this.seats[0];
+            const span = 2.8 + 1.0, rake = this.wheelRake() * DEG;
+            const solid = this.boxes.filter(b => !b.group.split('/')[0].startsWith('_')
+                && !/^#[0-9A-Fa-f]{8}$/.test(b.color));
+            let rise = def.steering_wheel_rise;
+            if (rise === undefined) {
+                let dash = -Infinity;
+                for (const b of solid) {
+                    if (b.color !== 'paint' && b.to[0] > sx - span && b.from[0] < sx + span && b.from[2] > sz + 2
+                        && b.from[2] < sz + 16 && b.to[1] > sy && b.to[1] < sy + 22) {
+                        dash = Math.max(dash, b.to[1] - sy);
+                    }
+                }
+                rise = Math.max(9, dash - 2.6);
+            }
+            const wy = sy + rise, rim = 2.8 + 0.6;
+            const top = wy + rim * Math.cos(rake), bottom = wy - rim * Math.cos(rake), lean = rim * Math.sin(rake);
+            let reach = 10;
+            for (const b of solid) {
+                if (b.to[0] > sx - span && b.from[0] < sx + span && b.to[1] > bottom && b.from[1] < top
+                    && b.from[2] > sz + 2) {
+                    const ahead = b.to[1] > wy ? lean * (Math.min(b.to[1], top) - wy) / (top - wy) : 0;
+                    reach = Math.min(reach, b.from[2] - sz - 0.8 - Math.max(ahead, 0.4));
+                }
+            }
+            return [sx, wy, sz + Math.max(4, reach)];
+        }
+
+        /** Degrees the steering wheel leans back from upright: the definition's, or a car's 28. */
+        wheelRake() {
+            const def = Object.assign({}, this.def, this.overrides);
+            const rake = def.steering_wheel_rake !== undefined ? def.steering_wheel_rake
+                : def.controls && def.controls.steering_wheel_rake;
+            return rake === undefined ? 28 : rake;
+        }
+
+        /**
+         * Where the column the game draws under the steering wheel ends, and
+         * the way it runs on from there (forward and down, as long as the
+         * wheel leans back), so a model can carry it on into the dash or the
+         * frame; null where nothing has a wheel.
+         */
+        column() {
+            const wheel = this.steeringWheel();
+            if (!wheel) {
+                return null;
+            }
+            const rake = this.wheelRake() * DEG;
+            const dir = [0, -Math.sin(rake), Math.cos(rake)];
+            return {wheel: wheel, dir: dir, end: wheel.map((v, i) => v + dir[i] * 3.5)};
+        }
+
         /** Builds the Blockbench project from the boxes. */
         build() {
             const sum = this.summary();
@@ -891,7 +989,14 @@
             if (o.wheels !== false) {
                 this.referenceWheels();
             }
+            if (o.riders) {
+                this.referenceRiders();
+            }
             const sum = this.build();
+            const wheel = this.steeringWheel();
+            if (wheel) {
+                sum.steeringWheel = wheel.map(r2);
+            }
             CarKit.save();
             if (o.write !== false) {
                 CarKit.exportOpen(this.overrides);
@@ -920,14 +1025,14 @@
         importDef(name) {
             const k = new Kit(name);
             for (const b of k.def.shape) {
-                k.g(b.opens ? b.opens : b.steers ? 'steer' : b.spins ? 'propeller' : 'body');
+                k.g(b.opens ? b.opens : b.steers ? 'steer' : b.spins ? SPINNERS[b.spin_axis || 'z'] : 'body');
                 k.box(b.from[0], b.from[1], b.from[2], b.to[0], b.to[1], b.to[2], b.color || 'paint',
                     {tilt: b.tilt, yaw: b.yaw, roll: b.roll});
             }
             k.referenceWheels();
             k.build();
             const key = b => [b.from, b.to, b.color || 'paint', b.tilt || 0, b.yaw || 0, b.roll || 0,
-                b.opens || '', !!b.steers, !!b.spins].join('|');
+                b.opens || '', !!b.steers, b.spins ? b.spin_axis || 'z' : ''].join('|');
             const norm = b => Object.assign({}, b, {
                 from: b.from.map((v, i) => Math.min(v, b.to[i])), to: b.to.map((v, i) => Math.max(v, b.from[i]))
             });
@@ -993,7 +1098,7 @@
                     const top = node.parent === 'root';
                     const f = Object.assign({}, flags);
                     if (top && FLAGS[node.name]) {
-                        f[FLAGS[node.name]] = FLAGS[node.name] === 'opens' ? node.name : true;
+                        Object.assign(f, FLAGS[node.name]);
                     }
                     const hide = hidden || (top && node.name.startsWith('_'));
                     node.children.forEach(child => walk(child, f, hide));
