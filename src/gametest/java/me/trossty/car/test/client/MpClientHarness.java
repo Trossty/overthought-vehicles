@@ -36,6 +36,14 @@ final class MpClientHarness {
     private boolean ridingShot;
     private int nightTicks;
     private String pendingShot;
+    /** Every sound this client played, by name, to hear one played twice. */
+    private final java.util.Map<String, Integer> heard = new java.util.TreeMap<>();
+    private final java.util.Map<String, Integer> heardThisTick = new java.util.HashMap<>();
+    private int doubled;
+    /** The looping sounds started, to count how many play at once. */
+    private final java.util.Set<net.minecraft.client.resources.sounds.SoundInstance> loops =
+            java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+    private int mostLoops;
 
     private MpClientHarness(String who) {
         this.who = who;
@@ -69,6 +77,8 @@ final class MpClientHarness {
         if (client.level == null || client.player == null) {
             // In, then out again: the server is done with us.
             if (this.joined && !(client.screen instanceof ConnectScreen)) {
+                log("sounds: at most %d loops at once, %d played twice in one tick, heard %s"
+                        .formatted(this.mostLoops, this.doubled, this.heard));
                 log("server gone, quitting");
                 client.stop();
             }
@@ -81,7 +91,11 @@ final class MpClientHarness {
         if (!this.joined) {
             this.joined = true;
             log("joined");
+            client.getSoundManager().addListener((sound, events, range) -> this.heard(sound));
         }
+        this.heardThisTick.clear();
+        this.loops.removeIf(sound -> !client.getSoundManager().isActive(sound));
+        this.mostLoops = Math.max(this.mostLoops, this.loops.size());
         if (client.player.getVehicle() instanceof CarEntity car) {
             this.seated++;
             if (this.seated == 0) {
@@ -123,6 +137,23 @@ final class MpClientHarness {
         } else if (this.seated == 110) {
             KeyMapping.set(client.options.keyJump.getKey(), false);
             log("drove: own hp %.1f".formatted(client.player.getHealth()));
+        }
+    }
+
+    /**
+     * Each player's client should play each sound once: the same one twice in
+     * a tick is a sound sent both by the server and played locally, or played
+     * once per rider.
+     */
+    private void heard(net.minecraft.client.resources.sounds.SoundInstance sound) {
+        String name = sound.getLocation().toString();
+        this.heard.merge(name, 1, Integer::sum);
+        if (this.heardThisTick.merge(name, 1, Integer::sum) == 2) {
+            this.doubled++;
+            log("twice in one tick: " + name);
+        }
+        if (sound.isLooping()) {
+            this.loops.add(sound);
         }
     }
 
