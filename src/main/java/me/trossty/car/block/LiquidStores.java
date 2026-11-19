@@ -62,7 +62,7 @@ public final class LiquidStores {
         }
         if (inCan != null) {
             if (stored != null && stored != inCan) {
-                player.displayClientMessage(Component.translatable("message.car.tank_holds_other"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_holds_other"), true);
                 return;
             }
             int room = store.getTankCapacity(0) - held.getAmount();
@@ -120,7 +120,7 @@ public final class LiquidStores {
                               String emptyKey, String contentsKey, Object... extra) {
         Component message = describe(store, emptyKey, contentsKey, extra);
         if (!me.trossty.car.fluid.Liquids.isBlank(lock)) {
-            message = message.copy().append(Component.translatable("message.car.store_lock_suffix",
+            message = message.copy().append(Component.translatable("message.overthought_vehicles.store_lock_suffix",
                     me.trossty.car.fluid.Liquids.name(lock)));
         }
         player.displayClientMessage(message, true);
@@ -152,12 +152,12 @@ public final class LiquidStores {
         Component message;
         if (!me.trossty.car.fluid.Liquids.isBlank(lock)) {
             now = net.minecraft.world.level.material.Fluids.EMPTY;
-            message = Component.translatable("message.car.store_unlocked");
+            message = Component.translatable("message.overthought_vehicles.store_unlocked");
         } else if (!me.trossty.car.fluid.Liquids.isBlank(held)) {
             now = held;
-            message = Component.translatable("message.car.store_locked", me.trossty.car.fluid.Liquids.name(held));
+            message = Component.translatable("message.overthought_vehicles.store_locked", me.trossty.car.fluid.Liquids.name(held));
         } else {
-            player.displayClientMessage(Component.translatable("message.car.store_lock_empty"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.store_lock_empty"), true);
             return lock;
         }
         world.playSound(null, pos, SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.BLOCKS, 0.5F,

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "P": {
+      "item": "minecraft:piston"
+    },
+    "D": {
+      "item": "minecraft:red_dye"
+    }
+  },
+  "pattern": [
+    " I ",
+    "DPD",
+    "III"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:aircraft_jack"
+  }
+}

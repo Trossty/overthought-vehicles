@@ -12,7 +12,7 @@ import java.io.PrintWriter;
  */
 public class GenPartTextures {
 
-    static final String ASSETS = "src/main/resources/assets/car/";
+    static final String ASSETS = "src/main/resources/assets/overthought_vehicles/";
 
     static final int CLEAR = 0x00000000;
     static final int STEEL = 0xFF8A8F94;
@@ -425,14 +425,14 @@ public class GenPartTextures {
      * comes off the front texture, which is yellow or red at its corner).
      */
     static String valveModel(boolean shut) {
-        String front = shut ? "car:block/fuel_valve_front_shut" : "car:block/fuel_valve_front";
+        String front = shut ? "overthought_vehicles:block/fuel_valve_front_shut" : "overthought_vehicles:block/fuel_valve_front";
         StringBuilder b = new StringBuilder();
         b.append("{\n  \"parent\": \"minecraft:block/block\",\n  \"textures\": {\n")
-                .append("    \"particle\": \"car:block/fuel_valve\",\n")
-                .append("    \"body\": \"car:block/fuel_valve\",\n")
+                .append("    \"particle\": \"overthought_vehicles:block/fuel_valve\",\n")
+                .append("    \"body\": \"overthought_vehicles:block/fuel_valve\",\n")
                 .append("    \"front\": \"").append(front).append("\",\n")
-                .append("    \"pipe\": \"car:block/fuel_pipe\",\n")
-                .append("    \"core\": \"car:block/fuel_pipe_core\"\n  },\n  \"elements\": [\n");
+                .append("    \"pipe\": \"overthought_vehicles:block/fuel_pipe\",\n")
+                .append("    \"core\": \"overthought_vehicles:block/fuel_pipe_core\"\n  },\n  \"elements\": [\n");
         String steel = "[1, 4, 3, 6]";
         String wheel = "[4, 4, 5, 5]";
         java.util.List<String> els = new java.util.ArrayList<>();
@@ -503,7 +503,7 @@ public class GenPartTextures {
                 }
                 first = false;
                 b.append("    \"facing=").append(turn[0]).append(",powered=").append(shut)
-                        .append("\": { \"model\": \"car:block/fuel_valve")
+                        .append("\": { \"model\": \"overthought_vehicles:block/fuel_valve")
                         .append(shut ? "_shut" : "").append("\"").append(turn[1]).append(" }");
             }
         }
@@ -806,9 +806,9 @@ public class GenPartTextures {
 
     // ---- the pipe's boxes ----
 
-    static final String PIPE_TEXTURES = "    \"particle\": \"car:block/fuel_pipe\",\n"
-            + "    \"pipe\": \"car:block/fuel_pipe\",\n"
-            + "    \"core\": \"car:block/fuel_pipe_core\"\n";
+    static final String PIPE_TEXTURES = "    \"particle\": \"overthought_vehicles:block/fuel_pipe\",\n"
+            + "    \"pipe\": \"overthought_vehicles:block/fuel_pipe\",\n"
+            + "    \"core\": \"overthought_vehicles:block/fuel_pipe_core\"\n";
 
     /**
      * A length of tube pointing north, from {@code z1} to {@code z2}. Its four
@@ -866,7 +866,7 @@ public class GenPartTextures {
      */
     static String pipeBlockstate() {
         StringBuilder b = new StringBuilder("{\n  \"multipart\": [\n");
-        b.append("    { \"when\": { \"fitting\": true }, \"apply\": { \"model\": \"car:block/fuel_pipe_core\" } }");
+        b.append("    { \"when\": { \"fitting\": true }, \"apply\": { \"model\": \"overthought_vehicles:block/fuel_pipe_core\" } }");
         String[][] arms = {
                 {"north", ""},
                 {"east", ", \"y\": 90"},
@@ -877,7 +877,7 @@ public class GenPartTextures {
         };
         for (String[] arm : arms) {
             b.append(",\n    { \"when\": { \"").append(arm[0]).append("\": true }, ")
-                    .append("\"apply\": { \"model\": \"car:block/fuel_pipe_arm\"")
+                    .append("\"apply\": { \"model\": \"overthought_vehicles:block/fuel_pipe_arm\"")
                     .append(arm[1]).append(" } }");
         }
         return b.append("\n  ]\n}").toString();
@@ -984,7 +984,7 @@ public class GenPartTextures {
         write(ASSETS + "blockstates/fuel_pipe.json", pipeBlockstate());
         write(ASSETS + "items/fuel_pipe.json",
                 "{\n  \"model\": {\n    \"type\": \"minecraft:model\",\n"
-                        + "    \"model\": \"car:block/fuel_pipe_inventory\"\n  }\n}");
+                        + "    \"model\": \"overthought_vehicles:block/fuel_pipe_inventory\"\n  }\n}");
 
         // The yard tank is drawn in tools/blocks/fuel_tank.js.
 
@@ -1002,7 +1002,7 @@ public class GenPartTextures {
         write(ASSETS + "blockstates/fuel_valve.json", valveBlockstate());
         write(ASSETS + "items/fuel_valve.json",
                 "{\n  \"model\": {\n    \"type\": \"minecraft:model\",\n"
-                        + "    \"model\": \"car:block/fuel_valve\"\n  }\n}");
+                        + "    \"model\": \"overthought_vehicles:block/fuel_valve\"\n  }\n}");
 
         tankerIcon();
         save(ASSETS + "textures/item/fuel_tanker.png");
@@ -1015,6 +1015,6 @@ public class GenPartTextures {
 
         write(ASSETS + "items/vehicle_lift.json",
                 "{\n  \"model\": {\n    \"type\": \"minecraft:model\",\n"
-                        + "    \"model\": \"car:block/vehicle_lift\"\n  }\n}");
+                        + "    \"model\": \"overthought_vehicles:block/vehicle_lift\"\n  }\n}");
     }
 }

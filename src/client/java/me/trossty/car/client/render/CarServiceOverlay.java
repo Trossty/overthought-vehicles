@@ -365,21 +365,21 @@ public final class CarServiceOverlay {
         float body = car.damage().getHealthFraction();
         int percent = Math.round(body * 100.0F);
         stack(labels, new PartLabel(bodyAt.box(pos, yaw).getCenter().subtract(pos),
-                body >= 1.0F ? Component.translatable("gui.car.plate_body", percent)
-                        : Component.translatable("gui.car.plate_body_at", percent, car.damage().worstZone().displayName()),
+                body >= 1.0F ? Component.translatable("gui.overthought_vehicles.plate_body", percent)
+                        : Component.translatable("gui.overthought_vehicles.plate_body_at", percent, car.damage().worstZone().displayName()),
                 body >= 0.75F ? GOOD : (body > 0.35F ? FAIR : BAD)));
 
         if (car instanceof me.trossty.car.entity.TrailerEntity trailer) {
             // No engine and no tank: what it is carrying instead.
             stack(labels, new PartLabel(specAt.box(pos, yaw).getCenter().subtract(pos),
-                    Component.translatable("gui.car.plate_load", Math.round(trailer.getLoadFraction() * 100.0F)),
+                    Component.translatable("gui.overthought_vehicles.plate_load", Math.round(trailer.getLoadFraction() * 100.0F)),
                     0xFFE8E8E8));
             return;
         }
         // What the car as fitted will actually do, so that a part going on
         // or coming off shows as a number changing in front of you.
         stack(labels, new PartLabel(specAt.box(pos, yaw).getCenter().subtract(pos),
-                Component.translatable("gui.car.plate_spec",
+                Component.translatable("gui.overthought_vehicles.plate_spec",
                         String.format(java.util.Locale.ROOT, "%.1f", car.getMaxSpeed() * 20.0F),
                         String.format(java.util.Locale.ROOT, "%.2f",
                                 car.throttleStep() / CarEntity.ACCELERATION),
@@ -389,14 +389,14 @@ public final class CarServiceOverlay {
         float fuel = car.getFuelFraction();
         Component tank = car.isOverheating()
                 // One line, and the thing that will stop you first goes on it.
-                ? Component.translatable("message.car.overheating")
+                ? Component.translatable("message.overthought_vehicles.overheating")
                 : car.isLeaking() && car.hasFuel()
-                ? Component.translatable("gui.car.plate_leaking", Math.round(fuel * 100.0F))
+                ? Component.translatable("gui.overthought_vehicles.plate_leaking", Math.round(fuel * 100.0F))
                 : car.hasWrongFuel()
-                ? Component.translatable("gui.car.plate_wrong_fuel",
-                        Component.translatable("fuel.car." + car.getTankFuel().key() + ".short"))
-                : Component.translatable("gui.car.plate_fuel_kind",
-                        Component.translatable("fuel.car." + car.getTankFuel().key() + ".short"),
+                ? Component.translatable("gui.overthought_vehicles.plate_wrong_fuel",
+                        Component.translatable("fuel.overthought_vehicles." + car.getTankFuel().key() + ".short"))
+                : Component.translatable("gui.overthought_vehicles.plate_fuel_kind",
+                        Component.translatable("fuel.overthought_vehicles." + car.getTankFuel().key() + ".short"),
                         Math.round(fuel * 100.0F));
         stack(labels, new PartLabel(tankAt.box(pos, yaw).getCenter().subtract(pos), tank,
                 car.isOverheating() || car.hasWrongFuel() || car.isLeaking() ? BAD
@@ -405,21 +405,21 @@ public final class CarServiceOverlay {
 
     /** What the plate over a mark says: the part, and how worn it is. */
     private static Component nameOf(CarEntity car, CarPart part) {
-        Component name = Component.translatable("part.car." + part.key());
+        Component name = Component.translatable("part.overthought_vehicles." + part.key());
         if (!car.parts().isFitted(part)) {
-            return Component.translatable("gui.car.hologram_absent", name);
+            return Component.translatable("gui.overthought_vehicles.hologram_absent", name);
         }
         if (me.trossty.car.entity.CarSetup.variantsOf(part) > 1) {
             // Which engine, which tyres: the plate says what is actually there.
             name = me.trossty.car.item.VehiclePartItem.nameOf(part, car.getVariant(part));
             if (part == CarPart.ENGINE && car.hasTurbo()) {
-                name = Component.translatable("gui.car.with_turbo", name);
+                name = Component.translatable("gui.overthought_vehicles.with_turbo", name);
             }
         }
         if (!car.workshop().canInspect(part)) {
-            return Component.translatable("gui.car.hologram_hidden", name);
+            return Component.translatable("gui.overthought_vehicles.hologram_hidden", name);
         }
-        return Component.translatable("gui.car.hologram_worn", name,
+        return Component.translatable("gui.overthought_vehicles.hologram_worn", name,
                 Math.round(car.parts().getConditionFraction(part) * 100.0F));
     }
 

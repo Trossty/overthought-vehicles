@@ -1,7 +1,7 @@
 import json, random
 from model_uv import fold_uvs
 from PIL import Image
-R='/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
+R='/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/overthought_vehicles/'
 T=R+'textures/block/'; M=R+'models/block/'
 random.seed(3)
 def noisy(base,n=5,name=None,fn=None):
@@ -35,10 +35,10 @@ def el(fr,to,tex,uv=None,faces=('north','south','east','west','up','down'),rot=N
 def save(name,textures,els,parent='minecraft:block/block'):
     json.dump({'parent':parent,'textures':textures,'elements':fold_uvs(els)},open(M+name+'.json','w'),indent=1)
 
-TX={'particle':'car:block/shop_red','steel':'car:block/shop_steel','red':'car:block/shop_red','chrome':'car:block/shop_chrome',
-    'rubber':'car:block/shop_rubber','hazard':'car:block/shop_hazard','wood':'car:block/shop_wood',
-    'drawers':'car:block/vehicle_workstation_front','screen':'car:block/vehicle_workstation_top','tread':'car:block/vehicle_lift_top',
-    'pit':'car:block/vehicle_lift_side','bottom':'car:block/vehicle_lift_bottom'}
+TX={'particle':'overthought_vehicles:block/shop_red','steel':'overthought_vehicles:block/shop_steel','red':'overthought_vehicles:block/shop_red','chrome':'overthought_vehicles:block/shop_chrome',
+    'rubber':'overthought_vehicles:block/shop_rubber','hazard':'overthought_vehicles:block/shop_hazard','wood':'overthought_vehicles:block/shop_wood',
+    'drawers':'overthought_vehicles:block/vehicle_workstation_front','screen':'overthought_vehicles:block/vehicle_workstation_top','tread':'overthought_vehicles:block/vehicle_lift_top',
+    'pit':'overthought_vehicles:block/vehicle_lift_side','bottom':'overthought_vehicles:block/vehicle_lift_bottom'}
 
 # ---- workbench ----
 wb=[el([0,13,0],[16,16,16],'#wood')]
@@ -58,7 +58,7 @@ for i in range(4):
     wb.append(el([x,16.6,12.5],[x+1,17.2,13.5],'#chrome'))
 # spanner
 wb+= [el([2,16,3.5],[8,16.4,4.5],'#chrome'), el([7.5,16,2.8],[9.5,16.4,5.2],'#chrome')]
-save('vehicle_workbench',dict(TX,particle='car:block/shop_wood'),wb)
+save('vehicle_workbench',dict(TX,particle='overthought_vehicles:block/shop_wood'),wb)
 
 # ---- workstation (front = north) ----
 ws=[]
@@ -72,6 +72,6 @@ ws+= [el([4,14,3],[12,14.5,6.5],'#steel'), el([6,14,9],[10,14.5,13],'#steel'), e
 scr=el([2,16,10],[14,23,11],'#steel',rot={'origin':[8,16,10.5],'axis':'x','angle':22.5},full=('north',))
 scr['faces']['north']['texture']='#screen'
 ws.append(scr)
-save('vehicle_workstation',dict(TX,particle='car:block/shop_red'),ws)
+save('vehicle_workstation',dict(TX,particle='overthought_vehicles:block/shop_red'),ws)
 
 print('ok')

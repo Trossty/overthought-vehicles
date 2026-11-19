@@ -266,10 +266,10 @@ public class VehicleLiftBlock extends MultiblockBlock {
         int before = lift.getStop();
         int stop = lift.step(up);
         world.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.4F, up ? 1.1F : 0.8F);
-        Component where = Component.translatable("message.car.lift_stop_" + stop);
+        Component where = Component.translatable("message.overthought_vehicles.lift_stop_" + stop);
         player.displayClientMessage(stop == before
-                ? Component.translatable(up ? "message.car.lift_at_top" : "message.car.lift_at_bottom", where)
-                : Component.translatable("message.car.lift_stop", where), true);
+                ? Component.translatable(up ? "message.overthought_vehicles.lift_at_top" : "message.overthought_vehicles.lift_at_bottom", where)
+                : Component.translatable("message.overthought_vehicles.lift_stop", where), true);
         return InteractionResult.CONSUME;
     }
 
@@ -298,10 +298,10 @@ public class VehicleLiftBlock extends MultiblockBlock {
     /** What to tell somebody working on a vehicle that is not up where it can be. */
     public static Component needsLift(me.trossty.car.entity.CarEntity vehicle) {
         return Component.translatable(switch (vehicle.chassis()) {
-            case BOAT -> "message.car.needs_cradle";
-            case PLANE -> "message.car.needs_jack";
-            case MOTORCYCLE -> "message.car.needs_bike_lift";
-            default -> "message.car.needs_lift";
+            case BOAT -> "message.overthought_vehicles.needs_cradle";
+            case PLANE -> "message.overthought_vehicles.needs_jack";
+            case MOTORCYCLE -> "message.overthought_vehicles.needs_bike_lift";
+            default -> "message.overthought_vehicles.needs_lift";
         });
     }
 }

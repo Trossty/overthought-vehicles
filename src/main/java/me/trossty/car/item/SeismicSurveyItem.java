@@ -144,19 +144,19 @@ public class SeismicSurveyItem extends Item {
 
     public static Component report(Survey found, BlockPos from) {
         if (found.nearest() == null) {
-            return Component.translatable("message.car.survey_none", RANGE).withStyle(ChatFormatting.GRAY);
+            return Component.translatable("message.overthought_vehicles.survey_none", RANGE).withStyle(ChatFormatting.GRAY);
         }
         int depth = from.getY() - found.nearest().getY();
         if (found.underfoot()) {
-            return Component.translatable("message.car.survey_here", buckets(found.belowHere()), depth)
+            return Component.translatable("message.overthought_vehicles.survey_here", buckets(found.belowHere()), depth)
                     .withStyle(ChatFormatting.GREEN);
         }
         int dx = found.nearest().getX() - from.getX();
         int dz = found.nearest().getZ() - from.getZ();
         int distance = (int) Math.round(Math.sqrt((double) dx * dx + (double) dz * dz));
-        return Component.translatable("message.car.survey_away", distance,
-                Component.translatable("direction.car." + compass(dx, dz)), depth,
-                found.depositBlocks() >= MOST ? Component.translatable("message.car.survey_huge")
+        return Component.translatable("message.overthought_vehicles.survey_away", distance,
+                Component.translatable("direction.overthought_vehicles." + compass(dx, dz)), depth,
+                found.depositBlocks() >= MOST ? Component.translatable("message.overthought_vehicles.survey_huge")
                         : Component.literal(String.valueOf(buckets(found.depositBlocks())))).withStyle(ChatFormatting.YELLOW);
     }
 

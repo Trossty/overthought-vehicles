@@ -190,7 +190,7 @@ public class PickupEntity extends CarEntity {
         player.openMenu(new SimpleMenuProvider(
                 (syncId, playerInventory, ignored) ->
                         ChestMenu.threeRows(syncId, playerInventory, this.bed),
-                Component.translatable("container.car.pickup_bed")));
+                Component.translatable("container.overthought_vehicles.pickup_bed")));
         return InteractionResult.CONSUME;
     }
 

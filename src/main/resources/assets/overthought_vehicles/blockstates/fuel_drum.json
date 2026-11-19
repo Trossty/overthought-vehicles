@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "overthought_vehicles:block/fuel_drum"
+    },
+    "facing=east": {
+      "model": "overthought_vehicles:block/fuel_drum",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "overthought_vehicles:block/fuel_drum",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "overthought_vehicles:block/fuel_drum",
+      "y": 270
+    }
+  }
+}

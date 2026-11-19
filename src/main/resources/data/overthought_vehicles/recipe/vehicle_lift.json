@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "P": {
+      "item": "minecraft:piston"
+    },
+    "i": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "pattern": [
+    "iii",
+    "IPI",
+    "III"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:vehicle_lift"
+  }
+}

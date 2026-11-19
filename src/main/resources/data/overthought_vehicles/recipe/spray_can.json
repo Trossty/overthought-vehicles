@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "N": {
+      "item": "minecraft:iron_nugget"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "pattern": [
+    "N",
+    "I",
+    "I"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:spray_can",
+    "components": {
+      "minecraft:damage": 10
+    }
+  }
+}

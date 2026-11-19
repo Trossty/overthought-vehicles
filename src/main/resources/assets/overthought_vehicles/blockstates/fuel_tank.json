@@ -1,0 +1,160 @@
+{
+ "multipart": [
+  {
+   "when": {
+    "north": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_0"
+   }
+  },
+  {
+   "when": {
+    "south": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_1"
+   }
+  },
+  {
+   "when": {
+    "west": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_2"
+   }
+  },
+  {
+   "when": {
+    "east": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_3"
+   }
+  },
+  {
+   "when": {
+    "north": "false",
+    "west": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_4"
+   }
+  },
+  {
+   "when": {
+    "north": "false",
+    "east": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_5"
+   }
+  },
+  {
+   "when": {
+    "south": "false",
+    "west": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_6"
+   }
+  },
+  {
+   "when": {
+    "south": "false",
+    "east": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_7"
+   }
+  },
+  {
+   "when": {
+    "north": "false",
+    "up": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_8"
+   }
+  },
+  {
+   "when": {
+    "south": "false",
+    "up": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_9"
+   }
+  },
+  {
+   "when": {
+    "west": "false",
+    "up": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_10"
+   }
+  },
+  {
+   "when": {
+    "east": "false",
+    "up": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_11"
+   }
+  },
+  {
+   "when": {
+    "north": "false",
+    "down": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_12"
+   }
+  },
+  {
+   "when": {
+    "south": "false",
+    "down": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_13"
+   }
+  },
+  {
+   "when": {
+    "west": "false",
+    "down": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_14"
+   }
+  },
+  {
+   "when": {
+    "east": "false",
+    "down": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_15"
+   }
+  },
+  {
+   "when": {
+    "up": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_16"
+   }
+  },
+  {
+   "when": {
+    "down": "false"
+   },
+   "apply": {
+    "model": "overthought_vehicles:block/tank/part_17"
+   }
+  }
+ ]
+}

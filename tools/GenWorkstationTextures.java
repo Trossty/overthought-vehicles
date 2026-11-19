@@ -41,7 +41,7 @@ public class GenWorkstationTextures {
     }
 
     public static void main(String[] args) throws Exception {
-        String out = args.length > 0 ? args[0] : "src/main/resources/assets/car/textures/block";
+        String out = args.length > 0 ? args[0] : "src/main/resources/assets/overthought_vehicles/textures/block";
 
         // Top: a blueprint on a steel bench top.
         img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);

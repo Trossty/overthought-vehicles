@@ -12,7 +12,7 @@ import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 
 /**
  * Oil deposits in the overworld. The feature's placement is in the data pack,
- * and data/car/neoforge/biome_modifier adds it to every overworld biome.
+ * and data/overthought_vehicles/neoforge/biome_modifier adds it to every overworld biome.
  */
 public final class ModWorldGen {
 

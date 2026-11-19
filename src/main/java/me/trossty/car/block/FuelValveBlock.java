@@ -140,10 +140,10 @@ public class FuelValveBlock extends ModelEntityBlock {
     }
 
     private static void report(Player player, BlockState state) {
-        String key = !state.getValue(OPEN) ? "message.car.valve_closed"
-                : state.getValue(POWERED) ? "message.car.valve_shut" : "message.car.valve_open";
+        String key = !state.getValue(OPEN) ? "message.overthought_vehicles.valve_closed"
+                : state.getValue(POWERED) ? "message.overthought_vehicles.valve_shut" : "message.overthought_vehicles.valve_open";
         player.displayClientMessage(Component.translatable(key,
-                Component.translatable("direction.car." + state.getValue(FACING).getSerializedName())), true);
+                Component.translatable("direction.overthought_vehicles." + state.getValue(FACING).getSerializedName())), true);
     }
 
     /** North, east, south, west, up, down, and round again. */

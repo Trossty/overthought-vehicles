@@ -19,8 +19,8 @@ import java.util.Random;
  */
 public class GenAsphalt {
 
-    static final String ASSETS = "src/main/resources/assets/car/";
-    static final String DATA = "src/main/resources/data/car/";
+    static final String ASSETS = "src/main/resources/assets/overthought_vehicles/";
+    static final String DATA = "src/main/resources/data/overthought_vehicles/";
 
     static final String[] MARKINGS = {"dashed", "solid", "double", "edge", "corner", "stop", "crosswalk",
             "arrow", "arrow_left", "arrow_right", "parking", "hatch"};
@@ -183,8 +183,8 @@ public class GenAsphalt {
         return """
                 {
                   "textures": {
-                    "particle": "car:block/asphalt",
-                    "texture": "car:block/asphalt"
+                    "particle": "overthought_vehicles:block/asphalt",
+                    "texture": "overthought_vehicles:block/asphalt"
                   },
                   "elements": [
                     {
@@ -212,8 +212,8 @@ public class GenAsphalt {
                 {
                   "ambientocclusion": false,
                   "textures": {
-                    "particle": "car:block/marking/%1$s",
-                    "marking": "car:block/marking/%1$s"
+                    "particle": "overthought_vehicles:block/marking/%1$s",
+                    "marking": "overthought_vehicles:block/marking/%1$s"
                   },
                   "elements": [
                     {
@@ -245,7 +245,7 @@ public class GenAsphalt {
         json(models + "block/asphalt.json", """
                 {
                   "parent": "minecraft:block/cube_all",
-                  "textures": {"all": "car:block/asphalt"}
+                  "textures": {"all": "overthought_vehicles:block/asphalt"}
                 }
                 """);
         for (int layers = 1; layers < 8; layers++) {
@@ -259,7 +259,7 @@ public class GenAsphalt {
         // ---- blockstate: the layer, then the marking over it ----
         List<String> parts = new ArrayList<>();
         for (int layers = 1; layers <= 8; layers++) {
-            String model = layers == 8 ? "car:block/asphalt" : "car:block/asphalt_height" + layers * 2;
+            String model = layers == 8 ? "overthought_vehicles:block/asphalt" : "overthought_vehicles:block/asphalt_height" + layers * 2;
             parts.add("    {\"when\": {\"layers\": \"%d\"}, \"apply\": {\"model\": \"%s\"}}".formatted(layers, model));
         }
         for (String name : MARKINGS) {
@@ -267,7 +267,7 @@ public class GenAsphalt {
                 for (int f = 0; f < FACINGS.length; f++) {
                     String rot = f == 0 ? "" : ", \"y\": " + f * 90;
                     parts.add(("    {\"when\": {\"marking\": \"%s\", \"layers\": \"%d\", \"facing\": \"%s\"},"
-                            + " \"apply\": {\"model\": \"car:block/marking/%s_%d\"%s}}")
+                            + " \"apply\": {\"model\": \"overthought_vehicles:block/marking/%s_%d\"%s}}")
                             .formatted(name, layers, FACINGS[f], name, layers, rot));
                 }
             }
@@ -287,7 +287,7 @@ public class GenAsphalt {
                                   "conditions": [
                                     {
                                       "condition": "minecraft:block_state_property",
-                                      "block": "car:asphalt",
+                                      "block": "overthought_vehicles:asphalt",
                                       "properties": {"layers": "%d"}
                                     }
                                   ]
@@ -303,7 +303,7 @@ public class GenAsphalt {
                       "entries": [
                         {
                           "type": "minecraft:item",
-                          "name": "car:asphalt",
+                          "name": "overthought_vehicles:asphalt",
                           "functions": [
                 %s
                           ]
@@ -312,7 +312,7 @@ public class GenAsphalt {
                       "rolls": 1.0
                     }
                   ],
-                  "random_sequence": "car:blocks/asphalt"
+                  "random_sequence": "overthought_vehicles:blocks/asphalt"
                 }
                 """.formatted(String.join(",\n", counts)));
 
@@ -325,7 +325,7 @@ public class GenAsphalt {
                   "key": {
                     "G": "minecraft:gravel",
                     "S": "#minecraft:sand",
-                    "T": "car:tar"
+                    "T": "overthought_vehicles:tar"
                   },
                   "pattern": [
                     "GSG",
@@ -334,7 +334,7 @@ public class GenAsphalt {
                   ],
                   "result": {
                     "count": 16,
-                    "id": "car:asphalt"
+                    "id": "overthought_vehicles:asphalt"
                   }
                 }
                 """);

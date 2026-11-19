@@ -80,7 +80,7 @@ final class Playtest {
 
     /** Puts a car in the player's hand and has them set it down and climb in, all by key. */
     private static void place(ClientGameTestContext context, TestServerContext server) {
-        server.runCommand("give @a car:car");
+        server.runCommand("give @a overthought_vehicles:car");
         server.runCommand("tp @a 0.5 %d 0.5 0 60".formatted(Y));
         context.waitTicks(10);
         context.getInput().pressKey(options -> options.keyUse);
@@ -387,7 +387,7 @@ final class Playtest {
         // Full ahead into a quay wall: a boat dents on stone like anything else.
         context.getInput().pressKey(o -> o.keyShift);
         context.waitTicks(5);
-        server.runCommand("kill @e[type=car:motorboat]");
+        server.runCommand("kill @e[type=overthought_vehicles:motorboat]");
         board(context, server, me.trossty.car.registry.ModEntities.MOTORBOAT, me.trossty.car.entity.MotorboatEntity.class, 110.5, Y + 1, -30.5);
         double[] at = {110.5, -30.5};
         int wallZ = (int) Math.floor(at[1]) + 14;
@@ -647,7 +647,7 @@ final class Playtest {
                 car.discard();
             }
         });
-        server.runCommand("summon car:car 30.5 %d 110.5 {Rotation:[180f,0f],Color:14,Tags:[\"night\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 30.5 %d 110.5 {Rotation:[180f,0f],Color:14,Tags:[\"night\"]}".formatted(Y));
         server.runCommand("tp @a 30.5 %d 110.5 180 10".formatted(Y));
         context.waitTicks(5);
         server.runCommand("ride @p mount @e[tag=night,limit=1]");

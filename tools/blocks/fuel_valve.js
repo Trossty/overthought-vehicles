@@ -35,5 +35,5 @@ function valve(open) {
     k.round('y', 8, 14.6 + lift, 8, 0.8, 0.9, C.CHROME);
 }
 
-k.model('fuel_valve', {particle: 'car:block/fuel_valve'}, () => valve(true));
-k.model('fuel_valve_shut', {particle: 'car:block/fuel_valve'}, () => valve(false));
+k.model('fuel_valve', {particle: 'overthought_vehicles:block/fuel_valve'}, () => valve(true));
+k.model('fuel_valve_shut', {particle: 'overthought_vehicles:block/fuel_valve'}, () => valve(false));

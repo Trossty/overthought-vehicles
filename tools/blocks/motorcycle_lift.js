@@ -4,7 +4,7 @@
 // pump stands out on the east side. The deck's top is where
 // MotorcycleLiftBlock holds the bike: two up, and three and three quarters
 // more a level.
-const RED = C.RED, HAZARD = 'car:block/shop_hazard', PLATE = 'car:block/lift_plate';
+const RED = C.RED, HAZARD = 'overthought_vehicles:block/shop_hazard', PLATE = 'overthought_vehicles:block/lift_plate';
 
 function lift(level) {
     const top = 2 + 3.75 * level, under = top - 1.2;
@@ -77,6 +77,6 @@ function lift(level) {
 }
 
 for (let level = 0; level <= 4; level++) {
-    k.model(level ? 'motorcycle_lift_' + level : 'motorcycle_lift', {ao: false, particle: 'car:block/lift_plate'},
+    k.model(level ? 'motorcycle_lift_' + level : 'motorcycle_lift', {ao: false, particle: 'overthought_vehicles:block/lift_plate'},
         () => lift(level));
 }

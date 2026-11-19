@@ -8,7 +8,7 @@
 import json, os, random
 from PIL import Image
 
-R = '/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
+R = '/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/overthought_vehicles/'
 TI = R + 'textures/item/'
 TB = R + 'textures/block/'
 MI = R + 'models/item/'
@@ -114,7 +114,7 @@ for name, colour in PAINTS.items():
     els.append(box([12.9, 6.5, 7.6], [13.4, 11.5, 8.4], '#tin', [8, 8, 10, 10]))
     els.append(box([2.6, 11.5, 7.6], [13.4, 12, 8.4], '#tin', [8, 8, 10, 10]))
     els.append(box([6, 11.3, 7.3], [10, 12.3, 8.7], '#tin', [10, 8, 12, 10]))
-    write_model(name + '_road_paint', {'particle': f'car:item/{name}_road_paint', 'tin': f'car:item/{name}_road_paint'},
+    write_model(name + '_road_paint', {'particle': f'overthought_vehicles:item/{name}_road_paint', 'tin': f'overthought_vehicles:item/{name}_road_paint'},
                 els)
 
 # ---- tar: a lump with a glossy skin ----
@@ -135,7 +135,7 @@ els = [box([3.5, 0, 4], [12.5, 3, 12], '#tar'),
        # a run spreading out at the foot
        box([11.5, 0, 6], [14, 1, 9], '#tar'),
        box([2, 0, 8], [4, 0.8, 11], '#tar')]
-write_model('tar', {'particle': 'car:item/tar', 'tar': 'car:item/tar'}, els)
+write_model('tar', {'particle': 'overthought_vehicles:item/tar', 'tar': 'overthought_vehicles:item/tar'}, els)
 
 # ---- oil seep: a ragged puddle, the ground showing through the gaps ----
 im = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
@@ -153,7 +153,7 @@ for (x, y), c in zip(((5, 5), (6, 5), (10, 8), (11, 8), (9, 10), (7, 11)),
     im.putpixel((x, y), c + (255,))
 im.save(TB + 'oil_seep.png')
 json.dump({'parent': 'minecraft:block/block', 'ambientocclusion': False,
-           'textures': {'particle': 'car:block/oil_seep', 'oil': 'car:block/oil_seep'},
+           'textures': {'particle': 'overthought_vehicles:block/oil_seep', 'oil': 'overthought_vehicles:block/oil_seep'},
            'elements': [box([0, 0, 0], [16, 0.5, 16], '#oil', None, ('up', 'down'))]},
           open(R + 'models/block/oil_seep.json', 'w'), indent=1)
 
@@ -170,9 +170,9 @@ els = [box([0, 0, 0], [16, 0.5, 16], '#oil', None, ('up', 'down')),
        box([6.6, 3.5, 6.6], [9.4, 5, 9.4], '#drop'),
        box([7.3, 5, 7.3], [8.7, 6.3, 8.7], '#drop'),
        box([7.7, 6.3, 7.7], [8.3, 7, 8.3], '#drop')]
-write_model('oil_seep', {'particle': 'car:block/oil_seep', 'oil': 'car:block/oil_seep', 'drop': 'car:block/oil_drop'},
+write_model('oil_seep', {'particle': 'overthought_vehicles:block/oil_seep', 'oil': 'overthought_vehicles:block/oil_seep', 'drop': 'overthought_vehicles:block/oil_drop'},
             els)
 
 # ---- the asphalt item shows a full block of it ----
-json.dump({'parent': 'car:block/asphalt_height8'}, open(R + 'models/item/asphalt.json', 'w'), indent=2)
+json.dump({'parent': 'overthought_vehicles:block/asphalt_height8'}, open(R + 'models/item/asphalt.json', 'w'), indent=2)
 print('written')

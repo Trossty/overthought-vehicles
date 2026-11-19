@@ -26,7 +26,7 @@ public class VehicleWorkstationBlock extends HorizontalDirectionalBlock {
 
     public static final MapCodec<VehicleWorkstationBlock> CODEC = simpleCodec(VehicleWorkstationBlock::new);
 
-    private static final Component TITLE = Component.translatable("container.car.vehicle_workstation");
+    private static final Component TITLE = Component.translatable("container.overthought_vehicles.vehicle_workstation");
 
     public VehicleWorkstationBlock(Properties settings) {
         super(settings);

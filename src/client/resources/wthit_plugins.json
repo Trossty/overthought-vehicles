@@ -1,5 +1,5 @@
 {
-  "car:wthit": {
+  "overthought_vehicles:wthit": {
     "entrypoints": {
       "client": "me.trossty.car.client.compat.WthitCarPlugin"
     },

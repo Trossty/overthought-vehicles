@@ -93,7 +93,7 @@ public class AircraftJackBlock extends ServiceStandBlock {
         world.setBlock(pos, state.setValue(RAISED, up), Block.UPDATE_ALL);
         world.playSound(null, pos, up ? SoundEvents.PISTON_EXTEND : SoundEvents.PISTON_CONTRACT,
                 SoundSource.BLOCKS, 0.4F, 0.7F);
-        player.displayClientMessage(Component.translatable(up ? "message.car.jack_up" : "message.car.jack_down"), true);
+        player.displayClientMessage(Component.translatable(up ? "message.overthought_vehicles.jack_up" : "message.overthought_vehicles.jack_down"), true);
         return InteractionResult.CONSUME;
     }
 

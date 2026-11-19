@@ -81,21 +81,21 @@ public class DrainPanBlock extends ModelEntityBlock {
         }
         CarEntity car = carAbove(world, pos);
         if (car == null) {
-            player.displayClientMessage(Component.translatable("message.car.pan_no_car",
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.pan_no_car",
                     pan.millibuckets()), true);
             return InteractionResult.CONSUME;
         }
         if (car.upkeep().getOilLevel() <= 0.0F) {
-            player.displayClientMessage(Component.translatable("message.car.pan_dry"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.pan_dry"), true);
             return InteractionResult.CONSUME;
         }
         if (!pan.hasRoomFor(car.upkeep().getOilLevel())) {
-            player.displayClientMessage(Component.translatable("message.car.pan_full"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.pan_full"), true);
             return InteractionResult.CONSUME;
         }
         pan.catchOil(car.upkeep().drainOil());
         world.playSound(null, pos, SoundEvents.BUCKET_EMPTY_LAVA, SoundSource.BLOCKS, 0.8F, 0.8F);
-        player.displayClientMessage(Component.translatable("message.car.pan_drained", pan.millibuckets()), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.pan_drained", pan.millibuckets()), true);
         return InteractionResult.CONSUME;
     }
 }

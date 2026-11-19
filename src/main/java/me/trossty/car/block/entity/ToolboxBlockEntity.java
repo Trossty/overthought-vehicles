@@ -24,7 +24,7 @@ public class ToolboxBlockEntity extends BaseContainerBlockEntity {
 
     @Override
     protected Component getDefaultName() {
-        return Component.translatable("block.car.toolbox");
+        return Component.translatable("block.overthought_vehicles.toolbox");
     }
 
     @Override

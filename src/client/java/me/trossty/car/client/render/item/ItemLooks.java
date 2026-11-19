@@ -27,22 +27,22 @@ import java.util.List;
 public final class ItemLooks {
 
     /**
-     * Vehicles in the order the item models number them ({@code car:vehicle}
+     * Vehicles in the order the item models number them ({@code overthought_vehicles:vehicle}
      * 1 is the first). tools/port_item_models.py printed this list; a
      * vehicle added later goes on the end, here and in the model's overrides.
      */
     public static final List<ResourceLocation> VEHICLES = List.of(
-            CarMain.id("toyota_corolla"), CarMain.id("tofas_sahin"), CarMain.id("jeep_wrangler"),
-            CarMain.id("ford_mustang"), CarMain.id("mercedes_atego"),
-            CarMain.id("vespa_primavera"), CarMain.id("honda_cbr600rr"), CarMain.id("toyota_hilux"),
-            CarMain.id("box_trailer"), CarMain.id("bayliner_bowrider"), CarMain.id("cessna_172"),
+            CarMain.id("sedan"), CarMain.id("classic_sedan"), CarMain.id("off_roader"),
+            CarMain.id("muscle_car"), CarMain.id("tanker_truck"),
+            CarMain.id("scooter"), CarMain.id("sport_bike"), CarMain.id("pickup_truck"),
+            CarMain.id("box_trailer"), CarMain.id("bowrider"), CarMain.id("light_aircraft"),
             CarMain.id("flatbed_trailer"), CarMain.id("tow_dolly"),
-            CarMain.id("plane_tow_dolly"), CarMain.id("hilux_tow"), CarMain.id("wheel_lift"),
+            CarMain.id("plane_tow_dolly"), CarMain.id("tow_truck"), CarMain.id("wheel_lift"),
             CarMain.id("caravan"),
-            CarMain.id("robinson_r44"), CarMain.id("massey_ferguson_240"), CarMain.id("seed_drill"),
-            CarMain.id("fertilizer_spreader"), CarMain.id("john_deere_x350"),
-            CarMain.id("honda_fourtrax_rancher"), CarMain.id("tony_kart_racer_401"), CarMain.id("meyers_manx"),
-            CarMain.id("club_car_precedent"), CarMain.id("yamaha_waverunner_vx"));
+            CarMain.id("helicopter"), CarMain.id("tractor"), CarMain.id("seed_drill"),
+            CarMain.id("fertilizer_spreader"), CarMain.id("lawn_tractor"),
+            CarMain.id("quad_bike"), CarMain.id("go_kart"), CarMain.id("dune_buggy"),
+            CarMain.id("golf_cart"), CarMain.id("water_scooter"));
 
     /** Bare steel: an empty drum's paint. */
     public static final int EMPTY_DRUM = 0x9AA1A8;

@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "I": {
+      "item": "minecraft:iron_nugget"
+    },
+    "B": {
+      "item": "minecraft:black_dye"
+    }
+  },
+  "pattern": [
+    "BR",
+    " I"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:car_key"
+  }
+}

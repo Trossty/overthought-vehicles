@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "G": {
+      "item": "minecraft:gravel"
+    },
+    "S": {
+      "tag": "minecraft:sand"
+    },
+    "T": {
+      "item": "overthought_vehicles:tar"
+    }
+  },
+  "pattern": [
+    "GSG",
+    "STS",
+    "GSG"
+  ],
+  "result": {
+    "count": 16,
+    "id": "overthought_vehicles:asphalt"
+  }
+}

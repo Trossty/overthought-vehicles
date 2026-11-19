@@ -1,0 +1,94 @@
+{
+ "variants": {
+  "facing=north,level=0,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift"
+  },
+  "facing=east,level=0,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift",
+   "y": 90
+  },
+  "facing=south,level=0,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift",
+   "y": 180
+  },
+  "facing=west,level=0,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift",
+   "y": 270
+  },
+  "facing=north,level=1,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_1"
+  },
+  "facing=east,level=1,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_1",
+   "y": 90
+  },
+  "facing=south,level=1,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_1",
+   "y": 180
+  },
+  "facing=west,level=1,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_1",
+   "y": 270
+  },
+  "facing=north,level=2,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_2"
+  },
+  "facing=east,level=2,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_2",
+   "y": 90
+  },
+  "facing=south,level=2,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_2",
+   "y": 180
+  },
+  "facing=west,level=2,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_2",
+   "y": 270
+  },
+  "facing=north,level=3,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_3"
+  },
+  "facing=east,level=3,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_3",
+   "y": 90
+  },
+  "facing=south,level=3,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_3",
+   "y": 180
+  },
+  "facing=west,level=3,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_3",
+   "y": 270
+  },
+  "facing=north,level=4,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_4"
+  },
+  "facing=east,level=4,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_4",
+   "y": 90
+  },
+  "facing=south,level=4,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_4",
+   "y": 180
+  },
+  "facing=west,level=4,part=0": {
+   "model": "overthought_vehicles:block/motorcycle_lift_4",
+   "y": 270
+  },
+  "part=1": {
+   "model": "overthought_vehicles:block/lift_part"
+  },
+  "part=2": {
+   "model": "overthought_vehicles:block/lift_part"
+  },
+  "part=3": {
+   "model": "overthought_vehicles:block/lift_part"
+  },
+  "part=4": {
+   "model": "overthought_vehicles:block/lift_part"
+  },
+  "part=5": {
+   "model": "overthought_vehicles:block/lift_part"
+  }
+ }
+}

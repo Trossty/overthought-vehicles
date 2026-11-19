@@ -78,7 +78,7 @@ public class RoadPaintItem extends Item {
         }
         Marking marking = Marking.values()[index];
         select(tin, marking);
-        player.displayClientMessage(Component.translatable("message.car.marking_selected",
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.marking_selected",
                 Component.translatable(marking.translationKey()).withStyle(ChatFormatting.WHITE),
                 marking.ordinal() + 1, Marking.values().length).withStyle(ChatFormatting.GRAY), true);
     }
@@ -107,7 +107,7 @@ public class RoadPaintItem extends Item {
         boolean erasing = painted.getValue(AsphaltBlock.MARKING) == Marking.NONE;
         if (!erasing && isEmpty(tin)) {
             if (player != null && world.isClientSide()) {
-                player.displayClientMessage(Component.translatable("message.car.paint_empty").withStyle(ChatFormatting.GRAY), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.paint_empty").withStyle(ChatFormatting.GRAY), true);
             }
             return InteractionResult.FAIL;
         }
@@ -150,10 +150,10 @@ public class RoadPaintItem extends Item {
         super.appendHoverText(stack, context, lines, type);
         Consumer<Component> tooltip = lines::add;
         Marking marking = selected(stack);
-        tooltip.accept(Component.translatable("tooltip.car.marking",
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.marking",
                 Component.translatable(marking.translationKey()).withStyle(ChatFormatting.WHITE)).withStyle(ChatFormatting.GRAY));
-        tooltip.accept(Component.translatable("tooltip.car.spray_charges",
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.spray_charges",
                 stack.getMaxDamage() - stack.getDamageValue(), stack.getMaxDamage()).withStyle(ChatFormatting.GRAY));
-        tooltip.accept(Component.translatable("tooltip.car.marking_hint").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.marking_hint").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

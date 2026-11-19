@@ -15,7 +15,7 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **Motor sesi** — devre göre perdesi değişen (vites değişince düşen), aracı takip eden döngü (etraftakiler de duyar)
 - **Yol hissi** — tekerin altındaki bloğa göre yol sesi (çakıl çıtırdar, asfalt/taş fısıldar) ve bozuk zeminde kamera sarsıntısı
 - **Korna** — `H` tuşu, sunucu tarafında yetki kontrollü
-- **Yakıt sistemi** — her aracın gerçek depo boyutu (Vespa 8 L, Atego 200 L); tüketim hıza, gaza, yokuşa ve yüke bağlı; göstergede menzil; azalınca uyarı, bitmek üzereyken motor öksürür; çarpışmada delinen ve yamalanan depo
+- **Yakıt sistemi** — her aracın gerçek depo boyutu (skuter 8 L, tanker kamyon 200 L); tüketim hıza, gaza, yokuşa ve yüke bağlı; göstergede menzil; azalınca uyarı, bitmek üzereyken motor öksürür; çarpışmada delinen ve yamalanan depo
 - **MrCrayfish usulü dolum** — bidonu ya da pompanın tabancasını aracın **depo kapağına** tut, sağ tıkı **basılı tut**: yakıt akıyor, bırakınca ya da başka yere bakınca duruyor; boş bidonla aynı şekilde depodan çek
 - **Analog gösterge paneli** — hızölçer (ölçeği aracın azami hızına göre), devir saati + vites, yakıt ve sıcaklık
 - **Kalıcılık** — depodaki yakıt kayıt/yükleme arasında korunur
@@ -29,7 +29,6 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **Parçalar ve atölye** — 24 parça aşınıyor, sökme sırası var, servis ekranından teşhis ve değişim
 - **Üretim hattı** — dünyada petrol yatakları, onları çeken pompa (pumpjack), çok bloklu ve bacası tüten rafineri, ham yakıtı temizleyen hidrojenle arıtıcı; organik maddeden ayrıca **biyoyakıt**
 - **Üç jeneratör** — kömür, biyoyakıt ve dizel; borulu şasili, egzozu tüten taşınabilir setler
-- **Test sekmesi** — yaratıcı modda "Araba: Tüm Eşyalar (test)": modun her eşyası ve bloğu, her türüyle (dolu bidonlar, parça çeşitleri, boyalar) ve makinelerin yediği vanilya eşyalar
 - **Enerji kablosu** — jeneratörden makinelere hat; ağ yok, enerji tüketene doğru akıyor; başka modların kablolarıyla bağlanıyor
 - **Yakıt pompası** — boş elle tabancayı al, hortum peşinden gelsin; 6 bloktan uzaklaşınca tabanca yerine döner
 - **Yakıt borusu** — arıtıcıdan pompaya hat; ağ yok, her boru kendi seviyesine bakıyor; başka modların boruları/tanklarıyla bağlanıyor
@@ -42,12 +41,12 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **Sprey boya** — 16 boyadan karıştırılan her renk; kutu 10 sıkım, boyayla tezgâhta doldurulur
 - **Drift** — hızda el freni + direksiyon arkayı kaydırır
 - **Römork** — tek akslı kasalı römork; aracın arkasına bağlanır, 27 slotluk yük taşır, yük çekeni yavaşlatır
-- **İki tekerliler** — Vespa scooter ve Honda CBR spor motor; virajda yatıyorlar
-- **Gerçek araçlar** — Toyota Corolla, Tofaş Şahin, Jeep Wrangler, Ford Mustang (yarış arabası), Toyota Hilux, Mercedes-Benz Atego tanker, Vespa Primavera, Honda CBR600RR ve kasalı römork; eski deneme arabası yok
+- **İki tekerliler** — skuter ve spor motosiklet; virajda yatıyorlar
+- **Gerçek araçlardan esinlenen modeller** — Sedan, Klasik Sedan, Arazi Aracı, Spor Araba, Kamyonet, Tanker Kamyon, Skuter, Spor Motosiklet ve kasalı römork; eski deneme arabası yok
 - **Araç Kasası ve İngiliz anahtarı** — Araç İstasyonu aracı tahta bir kasada verir; kasayı koy, İngiliz anahtarıyla dört kez sağ tıkla, kapak kalkar, yanlar düşer, araç çıkar
-- **Helikopter** — Robinson R44; zıplama tuşuyla dikine kalkar, ileri/geri burnu eğer, sağ/sol kuyruk rotoruyla yerinde döner, bırakınca yavaşça iner; motor havada durursa otorotasyonla iner
-- **Tarım** — Massey Ferguson 240 traktör, arkasına takılan ekim makinesi (yükündeki tohumu sürülmüş toprağa eker) ve gübre serpme makinesi (yükündeki kemik tozunu ekinlere serper); John Deere X350 çim biçme traktörü üstünden geçtiği otu ve çiçeği biçip çektiği römorka doldurur
-- **Küçük araçlar** — Honda FourTrax Rancher ATV, Tony Kart Racer 401 go-kart, Meyers Manx plaj arabası, Club Car Precedent golf arabası (elektrikli) ve Yamaha WaveRunner VX jet ski; ATV'de ve jet skide direksiyon değil gidon var
+- **Helikopter** — dört kişilik; zıplama tuşuyla dikine kalkar, ileri/geri burnu eğer, sağ/sol kuyruk rotoruyla yerinde döner, bırakınca yavaşça iner; motor havada durursa otorotasyonla iner
+- **Tarım** — traktör, arkasına takılan ekim makinesi (yükündeki tohumu sürülmüş toprağa eker) ve gübre serpme makinesi (yükündeki kemik tozunu ekinlere serper); çim biçme traktörü üstünden geçtiği otu ve çiçeği biçip çektiği römorka doldurur
+- **Küçük araçlar** — ATV, go-kart, plaj arabası, golf arabası (elektrikli) ve su motoru; ATV'de ve su motorunda direksiyon değil gidon var
 - **3B istasyon blokları** — pompa, rafineri, arıtıcı, pumpjack, jeneratörler ve depo küp değil, kaideli/kolonlu/bacalı modeller
 - **Makine ekranları** — jeneratör, arıtıcı, pompa kulesi, akü ve şarj direği: depo, enerji, akış ve çalışıyor/boşta lambası
 - **Akü bankası ve şarj direği** — 200 000 E'lik depo (önünden verir, öbür yüzlerinden alır), yanındaki elektrikli aracı şarj eden direk
@@ -57,7 +56,7 @@ MrCrayfish's Vehicle Mod tarzı sürülebilir araba modu. NeoForge, Minecraft 1.
 - **Yakıt kalitesi** — rafineriden çıkan ham yakıt bidona da dolar, ama motoru ve bujileri hızlı yer; arıtıcı ham bidonu kabul eder
 - **Asfalt ve yol boyası** — kar gibi katman katman serilen asfalt; yol boyası kutusunun menüsünden seçilen şerit, ok, yaya geçidi, dur çizgisi, viraj, park işareti çizilir
 - **OBD tableti** — kalın gövdeli, kauçuk köşeli 3B bir tablet; elde harita gibi tutulur, ekranında aracın arızaları, yakıtı, kaportası ve motor ısısı canlı görünür
-- **Başarımlar, ayar dosyası, Jade** — petrolden asfalta başarım zinciri, `config/car.json`, Jade kuruluysa araca bakınca durum özeti
+- **Başarımlar, ayar dosyası, Jade** — petrolden asfalta başarım zinciri, `config/overthought_vehicles.json`, Jade kuruluysa araca bakınca durum özeti
 
 ## Kontroller
 
@@ -234,12 +233,12 @@ Renk üç yerde birden korunuyor:
 |--------|-------|
 | Dünyada duran arabada | `DataTracker` ile, yakındaki herkesin istemcisine gidiyor |
 | Kayıt/yükleme arasında | `writeCustomData` içinde `Color` alanı |
-| Araba kırılıp eşyaya döndüğünde | `car:color` veri bileşeni |
+| Araba kırılıp eşyaya döndüğünde | `overthought_vehicles:color` veri bileşeni |
 
 Son satır önemliydi: `VehicleEntity.killAndDropItem` düz bir eşya yığını üretiyor,
 yani boya sessizce kaybolurdu. Onu geçersiz kıldım. Eşya ikonu da boyayı
-gösteriyor: ikonun boyalı kutuları beyaz çiziliyor ve `car:paint` renk kaynağı
-(`PaintTintSource`) onları eşyanın `car:color`'ıyla, boyanmamışsa aracın fabrika
+gösteriyor: ikonun boyalı kutuları beyaz çiziliyor ve `overthought_vehicles:paint` renk kaynağı
+(`PaintTintSource`) onları eşyanın `overthought_vehicles:color`'ıyla, boyanmamışsa aracın fabrika
 rengiyle boyuyor. Araçtaki gibi üç ton var (`paint`, `paint_dark`,
 `paint_light`). Vanilla bu renk kaynakları listesini dışarı açmadığı için
 `TintSourceTypesAccessor` karışımıyla ekleniyor. İpucu balonunda da rengin adı
@@ -796,7 +795,7 @@ Mod NeoForge 1.21.1'e taşındı, yani Create ile aynı oyuna yüklenebiliyor.
 Create'e karşı oyun içinde henüz denenmedi; bağlantı NeoForge'un ortak
 kapılarından (capability) geçiyor, Create'in boruları da tam bunu soruyor:
 
-- **Benzin artık gerçek bir akışkan** (`car:petrol`). Dünyaya dökülmüyor, kovası
+- **Benzin artık gerçek bir akışkan** (`overthought_vehicles:petrol`). Dünyaya dökülmüyor, kovası
   yok, akmıyor — Create'in kendi çayı ve iksirleri gibi yalnızca depolarda
   tutulup sayılıyor.
 - **Yakıt deposu bir akışkan deposu olarak görünüyor** (NeoForge
@@ -904,14 +903,14 @@ arabasının deposu eskisi gibi 100 birim, bir kova benzin, bir dolu bidon.
 
 | Araç | Depo | Menzil (dolu depo, azami hızın %60'ı) |
 |------|------|--------------------------------------|
-| Toyota Corolla | 50 L | 6.3 kb |
-| Tofaş Şahin | 50 L | 5.6 kb |
-| Jeep Wrangler | 66 L | 4.1 kb |
-| Ford Mustang | 61 L | 2.9 kb |
-| Toyota Hilux | 80 L | 9.4 kb |
-| Mercedes Atego | 200 L | 10.0 kb |
-| Vespa Primavera | 8 L | 2.0 kb |
-| Honda CBR600RR | 18 L | 2.8 kb |
+| Sedan | 50 L | 6.3 kb |
+| Klasik Sedan | 50 L | 5.6 kb |
+| Arazi Aracı | 66 L | 4.1 kb |
+| Spor Araba | 61 L | 2.9 kb |
+| Kamyonet | 80 L | 9.4 kb |
+| Tanker Kamyon | 200 L | 10.0 kb |
+| Skuter | 8 L | 2.0 kb |
+| Spor Motosiklet | 18 L | 2.8 kb |
 
 Tüketim oranları (`fuel_use`) gerçek araçların 100 km'de yaktığına göre
 ayarlı: Vespa ~2.8, Corolla ~6, Mustang ~16, Atego ~15 L/100 km karşılığı.
@@ -998,7 +997,7 @@ bidon çöp değil, rafineriye geri götürülecek bir şey.
 ### Yakıt varili
 
 MrCrayfish'in varili gibi tam blok boyunda, 14 piksel çapında sekizgen çelik
-varil (`car:fuel_drum`): iki yuvarlanmış çember, kenarın yarım piksel içine
+varil (`overthought_vehicles:fuel_drum`): iki yuvarlanmış çember, kenarın yarım piksel içine
 gömülü kapak, üstünde dolum tıpası ve havalandırma, önünde sarı tehlike
 etiketi. Konulduğu yöne döner, etiketi sana bakar.
 
@@ -1012,7 +1011,7 @@ etiketi. Konulduğu yöne döner, etiketi sana bakar.
 - **Bidon, kova, şişe** ile sağ tıklayıp dökersin ya da çekersin; tank ile
   aynı kod (`LiquidStores`). Başka sıvı dolu varile yakıt dökülmez. Boş el
   içindekini okur, karşılaştırıcı doluluğu okur.
-- **Kırınca içindekiyle düşer**: sıvı eşyada `car:stored_fluid` bileşeninde
+- **Kırınca içindekiyle düşer**: sıvı eşyada `overthought_vehicles:stored_fluid` bileşeninde
   taşınır, geri koyunca varilde yine aynı sıvı vardır (shulker kutusu gibi).
 - Transfer API'ye açık: borular ve başka modların boruları benzini çeker ya
   da doldurur.
@@ -1120,7 +1119,7 @@ Tek tesiste iki aşama var:
 
 | Aşama | Girdi | Güç | Çıktı | Süre |
 |-------|-------|-----|-------|------|
-| Kazan | 1 organik madde (`#car:refinery_organic`) | 8 E/tick | 100 biyokütle | 120 tick |
+| Kazan | 1 organik madde (`#overthought_vehicles:refinery_organic`) | 8 E/tick | 100 biyokütle | 120 tick |
 | Kolon | 200 besleme + 1 katalizör | 16 E/tick, kolon ≥ 300° | 200 ürün | 100 tick |
 | Doldurma | 250 biyoyakıt | — | bidonda 1 döküm | anında |
 
@@ -1137,10 +1136,10 @@ Ham yakıtı hiçbir motor almıyor. Son yuvadaki bidon yalnızca biyoyakıtla
 dolar; ham yakıt ürün kapısından çıkar: yanındaki arıtıcıya, tanker hortumuna,
 başka modun borusuna.
 
-- `#car:refinery_organic`: deniz yosunu, şeker kamışı, bambu, kaktüs, buğday,
+- `#overthought_vehicles:refinery_organic`: deniz yosunu, şeker kamışı, bambu, kaktüs, buğday,
   karpuz dilimi, çürük et, mantarlar, tatlı meyve, pancar
-- `#car:refinery_catalyst`: kızıltaş, blaze tozu, ışıltaş tozu
-- `#car:refinery_diesel_catalyst`: kömür, odun kömürü
+- `#overthought_vehicles:refinery_catalyst`: kızıltaş, blaze tozu, ışıltaş tozu
+- `#overthought_vehicles:refinery_diesel_catalyst`: kömür, odun kömürü
 
 #### Hidrojenle arıtıcı
 
@@ -1226,7 +1225,7 @@ pumpjack, arıtıcı, başka modların kabloları, bataryaları ve makineleri.
 
 #### Başka modların petrolü
 
-`#car:crude_oil` sıvı etiketindeki her sıvı (artık mod'un kendi ham petrolü de
+`#overthought_vehicles:crude_oil` sıvı etiketindeki her sıvı (artık mod'un kendi ham petrolü de
 dahil) rafinerinin besleme tankına **1 mB = 1 birim** giriyor: boruyla, ya da
 kovasını pencerenin ham petrol yuvasına koyarak. Etiket isteğe bağlı olarak
 `#c:oil`, `#c:crude_oil`, Tech Reborn, Modern Industrialization, Ad Astra,
@@ -1410,7 +1409,7 @@ direksiyon, oturma matematiği. Bir `CarEntity` alt sınıfı, ayrı bir araç d
 sıvı deposu (`IFluidHandler`). Yani bu kapının
 taşıyabildiği her şeyi alıyor: kova, şişe, kazan, başka bir modun tankı ya da
 kabı. Minecraft'ta sıvı olarak bulunmayan süt ve bal için mod kendi sıvılarını
-kaydediyor (`car:milk`, `car:honey`, yanında `car:diesel`); süt kovası ve bal
+kaydediyor (`overthought_vehicles:milk`, `overthought_vehicles:honey`, yanında `overthought_vehicles:diesel`); süt kovası ve bal
 şişesi bu sıvıların kapları oluyor (bal şişesi çeyrek kova, çünkü dört şişe bir
 bal bloğu).
 
@@ -1515,7 +1514,7 @@ rafineriyle pompanın arasına koyabiliyorsun.
 | `GeneratorBlockEntity.Kind` | `output` / `ticksPerUnit` | Jeneratör türlerinin gücü ve tüketimi |
 | `EnergyCableBlockEntity` | `CAPACITY` / `RATE` | Kablo parçasının tamponu ve geçirme hızı |
 | `CarSetup.Fuel.BIOFUEL` | `thirst` | Biyoyakıtın fazla tüketimi (1.40) |
-| `data/car/worldgen/placed_feature/oil_deposit.json` | `chance` | Yatakların seyrekliği |
+| `data/overthought_vehicles/worldgen/placed_feature/oil_deposit.json` | `chance` | Yatakların seyrekliği |
 | `FuelPumpBlockEntity` | `CAPACITY` | Pompa tankı |
 | `FuelPumpBlockEntity` | `PETROL_PER_FUEL_UNIT` | Benzin → depo kuru |
 | `FuelPumpBlock` | `HOSE_REACH` | Pompanın arabaya uzanma mesafesi |
@@ -1533,7 +1532,7 @@ rafineriyle pompanın arasına koyabiliyorsun.
 Bir arabanın *ne tür* bir araba olduğu artık parçalarından gelir. Üç parça
 türlere ayrılır (motor, lastik, hava filtresi), bir de motora cıvatalanan turbo
 vardır. Hepsi `CarSetup` içinde tek bir sayıya paketlenir; parçanın türü eşyada
-`car:part_variant`, araç eşyasında `car:setup` bileşeninde taşınır. Türsüz
+`overthought_vehicles:part_variant`, araç eşyasında `overthought_vehicles:setup` bileşeninde taşınır. Türsüz
 bir parça düz olandır — eski kayıtlardaki her araba benzinli sıralı 4, asfalt
 lastiği, kâğıt filtredir.
 
@@ -1692,14 +1691,14 @@ Hepsi yukarıdaki yoldan, sıradan veri olarak geliyor (`tools/GenVehicles.java`
 
 | Araç | Altındaki | Varsayılan mı | Fabrika çıkışı |
 |------|-----------|----------------|----------------|
-| Toyota Corolla | araba | araba eşyasının varsayılanı | sıralı 4, benzin, yol lastiği |
-| Tofaş Şahin | araba | | sıralı 4, benzin |
-| Jeep Wrangler | araba | | V6, benzin, arazi lastiği |
-| Ford Mustang | araba | | V8, benzin, spor lastik |
-| Toyota Hilux | kamyonet | kamyonetin varsayılanı | sıralı 4 turbo dizel |
-| Mercedes-Benz Atego | tanker | tankerin varsayılanı | dizel kamyon |
-| Honda CBR600RR | motosiklet | motosikletin varsayılanı | sıralı 4, benzin, spor lastik |
-| Vespa Primavera | motosiklet | | sıralı 4 (küçük), benzin, yol lastiği |
+| Sedan | araba | araba eşyasının varsayılanı | sıralı 4, benzin, yol lastiği |
+| Klasik Sedan | araba | | sıralı 4, benzin |
+| Arazi Aracı | araba | | V6, benzin, arazi lastiği |
+| Spor Araba | araba | | V8, benzin, spor lastik |
+| Kamyonet | kamyonet | kamyonetin varsayılanı | sıralı 4 turbo dizel |
+| Tanker Kamyon | tanker | tankerin varsayılanı | dizel kamyon |
+| Spor Motosiklet | motosiklet | motosikletin varsayılanı | sıralı 4, benzin, spor lastik |
+| Skuter | motosiklet | | sıralı 4 (küçük), benzin, yol lastiği |
 | Kasalı römork | römork | römorkun varsayılanı | motoru yok |
 
 Yaratıcı sekmede hepsi ayrı duruyor; hayatta kalmada hepsi
@@ -1737,9 +1736,9 @@ araca geçiyor, tıpkı liftte olduğu gibi.
 
 | Araç | İskelet parçalarına ek |
 |------|------------------------|
-| Tofaş Şahin | 2 demir külçe, 1 demir parmaklık |
-| Jeep Wrangler | 2 demir blok, 2 demir parmaklık, 2 deri |
-| Ford Mustang | 1 demir blok, 2 demir külçe, 1 kızıltaş bloğu |
+| Klasik Sedan | 2 demir külçe, 1 demir parmaklık |
+| Arazi Aracı | 2 demir blok, 2 demir parmaklık, 2 deri |
+| Spor Araba | 1 demir blok, 2 demir külçe, 1 kızıltaş bloğu |
 | Vespa | motor, şanzıman, 2 süspansiyon, 2 lastik + 2 demir külçe, 1 deri |
 | Honda CBR | motor, şanzıman, 2 süspansiyon, 2 lastik + 3 demir külçe, 2 kızıltaş, 1 deri |
 | Kasalı römork | 2 süspansiyon + 1 sandık, 3 demir külçe, 3 meşe basamak |
@@ -1786,9 +1785,9 @@ Motosiklet iskeleti arabanın aynısı: motor, yakıt, parçalar, anahtar, boya.
 Farkı dar gövde, sürücü + arkada yolcu ve virajda yatması (hızla ve direksiyonla
 artıyor, en fazla ~30°). Motor sesi daha tiz.
 
-- **Vespa Primavera**: küçük tekerli, bacak kalkanlı, iki kişilik selesi olan
+- **Skuter**: küçük tekerli, bacak kalkanlı, iki kişilik selesi olan
   İtalyan scooter. Yavaş ama çok az yakar, çok çevik döner.
-- **Honda CBR600RR**: tam kaportalı spor motor. Arabalardan hızlı, en çabuk
+- **Spor Motosiklet**: tam kaportalı spor motor. Arabalardan hızlı, en çabuk
   hızlanan araç.
 
 Denizde/havada giden araçlar daha sonra.
@@ -1986,7 +1985,7 @@ Geometri sabitleri `DashboardHud` ile `tools/GenGaugeTextures.java` arasında
 aynı adlarla tekrarlanıyor — birini değiştirince dokuları yeniden üret:
 
 ```bash
-java tools/GenGaugeTextures.java src/main/resources/assets/car/textures/gui
+java tools/GenGaugeTextures.java src/main/resources/assets/overthought_vehicles/textures/gui
 ```
 
 ## Hasar ve tamir
@@ -2019,7 +2018,7 @@ basılı tutan bir oyuncu aynı duvardan her tikte fatura yerdi.
 **Çarpışma, arabayı o an simüle eden tarafta yakalanıyor.** Biri sürerken fizik
 o oyuncunun istemcisinde işliyor ve sunucuya yalnızca sonuçtaki konum geliyor;
 yani çarpmayı yalnızca o istemci görüyor. Dolayısıyla çarpışmayı istemci
-yakalayıp `car:crash` paketiyle durumu tutan sunucuya bildiriyor. Kimse
+yakalayıp `overthought_vehicles:crash` paketiyle durumu tutan sunucuya bildiriyor. Kimse
 sürmüyorsa (yamaçtan kendi kendine yuvarlanan araba) simüle eden taraf sunucunun
 kendisi oluyor ve hasarı doğrudan uyguluyor. Şiddet değeri istemciden geldiği
 için sunucu onu `MAX_HEALTH` ile sınırlıyor ve yalnızca arabanın kendi
@@ -2109,8 +2108,8 @@ veya yer tutucu kullanılmıyor.
 
 | Dosya | İçerik |
 |-------|--------|
-| `assets/car/sounds/engine.ogg` | 70 Hz temel frekans + 8 harmonik, kusursuz 1.000 sn döngü |
-| `assets/car/sounds/horn.ogg` | 440 Hz + 554.37 Hz iki sesli akor, testere dişi harmonikler, 0.650 sn |
+| `assets/overthought_vehicles/sounds/engine.ogg` | 70 Hz temel frekans + 8 harmonik, kusursuz 1.000 sn döngü |
+| `assets/overthought_vehicles/sounds/horn.ogg` | 440 Hz + 554.37 Hz iki sesli akor, testere dişi harmonikler, 0.650 sn |
 
 **Yol sesi** ayrı bir dosya değil: tekerin altındaki bloğun kendi adım sesi,
 araba döndükçe çalınıyor (`client/sound/RoadSurface`). Ses grubuna bakıldığı
@@ -2134,7 +2133,7 @@ cd sounds-src && javac GenSounds.java && java GenSounds
 Sonra tekrar `.ogg`'ye çevir:
 
 ```bash
-oggenc -q 6 -o ../src/main/resources/assets/car/sounds/engine.ogg engine.wav
+oggenc -q 6 -o ../src/main/resources/assets/overthought_vehicles/sounds/engine.ogg engine.wav
 ```
 
 `oggenc` yoksa: `brew install vorbis-tools`.
@@ -2270,7 +2269,7 @@ kenarlarda kum → 16 asfalt.
 
 ### Ayar dosyası
 
-`config/car.json` ilk açılışta yazılır:
+`config/overthought_vehicles.json` ilk açılışta yazılır:
 
 | Anahtar | Varsayılan | Ne yapar |
 |---|---|---|
@@ -2320,7 +2319,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-26.jdk/Contents/Home ./gradlew 
   yalnız önünden verir, şarj direği elektrikli aracı doldurur, OBD en kötüyü
   öne koyar, asfalt kar gibi katmanlanır, boya çizer/döndürür/siler, tablet
   eşleşir ve menzil dışında sinyali keser, ham yakıt hacimce karışır…
-  Hepsi modun boş şablonu `car:empty` üzerinde koşuyor.
+  Hepsi modun boş şablonu `overthought_vehicles:empty` üzerinde koşuyor.
 
   ```bash
   ./gradlew runGameTestServer
@@ -2352,7 +2351,7 @@ java tools/GenItemModels.java [onizleme.png]
   burada da bloğun on altıda biri.
 - Silindirler (teker, disk, filtre) ortadan geçen ve her biri biraz daha
   döndürülmüş dilimlerden oluşuyor; 8 ya da 16 kenar.
-- Araba eşyası tek model; rengi `car:color` bileşenine göre eşya tanımındaki
+- Araba eşyası tek model; rengi `overthought_vehicles:color` bileşenine göre eşya tanımındaki
   `tints` veriyor. Renk başına ayrı model ve doku yok.
 - Modeller kuzeye bakacak şekilde yazılıyor: ön yüz −z, envanterde sağda görünen
   yüz o.
@@ -2399,7 +2398,7 @@ araçlar. Minibüs bilerek eklenmedi.
 
 Araç İstasyonu'nda üretilen araç artık eşya olarak değil, içinde o araç
 olan bir **Araç Kasası** olarak çıkar. Kasanın ipucu içindekini söyler
-("Honda FourTrax Rancher (Kasada)"). Yere koyulan kasa ancak **İngiliz
+("ATV (Kasada)"). Yere koyulan kasa ancak **İngiliz
 anahtarıyla** açılır (atölyenin rot ayarı ve motor sehpası için kullandığı
 aynı anahtar; dört demir külçeden, çalışma masasında yapılır).
 Kasa gerçek bir ihracat sandığı gibi: üç kızaklı, forklift oyuklu bir palet;
@@ -2414,7 +2413,7 @@ Kasayı kırınca içindeki araçla birlikte düşer, araç kaybolmaz.
 
 ### Helikopter
 
-Robinson R44'ün kendi biçimi var: burundan tavana tek eğimde çıkan, ortadaki
+Helikopter'ün kendi biçimi var: burundan tavana tek eğimde çıkan, ortadaki
 dikmede sivri birleşen iki parça ön camlı balon kabin, kabinin arkasında
 rotor direğinin yuvarlak kaportası ve oradan daralıp ince bir kuyruk
 konisine inen gövde. Kuyruk rotoru solda. Kabin, oturan oyuncunun kafası

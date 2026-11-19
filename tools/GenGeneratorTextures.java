@@ -50,7 +50,7 @@ public class GenGeneratorTextures {
     }
 
     static void save(String name) throws Exception {
-        File out = new File("src/main/resources/assets/car/textures/block/" + name + ".png");
+        File out = new File("src/main/resources/assets/overthought_vehicles/textures/block/" + name + ".png");
         ImageIO.write(img, "PNG", out);
         System.out.println("wrote " + out.getPath());
     }

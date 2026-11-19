@@ -1,0 +1,36 @@
+{
+  "parent": "overthought_vehicles:strike_oil",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "overthought_vehicles:generator",
+              "overthought_vehicles:biofuel_generator",
+              "overthought_vehicles:diesel_generator"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "overthought_vehicles:generator",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.overthought_vehicles.power_up.title"
+    },
+    "description": {
+      "translate": "advancements.overthought_vehicles.power_up.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

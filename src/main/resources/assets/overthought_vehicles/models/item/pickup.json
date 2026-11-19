@@ -1,0 +1,17 @@
+{
+  "parent": "overthought_vehicles:item/vehicle_pickup_truck",
+  "overrides": [
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 8
+      },
+      "model": "overthought_vehicles:item/vehicle_pickup_truck"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 15
+      },
+      "model": "overthought_vehicles:item/vehicle_tow_truck"
+    }
+  ]
+}

@@ -138,7 +138,7 @@ public final class CompressionTesterItem {
         Reading reading = read(car);
         car.level().playSound(null, car.getX(), car.getY() + 0.8, car.getZ(),
                 SoundEvents.MINECART_RIDING, SoundSource.PLAYERS, 0.4F, 1.6F);
-        player.sendSystemMessage(Component.translatable("message.car.compression_header",
+        player.sendSystemMessage(Component.translatable("message.overthought_vehicles.compression_header",
                 car.getVehicleName(), bar(reading.spec())).withStyle(ChatFormatting.GOLD));
         MutableComponent line = Component.empty();
         for (int i = 0; i < reading.cylinders().length; i++) {
@@ -151,7 +151,7 @@ public final class CompressionTesterItem {
             line.append(Component.literal((i + 1) + ": " + bar(value)).withStyle(colour));
         }
         player.sendSystemMessage(line);
-        player.sendSystemMessage(Component.translatable("message.car.compression_" + reading.verdict().key())
+        player.sendSystemMessage(Component.translatable("message.overthought_vehicles.compression_" + reading.verdict().key())
                 .withStyle(reading.verdict() == Verdict.GOOD ? ChatFormatting.GREEN : ChatFormatting.RED));
         return InteractionResult.CONSUME;
     }
@@ -159,22 +159,22 @@ public final class CompressionTesterItem {
     /** Why this car cannot be tested now, or null if it can. */
     private static Component problem(CarEntity car) {
         if (!car.hasPart(CarPart.ENGINE) || car.isElectric()) {
-            return Component.translatable("message.car.compression_no_engine");
+            return Component.translatable("message.overthought_vehicles.compression_no_engine");
         }
         if (!car.parts().isFitted(CarPart.ENGINE)) {
-            return Component.translatable("message.car.compression_no_engine");
+            return Component.translatable("message.overthought_vehicles.compression_no_engine");
         }
         if (!car.workshop().isWorkable(CarPart.SPARK_PLUGS)) {
             return car.workshop().cannotWork(CarPart.SPARK_PLUGS);
         }
         if (car.isEngineRunning()) {
-            return Component.translatable("message.car.compression_running");
+            return Component.translatable("message.overthought_vehicles.compression_running");
         }
         if (car.hasPart(CarPart.SPARK_PLUGS) && car.parts().isFitted(CarPart.SPARK_PLUGS)) {
-            return Component.translatable("message.car.compression_plugs_in");
+            return Component.translatable("message.overthought_vehicles.compression_plugs_in");
         }
         if (car.isBatteryFlat()) {
-            return Component.translatable("message.car.compression_flat");
+            return Component.translatable("message.overthought_vehicles.compression_flat");
         }
         return null;
     }

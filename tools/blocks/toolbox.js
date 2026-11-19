@@ -3,7 +3,7 @@
 // handle on one side. The drawers face north.
 const RED = C.RED;
 
-k.model('toolbox', {particle: 'car:block/shop_red'}, () => {
+k.model('toolbox', {particle: 'overthought_vehicles:block/shop_red'}, () => {
     k.g('castors');
     for (const [x, z] of [[2.2, 3.4], [12.6, 3.4], [2.2, 11.6], [12.6, 11.6]]) {
         k.box(x - 0.1, 1.6, z - 0.2, x + 1.3, 2, z + 1.2, C.DARK_STEEL);

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "overthought_vehicles:biofuel_generator"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "overthought_vehicles:blocks/biofuel_generator"
+}

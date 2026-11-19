@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "P": {
+      "item": "minecraft:paper"
+    },
+    "B": {
+      "item": "minecraft:blue_dye"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:red_dye"
+    },
+    "C": {
+      "item": "minecraft:crafting_table"
+    },
+    "K": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "pattern": [
+    "PBP",
+    "ICI",
+    "RKR"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:vehicle_workstation"
+  }
+}

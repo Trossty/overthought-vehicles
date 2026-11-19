@@ -1,0 +1,32 @@
+{
+  "parent": "overthought_vehicles:stored_power",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "overthought_vehicles:charging_post"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "overthought_vehicles:charging_post",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.overthought_vehicles.plug_in.title"
+    },
+    "description": {
+      "translate": "advancements.overthought_vehicles.plug_in.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

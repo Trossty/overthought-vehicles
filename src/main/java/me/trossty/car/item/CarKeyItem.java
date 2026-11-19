@@ -40,7 +40,7 @@ public class CarKeyItem extends Item {
         if (!world.isClientSide()) {
             me.trossty.car.entity.CarEntity car = find(world, player, code);
             if (car == null) {
-                player.displayClientMessage(Component.translatable("message.car.key_no_answer"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.key_no_answer"), true);
             } else {
                 car.honk();
                 world.broadcastEntityEvent(car, me.trossty.car.entity.CarEntity.STATUS_UNLOCKED);
@@ -49,9 +49,9 @@ public class CarKeyItem extends Item {
                 // Minecraft's yaw: 0 is south, a quarter turn is west.
                 float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
                 String heading = HEADINGS[Math.floorMod(Math.round(yaw / 45.0F), 8)];
-                player.displayClientMessage(Component.translatable("message.car.key_found", car.getDisplayName(),
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.key_found", car.getDisplayName(),
                         (int) Math.round(Math.sqrt(dx * dx + dz * dz)),
-                        Component.translatable("direction.car." + heading)), true);
+                        Component.translatable("direction.overthought_vehicles." + heading)), true);
             }
             player.getCooldowns().addCooldown(this, 20);
         }
@@ -81,15 +81,15 @@ public class CarKeyItem extends Item {
         super.appendHoverText(stack, context, lines, type);
         Consumer<Component> tooltip = lines::add;
         if (!stack.has(ModComponents.VEHICLE_KEY)) {
-            tooltip.accept(Component.translatable("tooltip.car.key_blank").withStyle(ChatFormatting.DARK_GRAY));
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.key_blank").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
         ResourceLocation vehicle = stack.get(ModComponents.CAR_VEHICLE);
         Component name = vehicle == null
-                ? Component.translatable("item.car.car")
+                ? Component.translatable("item.overthought_vehicles.car")
                 : me.trossty.car.vehicle.VehicleDefinition.nameOf(vehicle);
-        tooltip.accept(Component.translatable("tooltip.car.key_for", name).withStyle(ChatFormatting.GOLD));
-        tooltip.accept(Component.translatable("tooltip.car.key_use").withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.accept(Component.translatable("tooltip.car.key_find").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.key_for", name).withStyle(ChatFormatting.GOLD));
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.key_use").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.key_find").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

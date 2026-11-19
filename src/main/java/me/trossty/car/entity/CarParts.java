@@ -306,15 +306,15 @@ public final class CarParts {
     /** What to call a place on the reader and the service plate: "front left", "cylinder 3". */
     public Component placeName(CarPart part, int place) {
         return PartPositions.inCylinders(part)
-                ? Component.translatable("place.car.cylinder", place + 1)
-                : Component.translatable("place.car." + this.cornerKey(place));
+                ? Component.translatable("place.overthought_vehicles.cylinder", place + 1)
+                : Component.translatable("place.overthought_vehicles." + this.cornerKey(place));
     }
 
     /** The same, as short as a service plate needs it: "FL", "3". */
     public Component placeShort(CarPart part, int place) {
         return PartPositions.inCylinders(part)
                 ? Component.literal(String.valueOf(place + 1))
-                : Component.translatable("place.car.short." + this.cornerKey(place));
+                : Component.translatable("place.overthought_vehicles.short." + this.cornerKey(place));
     }
 
     /** "front_left", "rear", "middle_right": the end of the car a wheel is at, then its side. */

@@ -267,19 +267,19 @@ public class CarItem extends Item {
                             me.trossty.car.vehicle.VehicleDefinition.KEY, model)))
                     .ifPresent(entry -> {
                         me.trossty.car.vehicle.VehicleDefinition defined = entry.value();
-                        tooltip.accept(Component.translatable("tooltip.car.vehicle_spec",
+                        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.vehicle_spec",
                                 Math.round(defined.performance().speed() * 100.0F),
                                 Math.round(defined.performance().acceleration() * 100.0F),
                                 Math.round(defined.performance().fuelUse() * 100.0F),
                                 Math.max(1, defined.seats().size())).withStyle(ChatFormatting.GRAY));
-                        tooltip.accept(Component.translatable("tooltip.car.vehicle_factory",
-                                Component.translatable("engine.car." + me.trossty.car.entity.CarSetup.engineKey(
+                        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.vehicle_factory",
+                                Component.translatable("engine.overthought_vehicles." + me.trossty.car.entity.CarSetup.engineKey(
                                         me.trossty.car.entity.CarSetup.variant(defined.factory().setup(),
                                                 me.trossty.car.entity.CarPart.ENGINE))),
-                                Component.translatable("fuel.car." + me.trossty.car.entity.CarSetup.engineFuel(
+                                Component.translatable("fuel.overthought_vehicles." + me.trossty.car.entity.CarSetup.engineFuel(
                                         defined.factory().setup()).key())).withStyle(ChatFormatting.DARK_GRAY));
                         if (defined.tank() > 0.0F) {
-                            tooltip.accept(Component.translatable("tooltip.car.vehicle_tank",
+                            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.vehicle_tank",
                                     JerryCans.litres(defined.tank() / JerryCans.LITRES_PER_UNIT),
                                     me.trossty.car.entity.CarEntity.formatDistance(
                                             me.trossty.car.entity.CarEntity.estimateRange(defined)))
@@ -288,17 +288,17 @@ public class CarItem extends Item {
                     });
         }
         if (stack.has(ModComponents.VEHICLE_KEY)) {
-            tooltip.accept(Component.translatable("tooltip.car.has_key").withStyle(ChatFormatting.GRAY));
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.has_key").withStyle(ChatFormatting.GRAY));
         }
         Integer sprayed = stack.get(ModComponents.CAR_PAINT);
         Integer colorIndex = stack.get(ModComponents.CAR_COLOR);
         if (sprayed != null) {
-            tooltip.accept(Component.translatable("tooltip.car.sprayed",
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.sprayed",
                             Component.literal(String.format("#%06X", sprayed)).withColor(sprayed))
                     .withStyle(ChatFormatting.GRAY));
         } else if (colorIndex != null) {
             DyeColor color = DyeColor.byId(colorIndex);
-            tooltip.accept(Component.translatable("tooltip.car.painted",
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.painted",
                             Component.translatable("color.minecraft." + color.getName()))
                     .withStyle(ChatFormatting.GRAY));
         }
@@ -306,15 +306,15 @@ public class CarItem extends Item {
         if (cargo != null) {
             var liquid = stack.get(ModComponents.TANKER_LIQUID);
             Component name = me.trossty.car.fluid.Liquids.isBlank(liquid)
-                    ? Component.translatable("fluid.car.petrol")
+                    ? Component.translatable("fluid.overthought_vehicles.petrol")
                     : me.trossty.car.fluid.Liquids.name(liquid);
-            tooltip.accept(Component.translatable("tooltip.car.cargo", cargo, name)
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.cargo", cargo, name)
                     .withStyle(ChatFormatting.GRAY));
         }
         Float health = stack.get(ModComponents.CAR_HEALTH);
         if (health != null) {
             int percent = Math.round(health / CarEntity.MAX_HEALTH * 100.0F);
-            tooltip.accept(Component.translatable("tooltip.car.condition", percent)
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.condition", percent)
                     .withStyle(percent < 35 ? ChatFormatting.RED : ChatFormatting.GRAY));
         }
     }

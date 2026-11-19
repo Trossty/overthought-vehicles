@@ -1,0 +1,32 @@
+{
+  "parent": "overthought_vehicles:power_up",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "overthought_vehicles:battery_bank"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "overthought_vehicles:battery_bank",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.overthought_vehicles.stored_power.title"
+    },
+    "description": {
+      "translate": "advancements.overthought_vehicles.stored_power.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

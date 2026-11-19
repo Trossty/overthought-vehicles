@@ -192,7 +192,7 @@ final class GuiStyle {
      * @return where the lamp starts, so the title can stop short of it
      */
     static int lamp(GuiGraphics context, Font font, boolean on, int right) {
-        Component state = Component.translatable(on ? "gui.car.machine.running" : "gui.car.machine.idle");
+        Component state = Component.translatable(on ? "gui.overthought_vehicles.machine.running" : "gui.overthought_vehicles.machine.idle");
         int x = right - font.width(state);
         int lx = x - 9;
         int ly = TITLE_Y;

@@ -47,5 +47,5 @@ function jack(rise) {
     k.box(11.1, 3.1, 6.22, 11.6, 3.3, 6.3, C.NEEDLE);
 }
 
-k.model('aircraft_jack', {particle: 'car:block/shop_red'}, () => jack(0));
-k.model('aircraft_jack_raised', {particle: 'car:block/shop_red'}, () => jack(8));
+k.model('aircraft_jack', {particle: 'overthought_vehicles:block/shop_red'}, () => jack(0));
+k.model('aircraft_jack_raised', {particle: 'overthought_vehicles:block/shop_red'}, () => jack(8));

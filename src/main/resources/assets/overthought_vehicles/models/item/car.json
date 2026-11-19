@@ -1,0 +1,65 @@
+{
+  "parent": "overthought_vehicles:item/vehicle_sedan",
+  "overrides": [
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 1
+      },
+      "model": "overthought_vehicles:item/vehicle_sedan"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 2
+      },
+      "model": "overthought_vehicles:item/vehicle_classic_sedan"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 3
+      },
+      "model": "overthought_vehicles:item/vehicle_off_roader"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 4
+      },
+      "model": "overthought_vehicles:item/vehicle_muscle_car"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 19
+      },
+      "model": "overthought_vehicles:item/vehicle_tractor"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 22
+      },
+      "model": "overthought_vehicles:item/vehicle_lawn_tractor"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 23
+      },
+      "model": "overthought_vehicles:item/vehicle_quad_bike"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 24
+      },
+      "model": "overthought_vehicles:item/vehicle_go_kart"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 25
+      },
+      "model": "overthought_vehicles:item/vehicle_dune_buggy"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 26
+      },
+      "model": "overthought_vehicles:item/vehicle_golf_cart"
+    }
+  ]
+}

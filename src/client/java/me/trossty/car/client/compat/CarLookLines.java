@@ -22,17 +22,17 @@ final class CarLookLines {
         List<Component> lines = new ArrayList<>();
         int tank = Math.round(100.0F * car.getFuel() / Math.max(1.0F, car.getMaxFuel()));
         if (car.isElectric()) {
-            lines.add(Component.translatable("jade.car.charge", tank).withStyle(ChatFormatting.AQUA));
+            lines.add(Component.translatable("jade.overthought_vehicles.charge", tank).withStyle(ChatFormatting.AQUA));
         } else {
-            lines.add(Component.translatable("jade.car.fuel", tank,
-                    Component.translatable("fuel.car." + car.getTankFuel().key())).withStyle(ChatFormatting.GOLD));
+            lines.add(Component.translatable("jade.overthought_vehicles.fuel", tank,
+                    Component.translatable("fuel.overthought_vehicles." + car.getTankFuel().key())).withStyle(ChatFormatting.GOLD));
             if (car.hasFuel() && car.getDirtyFuel() >= 0.25F) {
-                lines.add(Component.translatable("obd.car.dirty_fuel").withStyle(ChatFormatting.RED));
+                lines.add(Component.translatable("obd.overthought_vehicles.dirty_fuel").withStyle(ChatFormatting.RED));
             }
         }
         int body = Math.round(100.0F * car.damage().getHealthFraction());
-        lines.add(car.damage().getHealthFraction() >= 1.0F ? Component.translatable("jade.car.body", body)
-                : Component.translatable("jade.car.body_at", body, car.damage().worstZone().displayName()));
+        lines.add(car.damage().getHealthFraction() >= 1.0F ? Component.translatable("jade.overthought_vehicles.body", body)
+                : Component.translatable("jade.overthought_vehicles.body_at", body, car.damage().worstZone().displayName()));
         CarPart worst = null;
         for (CarPart part : CarPart.values()) {
             if (!car.hasPart(part)) {
@@ -43,13 +43,13 @@ final class CarLookLines {
             }
         }
         if (worst != null && car.parts().getConditionFraction(worst) < 0.5F) {
-            Component name = Component.translatable("part.car." + worst.key());
+            Component name = Component.translatable("part.overthought_vehicles." + worst.key());
             lines.add(car.parts().isFitted(worst)
-                    ? Component.translatable("jade.car.worst", name, Math.round(100.0F * car.parts().getConditionFraction(worst)))
+                    ? Component.translatable("jade.overthought_vehicles.worst", name, Math.round(100.0F * car.parts().getConditionFraction(worst)))
                             .withStyle(ChatFormatting.YELLOW)
-                    : Component.translatable("jade.car.missing", name).withStyle(ChatFormatting.RED));
+                    : Component.translatable("jade.overthought_vehicles.missing", name).withStyle(ChatFormatting.RED));
         }
-        lines.add(Component.translatable("jade.car.odometer", CarEntity.formatOdometer(car.parts().getOdometer()))
+        lines.add(Component.translatable("jade.overthought_vehicles.odometer", CarEntity.formatOdometer(car.parts().getOdometer()))
                 .withStyle(ChatFormatting.GRAY));
         return lines;
     }

@@ -539,7 +539,7 @@ public class FuelRefineryBlockEntity extends BaseContainerBlockEntity implements
 
     @Override
     protected Component getDefaultName() {
-        return Component.translatable("container.car.fuel_refinery");
+        return Component.translatable("container.overthought_vehicles.fuel_refinery");
     }
 
     @Override

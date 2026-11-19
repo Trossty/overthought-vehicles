@@ -518,13 +518,13 @@ public class GenCarTextures {
             drawEntityTexture();
             drawTanker();
             drawPickup();
-            save(new File("src/main/resources/assets/car/textures/entity/car/car_" + name + ".png"));
+            save(new File("src/main/resources/assets/overthought_vehicles/textures/entity/car/car_" + name + ".png"));
 
             // The icon is painted too, so a stack shows the colour its tooltip
             // claims. One icon per dye rather than a tint over a grey one,
             // because these share the entity texture's own shading.
             drawItemTexture();
-            save(new File("src/main/resources/assets/car/textures/item/car_" + name + ".png"));
+            save(new File("src/main/resources/assets/overthought_vehicles/textures/item/car_" + name + ".png"));
         }
 
     }

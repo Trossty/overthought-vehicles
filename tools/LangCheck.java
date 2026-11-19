@@ -24,13 +24,13 @@ import java.util.stream.Stream;
  *   <li>placeholders that differ between languages ({@code %s} counts).</li>
  * </ul>
  *
- * Keys built at run time ({@code "fuel.car." + key}) cannot be seen here; the
+ * Keys built at run time ({@code "fuel.overthought_vehicles." + key}) cannot be seen here; the
  * known families of them are checked against their enums' keys by hand below.
  * Run from the project root; exits 1 when anything is missing.
  */
 public class LangCheck {
 
-    static final Path LANG = Path.of("src/main/resources/assets/car/lang");
+    static final Path LANG = Path.of("src/main/resources/assets/overthought_vehicles/lang");
     static final Pattern ENTRY = Pattern.compile("^\\s*\"([^\"]+)\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", Pattern.MULTILINE);
     static final Pattern TRANSLATABLE = Pattern.compile("translatable\\(\\s*\"([a-z0-9_.]+)\"");
     static final Pattern BLOCK = Pattern.compile("Block [A-Z_]+ = register\\(\\s*\"([a-z0-9_]+)\"");
@@ -80,29 +80,29 @@ public class LangCheck {
             String code = Files.readString(source);
             collect(TRANSLATABLE, code, used, "");
             if (source.endsWith("ModBlocks.java")) {
-                collect(BLOCK, code, used, "block.car.");
+                collect(BLOCK, code, used, "block.overthought_vehicles.");
             }
             if (source.endsWith("ModItems.java")) {
-                collect(ITEM, code, used, "item.car.");
+                collect(ITEM, code, used, "item.overthought_vehicles.");
             }
         }
         // A literal that ends in a dot or underscore is the front of a key built
-        // at run time ("fuel.car." + fuel.key()), not a key.
+        // at run time ("fuel.overthought_vehicles." + fuel.key()), not a key.
         used.removeIf(key -> key.endsWith(".") || key.endsWith("_"));
         for (String key : used) {
             if (!english.containsKey(key) && !key.startsWith("container.") && key.contains(".car.")
-                    || key.startsWith("block.car.") && !english.containsKey(key)
-                    || key.startsWith("item.car.") && !english.containsKey(key)) {
+                    || key.startsWith("block.overthought_vehicles.") && !english.containsKey(key)
+                    || key.startsWith("item.overthought_vehicles.") && !english.containsKey(key)) {
                 problems.add("no language has " + key);
             }
         }
 
         // The families the code builds from an enum's key.
         for (String fuel : List.of("petrol", "diesel", "biofuel", "electric")) {
-            need(english, problems, "fuel.car." + fuel, "fuel.car." + fuel + ".short");
+            need(english, problems, "fuel.overthought_vehicles." + fuel, "fuel.overthought_vehicles." + fuel + ".short");
         }
         for (String engine : List.of("inline4", "inline6", "v6", "v8", "electric")) {
-            need(english, problems, "engine.car." + engine);
+            need(english, problems, "engine.overthought_vehicles." + engine);
         }
 
         problems.forEach(System.out::println);

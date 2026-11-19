@@ -9,7 +9,7 @@ Run from the project root: python3 tools/gen_wheel_faces.py
 """
 from PIL import Image
 
-DIR = 'src/main/resources/assets/car/textures/entity/wheel/'
+DIR = 'src/main/resources/assets/overthought_vehicles/textures/entity/wheel/'
 SCALE = 2  # the 128px texture over a 64-texel model
 
 # Box: texOffs (u, v), size (dx, dy, dz). Its two side faces (normal along the

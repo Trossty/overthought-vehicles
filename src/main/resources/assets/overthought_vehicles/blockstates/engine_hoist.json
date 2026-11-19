@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "overthought_vehicles:block/engine_hoist"
+    },
+    "facing=east": {
+      "model": "overthought_vehicles:block/engine_hoist",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "overthought_vehicles:block/engine_hoist",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "overthought_vehicles:block/engine_hoist",
+      "y": 270
+    }
+  }
+}

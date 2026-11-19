@@ -1,0 +1,11 @@
+{
+  "parent": "overthought_vehicles:item/vehicle_helicopter",
+  "overrides": [
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 18
+      },
+      "model": "overthought_vehicles:item/vehicle_helicopter"
+    }
+  ]
+}

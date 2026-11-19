@@ -141,7 +141,7 @@ public class ServiceHud implements LayeredDraw.Layer {
             }
             float fraction = car.parts().getCondition(part, place) / CarPart.MAX_CONDITION;
             int colour = fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD);
-            line.append(Component.translatable("tooltip.car.place", car.parts().placeShort(part, place),
+            line.append(Component.translatable("tooltip.overthought_vehicles.place", car.parts().placeShort(part, place),
                     Math.round(fraction * 100.0F)).withColor(colour & 0xFFFFFF));
         }
         return line;
@@ -161,12 +161,12 @@ public class ServiceHud implements LayeredDraw.Layer {
         List<Row> rows = new ArrayList<>();
         CarPart hidden = fitted ? car.workshop().hiddenBy(part) : null;
         if (fitted && hidden != null) {
-            rows.add(new Row(Component.translatable("gui.car.status_hidden",
-                    Component.translatable("part.car." + hidden.key())), GREY));
+            rows.add(new Row(Component.translatable("gui.overthought_vehicles.status_hidden",
+                    Component.translatable("part.overthought_vehicles." + hidden.key())), GREY));
         } else if (fitted) {
             float fraction = car.parts().getConditionFraction(part);
             rows.add(new Row(
-                    Component.translatable("tooltip.car.condition", Math.round(fraction * 100.0F)),
+                    Component.translatable("tooltip.overthought_vehicles.condition", Math.round(fraction * 100.0F)),
                     fraction >= 0.75F ? GOOD : (fraction > 0.35F ? FAIR : BAD)));
             if (car.parts().placesOf(part) > 1) {
                 rows.add(new Row(places(car, part), GREY));
@@ -174,20 +174,20 @@ public class ServiceHud implements LayeredDraw.Layer {
         }
         if (fitted) {
             rows.add(new Row(
-                    Component.translatable("quality.car." + car.parts().getQuality(part).key()), GREY));
+                    Component.translatable("quality.overthought_vehicles." + car.parts().getQuality(part).key()), GREY));
         } else {
-            rows.add(new Row(Component.translatable("gui.car.part_missing"), BAD));
+            rows.add(new Row(Component.translatable("gui.overthought_vehicles.part_missing"), BAD));
         }
         if (offering) {
-            rows.add(new Row(Component.translatable("gui.car.spare",
+            rows.add(new Row(Component.translatable("gui.overthought_vehicles.spare",
                     Math.round(Workshop.conditionOf(held) / CarPart.MAX_CONDITION * 100.0F) + "%"), GOOD));
         }
         rows.add(new Row(Component.translatable(fitted
-                        ? (offering ? "gui.car.service_swap" : "gui.car.service_remove")
-                        : (offering ? "gui.car.service_fit" : "gui.car.service_hold")),
+                        ? (offering ? "gui.overthought_vehicles.service_swap" : "gui.overthought_vehicles.service_remove")
+                        : (offering ? "gui.overthought_vehicles.service_fit" : "gui.overthought_vehicles.service_hold")),
                 HINT));
         return new Tooltip(new ItemStack(part.item()),
-                Component.translatable("part.car." + part.key()), rows,
+                Component.translatable("part.overthought_vehicles." + part.key()), rows,
                 CarServiceOverlay.aimedSince());
     }
 

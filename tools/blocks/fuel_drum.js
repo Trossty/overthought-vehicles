@@ -5,7 +5,7 @@
 const BODY = '#F2F2F2', HOOP = '#DADADA', RIM = '#C4C4C4';
 const tinted = {sides: 16, tint: 0, caps: null};
 
-k.model('fuel_drum', {particle: 'car:block/drum_body'}, () => {
+k.model('fuel_drum', {particle: 'overthought_vehicles:block/drum_body'}, () => {
     k.g('body');
     k.round('y', 8, 8, 8, 6.6, 15, BODY, tinted);
     k.round('y', 8, 5.4, 8, 6.95, 0.9, HOOP, Object.assign({}, tinted, {caps: HOOP}));
@@ -22,5 +22,5 @@ k.model('fuel_drum', {particle: 'car:block/drum_body'}, () => {
 
     // ---- the placard ------------------------------------------------------------
     k.g('placard');
-    k.box(6.5, 6.3, 1.2, 9.5, 9.7, 1.4, C.YELLOW, {faces: {north: 'car:block/drum_label'}, uv: {north: [0, 0, 16, 16]}});
+    k.box(6.5, 6.3, 1.2, 9.5, 9.7, 1.4, C.YELLOW, {faces: {north: 'overthought_vehicles:block/drum_label'}, uv: {north: [0, 0, 16, 16]}});
 });

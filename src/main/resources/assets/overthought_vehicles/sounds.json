@@ -1,0 +1,137 @@
+{
+  "engine": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine",
+        "stream": false
+      }
+    ]
+  },
+  "horn": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.horn",
+    "sounds": [
+      "overthought_vehicles:horn"
+    ]
+  },
+  "skid": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.skid",
+    "sounds": [
+      "overthought_vehicles:skid"
+    ]
+  },
+  "engine_v8": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_v8",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_v8",
+        "stream": false
+      }
+    ]
+  },
+  "engine_diesel": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_diesel",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_diesel",
+        "stream": false
+      }
+    ]
+  },
+  "engine_electric": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_electric",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_electric",
+        "stream": false
+      }
+    ]
+  },
+  "generator_hum": {
+    "category": "blocks",
+    "subtitle": "subtitles.overthought_vehicles.generator_hum",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:generator_hum",
+        "stream": false
+      }
+    ]
+  },
+  "pumpjack_creak": {
+    "category": "blocks",
+    "subtitle": "subtitles.overthought_vehicles.pumpjack_creak",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:pumpjack_creak",
+        "stream": false
+      }
+    ]
+  },
+  "refinery_bubble": {
+    "category": "blocks",
+    "subtitle": "subtitles.overthought_vehicles.refinery_bubble",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:refinery_bubble",
+        "stream": false
+      }
+    ]
+  },
+  "charger_hum": {
+    "category": "blocks",
+    "subtitle": "subtitles.overthought_vehicles.charger_hum",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:charger_hum",
+        "stream": false
+      }
+    ]
+  },
+  "engine_start": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_start",
+    "sounds": [
+      "overthought_vehicles:engine_start"
+    ]
+  },
+  "backfire": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.backfire",
+    "sounds": [
+      "overthought_vehicles:backfire"
+    ]
+  },
+  "blowoff": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.blowoff",
+    "sounds": [
+      "overthought_vehicles:blowoff"
+    ]
+  },
+  "engine_propeller": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_propeller",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_propeller",
+        "stream": false
+      }
+    ]
+  },
+  "engine_outboard": {
+    "category": "neutral",
+    "subtitle": "subtitles.overthought_vehicles.engine_outboard",
+    "sounds": [
+      {
+        "name": "overthought_vehicles:engine_outboard",
+        "stream": false
+      }
+    ]
+  }
+}

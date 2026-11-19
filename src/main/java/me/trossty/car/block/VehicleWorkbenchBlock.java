@@ -23,7 +23,7 @@ public class VehicleWorkbenchBlock extends Block {
 
     public static final MapCodec<VehicleWorkbenchBlock> CODEC = simpleCodec(VehicleWorkbenchBlock::new);
 
-    private static final Component TITLE = Component.translatable("container.car.vehicle_workbench");
+    private static final Component TITLE = Component.translatable("container.overthought_vehicles.vehicle_workbench");
 
     public VehicleWorkbenchBlock(Properties settings) {
         super(settings);

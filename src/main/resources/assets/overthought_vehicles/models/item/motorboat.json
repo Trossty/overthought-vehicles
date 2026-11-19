@@ -1,0 +1,17 @@
+{
+  "parent": "overthought_vehicles:item/vehicle_bowrider",
+  "overrides": [
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 10
+      },
+      "model": "overthought_vehicles:item/vehicle_bowrider"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 27
+      },
+      "model": "overthought_vehicles:item/vehicle_water_scooter"
+    }
+  ]
+}

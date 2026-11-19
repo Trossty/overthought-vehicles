@@ -172,19 +172,19 @@ public class GeneratorBlock extends ModelEntityBlock {
     public static boolean pour(GeneratorBlockEntity generator, ItemStack can, Player player) {
         var kind = generator.getKind();
         if (me.trossty.car.item.JerryCans.isEmpty(can)) {
-            player.displayClientMessage(Component.translatable("message.car.can_empty"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.can_empty"), true);
             return false;
         }
         if (me.trossty.car.entity.CarEntity.fuelIn(can) != kind.fuel) {
-            player.displayClientMessage(Component.translatable("message.car.generator_wrong_fuel",
-                    Component.translatable("fuel.car." + kind.fuel.key())), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.generator_wrong_fuel",
+                    Component.translatable("fuel.overthought_vehicles." + kind.fuel.key())), true);
             return false;
         }
         var tank = generator.getTank();
         int poured = me.trossty.car.item.JerryCans.emptyInto(can, tank.room(),
                 units -> tank.fill(kind.fluid(), units));
         if (poured <= 0) {
-            player.displayClientMessage(Component.translatable("message.car.generator_full"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.generator_full"), true);
             return false;
         }
         generator.setChanged();
@@ -210,7 +210,7 @@ public class GeneratorBlock extends ModelEntityBlock {
             generator.setChanged();
             return true;
         }
-        player.displayClientMessage(Component.translatable("message.car.generator_full"), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.generator_full"), true);
         return false;
     }
 

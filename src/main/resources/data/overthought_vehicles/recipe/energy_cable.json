@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "K": {
+      "item": "minecraft:dried_kelp"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    }
+  },
+  "pattern": [
+    "KCK"
+  ],
+  "result": {
+    "count": 6,
+    "id": "overthought_vehicles:energy_cable"
+  }
+}

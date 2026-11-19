@@ -209,7 +209,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
         this.caption(context, "in", left + 33, top, 40);
         drawCells(context, left + 55, top + GAUGE_TOP + 4, 66, GAUGE_HEIGHT - 4, charge);
         this.hits.add(new Hit(55, GAUGE_TOP, 66, GAUGE_HEIGHT, this::energyText));
-        GuiStyle.caption(context, this.font, Component.translatable("gui.car.caption.charge",
+        GuiStyle.caption(context, this.font, Component.translatable("gui.overthought_vehicles.caption.charge",
                 Math.round(charge * 100)), left + 88, top + CAPTION_Y, 62);
         GuiStyle.flow(context, left + 121, top + PIPE_Y, 44, ENERGY_FLOW, giving ? 1.0F : 0.0F, giving);
         this.caption(context, "out", left + 143, top, 40);
@@ -225,14 +225,14 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
         float car = this.menu.get(MachineScreenHandler.EXTRA2) / 1000.0F;
         drawLevel(context, left + 86, top + 59, 54, 7, parked ? car : 0.0F);
         if (parked) {
-            this.hits.add(new Hit(86, 59, 56, 7, () -> Component.translatable("gui.car.machine.vehicle_charge",
+            this.hits.add(new Hit(86, 59, 56, 7, () -> Component.translatable("gui.overthought_vehicles.machine.vehicle_charge",
                     this.menu.get(MachineScreenHandler.EXTRA2) / 10)));
         }
         this.caption(context, "vehicle", left + 113, top, 60);
     }
 
     private void caption(GuiGraphics context, String key, int centre, int top, int room) {
-        GuiStyle.caption(context, this.font, Component.translatable("gui.car.caption." + key), centre,
+        GuiStyle.caption(context, this.font, Component.translatable("gui.overthought_vehicles.caption." + key), centre,
                 top + CAPTION_Y, room);
     }
 
@@ -586,15 +586,15 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
         long extra = this.menu.extra();
         return switch (this.kind()) {
             case GaugeSource.KIND_COAL_GENERATOR, GaugeSource.KIND_BIOFUEL_GENERATOR,
-                 GaugeSource.KIND_DIESEL_GENERATOR -> Component.translatable("gui.car.machine.runtime",
+                 GaugeSource.KIND_DIESEL_GENERATOR -> Component.translatable("gui.overthought_vehicles.machine.runtime",
                     extra / 60, String.format("%02d", extra % 60), this.menu.get(MachineScreenHandler.EXTRA2));
-            case GaugeSource.KIND_PUMPJACK -> Component.translatable("gui.car.machine.reserve", extra);
-            case GaugeSource.KIND_HYDROTREATER -> Component.translatable("gui.car.machine.rate", extra);
-            case GaugeSource.KIND_BATTERY -> Component.translatable("gui.car.machine.flow",
+            case GaugeSource.KIND_PUMPJACK -> Component.translatable("gui.overthought_vehicles.machine.reserve", extra);
+            case GaugeSource.KIND_HYDROTREATER -> Component.translatable("gui.overthought_vehicles.machine.rate", extra);
+            case GaugeSource.KIND_BATTERY -> Component.translatable("gui.overthought_vehicles.machine.flow",
                     this.menu.get(MachineScreenHandler.EXTRA2), extra);
             case GaugeSource.KIND_CHARGER -> this.menu.get(MachineScreenHandler.EXTRA2) == 0 && extra == 0
-                    ? Component.translatable("gui.car.machine.no_vehicle")
-                    : Component.translatable("gui.car.machine.vehicle_charge",
+                    ? Component.translatable("gui.overthought_vehicles.machine.no_vehicle")
+                    : Component.translatable("gui.overthought_vehicles.machine.vehicle_charge",
                             this.menu.get(MachineScreenHandler.EXTRA2) / 10);
             default -> null;
         };
@@ -616,7 +616,7 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
     }
 
     private Component energyText() {
-        return Component.translatable("tooltip.car.energy", this.menu.energy(), this.menu.energyCapacity());
+        return Component.translatable("tooltip.overthought_vehicles.energy", this.menu.energy(), this.menu.energyCapacity());
     }
 
     private Component tankText(int unitsIndex) {
@@ -624,8 +624,8 @@ public class MachineScreen extends AbstractContainerScreen<MachineScreenHandler>
         int capacity = this.menu.get(unitsIndex + 1);
         int fluid = this.menu.get(unitsIndex + 2);
         Component name = units <= 0 || fluid <= 0
-                ? Component.translatable("fluid.car.nothing")
-                : Component.translatable("fluid.car." + BuiltInRegistries.FLUID.getKey(MachineScreenHandler.FLUIDS.get(fluid)).getPath());
-        return Component.translatable("gui.car.machine.tank", name, units, capacity);
+                ? Component.translatable("fluid.overthought_vehicles.nothing")
+                : Component.translatable("fluid.overthought_vehicles." + BuiltInRegistries.FLUID.getKey(MachineScreenHandler.FLUIDS.get(fluid)).getPath());
+        return Component.translatable("gui.overthought_vehicles.machine.tank", name, units, capacity);
     }
 }

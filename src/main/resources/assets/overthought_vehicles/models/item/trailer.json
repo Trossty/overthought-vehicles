@@ -1,0 +1,53 @@
+{
+  "parent": "overthought_vehicles:item/vehicle_box_trailer",
+  "overrides": [
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 9
+      },
+      "model": "overthought_vehicles:item/vehicle_box_trailer"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 12
+      },
+      "model": "overthought_vehicles:item/vehicle_flatbed_trailer"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 13
+      },
+      "model": "overthought_vehicles:item/vehicle_tow_dolly"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 14
+      },
+      "model": "overthought_vehicles:item/vehicle_plane_tow_dolly"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 16
+      },
+      "model": "overthought_vehicles:item/vehicle_wheel_lift"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 17
+      },
+      "model": "overthought_vehicles:item/vehicle_caravan"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 20
+      },
+      "model": "overthought_vehicles:item/vehicle_seed_drill"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 21
+      },
+      "model": "overthought_vehicles:item/vehicle_fertilizer_spreader"
+    }
+  ]
+}

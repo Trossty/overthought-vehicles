@@ -1,7 +1,7 @@
 {
   "replace": false,
   "entries": [
-    "car:rapeseed_from_short_grass",
-    "car:rapeseed_from_tall_grass"
+    "overthought_vehicles:rapeseed_from_short_grass",
+    "overthought_vehicles:rapeseed_from_tall_grass"
   ]
 }

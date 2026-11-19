@@ -48,7 +48,7 @@ public class ObdScannerItem extends Item {
             return;
         }
         tablet.set(ModComponents.OBD_LINK, car.getUUID());
-        player.displayClientMessage(Component.translatable("obd.car.paired", car.getVehicleName()).withStyle(ChatFormatting.AQUA), true);
+        player.displayClientMessage(Component.translatable("obd.overthought_vehicles.paired", car.getVehicleName()).withStyle(ChatFormatting.AQUA), true);
         car.level().playSound(null, car.getX(), car.getY() + 0.8, car.getZ(),
                 SoundEvents.NOTE_BLOCK_BIT.value(), SoundSource.PLAYERS, 0.5F, 2.0F);
     }

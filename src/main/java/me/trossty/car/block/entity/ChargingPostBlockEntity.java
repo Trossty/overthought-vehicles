@@ -115,7 +115,7 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
     /** Puts the plug in the player's empty hand: off the holster, or out of the car it was in. */
     public boolean takePlug(net.minecraft.world.entity.player.Player player) {
         if (this.plugHolder != null && !this.isHeldBy(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.car.plug_in_use"), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.overthought_vehicles.plug_in_use"), true);
             return false;
         }
         this.pluggedCar = null;
@@ -133,14 +133,14 @@ public class ChargingPostBlockEntity extends BlockEntity implements GaugeSource 
     public boolean plugInto(CarEntity car, net.minecraft.world.entity.player.@Nullable Player from) {
         if (!car.isElectric()) {
             if (from != null) {
-                from.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.car.not_electric"), true);
+                from.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.overthought_vehicles.not_electric"), true);
             }
             return false;
         }
         net.minecraft.world.phys.Vec3 port = car.fillerPos();
         if (port == null || port.distanceToSqr(this.holster()) > REACH * REACH) {
             if (from != null) {
-                from.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.car.lead_too_short"), true);
+                from.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.overthought_vehicles.lead_too_short"), true);
             }
             return false;
         }

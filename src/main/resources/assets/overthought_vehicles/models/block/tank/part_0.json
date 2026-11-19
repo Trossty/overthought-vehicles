@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {"particle": "overthought_vehicles:block/tank_glass", "tank_glass": "overthought_vehicles:block/tank_glass"},
+  "elements": [
+    {"from": [0, 0, 0.5], "to": [16, 16, 0.5], "faces": {"north": {"uv": [0, 0, 16, 16], "texture": "#tank_glass"}}}
+  ]
+}

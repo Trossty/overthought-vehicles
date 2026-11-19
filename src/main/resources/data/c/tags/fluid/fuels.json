@@ -1,8 +1,8 @@
 {
   "replace": false,
   "values": [
-    "car:petrol",
-    "car:diesel",
-    "car:biofuel"
+    "overthought_vehicles:petrol",
+    "overthought_vehicles:diesel",
+    "overthought_vehicles:biofuel"
   ]
 }

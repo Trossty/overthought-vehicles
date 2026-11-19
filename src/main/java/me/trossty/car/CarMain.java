@@ -21,7 +21,7 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 @Mod(CarMain.MOD_ID)
 public class CarMain {
 
-    public static final String MOD_ID = "car";
+    public static final String MOD_ID = "overthought_vehicles";
     public static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(MOD_ID);
 
     public static ResourceLocation id(String path) {

@@ -112,7 +112,7 @@ public class VehicleWorkbenchScreenHandler extends AbstractContainerMenu {
 
     /** Translation key for the action button: build, or refurbish a tired part. */
     public String getActionKey() {
-        return this.getSelectedRecipe().refurbished() ? "gui.car.refurbish" : "gui.car.build";
+        return this.getSelectedRecipe().refurbished() ? "gui.overthought_vehicles.refurbish" : "gui.overthought_vehicles.build";
     }
 
     /** What this bench can build. */

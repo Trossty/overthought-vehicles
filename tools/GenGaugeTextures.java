@@ -303,7 +303,7 @@ public class GenGaugeTextures {
     }
 
     public static void main(String[] args) throws Exception {
-        String dir = args.length > 0 ? args[0] : "src/main/resources/assets/car/textures/gui";
+        String dir = args.length > 0 ? args[0] : "src/main/resources/assets/overthought_vehicles/textures/gui";
         new File(dir).mkdirs();
 
         BufferedImage speed = speedFace();

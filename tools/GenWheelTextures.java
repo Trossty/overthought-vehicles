@@ -61,7 +61,7 @@ public class GenWheelTextures {
                     fill(image, (43 + across) * 2, along * 2, 2, tread(kind, across % 4, along));
                 }
             }
-            File file = new File("src/main/resources/assets/car/textures/entity/wheel/" + kind + ".png");
+            File file = new File("src/main/resources/assets/overthought_vehicles/textures/entity/wheel/" + kind + ".png");
             ImageIO.write(image, "PNG", file);
             System.out.println("wrote " + file.getPath());
         }

@@ -5,9 +5,9 @@ Run from the repository root after a vehicle's shape changes:
 
     python3 tools/gen_vehicle_icons.py
 
-For every data/car/car/vehicle/<name>.json it writes
-assets/car/models/item/vehicle_<name>.json, the vehicle in miniature, and
-the one palette they all share, assets/car/textures/item/vehicle_palette.png.
+For every data/overthought_vehicles/overthought_vehicles/vehicle/<name>.json it writes
+assets/overthought_vehicles/models/item/vehicle_<name>.json, the vehicle in miniature, and
+the one palette they all share, assets/overthought_vehicles/textures/item/vehicle_palette.png.
 
 An item model is poorer than the vehicle it stands for, and the icon bends
 to that: glass is left out (an item is solid), a box turns about one axis
@@ -22,9 +22,9 @@ import os
 from PIL import Image
 
 ROOT = 'src/main/resources/'
-DEFINITIONS = ROOT + 'data/car/car/vehicle/'
-MODELS = ROOT + 'assets/car/models/item/'
-PALETTE_FILE = ROOT + 'assets/car/textures/item/vehicle_palette.png'
+DEFINITIONS = ROOT + 'data/overthought_vehicles/overthought_vehicles/vehicle/'
+MODELS = ROOT + 'assets/overthought_vehicles/models/item/'
+PALETTE_FILE = ROOT + 'assets/overthought_vehicles/textures/item/vehicle_palette.png'
 
 SPAN = 22.0          # how long the longest vehicle side is, in item pixels
 LIFT = 0.012         # how far a trim piece stands off the panel it lies on
@@ -163,7 +163,7 @@ def icon(name, definition):
         for tall, long in ((0.92, 0.38), (0.38, 0.92), (0.7, 0.7)):
             out.append(place(at, (width + 0.6, rim * tall * 2, rim * long * 2), HUB, (0, 0, 0)))
 
-    text = ('{\n  "textures": {"particle": "car:item/vehicle_palette", "p": "car:item/vehicle_palette"},\n'
+    text = ('{\n  "textures": {"particle": "overthought_vehicles:item/vehicle_palette", "p": "overthought_vehicles:item/vehicle_palette"},\n'
             '  "elements": [\n    ' + ',\n    '.join(out) + '\n  ],\n  "display": '
             + json.dumps(DISPLAY) + '\n}\n')
     with open(MODELS + 'vehicle_' + name + '.json', 'w') as file:

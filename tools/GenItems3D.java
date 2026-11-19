@@ -26,7 +26,7 @@ public class GenItems3D {
     }
 
     public static void main(String[] args) throws Exception {
-        String out = "src/main/resources/assets/car/textures/item";
+        String out = "src/main/resources/assets/overthought_vehicles/textures/item";
 
         img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         int[] metal = {0xFFD9DDE1, 0xFFB7BCC2, 0xFF9DA3AA, 0xFF7E848B};

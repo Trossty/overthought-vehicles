@@ -2,7 +2,7 @@
 import json, random
 from model_uv import fold_uvs
 from PIL import Image
-R='/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
+R='/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/overthought_vehicles/'
 T=R+'textures/block/'; M=R+'models/block/'
 random.seed(11)
 
@@ -91,9 +91,9 @@ def el(fr,to,t,rot=None,faces=('north','south','east','west','up','down'),uv=Non
 def save(name,textures,els):
     json.dump({'parent':'minecraft:block/block','textures':textures,'elements':fold_uvs(els)},open(M+name+'.json','w'),indent=1)
 
-PT={'particle':'car:block/pump_red','body':'car:block/pump_body','red':'car:block/pump_red','door':'car:block/pump_door',
-    'screen':'car:block/pump_screen','sign':'car:block/pump_sign','plinth':'car:block/pump_plinth','rubber':'car:block/pump_rubber',
-    'chrome':'car:block/pump_chrome','bollard':'car:block/pump_bollard'}
+PT={'particle':'overthought_vehicles:block/pump_red','body':'overthought_vehicles:block/pump_body','red':'overthought_vehicles:block/pump_red','door':'overthought_vehicles:block/pump_door',
+    'screen':'overthought_vehicles:block/pump_screen','sign':'overthought_vehicles:block/pump_sign','plinth':'overthought_vehicles:block/pump_plinth','rubber':'overthought_vehicles:block/pump_rubber',
+    'chrome':'overthought_vehicles:block/pump_chrome','bollard':'overthought_vehicles:block/pump_bollard'}
 F=[0,0,16,16]
 # ---- pump (front = north) ----
 # A tall, slim red cabinet in the style of the classic roadside pump: a white
@@ -104,9 +104,9 @@ F=[0,0,16,16]
 tex('pump_lcd', lambda x,y: [24,30,28] if x in (0,15) or y in (0,15) else jit((10,18,14),1))
 tex('pump_label', lambda x,y: jit((236,236,232),2) if not (6<=y<=9 and 2<=x<=13 and x%3!=1) else [200,40,34])
 tex('pump_window', lambda x,y: jit((18,20,22),1))
-PT={'particle':'car:block/pump_red','red':'car:block/pump_red','white':'car:block/pump_body','dark':'car:block/shop_steel',
-    'hose':'car:block/pump_rubber','chrome':'car:block/pump_chrome','lcd':'car:block/pump_lcd','label':'car:block/pump_label',
-    'window':'car:block/pump_window'}
+PT={'particle':'overthought_vehicles:block/pump_red','red':'overthought_vehicles:block/pump_red','white':'overthought_vehicles:block/pump_body','dark':'overthought_vehicles:block/shop_steel',
+    'hose':'overthought_vehicles:block/pump_rubber','chrome':'overthought_vehicles:block/pump_chrome','lcd':'overthought_vehicles:block/pump_lcd','label':'overthought_vehicles:block/pump_label',
+    'window':'overthought_vehicles:block/pump_window'}
 def mx(e):
     # Mirrored across the cabinet: the nozzle side is west in the model,
     # which is the right-hand side seen from the front.
@@ -127,7 +127,7 @@ def glass(x,y):
     if (d in (23,24) and x>=11 and y>=11): return (244,248,252,190)
     return (210,230,240,18)
 tex('pump_glass', glass)
-PT['glass']='car:block/pump_glass'
+PT['glass']='overthought_vehicles:block/pump_glass'
 NF=('north',)
 lower=[
  el([2,0,3],[14,1.5,13],'#dark'),
@@ -188,9 +188,9 @@ save('fuel_pump_upper_empty',PT,upper)
 # A scissor lift with a platform two blocks wide and three long, laid along
 # z (the blockstate turns it): the block is the middle of it, under the car's
 # middle. The base block is the housing let into the floor.
-LT={'particle':'car:block/lift_housing','housing':'car:block/lift_housing','pit':'car:block/lift_pit',
-    'plate':'car:block/lift_plate','hazard':'car:block/shop_hazard','red':'car:block/shop_red',
-    'chrome':'car:block/shop_chrome','steel':'car:block/shop_steel','bottom':'car:block/vehicle_lift_bottom'}
+LT={'particle':'overthought_vehicles:block/lift_housing','housing':'overthought_vehicles:block/lift_housing','pit':'overthought_vehicles:block/lift_pit',
+    'plate':'overthought_vehicles:block/lift_plate','hazard':'overthought_vehicles:block/shop_hazard','red':'overthought_vehicles:block/shop_red',
+    'chrome':'overthought_vehicles:block/shop_chrome','steel':'overthought_vehicles:block/shop_steel','bottom':'overthought_vehicles:block/vehicle_lift_bottom'}
 tex('lift_plate', lambda x,y: plate(x,y))
 def base():
     return el([0,0,0],[16,16,16],'#housing',uv={k:F for k in ('north','south','east','west','up','down')},

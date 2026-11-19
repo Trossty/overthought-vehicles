@@ -1,7 +1,7 @@
 /*
  * The drawing kit for the mod's vehicles. It runs inside Blockbench.
  *
- * A vehicle is drawn by a script next to this file (toyota_corolla.js and so
+ * A vehicle is drawn by a script next to this file (sedan.js and so
  * on). The script describes the car in the game's own terms: sixteenths of a
  * block, x across (left is +x), y up from the road, z towards the nose. The
  * kit turns that into a Blockbench project of cubes, saves it as a .bbmodel,
@@ -22,13 +22,13 @@
  *
  * Load it from Blockbench's console, or through the MCP:
  *   CAR_REPO = '/path/to/car'; eval(require('fs').readFileSync(CAR_REPO + '/tools/vehicles/kit.js', 'utf8'));
- *   CarKit.run('toyota_corolla');
+ *   CarKit.run('sedan');
  */
 (function () {
     const fs = require('fs');
     const REPO = window.CAR_REPO;
     const DIR = REPO + '/tools/vehicles/';
-    const DATA = REPO + '/src/main/resources/data/car/car/vehicle/';
+    const DATA = REPO + '/src/main/resources/data/overthought_vehicles/overthought_vehicles/vehicle/';
 
     const SPECIAL = ['paint', 'paint_dark', 'paint_light', 'cargo'];
     const PALETTE = 16;

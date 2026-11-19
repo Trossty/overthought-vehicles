@@ -1,0 +1,32 @@
+{
+  "parent": "overthought_vehicles:refined",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "overthought_vehicles:asphalt"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "overthought_vehicles:asphalt",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.overthought_vehicles.paved.title"
+    },
+    "description": {
+      "translate": "advancements.overthought_vehicles.paved.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

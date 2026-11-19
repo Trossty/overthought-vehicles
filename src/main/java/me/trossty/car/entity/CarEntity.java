@@ -334,6 +334,9 @@ public class CarEntity extends VehicleEntity {
     /** The driver has the brake on; see {@link #areBrakeLampsOn}. */
     private static final EntityDataAccessor<Boolean> BRAKE_LAMPS =
             SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
+    /** The driver has their foot on the throttle; see {@link #throttlePedal}. */
+    private static final EntityDataAccessor<Boolean> THROTTLE =
+            SynchedEntityData.defineId(CarEntity.class, EntityDataSerializers.BOOLEAN);
 
     /**
      * How deep the water has to be, in blocks, to reach the air intake: a
@@ -624,6 +627,7 @@ public class CarEntity extends VehicleEntity {
         builder.define(KEY_MISSING, false);
         builder.define(FLOODED, false);
         builder.define(BRAKE_LAMPS, false);
+        builder.define(THROTTLE, false);
         for (EntityDataAccessor<Float> side : BODY) {
             builder.define(side, MAX_HEALTH);
         }
@@ -682,7 +686,7 @@ public class CarEntity extends VehicleEntity {
     // ---- what a data pack says this vehicle is ----
 
     /** The id of the vehicle this is, or null for the plain machine. */
-    /** What to call this car: its name tag if it has one, else what model it is ("Jeep Wrangler"). */
+    /** What to call this car: its name tag if it has one, else what model it is ("Off-Roader"). */
     public Component getVehicleName() {
         return this.hasCustomName() && this.getCustomName() != null
                 ? this.getCustomName()
@@ -915,6 +919,9 @@ public class CarEntity extends VehicleEntity {
         if (!this.level().isClientSide()) {
             if (this.getControllingPassenger() == null && this.entityData.get(BRAKE_LAMPS)) {
                 this.setBrakeLamps(false);
+            }
+            if (this.getControllingPassenger() == null && this.entityData.get(THROTTLE)) {
+                this.setThrottlePedal(false);
             }
             this.parts.wearParts();
             this.tickPuncture();
@@ -1615,7 +1622,7 @@ public class CarEntity extends VehicleEntity {
     private static final float IMPACT_SHARE_TO_CAR = 0.15F;
     private static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> RUN_OVER =
             net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE,
-                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("car", "run_over"));
+                    me.trossty.car.CarMain.id("run_over"));
 
     /** Who this car hit lately, and when: one blow each, not one a tick. */
     private final java.util.Map<Integer, Integer> recentlyHit = new java.util.HashMap<>();
@@ -1694,6 +1701,26 @@ public class CarEntity extends VehicleEntity {
 
     public void setBrakeLamps(boolean on) {
         this.entityData.set(BRAKE_LAMPS, on);
+    }
+
+    /**
+     * Whether the driver has the throttle open: forward held, or reverse held
+     * while not still rolling forward, which drives it backwards. Like the
+     * brake lamps, the driving client knows it from the keys and everybody
+     * else from the server, which the driver tells; the gearbox runs the
+     * revs, the throttle and the turbo from it on every side.
+     */
+    public boolean throttlePedal() {
+        if (this.getControllingPassenger() == null) {
+            return false;
+        }
+        return this.isControlledByLocalInstance()
+                ? this.pressingForward || this.pressingBack && this.flyDist <= SPEED_EPSILON
+                : this.entityData.get(THROTTLE);
+    }
+
+    public void setThrottlePedal(boolean open) {
+        this.entityData.set(THROTTLE, open);
     }
 
     /** Called on the controlling client every tick with that player's held keys. */
@@ -1824,7 +1851,7 @@ public class CarEntity extends VehicleEntity {
             this.level().playSound(null, this.getX(), this.getY() + 1.0, this.getZ(),
                     SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.NEUTRAL, 0.9F, 1.6F);
             if (this.getControllingPassenger() instanceof Player driver) {
-                driver.displayClientMessage(Component.translatable("message.car.low_fuel",
+                driver.displayClientMessage(Component.translatable("message.overthought_vehicles.low_fuel",
                         formatDistance(this.rangeBlocks(this.getEngineSpeed()))), true);
             }
         }
@@ -1859,17 +1886,17 @@ public class CarEntity extends VehicleEntity {
     /** The odometer, always in kiloblocks: two decimals, so it moves every ten blocks. */
     public static Component formatOdometer(float blocks) {
         float kb = blocks / 1000.0F;
-        return Component.translatable("unit.car.kiloblocks",
+        return Component.translatable("unit.overthought_vehicles.kiloblocks",
                 String.format(java.util.Locale.ROOT, kb < 100.0F ? "%.2f" : "%.1f", kb));
     }
 
     public static Component formatDistance(float blocks) {
         // Blocks up to a thousand, then kiloblocks: 1 kb = 1000 blocks.
         if (blocks < 1000.0F) {
-            return Component.translatable("unit.car.blocks", (int) blocks);
+            return Component.translatable("unit.overthought_vehicles.blocks", (int) blocks);
         }
         float kb = blocks / 1000.0F;
-        return Component.translatable("unit.car.kiloblocks", kb < 100.0F
+        return Component.translatable("unit.overthought_vehicles.kiloblocks", kb < 100.0F
                 ? String.format(java.util.Locale.ROOT, "%.1f", kb)
                 : String.valueOf(Math.round(kb)));
     }
@@ -2238,7 +2265,7 @@ public class CarEntity extends VehicleEntity {
                 player.openMenu(new net.minecraft.world.SimpleMenuProvider(
                         (syncId, inventory, ignored) ->
                                 new net.minecraft.world.inventory.ChestMenu(net.minecraft.world.inventory.MenuType.GENERIC_9x2, syncId, inventory, this.boot, 2),
-                        Component.translatable("container.car.boot")));
+                        Component.translatable("container.overthought_vehicles.boot")));
             }
             return InteractionResult.sidedSuccess(this.level().isClientSide());
         }
@@ -2247,7 +2274,7 @@ public class CarEntity extends VehicleEntity {
         if (!this.isLidOpen(aim.lid())
                 && (this.getControllingPassenger() != null || Math.abs(this.getEngineSpeed()) > LID_STILL)) {
             if (!this.level().isClientSide()) {
-                player.displayClientMessage(Component.translatable("message.car.lid_moving"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.lid_moving"), true);
             }
             return InteractionResult.sidedSuccess(this.level().isClientSide());
         }
@@ -2511,6 +2538,22 @@ public class CarEntity extends VehicleEntity {
         return CarSetup.engineFuel(this.getSetup());
     }
 
+    /**
+     * The engine's figures: cylinders, idle and redline. The vehicle's own
+     * while the engine it left the factory with is in the bay; swap another
+     * in, and that one's family figures come with it.
+     */
+    public CarSetup.EngineSpec engineSpec() {
+        CarSetup.EngineSpec family = CarSetup.EngineSpec.of(this.getLayout(), this.getEngineFuel());
+        me.trossty.car.vehicle.VehicleDefinition definition = this.getDefinition();
+        if (definition == null) {
+            return family;
+        }
+        var factory = definition.factory();
+        boolean original = this.getVariant(CarPart.ENGINE) == CarSetup.variant(factory.setup(), CarPart.ENGINE);
+        return original ? factory.engineSpec(family) : family;
+    }
+
     /** What is actually in the tank. */
     public CarSetup.Fuel getTankFuel() {
         return CarSetup.tank(this.getSetup());
@@ -2725,7 +2768,7 @@ public class CarEntity extends VehicleEntity {
         this.setFlatTyre(wheel);
         this.playSound(SoundEvents.FIREWORK_ROCKET_BLAST, 1.2F, 0.5F);
         if (this.getControllingPassenger() instanceof Player driver) {
-            driver.displayClientMessage(Component.translatable("message.car.tyre_flat"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.tyre_flat"), true);
         }
     }
 
@@ -2904,35 +2947,35 @@ public class CarEntity extends VehicleEntity {
         }
         CarPart missing = this.missingEssential();
         if (missing != null) {
-            driver.displayClientMessage(Component.translatable("message.car.wont_start",
-                    Component.translatable("part.car." + missing.key())), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.wont_start",
+                    Component.translatable("part.overthought_vehicles." + missing.key())), true);
         } else if (this.isAnyLidOpen()) {
             driver.displayClientMessage(Component.translatable(this.isLidOpen(BONNET_BIT)
-                    ? "message.car.bonnet_open" : "message.car.boot_open"), true);
+                    ? "message.overthought_vehicles.bonnet_open" : "message.overthought_vehicles.boot_open"), true);
         } else if (this.isFlooded()) {
-            driver.displayClientMessage(Component.translatable("message.car.flooded"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.flooded"), true);
         } else if (this.upkeep.isBeltSnapped()) {
-            driver.displayClientMessage(Component.translatable("message.car.belt_snapped"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.belt_snapped"), true);
         } else if (this.entityData.get(KEY_MISSING)) {
-            driver.displayClientMessage(Component.translatable("message.car.need_key"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.need_key"), true);
         } else if (this.isBatteryFlat()) {
-            driver.displayClientMessage(Component.translatable("gui.car.flat_battery"), true);
+            driver.displayClientMessage(Component.translatable("gui.overthought_vehicles.flat_battery"), true);
         } else if (this.hasWrongFuel()) {
-            driver.displayClientMessage(Component.translatable("message.car.wrong_fuel",
-                    Component.translatable("fuel.car." + this.getTankFuel().key()),
-                    Component.translatable("fuel.car." + this.getEngineFuel().key())), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.wrong_fuel",
+                    Component.translatable("fuel.overthought_vehicles." + this.getTankFuel().key()),
+                    Component.translatable("fuel.overthought_vehicles." + this.getEngineFuel().key())), true);
         } else if (this.isOverheating()) {
-            driver.displayClientMessage(Component.translatable("message.car.overheating"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.overheating"), true);
         } else if (this.upkeep.hasOil() && this.upkeep.getOilLevel() < Upkeep.FLUID_LOW) {
-            driver.displayClientMessage(Component.translatable("message.car.oil_low"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.oil_low"), true);
         } else if (this.hasPart(CarPart.RADIATOR) && this.upkeep.getCoolantLevel() < Upkeep.FLUID_LOW) {
-            driver.displayClientMessage(Component.translatable("message.car.coolant_low"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.coolant_low"), true);
         } else if (this.hasPart(CarPart.BRAKE_PADS) && this.upkeep.getBrakeFluid() < Upkeep.FLUID_LOW) {
-            driver.displayClientMessage(Component.translatable("message.car.brake_fluid_low"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.brake_fluid_low"), true);
         } else if (this.isLeaking() && this.hasFuel()) {
-            driver.displayClientMessage(Component.translatable("message.car.tank_leaking"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_leaking"), true);
         } else if (this.upkeep.tyreSoftness() > 0.0F) {
-            driver.displayClientMessage(Component.translatable("message.car.tyres_soft"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.tyres_soft"), true);
         }
     }
 
@@ -3140,7 +3183,7 @@ public class CarEntity extends VehicleEntity {
         }
         if (this.isLocked()) {
             if (!this.level().isClientSide()) {
-                player.displayClientMessage(Component.translatable("message.car.locked"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.locked"), true);
                 this.level().playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
                         SoundEvents.CHEST_LOCKED, SoundSource.NEUTRAL, 0.8F, 1.0F);
             }
@@ -3166,17 +3209,17 @@ public class CarEntity extends VehicleEntity {
         if (code == null) {
             if (this.lockCode == 0) {
                 this.lockCode = this.random.nextLong() | 1L;
-                this.cutKey(player, key, "message.car.key_bound");
+                this.cutKey(player, key, "message.overthought_vehicles.key_bound");
             } else if (!this.isLocked() && carriesKey(player, this.lockCode)) {
-                this.cutKey(player, key, "message.car.key_copied");
+                this.cutKey(player, key, "message.overthought_vehicles.key_copied");
             } else {
-                player.displayClientMessage(Component.translatable("message.car.key_taken"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.key_taken"), true);
             }
             return InteractionResult.SUCCESS;
         }
         if (code != this.lockCode) {
             if (player.isSecondaryUseActive()) {
-                player.displayClientMessage(Component.translatable("message.car.wrong_key"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.wrong_key"), true);
                 return InteractionResult.SUCCESS;
             }
             return InteractionResult.PASS;
@@ -3185,7 +3228,7 @@ public class CarEntity extends VehicleEntity {
             boolean locked = !this.isLocked();
             this.entityData.set(LOCKED, locked);
             world.broadcastEntityEvent(this, locked ? STATUS_LOCKED : STATUS_UNLOCKED);
-            player.displayClientMessage(Component.translatable(locked ? "message.car.locked_now" : "message.car.unlocked_now"), true);
+            player.displayClientMessage(Component.translatable(locked ? "message.overthought_vehicles.locked_now" : "message.overthought_vehicles.unlocked_now"), true);
             world.playSound(null, this.getX(), this.getY() + 0.8, this.getZ(),
                     locked ? SoundEvents.IRON_TRAPDOOR_CLOSE : SoundEvents.IRON_TRAPDOOR_OPEN,
                     SoundSource.NEUTRAL, 0.7F, 1.6F);
@@ -3607,7 +3650,7 @@ public class CarEntity extends VehicleEntity {
      */
     public int pourFrom(Player player, ItemStack can, boolean siphon) {
         if (this.isElectric()) {
-            player.displayClientMessage(Component.translatable("message.car.no_filler"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.no_filler"), true);
             return 0;
         }
         if (siphon) {
@@ -3630,8 +3673,8 @@ public class CarEntity extends VehicleEntity {
         float accepted = this.addFuel(pour, fuelIn(can), isRaw(can));
         if (accepted <= 0.0F) {
             if (this.hasFuel() && this.getTankFuel() != fuelIn(can)) {
-                player.displayClientMessage(Component.translatable("message.car.tank_holds",
-                        Component.translatable("fuel.car." + this.getTankFuel().key())), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_holds",
+                        Component.translatable("fuel.overthought_vehicles." + this.getTankFuel().key())), true);
             }
             return 0;
         }
@@ -3660,7 +3703,7 @@ public class CarEntity extends VehicleEntity {
                     SoundSource.NEUTRAL, 0.45F, 0.8F + this.random.nextFloat() * 0.35F);
         }
         if (ticks % 5 == 0) {
-            player.displayClientMessage(Component.translatable("message.car.tank_level", this.tankReading()), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_level", this.tankReading()), true);
         }
     }
 
@@ -3668,19 +3711,19 @@ public class CarEntity extends VehicleEntity {
     public void fillingStopped(Player player) {
         Vec3 cap = this.fillerPos();
         if (this.isTankFull()) {
-            player.displayClientMessage(Component.translatable("message.car.tank_full", this.tankReading()), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_full", this.tankReading()), true);
             if (cap != null) {
                 this.level().playSound(null, cap.x, cap.y, cap.z,
                         SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.NEUTRAL, 0.5F, 1.5F);
             }
         } else {
-            player.displayClientMessage(Component.translatable("message.car.tank_level", this.tankReading()), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_level", this.tankReading()), true);
         }
     }
 
     /** "34 / 50 L", for the action bar. */
     public Component tankReading() {
-        return Component.translatable("unit.car.litres_of",
+        return Component.translatable("unit.overthought_vehicles.litres_of",
                 me.trossty.car.item.JerryCans.litres(this.getFuel()),
                 me.trossty.car.item.JerryCans.litres(this.getMaxFuel()));
     }
@@ -3700,7 +3743,7 @@ public class CarEntity extends VehicleEntity {
         this.level().playSound(null, this.getX(), this.getY() + 0.5, this.getZ(),
                 patch.is(Items.HONEYCOMB) ? SoundEvents.HONEYCOMB_WAX_ON : SoundEvents.SLIME_BLOCK_PLACE,
                 SoundSource.NEUTRAL, 0.9F, 1.0F);
-        player.displayClientMessage(Component.translatable("message.car.tank_patched"), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_patched"), true);
         return InteractionResult.SUCCESS;
     }
 
@@ -3739,7 +3782,7 @@ public class CarEntity extends VehicleEntity {
         if (colour == null || me.trossty.car.item.SprayCanItem.isEmpty(can)) {
             if (!world.isClientSide()) {
                 player.displayClientMessage(Component.translatable(colour == null
-                        ? "message.car.spray_no_colour" : "message.car.spray_empty"), true);
+                        ? "message.overthought_vehicles.spray_no_colour" : "message.overthought_vehicles.spray_empty"), true);
             }
             return InteractionResult.SUCCESS;
         }

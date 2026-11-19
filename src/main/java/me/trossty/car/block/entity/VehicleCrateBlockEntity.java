@@ -87,7 +87,7 @@ public class VehicleCrateBlockEntity extends BlockEntity {
         }
         // Better to find out now than after the sides are down.
         if (this.unpack(world) == null) {
-            player.displayClientMessage(Component.translatable("message.car.crate_no_room"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.crate_no_room"), true);
             world.playSound(null, pos, SoundEvents.CHEST_LOCKED, SoundSource.BLOCKS, 0.8F, 1.0F);
             return;
         }
@@ -126,7 +126,7 @@ public class VehicleCrateBlockEntity extends BlockEntity {
             this.pries = 0;
             this.changed();
             for (Player near : world.getEntitiesOfClass(Player.class, new AABB(pos).inflate(8.0))) {
-                near.displayClientMessage(Component.translatable("message.car.crate_no_room"), true);
+                near.displayClientMessage(Component.translatable("message.overthought_vehicles.crate_no_room"), true);
             }
             return;
         }

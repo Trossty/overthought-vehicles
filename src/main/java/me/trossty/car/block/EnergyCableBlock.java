@@ -263,8 +263,8 @@ public class EnergyCableBlock extends ModelEntityBlock {
         }
         if (world.getBlockEntity(pos) instanceof EnergyCableBlockEntity cable) {
             player.displayClientMessage(cable.getFlow() <= 0
-                    ? Component.translatable("message.car.cable_idle")
-                    : Component.translatable("message.car.cable_flow", cable.getFlow()), true);
+                    ? Component.translatable("message.overthought_vehicles.cable_idle")
+                    : Component.translatable("message.overthought_vehicles.cable_flow", cable.getFlow()), true);
         }
         return InteractionResult.CONSUME;
     }

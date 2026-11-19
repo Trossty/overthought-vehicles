@@ -119,7 +119,7 @@ public class VehicleCrateBlock extends ModelEntityBlock {
                                                                    Player player, BlockHitResult hit) {
         if (!world.isClientSide()) {
             player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "message.car.crate_needs_wrench"), true);
+                    "message.overthought_vehicles.crate_needs_wrench"), true);
         }
         return net.minecraft.world.InteractionResult.sidedSuccess(world.isClientSide());
     }

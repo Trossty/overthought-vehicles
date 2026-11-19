@@ -176,7 +176,7 @@ public final class BenchWork {
         VehicleRecipe recipe = catalogue.get(index);
         ItemStack result = build(player.getInventory(), recipe, quality);
         if (result.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.car.bench_short",
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.bench_short",
                     recipe.createResult().getHoverName()), true);
             return false;
         }

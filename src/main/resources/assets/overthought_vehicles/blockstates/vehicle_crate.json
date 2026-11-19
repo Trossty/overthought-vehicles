@@ -1,0 +1,43 @@
+{
+  "variants": {
+    "facing=south,piece=0": {
+      "model": "overthought_vehicles:block/vehicle_crate/base"
+    },
+    "facing=south,piece=1": {
+      "model": "overthought_vehicles:block/vehicle_crate/wall"
+    },
+    "facing=south,piece=2": {
+      "model": "overthought_vehicles:block/vehicle_crate/lid"
+    },
+    "facing=west,piece=0": {
+      "model": "overthought_vehicles:block/vehicle_crate/base",
+      "y": 90
+    },
+    "facing=west,piece=1": {
+      "model": "overthought_vehicles:block/vehicle_crate/wall"
+    },
+    "facing=west,piece=2": {
+      "model": "overthought_vehicles:block/vehicle_crate/lid"
+    },
+    "facing=north,piece=0": {
+      "model": "overthought_vehicles:block/vehicle_crate/base",
+      "y": 180
+    },
+    "facing=north,piece=1": {
+      "model": "overthought_vehicles:block/vehicle_crate/wall"
+    },
+    "facing=north,piece=2": {
+      "model": "overthought_vehicles:block/vehicle_crate/lid"
+    },
+    "facing=east,piece=0": {
+      "model": "overthought_vehicles:block/vehicle_crate/base",
+      "y": 270
+    },
+    "facing=east,piece=1": {
+      "model": "overthought_vehicles:block/vehicle_crate/wall"
+    },
+    "facing=east,piece=2": {
+      "model": "overthought_vehicles:block/vehicle_crate/lid"
+    }
+  }
+}

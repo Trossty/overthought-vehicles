@@ -21,7 +21,7 @@ import java.util.Map;
  */
 public final class PartLayout {
 
-    /** The Corolla's half-width: parts are sized for it and scaled for the rest. */
+    /** The sedan's half-width: parts are sized for it and scaled for the rest. */
     private static final float REFERENCE_HALF_WIDTH = 17.36F;
 
     private PartLayout() {

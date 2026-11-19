@@ -105,7 +105,7 @@ public class HydrotreaterBlock extends MultiblockBlock {
             net.minecraft.world.level.material.Fluid raw = CarEntity.fuelIn(held) == CarSetup.Fuel.DIESEL
                     ? ModFluids.RAW_DIESEL : ModFluids.RAW_PETROL;
             if (!in.canTake(raw)) {
-                player.displayClientMessage(Component.translatable("message.car.hydrotreater_busy"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.hydrotreater_busy"), true);
             } else {
                 int taken = JerryCans.emptyInto(held, in.room(), units -> in.fill(raw, units));
                 if (taken > 0) {
@@ -119,9 +119,9 @@ public class HydrotreaterBlock extends MultiblockBlock {
             UnitTank out = plant.getOutput();
             CarSetup.Fuel fuel = ModFluids.fuelOf(out.getFluid());
             if (fuel == null || out.isEmpty()) {
-                player.displayClientMessage(Component.translatable("message.car.hydrotreater_empty"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.hydrotreater_empty"), true);
             } else if (!JerryCans.isEmpty(held) && CarEntity.fuelIn(held) != fuel) {
-                player.displayClientMessage(Component.translatable("message.car.can_other_fuel"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.can_other_fuel"), true);
             } else {
                 int units = JerryCans.topUp(held, out.getUnits(), out::drain);
                 if (units > 0) {
@@ -151,9 +151,9 @@ public class HydrotreaterBlock extends MultiblockBlock {
 
     private static Component name(UnitTank tank) {
         if (tank.isEmpty()) {
-            return Component.translatable("fluid.car.nothing");
+            return Component.translatable("fluid.overthought_vehicles.nothing");
         }
-        return Component.translatable("fluid.car." + net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(tank.getFluid()).getPath());
+        return Component.translatable("fluid.overthought_vehicles." + net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(tank.getFluid()).getPath());
     }
 
     /** Steam off the relief valve on top while it works. */

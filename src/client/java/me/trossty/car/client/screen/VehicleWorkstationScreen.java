@@ -98,7 +98,7 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
         this.inventoryLabelX = VehicleWorkstationScreenHandler.PLAYER_INVENTORY_LEFT;
         this.inventoryLabelY = VehicleWorkstationScreenHandler.PLAYER_INVENTORY_TOP - 11;
         this.buildButton = PanelButton.action(this.leftPos + LIST_X - 1, this.topPos + SHEET_Y + SHEET_HEIGHT - 16,
-                LIST_WIDTH + 2, 16, Component.translatable("gui.car.build"),
+                LIST_WIDTH + 2, 16, Component.translatable("gui.overthought_vehicles.build"),
                 button -> {
                     if (this.menu.canBuild()) {
                         this.builtAt = Util.getMillis();
@@ -509,10 +509,10 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
                 VehicleRecipe.Material material = materials.get(index);
                 ItemStack stack = new ItemStack(material.item(), material.count());
                 List<Component> lines = new java.util.ArrayList<>(getTooltipFromItem(this.minecraft, stack));
-                lines.add(Component.translatable("gui.car.workstation.have",
+                lines.add(Component.translatable("gui.overthought_vehicles.workstation.have",
                         this.menu.have(material.item()), material.count()).withStyle(ChatFormatting.GRAY));
                 if (VehicleWorkstationScreenHandler.isOptional(material.item())) {
-                    lines.add(Component.translatable("gui.car.workstation.optional").withStyle(ChatFormatting.YELLOW));
+                    lines.add(Component.translatable("gui.overthought_vehicles.workstation.optional").withStyle(ChatFormatting.YELLOW));
                 }
                 context.renderComponentTooltip(this.font, lines, mouseX, mouseY);
                 return;
@@ -521,7 +521,7 @@ public class VehicleWorkstationScreen extends AbstractContainerScreen<VehicleWor
         int swatch = this.swatchUnder(mouseX, mouseY);
         if (swatch >= -1) {
             context.renderTooltip(this.font, swatch < 0
-                    ? Component.translatable("gui.car.workstation.factory_paint")
+                    ? Component.translatable("gui.overthought_vehicles.workstation.factory_paint")
                     : Component.translatable("color.minecraft." + DyeColor.byId(swatch).getName()), mouseX, mouseY);
             return;
         }

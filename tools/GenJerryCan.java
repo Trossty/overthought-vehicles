@@ -61,7 +61,7 @@ public class GenJerryCan {
         px(3, 6, METAL);
         px(2, 6, METAL_DARK);
 
-        File out = new File("src/main/resources/assets/car/textures/item/jerry_can.png");
+        File out = new File("src/main/resources/assets/overthought_vehicles/textures/item/jerry_can.png");
         out.getParentFile().mkdirs();
         ImageIO.write(img, "PNG", out);
         System.out.println("wrote " + out.getPath());

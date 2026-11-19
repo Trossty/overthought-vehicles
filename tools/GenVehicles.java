@@ -10,9 +10,9 @@ import java.util.Locale;
  * Draws the three real cars the mod ships as data-pack vehicles, and writes
  * everything that follows from the drawing:
  *
- *   data/car/car/vehicle/NAME.json      the definition the game loads
- *   assets/car/models/item/vehicle_NAME.json   the same boxes, as an item icon
- *   assets/car/textures/item/vehicle_palette.png   the icons' colours
+ *   data/overthought_vehicles/overthought_vehicles/vehicle/NAME.json      the definition the game loads
+ *   assets/overthought_vehicles/models/item/vehicle_NAME.json   the same boxes, as an item icon
+ *   assets/overthought_vehicles/textures/item/vehicle_palette.png   the icons' colours
  *
  * They are ordinary definitions: nothing here is out of reach of a data pack,
  * which is the point of drawing them this way. Lengths are sixteenths of a
@@ -521,7 +521,7 @@ public class GenVehicles {
     // five blocks long, under two wide, and low enough to see over.
     // ------------------------------------------------------------------
     static Vehicle corolla() {
-        Vehicle v = new Vehicle("toyota_corolla");
+        Vehicle v = new Vehicle("sedan");
         v.tank = 50;
         v.dye = "cyan";
         v.paint = 0x169C9C;
@@ -609,7 +609,7 @@ public class GenVehicles {
     // proud of it, seven slots in the grille and the spare on the tailgate.
     // ------------------------------------------------------------------
     static Vehicle wrangler() {
-        Vehicle v = new Vehicle("jeep_wrangler");
+        Vehicle v = new Vehicle("off_roader");
         v.between = LONG_BETWEEN;
         v.overhang = LONG_OVERHANG;
         v.tank = 66;
@@ -713,7 +713,7 @@ public class GenVehicles {
     // with a bed behind it that has the wheel arches standing up in it.
     // ------------------------------------------------------------------
     static Vehicle hilux() {
-        Vehicle v = new Vehicle("toyota_hilux");
+        Vehicle v = new Vehicle("pickup_truck");
         v.between = LONG_BETWEEN;
         v.overhang = LONG_OVERHANG;
         v.tank = 80;
@@ -809,7 +809,7 @@ public class GenVehicles {
     // on it for forty years. Flat bonnet, flat boot, upright glass.
     // ------------------------------------------------------------------
     static Vehicle sahin() {
-        Vehicle v = new Vehicle("tofas_sahin");
+        Vehicle v = new Vehicle("classic_sedan");
         v.between = LONG_BETWEEN;
         v.overhang = LONG_OVERHANG;
         v.tank = 50;
@@ -888,7 +888,7 @@ public class GenVehicles {
     // The race car.
     // ------------------------------------------------------------------
     static Vehicle mustang() {
-        Vehicle v = new Vehicle("ford_mustang");
+        Vehicle v = new Vehicle("muscle_car");
         v.between = LONG_BETWEEN;
         v.overhang = LONG_OVERHANG;
         v.tank = 61;
@@ -992,7 +992,7 @@ public class GenVehicles {
     // on its back. The tanker.
     // ------------------------------------------------------------------
     static Vehicle atego() {
-        Vehicle v = new Vehicle("mercedes_atego");
+        Vehicle v = new Vehicle("tanker_truck");
         v.tank = 200;
         v.lightLength = 16;
         v.lightSpread = 4;
@@ -1096,7 +1096,7 @@ public class GenVehicles {
     /** The item definition for one machine: its default body, and every other body a pack gives it. */
     /**
      * One vehicle's item model, with its paint tinted: by the item's own
-     * {@code car:color} when it has been dyed, otherwise the factory paint.
+     * {@code overthought_vehicles:color} when it has been dyed, otherwise the factory paint.
      */
     // ------------------------------------------------------------------
     // The box trailer: an open steel tub on one axle, mudguards over the
@@ -1162,7 +1162,7 @@ public class GenVehicles {
     // floor for your feet.
     // ------------------------------------------------------------------
     static Vehicle vespa() {
-        Vehicle v = new Vehicle("vespa_primavera");
+        Vehicle v = new Vehicle("scooter");
         v.tank = 8;
         v.lightLength = 7;
         v.lightSpread = 1.5;
@@ -1232,7 +1232,7 @@ public class GenVehicles {
     // under the tail. The fast one.
     // ------------------------------------------------------------------
     static Vehicle cbr() {
-        Vehicle v = new Vehicle("honda_cbr600rr");
+        Vehicle v = new Vehicle("sport_bike");
         v.tank = 18;
         v.lightLength = 10;
         v.lightSpread = 2;
@@ -1318,24 +1318,24 @@ public class GenVehicles {
         StringBuilder tints = new StringBuilder();
         String[] shades = {"paint", "paint_dark", "paint_light"};
         for (int i = 0; i < shades.length; i++) {
-            tints.append(i == 0 ? "" : ", ").append("{ \"type\": \"car:paint\", \"shade\": \"").append(shades[i])
+            tints.append(i == 0 ? "" : ", ").append("{ \"type\": \"overthought_vehicles:paint\", \"shade\": \"").append(shades[i])
                     .append("\", \"default\": ").append(v.paint).append(" }");
         }
-        return "{ \"type\": \"minecraft:model\", \"model\": \"car:item/vehicle_" + v.name
+        return "{ \"type\": \"minecraft:model\", \"model\": \"overthought_vehicles:item/vehicle_" + v.name
                 + "\", \"tints\": [" + tints + "] }";
     }
 
     static void item(String item, List<Vehicle> all, String chassis, String fallback) throws Exception {
         StringBuilder out = new StringBuilder("{\n  \"model\": {\n    \"type\": \"minecraft:select\",\n"
-                + "    \"property\": \"minecraft:component\",\n    \"component\": \"car:vehicle\",\n    \"cases\": [\n");
+                + "    \"property\": \"minecraft:component\",\n    \"component\": \"overthought_vehicles:vehicle\",\n    \"cases\": [\n");
         List<Vehicle> mine = all.stream().filter(v -> v.chassis.equals(chassis)).toList();
         for (int i = 0; i < mine.size(); i++) {
-            out.append("      { \"when\": \"car:").append(mine.get(i).name).append("\", \"model\": ")
+            out.append("      { \"when\": \"overthought_vehicles:").append(mine.get(i).name).append("\", \"model\": ")
                     .append(itemModel(mine.get(i))).append(" }").append(i + 1 < mine.size() ? ",\n" : "\n");
         }
         Vehicle back = mine.stream().filter(v -> v.name.equals(fallback)).findFirst().orElseThrow();
         out.append("    ],\n    \"fallback\": ").append(itemModel(back)).append("\n  }\n}\n");
-        Files.writeString(new File("src/main/resources/assets/car/items/" + item + ".json").toPath(), out);
+        Files.writeString(new File("src/main/resources/assets/overthought_vehicles/items/" + item + ".json").toPath(), out);
     }
 
     static String n(double value) {
@@ -1390,7 +1390,7 @@ public class GenVehicles {
                     .append(i + 1 < v.boxes.size() ? ",\n" : "\n");
         }
         out.append("  ]\n}\n");
-        File file = new File("src/main/resources/data/car/car/vehicle/" + v.name + ".json");
+        File file = new File("src/main/resources/data/overthought_vehicles/overthought_vehicles/vehicle/" + v.name + ".json");
         file.getParentFile().mkdirs();
         Files.writeString(file.toPath(), out);
         System.out.println("wrote " + file.getPath() + " (" + v.boxes.size() + " boxes)");
@@ -1417,7 +1417,7 @@ public class GenVehicles {
 
     static int swatch(Vehicle v, String color) {
         // Paint is drawn white and tinted in the game by whatever the item
-        // was dyed (car:paint), so a red Corolla is red in the hand too.
+        // was dyed (overthought_vehicles:paint), so a red Corolla is red in the hand too.
         int rgb = tintIndex(color) >= 0 ? 0xFFFFFF : Integer.parseInt(color.substring(1), 16);
         int index = PALETTE.indexOf(rgb);
         if (index < 0) {
@@ -1474,8 +1474,8 @@ public class GenVehicles {
         }
         double scale = 22.0 / length;
         double lift = 8 - top * scale / 2;
-        StringBuilder out = new StringBuilder("{\n  \"textures\": { \"particle\": \"car:item/vehicle_palette\","
-                + " \"p\": \"car:item/vehicle_palette\" },\n  \"elements\": [\n");
+        StringBuilder out = new StringBuilder("{\n  \"textures\": { \"particle\": \"overthought_vehicles:item/vehicle_palette\","
+                + " \"p\": \"overthought_vehicles:item/vehicle_palette\" },\n  \"elements\": [\n");
         for (Box b : v.boxes) {
             if (b.color.length() == 9) {
                 continue; // glass: an item is solid, and an empty window reads better than a grey one
@@ -1516,7 +1516,7 @@ public class GenVehicles {
                 + "    \"firstperson_righthand\": { \"rotation\": [0, 45, 0], \"translation\": [0, 3.5, 0], \"scale\": [0.24, 0.24, 0.24] },\n"
                 + "    \"firstperson_lefthand\": { \"rotation\": [0, 225, 0], \"translation\": [0, 3.5, 0], \"scale\": [0.24, 0.24, 0.24] }\n"
                 + "  }\n}\n");
-        File file = new File("src/main/resources/assets/car/models/item/vehicle_" + v.name + ".json");
+        File file = new File("src/main/resources/assets/overthought_vehicles/models/item/vehicle_" + v.name + ".json");
         Files.writeString(file.toPath(), out);
         System.out.println("wrote " + file.getPath());
     }
@@ -1524,11 +1524,11 @@ public class GenVehicles {
     public static void main(String[] args) throws Exception {
         List<Vehicle> all = List.of(corolla(), sahin(), wrangler(), mustang(), hilux(), atego(),
                 trailer(), vespa(), cbr());
-        item("car", all, "car", "toyota_corolla");
-        item("pickup", all, "pickup", "toyota_hilux");
-        item("fuel_tanker", all, "tanker", "mercedes_atego");
+        item("car", all, "car", "sedan");
+        item("pickup", all, "pickup", "pickup_truck");
+        item("fuel_tanker", all, "tanker", "tanker_truck");
         item("trailer", all, "trailer", "box_trailer");
-        item("motorcycle", all, "motorcycle", "honda_cbr600rr");
+        item("motorcycle", all, "motorcycle", "sport_bike");
         for (Vehicle v : all) {
             v.finish();
             definition(v);
@@ -1539,7 +1539,7 @@ public class GenVehicles {
             int rgb = PALETTE.get(Math.min(i, PALETTE.size() - 1));
             palette.setRGB(i % 16, i / 16, 0xFF000000 | rgb);
         }
-        File file = new File("src/main/resources/assets/car/textures/item/vehicle_palette.png");
+        File file = new File("src/main/resources/assets/overthought_vehicles/textures/item/vehicle_palette.png");
         ImageIO.write(palette, "PNG", file);
         System.out.println("wrote " + file.getPath() + " (" + PALETTE.size() + " colours)");
     }

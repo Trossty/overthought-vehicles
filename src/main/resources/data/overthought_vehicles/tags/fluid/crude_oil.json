@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "overthought_vehicles:crude_oil",
+    { "id": "#c:oil", "required": false },
+    { "id": "#c:crude_oil", "required": false },
+    { "id": "techreborn:oil", "required": false },
+    { "id": "modern_industrialization:crude_oil", "required": false },
+    { "id": "ad_astra:oil", "required": false },
+    { "id": "createdieselgenerators:crude_oil", "required": false },
+    { "id": "immersiveengineering:crude_oil", "required": false },
+    { "id": "pneumaticcraft:oil", "required": false },
+    { "id": "thermal:crude_oil", "required": false }
+  ]
+}

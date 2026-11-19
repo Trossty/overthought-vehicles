@@ -214,7 +214,7 @@ public class TankerEntity extends CarEntity {
     /** What the gauge calls the load. */
     public Component liquidName() {
         Fluid liquid = this.getLiquid();
-        return Liquids.isBlank(liquid) ? Component.translatable("tanker.car.empty") : Liquids.name(liquid);
+        return Liquids.isBlank(liquid) ? Component.translatable("tanker.overthought_vehicles.empty") : Liquids.name(liquid);
     }
 
     @Override
@@ -378,8 +378,8 @@ public class TankerEntity extends CarEntity {
 
     /** The gauge: what, how much, and what the hose is doing. */
     public void showGauge(Player player) {
-        player.displayClientMessage(Component.translatable("message.car.tanker_gauge", this.liquidName(),
-                this.getCargo(), CARGO_CAPACITY, Component.translatable("hose.car." + this.hose.key())), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.tanker_gauge", this.liquidName(),
+                this.getCargo(), CARGO_CAPACITY, Component.translatable("hose.overthought_vehicles." + this.hose.key())), true);
     }
 
     /** A bucket, a bottle, or another mod's tank item: whichever way it can go, it goes. */
@@ -392,7 +392,7 @@ public class TankerEntity extends CarEntity {
         var item = FluidUtil.getFluidHandler(player.getItemInHand(hand).copyWithCount(1)).orElse(null);
         Fluid offered = item == null ? Fluids.EMPTY : Liquids.storedIn(item);
         if (!Liquids.isBlank(offered) && !this.barrel.isEmpty() && offered != before) {
-            player.displayClientMessage(Component.translatable("message.car.tanker_holds", this.liquidName()), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.tanker_holds", this.liquidName()), true);
         }
     }
 
@@ -418,7 +418,7 @@ public class TankerEntity extends CarEntity {
             }
         }
         if (!this.barrel.isEmpty() && loaded == null) {
-            player.displayClientMessage(Component.translatable("message.car.tanker_holds", this.liquidName()), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.tanker_holds", this.liquidName()), true);
         }
     }
 

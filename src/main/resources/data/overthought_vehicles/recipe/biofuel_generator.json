@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "G": {
+      "item": "minecraft:green_dye"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
+    },
+    "B": {
+      "item": "minecraft:bucket"
+    }
+  },
+  "pattern": [
+    "ICI",
+    "GRG",
+    "IBI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:biofuel_generator"
+  }
+}

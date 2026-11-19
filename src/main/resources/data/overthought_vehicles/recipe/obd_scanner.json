@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "tools",
+  "key": {
+    "G": {
+      "item": "minecraft:glass_pane"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "Y": {
+      "item": "minecraft:yellow_dye"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "pattern": [
+    " C ",
+    "YGY",
+    "IRI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:obd_scanner"
+  }
+}

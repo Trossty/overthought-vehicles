@@ -145,7 +145,7 @@ public class FuelPumpRenderer implements BlockEntityRenderer<FuelPumpBlockEntity
     private void display(State state, PoseStack matrices, MultiBufferSource queue) {
         Font font = Minecraft.getInstance().font;
         int percent = Math.round(state.fill * 100.0F);
-        FormattedCharSequence name = Component.translatable("fluid.car.petrol").getVisualOrderText();
+        FormattedCharSequence name = Component.translatable("fluid.overthought_vehicles.petrol").getVisualOrderText();
         FormattedCharSequence amount = Component.literal(percent + "%").getVisualOrderText();
         matrices.pushPose();
         matrices.translate(0.5F, SCREEN_Y, SCREEN_Z);

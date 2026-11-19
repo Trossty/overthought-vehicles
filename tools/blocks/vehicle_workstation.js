@@ -4,7 +4,7 @@
 // texture of its own, because it plays. A scan tool hangs on the east side.
 const RED = C.RED;
 
-k.model('vehicle_workstation', {particle: 'car:block/shop_red'}, () => {
+k.model('vehicle_workstation', {particle: 'overthought_vehicles:block/shop_red'}, () => {
     k.g('castors');
     for (const [x, z] of [[2.2, 3.2], [12.6, 3.2], [2.2, 12.6], [12.6, 12.6]]) {
         k.box(x - 0.1, 1.6, z - 0.2, x + 1.3, 2, z + 1.2, C.DARK_STEEL);
@@ -64,7 +64,7 @@ k.model('vehicle_workstation', {particle: 'car:block/shop_red'}, () => {
     k.box(5, 17, 11, 11, 21.6, 11.6, C.PLASTIC, {rot: lean});
     k.box(2, 16, 10, 14, 23, 10.1, C.BLACK, {
         rot: lean, shade: false, only: ['north'],
-        faces: {north: 'car:block/vehicle_workstation_top'}, uv: {north: [0, 0, 16, 16]}
+        faces: {north: 'overthought_vehicles:block/vehicle_workstation_top'}, uv: {north: [0, 0, 16, 16]}
     });
     k.box(13.6, 15.62, 10.04, 14, 15.82, 10.1, C.LED_GREEN, {rot: lean, shade: false, only: ['north']});
 

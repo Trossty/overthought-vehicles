@@ -1,0 +1,64 @@
+{
+  "variants": {
+    "facing=north,half=lower,nozzle=true": {
+      "model": "overthought_vehicles:block/fuel_pump_lower"
+    },
+    "facing=north,half=lower,nozzle=false": {
+      "model": "overthought_vehicles:block/fuel_pump_lower_empty"
+    },
+    "facing=north,half=upper,nozzle=true": {
+      "model": "overthought_vehicles:block/fuel_pump_upper"
+    },
+    "facing=north,half=upper,nozzle=false": {
+      "model": "overthought_vehicles:block/fuel_pump_upper_empty"
+    },
+    "facing=east,half=lower,nozzle=true": {
+      "model": "overthought_vehicles:block/fuel_pump_lower",
+      "y": 90
+    },
+    "facing=east,half=lower,nozzle=false": {
+      "model": "overthought_vehicles:block/fuel_pump_lower_empty",
+      "y": 90
+    },
+    "facing=east,half=upper,nozzle=true": {
+      "model": "overthought_vehicles:block/fuel_pump_upper",
+      "y": 90
+    },
+    "facing=east,half=upper,nozzle=false": {
+      "model": "overthought_vehicles:block/fuel_pump_upper_empty",
+      "y": 90
+    },
+    "facing=south,half=lower,nozzle=true": {
+      "model": "overthought_vehicles:block/fuel_pump_lower",
+      "y": 180
+    },
+    "facing=south,half=lower,nozzle=false": {
+      "model": "overthought_vehicles:block/fuel_pump_lower_empty",
+      "y": 180
+    },
+    "facing=south,half=upper,nozzle=true": {
+      "model": "overthought_vehicles:block/fuel_pump_upper",
+      "y": 180
+    },
+    "facing=south,half=upper,nozzle=false": {
+      "model": "overthought_vehicles:block/fuel_pump_upper_empty",
+      "y": 180
+    },
+    "facing=west,half=lower,nozzle=true": {
+      "model": "overthought_vehicles:block/fuel_pump_lower",
+      "y": 270
+    },
+    "facing=west,half=lower,nozzle=false": {
+      "model": "overthought_vehicles:block/fuel_pump_lower_empty",
+      "y": 270
+    },
+    "facing=west,half=upper,nozzle=true": {
+      "model": "overthought_vehicles:block/fuel_pump_upper",
+      "y": 270
+    },
+    "facing=west,half=upper,nozzle=false": {
+      "model": "overthought_vehicles:block/fuel_pump_upper_empty",
+      "y": 270
+    }
+  }
+}

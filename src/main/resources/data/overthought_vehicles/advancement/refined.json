@@ -1,0 +1,32 @@
+{
+  "parent": "overthought_vehicles:power_up",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "overthought_vehicles:fuel_refinery"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "overthought_vehicles:fuel_refinery",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.overthought_vehicles.refined.title"
+    },
+    "description": {
+      "translate": "advancements.overthought_vehicles.refined.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

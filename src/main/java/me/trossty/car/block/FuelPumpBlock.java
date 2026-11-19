@@ -229,12 +229,12 @@ public class FuelPumpBlock extends ModelEntityBlock {
         }
 
         if (me.trossty.car.entity.CarEntity.holdsDiesel(held)) {
-            player.displayClientMessage(Component.translatable("message.car.petrol_only"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.petrol_only"), true);
             return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
         if (!me.trossty.car.item.JerryCans.isEmpty(held) && me.trossty.car.entity.CarEntity.isRaw(held)) {
             // Raw petrol goes through the hydrotreater, not into a station's tank.
-            player.displayClientMessage(Component.translatable("message.car.pump_raw"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.pump_raw"), true);
             return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
 
@@ -299,7 +299,7 @@ public class FuelPumpBlock extends ModelEntityBlock {
 
     /** The action bar is the pump's only display, so every click updates it. */
     private static void report(Player player, FuelPumpBlockEntity pump) {
-        player.displayClientMessage(Component.translatable("message.car.pump_level",
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.pump_level",
                 pump.getPetrol(), pump.getCapacity()), true);
     }
 

@@ -33,7 +33,7 @@ public class GenCarKey {
     }
 
     public static void main(String[] args) throws Exception {
-        String out = args.length > 0 ? args[0] : "src/main/resources/assets/car/textures/item";
+        String out = args.length > 0 ? args[0] : "src/main/resources/assets/overthought_vehicles/textures/item";
         // Ring, top left.
         int[][] ring = {{1, 2}, {2, 1}, {3, 1}, {4, 2}, {1, 3}, {1, 4}, {2, 5}, {4, 3}};
         for (int[] p : ring) {

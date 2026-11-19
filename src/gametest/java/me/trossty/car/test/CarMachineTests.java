@@ -991,8 +991,8 @@ public class CarMachineTests {
             engines.put(registry.getKey(definition).getPath(), map.get(CarPart.ENGINE));
         }
         context.assertTrue(checked >= 5, "only " + checked + " vehicles had a part map");
-        CarPart.Anchor hatch = engines.get("toyota_corolla");
-        CarPart.Anchor lorry = engines.get("mercedes_atego");
+        CarPart.Anchor hatch = engines.get("sedan");
+        CarPart.Anchor lorry = engines.get("tanker_truck");
         context.assertTrue(hatch != null && lorry != null && !hatch.equals(lorry),
                 "a hatchback and a lorry have their engines in the same place");
         context.succeed();
@@ -1938,7 +1938,7 @@ public class CarMachineTests {
                 context.setBlock(new BlockPos(x, 0, z), net.minecraft.world.level.block.Blocks.FARMLAND);
             }
         }
-        me.trossty.car.entity.TrailerEntity drill = tow(context, "massey_ferguson_240", "seed_drill", 0.9375);
+        me.trossty.car.entity.TrailerEntity drill = tow(context, "tractor", "seed_drill", 0.9375);
         drill.getLoad().setItem(0, new ItemStack(Items.WHEAT_SEEDS, 64));
         context.assertTrue(drill.getDefinition() != null && drill.getDefinition().implement()
                 == me.trossty.car.vehicle.VehicleDefinition.Implement.SEEDER, "the seed drill does not sow");
@@ -1967,7 +1967,7 @@ public class CarMachineTests {
                 context.setBlock(new BlockPos(x, 1, z), net.minecraft.world.level.block.Blocks.WHEAT);
             }
         }
-        me.trossty.car.entity.TrailerEntity spreader = tow(context, "massey_ferguson_240", "fertilizer_spreader",
+        me.trossty.car.entity.TrailerEntity spreader = tow(context, "tractor", "fertilizer_spreader",
                 0.9375);
         spreader.getLoad().setItem(0, new ItemStack(Items.BONE_MEAL, 64));
         context.runAtTickTime(100, () -> {
@@ -1994,7 +1994,7 @@ public class CarMachineTests {
             context.setBlock(new BlockPos(3, 0, z), net.minecraft.world.level.block.Blocks.GRASS_BLOCK);
             context.setBlock(new BlockPos(3, 1, z), net.minecraft.world.level.block.Blocks.DANDELION);
         }
-        me.trossty.car.entity.TrailerEntity trailer = tow(context, "john_deere_x350", "box_trailer", 1.0);
+        me.trossty.car.entity.TrailerEntity trailer = tow(context, "lawn_tractor", "box_trailer", 1.0);
         CarEntity mower = trailer.getTractor();
         var driver = context.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         driver.startRiding(mower, true);
@@ -2027,15 +2027,15 @@ public class CarMachineTests {
         var registry = context.getLevel().registryAccess()
                 .registryOrThrow(me.trossty.car.vehicle.VehicleDefinition.KEY);
         Object[][] expected = {
-                {"massey_ferguson_240", "CAR", false, "NONE"},
+                {"tractor", "CAR", false, "NONE"},
                 {"seed_drill", "TRAILER", false, "SEEDER"},
                 {"fertilizer_spreader", "TRAILER", false, "FERTILIZER"},
-                {"john_deere_x350", "CAR", false, "MOWER"},
-                {"honda_fourtrax_rancher", "CAR", true, "NONE"},
-                {"tony_kart_racer_401", "CAR", false, "NONE"},
-                {"meyers_manx", "CAR", false, "NONE"},
-                {"club_car_precedent", "CAR", false, "NONE"},
-                {"yamaha_waverunner_vx", "BOAT", true, "NONE"},
+                {"lawn_tractor", "CAR", false, "MOWER"},
+                {"quad_bike", "CAR", true, "NONE"},
+                {"go_kart", "CAR", false, "NONE"},
+                {"dune_buggy", "CAR", false, "NONE"},
+                {"golf_cart", "CAR", false, "NONE"},
+                {"water_scooter", "BOAT", true, "NONE"},
         };
         for (Object[] row : expected) {
             var definition = registry.get(CarMain.id((String) row[0]));
@@ -2044,7 +2044,7 @@ public class CarMachineTests {
             context.assertTrue(definition.handlebars() == (Boolean) row[2], row[0] + " has the wrong controls");
             context.assertTrue(definition.implement().name().equals(row[3]), row[0] + " does " + definition.implement());
         }
-        context.assertTrue("electric".equals(registry.get(CarMain.id("club_car_precedent")).factory().fuel()),
+        context.assertTrue("electric".equals(registry.get(CarMain.id("golf_cart")).factory().fuel()),
                 "the golf cart is not electric");
         context.succeed();
     }
@@ -2172,7 +2172,7 @@ public class CarMachineTests {
                 box -> new net.minecraft.world.phys.Vec3(box.getCenter().x, box.maxY, box.getCenter().z);
         var bonnet = defined.lidBounds(me.trossty.car.vehicle.VehicleDefinition.Box.BONNET);
         var boot = defined.lidBounds(me.trossty.car.vehicle.VehicleDefinition.Box.BOOT);
-        context.assertTrue(bonnet != null && boot != null, "the Corolla has no bonnet or no boot lid");
+        context.assertTrue(bonnet != null && boot != null, "the sedan has no bonnet or no boot lid");
         var hand = net.minecraft.world.InteractionHand.MAIN_HAND;
 
         pointAt.accept(top.apply(bonnet), 1.0);

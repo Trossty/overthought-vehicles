@@ -11,7 +11,7 @@ function castor(x, z) {
     k.round('x', x, 0.55, z, 0.55, 0.6, C.RUBBER);
 }
 
-k.model('engine_hoist', {particle: 'car:block/shop_red'}, () => {
+k.model('engine_hoist', {particle: 'overthought_vehicles:block/shop_red'}, () => {
     // ---- the legs ---------------------------------------------------------------
     k.g('legs');
     k.sym(() => {

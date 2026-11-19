@@ -86,7 +86,7 @@ public class CarMainClient {
     private static int bankSentTo = -1;
 
     public static final KeyMapping HORN_KEY = new KeyMapping(
-            "key.car.horn",
+            "key.overthought_vehicles.horn",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_H,
             "key.categories.misc");
@@ -191,7 +191,7 @@ public class CarMainClient {
         NeoForge.EVENT_BUS.addListener((ItemTooltipEvent event) -> {
             Long stored = event.getItemStack().get(ModComponents.STORED_ENERGY);
             if (stored != null) {
-                event.getToolTip().add(Component.translatable("tooltip.car.stored_energy",
+                event.getToolTip().add(Component.translatable("tooltip.overthought_vehicles.stored_energy",
                                 String.format(Locale.ROOT, "%,d", stored),
                                 String.format(Locale.ROOT, "%,d", BatteryBankBlockEntity.CAPACITY))
                         .withStyle(ChatFormatting.AQUA));

@@ -84,7 +84,7 @@ public class DynoBlock extends ModelEntityBlock {
         }
         CarEntity car = carOn(world, pos);
         if (car == null) {
-            player.displayClientMessage(Component.translatable("message.car.dyno_empty"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.dyno_empty"), true);
             return InteractionResult.CONSUME;
         }
         world.playSound(null, pos, SoundEvents.MINECART_RIDING, SoundSource.BLOCKS, 0.6F, 0.7F);
@@ -101,33 +101,33 @@ public class DynoBlock extends ModelEntityBlock {
         float pull = car.throttleStep() * 400.0F;
         float brake = car.brakeStrength() * 400.0F;
         float stop = brake <= 0.0F ? Float.POSITIVE_INFINITY : TEST_SPEED * TEST_SPEED / (2.0F * brake);
-        lines.add(Component.translatable("dyno.car.title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-        lines.add(Component.translatable("dyno.car.top", String.format(java.util.Locale.ROOT, "%.1f", top)));
-        lines.add(Component.translatable("dyno.car.pull", String.format(java.util.Locale.ROOT, "%.1f", pull)));
-        lines.add(Component.translatable("dyno.car.stop", Float.isInfinite(stop) ? "∞"
+        lines.add(Component.translatable("dyno.overthought_vehicles.title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        lines.add(Component.translatable("dyno.overthought_vehicles.top", String.format(java.util.Locale.ROOT, "%.1f", top)));
+        lines.add(Component.translatable("dyno.overthought_vehicles.pull", String.format(java.util.Locale.ROOT, "%.1f", pull)));
+        lines.add(Component.translatable("dyno.overthought_vehicles.stop", Float.isInfinite(stop) ? "∞"
                 : String.format(java.util.Locale.ROOT, "%.1f", stop)));
         float drift = car.pull();
-        lines.add(Math.abs(drift) < 0.01F ? Component.translatable("dyno.car.straight")
-                : Component.translatable(drift < 0.0F ? "dyno.car.drifts_left" : "dyno.car.drifts_right",
+        lines.add(Math.abs(drift) < 0.01F ? Component.translatable("dyno.overthought_vehicles.straight")
+                : Component.translatable(drift < 0.0F ? "dyno.overthought_vehicles.drifts_left" : "dyno.overthought_vehicles.drifts_right",
                 String.format(java.util.Locale.ROOT, "%.2f", Math.abs(drift))));
         if (car.upkeep().hasOil()) {
-            lines.add(Component.translatable("dyno.car.oil", Math.round(car.upkeep().getOilLevel() * 100.0F),
+            lines.add(Component.translatable("dyno.overthought_vehicles.oil", Math.round(car.upkeep().getOilLevel() * 100.0F),
                     Math.round(car.upkeep().getOilAge() * 100.0F)));
         }
-        lines.add(Component.translatable("dyno.car.fluids", Math.round(car.upkeep().getCoolantLevel() * 100.0F),
+        lines.add(Component.translatable("dyno.overthought_vehicles.fluids", Math.round(car.upkeep().getCoolantLevel() * 100.0F),
                 Math.round(car.upkeep().getBrakeFluid() * 100.0F)));
         if (car.hasPart(me.trossty.car.entity.CarPart.WHEELS) && car.parts().isFitted(me.trossty.car.entity.CarPart.WHEELS)) {
             // A new tyre has eight millimetres of tread; the legal limit is 1.6.
             float tread = 1.6F + 6.4F * car.parts().getConditionFraction(me.trossty.car.entity.CarPart.WHEELS);
-            lines.add(Component.translatable("dyno.car.tyres", String.format(java.util.Locale.ROOT, "%.1f", tread),
+            lines.add(Component.translatable("dyno.overthought_vehicles.tyres", String.format(java.util.Locale.ROOT, "%.1f", tread),
                     Math.round(car.upkeep().getTyrePressure() * 100.0F)));
         }
         if (car.upkeep().hasOil()) {
-            lines.add(Component.translatable("dyno.car.service", Math.round(car.upkeep().getBeltWear() * 100.0F),
+            lines.add(Component.translatable("dyno.overthought_vehicles.service", Math.round(car.upkeep().getBeltWear() * 100.0F),
                     Math.round(car.upkeep().getCatClog() * 100.0F)));
         }
         if (car.upkeep().isOnDyno() && Math.abs(car.getEngineSpeed()) > 0.001F) {
-            lines.add(Component.translatable("dyno.car.rolling",
+            lines.add(Component.translatable("dyno.overthought_vehicles.rolling",
                     String.format(java.util.Locale.ROOT, "%.1f", Math.abs(car.getEngineSpeed()) * 20.0F)));
         }
         return lines;

@@ -11,7 +11,7 @@ import math
 import os
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
-ASSETS = os.path.join(ROOT, 'src', 'main', 'resources', 'assets', 'car')
+ASSETS = os.path.join(ROOT, 'src', 'main', 'resources', 'assets', 'overthought_vehicles')
 PALETTE = json.load(open(os.path.join(ROOT, 'tools', 'blocks', 'palette.json')))
 
 SIDES = ['north', 'south', 'east', 'west', 'up', 'down']

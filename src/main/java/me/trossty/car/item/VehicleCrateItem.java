@@ -22,7 +22,7 @@ public class VehicleCrateItem extends BlockItem {
         ItemStack inside = VehicleCrateBlockEntity.vehicleIn(stack);
         return inside.isEmpty()
                 ? super.getName(stack)
-                : Component.translatable("block.car.vehicle_crate.holding", inside.getHoverName());
+                : Component.translatable("block.overthought_vehicles.vehicle_crate.holding", inside.getHoverName());
     }
 
     @Override
@@ -32,6 +32,6 @@ public class VehicleCrateItem extends BlockItem {
         if (!inside.isEmpty()) {
             inside.getItem().appendHoverText(inside, context, lines, type);
         }
-        lines.add(Component.translatable("tooltip.car.crate_open").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(Component.translatable("tooltip.overthought_vehicles.crate_open").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

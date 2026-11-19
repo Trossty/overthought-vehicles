@@ -151,7 +151,7 @@ public class FuelRefineryScreen extends AbstractContainerScreen<FuelRefineryScre
     }
 
     private void caption(GuiGraphics context, String key, int centre, int top, int room) {
-        GuiStyle.caption(context, this.font, Component.translatable("gui.car.caption." + key), centre,
+        GuiStyle.caption(context, this.font, Component.translatable("gui.overthought_vehicles.caption." + key), centre,
                 top + CAPTION_Y, room);
     }
 
@@ -207,8 +207,8 @@ public class FuelRefineryScreen extends AbstractContainerScreen<FuelRefineryScre
         boolean on = this.menu.getDistillFraction() > 0.0F || this.menu.getRefineFraction() > 0.0F;
         int lamp = GuiStyle.lamp(context, this.font, on, this.imageWidth - 9);
         GuiStyle.title(context, this.font, this.title, lamp - GuiStyle.TITLE_X - 4);
-        GuiStyle.readout(context, this.font, Component.translatable("gui.car.refinery.column",
-                this.celsius(), Component.translatable("gui.car.refinery." + this.columnState())),
+        GuiStyle.readout(context, this.font, Component.translatable("gui.overthought_vehicles.refinery.column",
+                this.celsius(), Component.translatable("gui.overthought_vehicles.refinery." + this.columnState())),
                 8, READOUT_Y, this.imageWidth - 16);
     }
 
@@ -236,20 +236,20 @@ public class FuelRefineryScreen extends AbstractContainerScreen<FuelRefineryScre
         int y = mouseY - this.topPos;
         Component text = null;
         if (over(x, y, FEED_X, GAUGE_TOP, TANK_WIDTH, GAUGE_HEIGHT)) {
-            text = Component.translatable(this.crude() ? "tooltip.car.crude" : "tooltip.car.biomass",
+            text = Component.translatable(this.crude() ? "tooltip.overthought_vehicles.crude" : "tooltip.overthought_vehicles.biomass",
                     this.menu.getBiomass(), FuelRefineryBlockEntity.BIOMASS_CAPACITY);
         } else if (over(x, y, COLUMN_X, COLUMN_Y, COLUMN_WIDTH, COLUMN_HEIGHT)) {
-            text = Component.translatable("tooltip.car.column_" + this.columnState(), this.celsius());
+            text = Component.translatable("tooltip.overthought_vehicles.column_" + this.columnState(), this.celsius());
         } else if (over(x, y, PRODUCT_X, GAUGE_TOP, TANK_WIDTH, GAUGE_HEIGHT)) {
-            text = Component.translatable(this.menu.getPetrol() == 0 ? "tooltip.car.product_empty"
+            text = Component.translatable(this.menu.getPetrol() == 0 ? "tooltip.overthought_vehicles.product_empty"
                             : switch (this.menu.getOutput()) {
-                                case FuelRefineryBlockEntity.PRODUCT_RAW_DIESEL -> "tooltip.car.raw_diesel";
-                                case FuelRefineryBlockEntity.PRODUCT_BIOFUEL -> "tooltip.car.biofuel";
-                                default -> "tooltip.car.raw_petrol";
+                                case FuelRefineryBlockEntity.PRODUCT_RAW_DIESEL -> "tooltip.overthought_vehicles.raw_diesel";
+                                case FuelRefineryBlockEntity.PRODUCT_BIOFUEL -> "tooltip.overthought_vehicles.biofuel";
+                                default -> "tooltip.overthought_vehicles.raw_petrol";
                             },
                     this.menu.getPetrol(), FuelRefineryBlockEntity.PETROL_CAPACITY);
         } else if (over(x, y, ENERGY_X, ENERGY_Y, ENERGY_WIDTH, GAUGE_TOP + GAUGE_HEIGHT - ENERGY_Y)) {
-            text = Component.translatable("tooltip.car.energy",
+            text = Component.translatable("tooltip.overthought_vehicles.energy",
                     this.menu.getEnergy(), FuelRefineryBlockEntity.ENERGY_CAPACITY);
         }
         if (text != null) {

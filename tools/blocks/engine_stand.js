@@ -11,7 +11,7 @@ function castor(x, z) {
     k.round('x', x, 0.7, z, 0.72, 0.6, C.RUBBER);
 }
 
-k.model('engine_stand', {particle: 'car:block/shop_red'}, () => {
+k.model('engine_stand', {particle: 'overthought_vehicles:block/shop_red'}, () => {
     k.g('castors');
     for (const [x, z] of [[2.2, 13.2], [13.8, 13.2], [3.8, 1.8], [12.2, 1.8]]) {
         castor(x, z);

@@ -17,8 +17,8 @@ import java.util.List;
  */
 public class GenEvItems {
 
-    static final String TEXTURES = "src/main/resources/assets/car/textures/item/";
-    static final String MODELS = "src/main/resources/assets/car/models/item/";
+    static final String TEXTURES = "src/main/resources/assets/overthought_vehicles/textures/item/";
+    static final String MODELS = "src/main/resources/assets/overthought_vehicles/models/item/";
 
     // ---- the code reader ----
 
@@ -91,15 +91,15 @@ public class GenEvItems {
                 {
                   "parent": "minecraft:item/handheld",
                   "textures": {
-                    "layer0": "car:item/obd_scanner"
+                    "layer0": "overthought_vehicles:item/obd_scanner"
                   }
                 }
                 """);
-        Files.writeString(Path.of("src/main/resources/assets/car/items/obd_scanner.json"), """
+        Files.writeString(Path.of("src/main/resources/assets/overthought_vehicles/items/obd_scanner.json"), """
                 {
                   "model": {
                     "type": "minecraft:model",
-                    "model": "car:item/obd_scanner"
+                    "model": "overthought_vehicles:item/obd_scanner"
                   }
                 }
                 """);
@@ -183,8 +183,8 @@ public class GenEvItems {
         String json = """
                 {
                   "textures": {
-                    "particle": "car:item/electric_motor",
-                    "sheet": "car:item/electric_motor"
+                    "particle": "overthought_vehicles:item/electric_motor",
+                    "sheet": "overthought_vehicles:item/electric_motor"
                   },
                   "elements": [
                 %s

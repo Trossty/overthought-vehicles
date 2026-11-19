@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "roller=false": {
+      "model": "overthought_vehicles:block/dyno"
+    },
+    "roller=true": {
+      "model": "overthought_vehicles:block/dyno_roller"
+    }
+  }
+}

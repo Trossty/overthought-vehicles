@@ -143,10 +143,10 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         this.titleLabelY = GuiStyle.TITLE_Y;
         this.inventoryLabelY = -1000;
         this.removeButton = PanelButton.steel(this.leftPos + BUTTON_X, this.topPos + DASH_Y,
-                BUTTON_WIDTH, 16, Component.translatable("gui.car.remove"),
+                BUTTON_WIDTH, 16, Component.translatable("gui.overthought_vehicles.remove"),
                 button -> this.send(CarServiceScreenHandler.REMOVE_BUTTON));
         this.fitButton = PanelButton.action(this.leftPos + BUTTON_X, this.topPos + DASH_Y + DASH_HEIGHT - 16,
-                BUTTON_WIDTH, 16, Component.translatable("gui.car.fit"),
+                BUTTON_WIDTH, 16, Component.translatable("gui.overthought_vehicles.fit"),
                 button -> this.send(CarServiceScreenHandler.FIT_BUTTON), VehicleWorkbenchScreen.BUILD_FACE);
         this.addRenderableWidget(this.removeButton);
         this.addRenderableWidget(this.fitButton);
@@ -313,7 +313,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
                 context.fill(listLeft, rowY, rowRight + 2, rowY + ROW_HEIGHT - 1, HEADING);
                 context.fill(listLeft, rowY + ROW_HEIGHT - 1, rowRight + 2, rowY + ROW_HEIGHT, 0xFF5B636C);
                 context.drawString(this.font,
-                        GuiStyle.fit(this.font, Component.translatable("group.car." + line.group().key()),
+                        GuiStyle.fit(this.font, Component.translatable("group.overthought_vehicles." + line.group().key()),
                                 rowRight - listLeft - 6),
                         listLeft + 4, rowY + 3, GuiStyle.TITLE_SOFT, false);
                 continue;
@@ -349,7 +349,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
             // The name stops short of the reading rather than running under it.
             int nameRoom = rowRight - this.font.width(reading) - 4 - nameLeft;
             context.drawString(this.font,
-                    GuiStyle.fit(this.font, Component.translatable("part.car." + part.key()), nameRoom),
+                    GuiStyle.fit(this.font, Component.translatable("part.overthought_vehicles." + part.key()), nameRoom),
                     nameLeft, rowY + 1, fitted ? TEXT_ON_WELL : ABSENT, false);
             context.drawString(this.font, reading, rowRight - this.font.width(reading), rowY + 1, colour, false);
             // The LEDs are the row's own underline: they start where the name
@@ -394,13 +394,13 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
 
         int line = top + 29;
         int room = DETAIL_WIDTH - 8;
-        for (FormattedCharSequence piece : this.font.split(Component.translatable("part.car." + part.key()), room)) {
+        for (FormattedCharSequence piece : this.font.split(Component.translatable("part.overthought_vehicles." + part.key()), room)) {
             context.drawString(this.font, piece, left + 4, line, TEXT_ON_WELL, false);
             line += 10;
         }
         // What it is actually for, which is the only reason to care about it.
         for (FormattedCharSequence piece : this.font.split(
-                Component.translatable("part.car." + part.key() + ".effect"), room)) {
+                Component.translatable("part.overthought_vehicles." + part.key() + ".effect"), room)) {
             context.drawString(this.font, piece, left + 4, line, TEXT_DIM, false);
             line += 9;
         }
@@ -413,21 +413,21 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         Component status;
         int statusColour;
         if (inTheWay != null) {
-            status = Component.translatable("gui.car.status_blocked",
-                    Component.translatable("part.car." + inTheWay.key()));
+            status = Component.translatable("gui.overthought_vehicles.status_blocked",
+                    Component.translatable("part.overthought_vehicles." + inTheWay.key()));
             statusColour = BAD;
         } else if (!fitted) {
-            status = Component.translatable("gui.car.status_absent");
+            status = Component.translatable("gui.overthought_vehicles.status_absent");
             statusColour = ABSENT;
         } else if (hidden != null) {
-            status = Component.translatable("gui.car.status_hidden",
-                    Component.translatable("part.car." + hidden.key()));
+            status = Component.translatable("gui.overthought_vehicles.status_hidden",
+                    Component.translatable("part.overthought_vehicles." + hidden.key()));
             statusColour = TEXT_DIM;
         } else if (fraction >= 1.0F) {
-            status = Component.translatable("gui.car.status_new");
+            status = Component.translatable("gui.overthought_vehicles.status_new");
             statusColour = GOOD;
         } else {
-            status = Component.translatable(fraction > 0.5F ? "gui.car.status_ok" : "gui.car.status_worn");
+            status = Component.translatable(fraction > 0.5F ? "gui.overthought_vehicles.status_ok" : "gui.overthought_vehicles.status_worn");
             statusColour = colour;
         }
         for (FormattedCharSequence piece : this.font.split(status, room)) {
@@ -439,19 +439,19 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         // answer to "why is this worn out again already".
         if (fitted) {
             CarPart.Quality quality = car.parts().getQuality(part);
-            context.drawString(this.font, Component.translatable("quality.car." + quality.key()),
+            context.drawString(this.font, Component.translatable("quality.overthought_vehicles." + quality.key()),
                     left + 4, line, quality.argb(), false);
             line += 9;
         }
 
         ItemStack spare = this.menu.spareFor(part);
         Component have = spare.isEmpty()
-                ? Component.translatable("gui.car.no_spare")
-                : Component.translatable("gui.car.spare", Math.round(Workshop.conditionOf(spare)) + "%");
+                ? Component.translatable("gui.overthought_vehicles.no_spare")
+                : Component.translatable("gui.overthought_vehicles.spare", Math.round(Workshop.conditionOf(spare)) + "%");
         context.drawString(this.font, GuiStyle.fit(this.font, have, room), left + 4, line + 2,
                 spare.isEmpty() ? ABSENT : TEXT_ON_WELL, false);
         if (count > 1) {
-            context.drawString(this.font, Component.translatable("gui.car.set_of", count),
+            context.drawString(this.font, Component.translatable("gui.overthought_vehicles.set_of", count),
                     left + 4, line + 12, TEXT_DIM, false);
         }
     }
@@ -496,7 +496,7 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
 
         Component warning = this.warning(car);
         GuiStyle.readout(context, this.font,
-                warning != null ? warning : Component.translatable("gui.car.ready"),
+                warning != null ? warning : Component.translatable("gui.overthought_vehicles.ready"),
                 left + 4, this.topPos + READOUT_Y, LIST_WIDTH - 8,
                 warning != null ? 0xFFFF7A64 : GuiStyle.READOUT_TEXT);
     }
@@ -508,13 +508,13 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         }
         CarPart missing = car.missingEssential();
         if (missing != null) {
-            return Component.translatable("gui.car.needs_part", Component.translatable("part.car." + missing.key()));
+            return Component.translatable("gui.overthought_vehicles.needs_part", Component.translatable("part.overthought_vehicles." + missing.key()));
         }
         if (car.isBatteryFlat()) {
-            return Component.translatable("gui.car.flat_battery");
+            return Component.translatable("gui.overthought_vehicles.flat_battery");
         }
         if (car.isOverheating()) {
-            return Component.translatable("gui.car.overheating");
+            return Component.translatable("gui.overthought_vehicles.overheating");
         }
         return null;
     }
@@ -526,12 +526,12 @@ public class CarServiceScreen extends AbstractContainerScreen<CarServiceScreenHa
         if (car != null && mouseX >= gx - 12 && mouseX < gx + GAUGE_WIDTH + 1 && mouseY >= gy - 4 && mouseY < gy + 10) {
             int percent = Math.round(Mth.clamp(car.getEngineTemp(), 0.0F, 1.0F) * 100.0F);
             context.renderTooltip(this.font,
-                    Component.translatable("gui.car.temperature").append(" " + percent + "%"), mouseX, mouseY);
+                    Component.translatable("gui.overthought_vehicles.temperature").append(" " + percent + "%"), mouseX, mouseY);
             return;
         }
         int index = this.partUnder(mouseX, mouseY);
         if (index >= 0) {
-            Component name = Component.translatable("part.car." + this.lines.get(index).part().key());
+            Component name = Component.translatable("part.overthought_vehicles." + this.lines.get(index).part().key());
             int indent = 5 + this.lines.get(index).part().depth() * 7;
             int room = ROW_RIGHT - LIST_X - indent - 6 - this.font.width("100%") - 4;
             if (this.font.width(name) > room) {

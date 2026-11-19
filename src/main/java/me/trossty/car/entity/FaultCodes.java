@@ -65,7 +65,7 @@ public final class FaultCodes {
                 // No part to name: the place, if there is one, is all the line gets.
                 what = this.at == null ? Component.translatable(this.key) : Component.translatable(this.key, this.at);
             } else {
-                Component name = Component.translatable("part.car." + this.part.key());
+                Component name = Component.translatable("part.overthought_vehicles." + this.part.key());
                 what = this.at == null ? Component.translatable(this.key, name)
                         : Component.translatable(this.key, name, this.at);
             }
@@ -84,12 +84,12 @@ public final class FaultCodes {
                     if (i > 0) {
                         names.append(", ");
                     }
-                    names.append(Component.translatable("part.car." + this.suspects.get(i).key()));
+                    names.append(Component.translatable("part.overthought_vehicles." + this.suspects.get(i).key()));
                 }
-                return Component.translatable("obd.car.suspects", names);
+                return Component.translatable("obd.overthought_vehicles.suspects", names);
             }
             CarPart at = this.place();
-            return at == null ? null : Component.translatable("obd.car.where." + at.group().key());
+            return at == null ? null : Component.translatable("obd.overthought_vehicles.where." + at.group().key());
         }
 
         /** Every part worth a look for this code: its suspects, else the one place it points at. */
@@ -111,13 +111,13 @@ public final class FaultCodes {
                 return this.part;
             }
             return switch (this.key) {
-                case "obd.car.oil_low", "obd.car.oil_old", "obd.car.oil_leak" -> CarPart.OIL_FILTER;
-                case "obd.car.overheat", "obd.car.coolant_low" -> CarPart.RADIATOR;
-                case "obd.car.brake_fluid_low" -> CarPart.BRAKE_PADS;
-                case "obd.car.alignment" -> CarPart.STEERING_RACK;
-                case "obd.car.belt_snapped", "obd.car.belt_due" -> CarPart.ENGINE;
-                case "obd.car.cat_clogged" -> CarPart.EXHAUST;
-                case "obd.car.tyres_soft" -> CarPart.WHEELS;
+                case "obd.overthought_vehicles.oil_low", "obd.overthought_vehicles.oil_old", "obd.overthought_vehicles.oil_leak" -> CarPart.OIL_FILTER;
+                case "obd.overthought_vehicles.overheat", "obd.overthought_vehicles.coolant_low" -> CarPart.RADIATOR;
+                case "obd.overthought_vehicles.brake_fluid_low" -> CarPart.BRAKE_PADS;
+                case "obd.overthought_vehicles.alignment" -> CarPart.STEERING_RACK;
+                case "obd.overthought_vehicles.belt_snapped", "obd.overthought_vehicles.belt_due" -> CarPart.ENGINE;
+                case "obd.overthought_vehicles.cat_clogged" -> CarPart.EXHAUST;
+                case "obd.overthought_vehicles.tyres_soft" -> CarPart.WHEELS;
                 default -> null;
             };
         }
@@ -196,7 +196,7 @@ public final class FaultCodes {
                 continue;
             }
             if (!car.parts().isFitted(part)) {
-                faults.add(new Fault(codeFor(part, electric), part, "obd.car.absent", Severity.CRITICAL, 0));
+                faults.add(new Fault(codeFor(part, electric), part, "obd.overthought_vehicles.absent", Severity.CRITICAL, 0));
                 continue;
             }
             if (part == CarPart.SPARK_PLUGS || part == CarPart.CLUTCH && fraction(car, CarPart.TRANSMISSION) <= 1.0F) {
@@ -214,62 +214,62 @@ public final class FaultCodes {
             int worst = car.parts().worstPlace(part);
             Component at = worst < 0 ? null : car.parts().placeName(part, worst);
             switch (part) {
-                case TRANSMISSION -> faults.add(new Fault("P0730", part, "obd.car.gear_ratio",
+                case TRANSMISSION -> faults.add(new Fault("P0730", part, "obd.overthought_vehicles.gear_ratio",
                         Severity.of(fraction), percent, SLIP, null));
-                case BRAKE_DISCS -> faults.add(new Fault(codeFor(part, electric), part, "obd.car.brake_judder",
+                case BRAKE_DISCS -> faults.add(new Fault(codeFor(part, electric), part, "obd.overthought_vehicles.brake_judder",
                         Severity.of(fraction), percent, JUDDER, at));
                 default -> faults.add(new Fault(code(part, electric, worst), part,
-                        at == null ? "obd.car.worn" : "obd.car.worn_at", Severity.of(fraction), percent, List.of(), at));
+                        at == null ? "obd.overthought_vehicles.worn" : "obd.overthought_vehicles.worn_at", Severity.of(fraction), percent, List.of(), at));
             }
         }
         readMisfires(car, faults);
         if (car.isOverheating()) {
-            faults.add(new Fault("P0217", null, "obd.car.overheat", Severity.CRITICAL, -1));
+            faults.add(new Fault("P0217", null, "obd.overthought_vehicles.overheat", Severity.CRITICAL, -1));
         }
         if (car.isLeaking()) {
-            faults.add(new Fault("P0455", null, "obd.car.leak", Severity.WARNING, -1));
+            faults.add(new Fault("P0455", null, "obd.overthought_vehicles.leak", Severity.WARNING, -1));
         }
         if (car.upkeep().hasOil() && car.upkeep().getOilLevel() < Upkeep.FLUID_LOW) {
-            faults.add(new Fault("P0524", null, "obd.car.oil_low", Severity.CRITICAL, -1));
+            faults.add(new Fault("P0524", null, "obd.overthought_vehicles.oil_low", Severity.CRITICAL, -1));
         } else if (car.upkeep().hasOil() && car.upkeep().getOilAge() >= 0.7F) {
-            faults.add(new Fault("P0196", null, "obd.car.oil_old", Severity.WARNING, -1));
+            faults.add(new Fault("P0196", null, "obd.overthought_vehicles.oil_old", Severity.WARNING, -1));
         }
         if (car.upkeep().isOilLeaking()) {
-            faults.add(new Fault("P0520", null, "obd.car.oil_leak", Severity.WARNING, -1));
+            faults.add(new Fault("P0520", null, "obd.overthought_vehicles.oil_leak", Severity.WARNING, -1));
         }
         if (car.hasPart(CarPart.RADIATOR) && car.upkeep().getCoolantLevel() < Upkeep.FLUID_LOW) {
-            faults.add(new Fault("P2560", null, "obd.car.coolant_low", Severity.WARNING, -1));
+            faults.add(new Fault("P2560", null, "obd.overthought_vehicles.coolant_low", Severity.WARNING, -1));
         }
         if (car.hasPart(CarPart.BRAKE_PADS) && car.upkeep().getBrakeFluid() < Upkeep.FLUID_LOW) {
-            faults.add(new Fault("C1513", null, "obd.car.brake_fluid_low", Severity.CRITICAL, -1));
+            faults.add(new Fault("C1513", null, "obd.overthought_vehicles.brake_fluid_low", Severity.CRITICAL, -1));
         }
         if (car.upkeep().isBeltSnapped()) {
-            faults.add(new Fault("P0016", null, "obd.car.belt_snapped", Severity.CRITICAL, -1));
+            faults.add(new Fault("P0016", null, "obd.overthought_vehicles.belt_snapped", Severity.CRITICAL, -1));
         } else if (car.upkeep().hasOil() && car.upkeep().getBeltWear() >= Upkeep.BELT_DUE) {
-            faults.add(new Fault("P0016", null, "obd.car.belt_due", Severity.WARNING, -1));
+            faults.add(new Fault("P0016", null, "obd.overthought_vehicles.belt_due", Severity.WARNING, -1));
         }
         if (car.upkeep().hasCat() && car.upkeep().getCatClog() >= Upkeep.CAT_CHOKED) {
-            faults.add(new Fault("P0421", null, "obd.car.cat_clogged",
+            faults.add(new Fault("P0421", null, "obd.overthought_vehicles.cat_clogged",
                     car.upkeep().getCatClog() >= 0.8F ? Severity.CRITICAL : Severity.WARNING, -1));
         }
         if (car.hasPart(CarPart.WHEELS) && car.parts().isFitted(CarPart.WHEELS) && car.upkeep().tyreSoftness() > 0.0F) {
-            faults.add(new Fault("C0755", null, "obd.car.tyres_soft",
+            faults.add(new Fault("C0755", null, "obd.overthought_vehicles.tyres_soft",
                     car.upkeep().tyreSoftness() >= 0.5F ? Severity.CRITICAL : Severity.WARNING, -1));
         }
         if (Math.abs(car.upkeep().getAlignment()) >= 0.15F) {
-            faults.add(new Fault("C0455", null, "obd.car.alignment", Severity.ADVISORY, -1));
+            faults.add(new Fault("C0455", null, "obd.overthought_vehicles.alignment", Severity.ADVISORY, -1));
         }
         if (!electric && !car.getEngineFuel().burns(car.getTankFuel()) && car.hasFuel()) {
-            faults.add(new Fault("P0170", null, "obd.car.wrong_fuel", Severity.CRITICAL, -1));
+            faults.add(new Fault("P0170", null, "obd.overthought_vehicles.wrong_fuel", Severity.CRITICAL, -1));
         }
         if (!electric && car.hasFuel() && car.getDirtyFuel() >= 0.25F) {
-            faults.add(new Fault("P0172", null, "obd.car.dirty_fuel",
+            faults.add(new Fault("P0172", null, "obd.overthought_vehicles.dirty_fuel",
                     car.getDirtyFuel() >= 0.75F ? Severity.CRITICAL : Severity.WARNING, -1));
         }
         // Each side's crash sensor keeps its own code, B1001 the front to B1004 the right.
         for (BodyZone zone : BodyZone.values()) {
             if (car.damage().zoneFraction(zone) < CarEntity.DAMAGE_WARNING_FRACTION) {
-                faults.add(new Fault("B100" + (zone.ordinal() + 1), null, "obd.car.body_at", Severity.WARNING, -1,
+                faults.add(new Fault("B100" + (zone.ordinal() + 1), null, "obd.overthought_vehicles.body_at", Severity.WARNING, -1,
                         List.of(), zone.displayName()));
             }
         }
@@ -319,13 +319,13 @@ public final class FaultCodes {
             }
         }
         if (missing.size() >= MANY_MISFIRES) {
-            faults.add(new Fault("P0300", filed, "obd.car.misfire_many",
+            faults.add(new Fault("P0300", filed, "obd.overthought_vehicles.misfire_many",
                     Severity.of(1.0F - worst), Math.round((1.0F - worst) * 100.0F), suspects, null));
             return;
         }
         for (int cylinder : missing) {
             float misfire = car.parts().misfireIn(cylinder);
-            faults.add(new Fault("P030" + (cylinder + 1), filed, "obd.car.misfire",
+            faults.add(new Fault("P030" + (cylinder + 1), filed, "obd.overthought_vehicles.misfire",
                     Severity.of(1.0F - misfire), Math.round((1.0F - misfire) * 100.0F), suspects,
                     car.parts().placeName(filed, cylinder)));
         }

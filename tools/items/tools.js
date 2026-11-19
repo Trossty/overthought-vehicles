@@ -380,13 +380,13 @@ k.model('tar', KEEP, () => {
 
 // ---- OBD tablet ----------------------------------------------------------------------
 
-k.model('obd_scanner', Object.assign({particle: 'car:item/obd_tablet_screen'}, KEEP), () => {
+k.model('obd_scanner', Object.assign({particle: 'overthought_vehicles:item/obd_tablet_screen'}, KEEP), () => {
     // a rugged workshop tablet: the shell, the glass with the live screen under it, three keys below
     const SHELL = '#282B30', GLASS = '#0E1A22', GUARD = '#D8832D', STRAP = '#4A545E';
     k.g('shell');
     k.box(2.0, 1.0, 7.25, 14.0, 15.0, 8.5, SHELL);
     k.box(2.4, 1.4, 8.5, 13.6, 14.6, 8.6, GLASS, {only: ['south', 'east', 'west', 'up', 'down']});
-    k.box(2.9, 3.4, 8.6, 13.1, 13.9, 8.62, 'car:item/obd_tablet_screen', {only: ['south'], uv: {south: [0, 0, 16, 16]}, shade: false});
+    k.box(2.9, 3.4, 8.6, 13.1, 13.9, 8.62, 'overthought_vehicles:item/obd_tablet_screen', {only: ['south'], uv: {south: [0, 0, 16, 16]}, shade: false});
     k.round('z', 8, 14.2, 8.62, 0.18, 0.04, '#3B4250');
     for (const x of [6.2, 8, 9.8]) {
         k.box(x - 0.6, 2.1, 8.6, x + 0.6, 2.7, 8.75, '#3B4250');

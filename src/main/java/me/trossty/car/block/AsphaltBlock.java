@@ -72,7 +72,7 @@ public class AsphaltBlock extends Block {
         }
 
         public String translationKey() {
-            return "marking.car." + this.id;
+            return "marking.overthought_vehicles." + this.id;
         }
 
         public static Marking byIndex(int index) {

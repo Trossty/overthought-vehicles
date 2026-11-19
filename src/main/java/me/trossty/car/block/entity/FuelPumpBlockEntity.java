@@ -242,7 +242,7 @@ public class FuelPumpBlockEntity extends BlockEntity {
     /** Puts the nozzle in the player's empty hand. False if someone else has it. */
     public boolean takeNozzle(net.minecraft.world.entity.player.Player player) {
         if (this.nozzleHolder != null && !this.isHeldBy(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.car.nozzle_in_use"), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.overthought_vehicles.nozzle_in_use"), true);
             return false;
         }
         this.nozzleHolder = player.getUUID();

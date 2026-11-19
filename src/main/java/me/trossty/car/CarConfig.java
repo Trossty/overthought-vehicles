@@ -10,7 +10,7 @@ import net.neoforged.fml.loading.FMLPaths;
 
 /**
  * The few balance knobs a server owner might want to turn, in
- * {@code config/car.json}. Written out with the defaults the first time the
+ * {@code config/overthought_vehicles.json}. Written out with the defaults the first time the
  * game starts; a value missing from an older file keeps its default, and a
  * file that does not parse is left alone (and logged) rather than replaced.
  *
@@ -39,7 +39,7 @@ public final class CarConfig {
 
     /** Reads the file, or writes one with the defaults when there is none. */
     public static void load() {
-        Path file = FMLPaths.CONFIGDIR.get().resolve("car.json");
+        Path file = FMLPaths.CONFIGDIR.get().resolve(CarMain.MOD_ID + ".json");
         try {
             if (Files.exists(file)) {
                 CarConfig read = GSON.fromJson(Files.readString(file), CarConfig.class);

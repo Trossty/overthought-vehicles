@@ -80,7 +80,7 @@ public class TrailerEntity extends CarEntity {
     /** What a bare engine on a flat bed weighs, in kilograms. */
     private static final float ENGINE_KG = 180.0F;
     /** Kept in a carried vehicle's saved data: what it weighs. */
-    private static final String CARGO_MASS = "car:cargo_mass";
+    private static final String CARGO_MASS = "overthought_vehicles:cargo_mass";
     /** How close behind the bed a vehicle's nearer end has to be for the winch to reach it, in blocks. */
     private static final double WINCH_REACH = 4.0;
     /** Walked further than this from the drawbar, a hand lets go of it. */
@@ -293,7 +293,7 @@ public class TrailerEntity extends CarEntity {
             return InteractionResult.SUCCESS;
         }
         if (this.hasCargo()) {
-            player.displayClientMessage(Component.translatable("message.car.flatbed_full"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.flatbed_full"), true);
             return InteractionResult.CONSUME;
         }
         this.entityData.set(CARGO_ITEM, held.copyWithCount(1));
@@ -319,27 +319,27 @@ public class TrailerEntity extends CarEntity {
             Entity off = this.unload(false);
             if (off != null) {
                 this.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 0.6F);
-                player.displayClientMessage(Component.translatable("message.car.flatbed_unloaded",
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.flatbed_unloaded",
                         off.getDisplayName()), true);
             } else {
-                player.displayClientMessage(Component.translatable("message.car.flatbed_blocked"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.flatbed_blocked"), true);
             }
             return InteractionResult.CONSUME;
         }
         CarEntity car = this.nearestCargo();
         if (car == null) {
             player.displayClientMessage(Component.translatable(
-                    this.forPlanes() ? "message.car.plane_dolly_nothing"
-                            : this.isDolly() ? "message.car.dolly_nothing" : "message.car.flatbed_nothing"), true);
+                    this.forPlanes() ? "message.overthought_vehicles.plane_dolly_nothing"
+                            : this.isDolly() ? "message.overthought_vehicles.dolly_nothing" : "message.overthought_vehicles.flatbed_nothing"), true);
             return InteractionResult.CONSUME;
         }
         if (car.isVehicle()) {
-            player.displayClientMessage(Component.translatable("message.car.flatbed_occupied"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.flatbed_occupied"), true);
             return InteractionResult.CONSUME;
         }
         if (car.isLocked() && !carriesKey(player, car.getLockCode())) {
             // Winched on and towed off, a locked car would be as good as stolen.
-            player.displayClientMessage(Component.translatable("message.car.locked"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.locked"), true);
             return InteractionResult.CONSUME;
         }
         CompoundTag saved = new CompoundTag();
@@ -354,7 +354,7 @@ public class TrailerEntity extends CarEntity {
         this.entityData.set(CARGO, saved);
         this.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 1.2F);
         this.playSound(SoundEvents.IRON_TRAPDOOR_CLOSE, 0.6F, 0.8F);
-        player.displayClientMessage(Component.translatable("message.car.flatbed_loaded", name), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.flatbed_loaded", name), true);
         return InteractionResult.CONSUME;
     }
 
@@ -509,12 +509,12 @@ public class TrailerEntity extends CarEntity {
         Vec3 ball = tractor.hitchPoint();
         Vec3 coupler = this.coupler();
         VehicleDefinition defined = this.getDefinition();
-        String refused = !tractor.canTow() ? "message.car.trailer_cannot_tow"
+        String refused = !tractor.canTow() ? "message.overthought_vehicles.trailer_cannot_tow"
                 : defined != null && !defined.pulledBy().isEmpty()
-                && !defined.pulledBy().contains(tractor.getModelId()) ? "message.car.trailer_wrong_truck"
-                : tractor.isTowing(this) ? "message.car.trailer_hitch_taken"
+                && !defined.pulledBy().contains(tractor.getModelId()) ? "message.overthought_vehicles.trailer_wrong_truck"
+                : tractor.isTowing(this) ? "message.overthought_vehicles.trailer_hitch_taken"
                 : ball.distanceToSqr(coupler.x, ball.y, coupler.z) > HITCH_REACH * HITCH_REACH
-                ? "message.car.trailer_too_far" : null;
+                ? "message.overthought_vehicles.trailer_too_far" : null;
         if (refused != null) {
             player.displayClientMessage(Component.translatable(refused), true);
             return InteractionResult.CONSUME;
@@ -524,7 +524,7 @@ public class TrailerEntity extends CarEntity {
         this.follow(tractor);
         this.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 1.0F);
         this.playSound(SoundEvents.IRON_TRAPDOOR_CLOSE, 0.6F, 1.4F);
-        player.displayClientMessage(Component.translatable("message.car.trailer_hitched", tractor.getDisplayName()), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.trailer_hitched", tractor.getDisplayName()), true);
         return InteractionResult.CONSUME;
     }
 
@@ -767,7 +767,7 @@ public class TrailerEntity extends CarEntity {
             player.openMenu(new SimpleMenuProvider(
                     (syncId, playerInventory, ignored) ->
                             ChestMenu.threeRows(syncId, playerInventory, this.load),
-                    Component.translatable("container.car.trailer")));
+                    Component.translatable("container.overthought_vehicles.trailer")));
             return InteractionResult.CONSUME;
         }
         if (!held.isEmpty()) {
@@ -782,12 +782,12 @@ public class TrailerEntity extends CarEntity {
         if (this.isHitched()) {
             this.hitchTo(null);
             this.playSound(SoundEvents.CHAIN_HIT, 1.0F, 0.8F);
-            player.displayClientMessage(Component.translatable("message.car.trailer_unhitched"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.trailer_unhitched"), true);
             return InteractionResult.CONSUME;
         }
         if (this.entityData.get(HOLDER) == player.getId()) {
             this.letGo();
-            player.displayClientMessage(Component.translatable("message.car.trailer_let_go"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.trailer_let_go"), true);
             return InteractionResult.CONSUME;
         }
         TrailerEntity other = heldBy(player);
@@ -798,7 +798,7 @@ public class TrailerEntity extends CarEntity {
         this.letGo();
         this.entityData.set(HOLDER, player.getId());
         this.playSound(SoundEvents.CHAIN_HIT, 1.0F, 1.2F);
-        player.displayClientMessage(Component.translatable("message.car.trailer_grabbed"), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.trailer_grabbed"), true);
         return InteractionResult.CONSUME;
     }
 

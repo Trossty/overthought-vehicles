@@ -44,7 +44,7 @@ public class TankOnlyFluid extends Fluid {
     public TankOnlyFluid(String name, Item bucket) {
         this.bucket = bucket;
         this.type = new net.neoforged.neoforge.fluids.FluidType(net.neoforged.neoforge.fluids.FluidType.Properties.create()
-                .descriptionId("fluid.car." + name)
+                .descriptionId("fluid.overthought_vehicles." + name)
                 .sound(net.neoforged.neoforge.common.SoundActions.BUCKET_FILL, net.minecraft.sounds.SoundEvents.BUCKET_FILL)
                 .sound(net.neoforged.neoforge.common.SoundActions.BUCKET_EMPTY, net.minecraft.sounds.SoundEvents.BUCKET_EMPTY));
     }

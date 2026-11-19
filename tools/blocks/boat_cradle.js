@@ -4,7 +4,7 @@
 // ServiceStandBlock holds the boat.
 const FRAME = C.STEEL, CARPET = '#5E6A75', CARPET_DARK = '#4A545E';
 
-k.model('boat_cradle', {particle: 'car:block/lift_housing'}, () => {
+k.model('boat_cradle', {particle: 'overthought_vehicles:block/lift_housing'}, () => {
     k.g('frame');
     for (const z of [2, 11.5]) {
         k.box(1, 0.6, z, 15, 2.6, z + 2.5, FRAME);

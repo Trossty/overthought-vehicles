@@ -430,11 +430,11 @@ public final class Upkeep {
             return InteractionResult.SUCCESS;
         }
         if (this.car.hasLid(CarEntity.BONNET_BIT) && !this.car.isLidOpen(CarEntity.BONNET_BIT)) {
-            player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.open_bonnet"), true);
             return InteractionResult.CONSUME;
         }
         if (this.getBrakeFluid() >= 0.99F) {
-            player.displayClientMessage(Component.translatable("message.car.brake_fluid_full"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.brake_fluid_full"), true);
             return InteractionResult.CONSUME;
         }
         this.setBrakeFluid(this.getBrakeFluid() + BRAKE_FLUID_PER_BOTTLE);
@@ -448,7 +448,7 @@ public final class Upkeep {
             }
         }
         this.car.playSound(SoundEvents.BOTTLE_EMPTY, 1.0F, 1.2F);
-        player.displayClientMessage(Component.translatable("message.car.brake_fluid_topped",
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.brake_fluid_topped",
                 Math.round(this.getBrakeFluid() * 100.0F)), true);
         return InteractionResult.CONSUME;
     }
@@ -463,19 +463,19 @@ public final class Upkeep {
             return InteractionResult.SUCCESS;
         }
         if (this.car.hasLid(CarEntity.BONNET_BIT) && !this.car.isLidOpen(CarEntity.BONNET_BIT)) {
-            player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.open_bonnet"), true);
             return InteractionResult.CONSUME;
         }
         if (this.getBeltWear() < 0.05F) {
-            player.displayClientMessage(Component.translatable("message.car.belt_fresh"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.belt_fresh"), true);
             return InteractionResult.CONSUME;
         }
         boolean snapped = this.isBeltSnapped();
         this.setBeltWear(0.0F);
         belt.consume(1, player);
         this.car.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 1.2F);
-        player.displayClientMessage(Component.translatable(snapped ? "message.car.belt_fitted_snapped"
-                : "message.car.belt_fitted"), true);
+        player.displayClientMessage(Component.translatable(snapped ? "message.overthought_vehicles.belt_fitted_snapped"
+                : "message.overthought_vehicles.belt_fitted"), true);
         return InteractionResult.CONSUME;
     }
 
@@ -492,13 +492,13 @@ public final class Upkeep {
             return InteractionResult.CONSUME;
         }
         if (this.getCatClog() < 0.05F) {
-            player.displayClientMessage(Component.translatable("message.car.cat_fresh"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.cat_fresh"), true);
             return InteractionResult.CONSUME;
         }
         this.setCatClog(0.0F);
         cat.consume(1, player);
         this.car.playSound(SoundEvents.ANVIL_USE, 0.6F, 1.3F);
-        player.displayClientMessage(Component.translatable("message.car.cat_fitted"), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.cat_fitted"), true);
         return InteractionResult.CONSUME;
     }
 
@@ -511,12 +511,12 @@ public final class Upkeep {
             return InteractionResult.SUCCESS;
         }
         if (this.getTyrePressure() >= 0.99F) {
-            player.displayClientMessage(Component.translatable("message.car.tyres_firm"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.tyres_firm"), true);
             return InteractionResult.CONSUME;
         }
         this.setTyrePressure(this.getTyrePressure() + PUMP_STROKE);
         this.car.playSound(SoundEvents.PISTON_EXTEND, 0.5F, 1.7F);
-        player.displayClientMessage(Component.translatable("message.car.tyres_pumped",
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.tyres_pumped",
                 Math.round(this.getTyrePressure() * 100.0F)), true);
         return InteractionResult.CONSUME;
     }
@@ -530,12 +530,12 @@ public final class Upkeep {
             return InteractionResult.CONSUME;
         }
         if (Math.abs(this.getAlignment()) < 0.01F) {
-            player.displayClientMessage(Component.translatable("message.car.aligned_already"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.aligned_already"), true);
             return InteractionResult.CONSUME;
         }
         this.setAlignment(0.0F);
         this.car.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 0.8F);
-        player.displayClientMessage(Component.translatable("message.car.aligned"), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.aligned"), true);
         return InteractionResult.CONSUME;
     }
 
@@ -552,7 +552,7 @@ public final class Upkeep {
             return InteractionResult.SUCCESS;
         }
         if (this.car.hasLid(CarEntity.BONNET_BIT) && !this.car.isLidOpen(CarEntity.BONNET_BIT)) {
-            player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.open_bonnet"), true);
             return InteractionResult.CONSUME;
         }
         java.util.UUID donorId = leads.get(me.trossty.car.registry.ModComponents.OBD_LINK);
@@ -561,22 +561,22 @@ public final class Upkeep {
                 || giver.hasLid(CarEntity.BONNET_BIT) && !giver.isLidOpen(CarEntity.BONNET_BIT)) {
             if (!this.car.parts().isFitted(CarPart.BATTERY) || this.car.parts().getConditionFraction(CarPart.BATTERY) < JUMP_DONOR_MIN) {
                 leads.remove(me.trossty.car.registry.ModComponents.OBD_LINK);
-                player.displayClientMessage(Component.translatable("message.car.jump_donor_flat"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.jump_donor_flat"), true);
                 return InteractionResult.CONSUME;
             }
             leads.set(me.trossty.car.registry.ModComponents.OBD_LINK, this.car.getUUID());
             this.car.playSound(SoundEvents.CHAIN_HIT, 1.0F, 1.4F);
-            player.displayClientMessage(Component.translatable("message.car.jump_clipped"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.jump_clipped"), true);
             return InteractionResult.CONSUME;
         }
         leads.remove(me.trossty.car.registry.ModComponents.OBD_LINK);
         if (!this.car.parts().isFitted(CarPart.BATTERY)) {
-            player.displayClientMessage(Component.translatable("message.car.jump_no_battery"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.jump_no_battery"), true);
             return InteractionResult.CONSUME;
         }
         float give = Math.min(JUMP_CHARGE, giver.parts().getCondition(CarPart.BATTERY) - JUMP_DONOR_MIN * CarPart.MAX_CONDITION);
         if (give <= 0.0F || giver.parts().getConditionFraction(CarPart.BATTERY) < JUMP_DONOR_MIN) {
-            player.displayClientMessage(Component.translatable("message.car.jump_donor_flat"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.jump_donor_flat"), true);
             return InteractionResult.CONSUME;
         }
         float before = this.car.parts().getCondition(CarPart.BATTERY);
@@ -589,7 +589,7 @@ public final class Upkeep {
             server.sendParticles(ParticleTypes.ELECTRIC_SPARK, this.car.getX(), this.car.getY() + 1.0, this.car.getZ(),
                     8, 0.3, 0.2, 0.3, 0.05);
         }
-        player.displayClientMessage(Component.translatable("message.car.jumped",
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.jumped",
                 Math.round(this.car.parts().getConditionFraction(CarPart.BATTERY) * 100.0F)), true);
         return InteractionResult.CONSUME;
     }
@@ -645,12 +645,12 @@ public final class Upkeep {
         }
         // Under the bonnet where there is one; a bike's filler is out in the open.
         if (this.car.hasLid(CarEntity.BONNET_BIT) && !this.car.isLidOpen(CarEntity.BONNET_BIT)) {
-            player.displayClientMessage(Component.translatable("message.car.open_bonnet"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.open_bonnet"), true);
             return InteractionResult.CONSUME;
         }
         float level = oil ? this.getOilLevel() : this.getCoolantLevel();
         if (level >= 0.99F) {
-            player.displayClientMessage(Component.translatable(oil ? "message.car.oil_full" : "message.car.coolant_full"), true);
+            player.displayClientMessage(Component.translatable(oil ? "message.overthought_vehicles.oil_full" : "message.overthought_vehicles.coolant_full"), true);
             return InteractionResult.CONSUME;
         }
         float now = Math.min(1.0F, level + (oil ? OIL_PER_BOTTLE : bucket ? 1.0F : WATER_PER_BOTTLE));
@@ -671,7 +671,7 @@ public final class Upkeep {
             }
         }
         this.car.playSound(bucket ? SoundEvents.BUCKET_EMPTY : SoundEvents.BOTTLE_EMPTY, 1.0F, 1.0F);
-        player.displayClientMessage(Component.translatable(oil ? "message.car.oil_topped" : "message.car.coolant_topped",
+        player.displayClientMessage(Component.translatable(oil ? "message.overthought_vehicles.oil_topped" : "message.overthought_vehicles.coolant_topped",
                 Math.round(now * 100.0F)), true);
         return InteractionResult.CONSUME;
     }

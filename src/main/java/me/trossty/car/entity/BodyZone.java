@@ -31,7 +31,7 @@ public enum BodyZone {
     }
 
     public Component displayName() {
-        return Component.translatable("zone.car." + this.key);
+        return Component.translatable("zone.overthought_vehicles." + this.key);
     }
 
     /**

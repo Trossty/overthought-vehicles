@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "age=0": {
+      "model": "overthought_vehicles:block/rapeseed_stage0"
+    },
+    "age=1": {
+      "model": "overthought_vehicles:block/rapeseed_stage0"
+    },
+    "age=2": {
+      "model": "overthought_vehicles:block/rapeseed_stage1"
+    },
+    "age=3": {
+      "model": "overthought_vehicles:block/rapeseed_stage1"
+    },
+    "age=4": {
+      "model": "overthought_vehicles:block/rapeseed_stage2"
+    },
+    "age=5": {
+      "model": "overthought_vehicles:block/rapeseed_stage2"
+    },
+    "age=6": {
+      "model": "overthought_vehicles:block/rapeseed_stage2"
+    },
+    "age=7": {
+      "model": "overthought_vehicles:block/rapeseed_stage3"
+    }
+  }
+}

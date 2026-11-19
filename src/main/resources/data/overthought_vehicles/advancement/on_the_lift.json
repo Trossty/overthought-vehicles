@@ -1,0 +1,32 @@
+{
+  "parent": "overthought_vehicles:garage",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "overthought_vehicles:vehicle_lift"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "overthought_vehicles:vehicle_lift",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.overthought_vehicles.on_the_lift.title"
+    },
+    "description": {
+      "translate": "advancements.overthought_vehicles.on_the_lift.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

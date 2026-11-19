@@ -12,7 +12,7 @@ liquid is in the drum; the lid, the filler cap and the hazard label are not.
 import json, os, random
 from model_uv import fold_uvs
 from PIL import Image
-R = '/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/'
+R = '/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/overthought_vehicles/'
 T = R + 'textures/block/'; M = R + 'models/block/'
 random.seed(23)
 
@@ -138,16 +138,16 @@ els.append({'from': [4.5, 15.5, 10.5], 'to': [5.75, 16, 11.75],
             'faces': {k: {'texture': '#cap'} for k in CAP_FACES}})
 
 json.dump({'parent': 'minecraft:block/block',
-           'textures': {'particle': 'car:block/drum_body', 'body': 'car:block/drum_body',
-                        'lid': 'car:block/drum_lid', 'label': 'car:block/drum_label',
-                        'cap': 'car:block/drum_cap'},
+           'textures': {'particle': 'overthought_vehicles:block/drum_body', 'body': 'overthought_vehicles:block/drum_body',
+                        'lid': 'overthought_vehicles:block/drum_lid', 'label': 'overthought_vehicles:block/drum_label',
+                        'cap': 'overthought_vehicles:block/drum_cap'},
            'elements': fold_uvs(els)},
           open(M + 'fuel_drum.json', 'w'), indent=1)
 
-json.dump({'variants': {f'facing={f}': ({'model': 'car:block/fuel_drum', 'y': y} if y else
-                                         {'model': 'car:block/fuel_drum'})
+json.dump({'variants': {f'facing={f}': ({'model': 'overthought_vehicles:block/fuel_drum', 'y': y} if y else
+                                         {'model': 'overthought_vehicles:block/fuel_drum'})
                         for f, y in (('north', 0), ('east', 90), ('south', 180), ('west', 270))}},
           open(R + 'blockstates/fuel_drum.json', 'w'), indent=2)
 # The paint takes the colour of what is inside: ItemLooks tints face 0.
-json.dump({'parent': 'car:block/fuel_drum'}, open(R + 'models/item/fuel_drum.json', 'w'), indent=2)
+json.dump({'parent': 'overthought_vehicles:block/fuel_drum'}, open(R + 'models/item/fuel_drum.json', 'w'), indent=2)
 print('drum written:', len(els), 'elements')

@@ -1,0 +1,32 @@
+{
+  "parent": "overthought_vehicles:root",
+  "criteria": {
+    "has": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "overthought_vehicles:pumpjack"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "overthought_vehicles:pumpjack",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.overthought_vehicles.strike_oil.title"
+    },
+    "description": {
+      "translate": "advancements.overthought_vehicles.strike_oil.description"
+    }
+  },
+  "requirements": [
+    [
+      "has"
+    ]
+  ]
+}

@@ -10,7 +10,7 @@
  * them in Blockbench and saves that as a .bbmodel beside the script.
  *
  * A box is painted with a colour ("#B02E26") or with a texture
- * ("car:block/shop_hazard"). Colours live on one shared texture,
+ * ("overthought_vehicles:block/shop_hazard"). Colours live on one shared texture,
  * block/palette.png, a cell each; palette.json beside this file keeps their
  * order, and a new colour is only ever added to the end, so models written
  * earlier stay right. A cell is 16 texels square, drawn in the grain of what
@@ -38,7 +38,7 @@
     const REPO = window.CAR_REPO;
     const DIR = REPO + '/tools/blocks/';
     const ITEMS = REPO + '/tools/items/';
-    const ASSETS = REPO + '/src/main/resources/assets/car/';
+    const ASSETS = REPO + '/src/main/resources/assets/overthought_vehicles/';
     const MODELS = ASSETS + 'models/block/';
     const ITEM_MODELS = ASSETS + 'models/item/';
     const PALETTE_FILE = ASSETS + 'textures/block/palette.png';
@@ -687,7 +687,7 @@
             const textures = {};
             const keyOf = paint => {
                 if (isColour(paint)) {
-                    textures.p = 'car:block/palette';
+                    textures.p = 'overthought_vehicles:block/palette';
                     return 'p';
                 }
                 const key = paint.split('/').pop();
@@ -739,7 +739,7 @@
                     lines.push('    ' + one(e));
                 }
             }
-            const particle = m.o.particle || (was.textures && was.textures.particle) || 'car:block/shop_steel';
+            const particle = m.o.particle || (was.textures && was.textures.particle) || 'overthought_vehicles:block/shop_steel';
             const head = {};
             const parent = m.o.parent || was.parent || (m.item ? null : 'minecraft:block/block');
             if (parent) {
@@ -790,14 +790,14 @@
             Project.texture_height = 16;
             const loaded = {};
             const texture = paint => {
-                const key = isColour(paint) ? 'car:block/palette' : paint;
+                const key = isColour(paint) ? 'overthought_vehicles:block/palette' : paint;
                 if (loaded[key]) {
                     return loaded[key];
                 }
                 const [namespace, rest] = key.split(':');
                 const tex = new Texture({name: rest.split('/').pop() + '.png', namespace: namespace, folder: 'block'});
                 const file = ASSETS + 'textures/' + rest + '.png';
-                if (key === 'car:block/palette') {
+                if (key === 'overthought_vehicles:block/palette') {
                     tex.fromDataURL(paletteCanvas(palette).toDataURL('image/png'));
                 } else if (namespace === 'car' && fs.existsSync(file)) {
                     tex.fromDataURL('data:image/png;base64,' + fs.readFileSync(file).toString('base64'));

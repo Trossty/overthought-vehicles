@@ -15,7 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * way the grades are, because every one of these is a choice from a short
  * list.
  *
- * <p>A part's own kind travels on the item as {@code car:part_variant}: for
+ * <p>A part's own kind travels on the item as {@code overthought_vehicles:part_variant}: for
  * an engine that is {@link #engineVariant}, for a wheel a {@link Tyre}
  * ordinal, for an air filter 0 or 1. A part with no variant on it is the
  * plain one — a petrol four, a road tyre, a paper filter — which is what
@@ -158,6 +158,26 @@ public final class CarSetup {
 
     /** What {@link #electricTorque} averages from standstill to flat out. */
     private static final float ELECTRIC_MEAN = ELECTRIC_KNEE + ELECTRIC_KNEE * (float) Math.log(1.0 / ELECTRIC_KNEE);
+
+    /**
+     * The figures an engine runs to: how many cylinders fire, the revs it
+     * idles at and where the red band starts. A vehicle's definition gives
+     * them for the engine it leaves the factory with; any other engine
+     * dropped in brings the plain figures of its family, from {@link #of}.
+     */
+    public record EngineSpec(int cylinders, float idleRpm, float redlineRpm) {
+
+        /** The revs any engine of the four families ticks over at. */
+        public static final float FAMILY_IDLE_RPM = 850.0F;
+
+        /** An engine of this layout on this fuel, with nothing else known about it. */
+        public static EngineSpec of(Layout layout, Fuel fuel) {
+            // A diesel runs out of breath long before a petrol, and a big eight before a four.
+            float redline = fuel.needsSpark() ? 7000.0F : 4500.0F;
+            return new EngineSpec(layout.cylinders(), FAMILY_IDLE_RPM,
+                    layout == Layout.V8 ? redline - 500.0F : redline);
+        }
+    }
 
     /** What the engine burns, and so what has to be in the tank. */
     public enum Fuel {

@@ -10,7 +10,7 @@ import java.io.File;
  */
 public class GenTablet {
 
-    static final String TEXTURES = "src/main/resources/assets/car/textures/";
+    static final String TEXTURES = "src/main/resources/assets/overthought_vehicles/textures/";
 
     static BufferedImage img;
 

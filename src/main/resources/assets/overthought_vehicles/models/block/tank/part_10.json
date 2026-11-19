@@ -1,0 +1,10 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {"particle": "overthought_vehicles:block/tank_glass", "p": "overthought_vehicles:block/palette"},
+  "elements": [
+    {"from": [0, 15.4, 0], "to": [2, 16, 16], "faces": {"north": {"uv": [2.875, 0, 3, 0.0375], "texture": "#p", "cullface": "north"}, "south": {"uv": [2, 0, 2.125, 0.0375], "texture": "#p", "cullface": "south"}, "east": {"uv": [2, 0, 3, 0.0375], "texture": "#p"}, "west": {"uv": [2, 0, 3, 0.0375], "texture": "#p", "cullface": "west"}, "up": {"uv": [2, 0, 2.125, 1], "texture": "#p", "cullface": "up"}, "down": {"uv": [2, 0, 2.125, 1], "texture": "#p"}}},
+    {"from": [0, 14, 0], "to": [0.6, 16, 16], "faces": {"north": {"uv": [2.9625, 0, 3, 0.125], "texture": "#p", "cullface": "north"}, "south": {"uv": [2, 0, 2.0375, 0.125], "texture": "#p", "cullface": "south"}, "east": {"uv": [2, 0, 3, 0.125], "texture": "#p"}, "west": {"uv": [2, 0, 3, 0.125], "texture": "#p", "cullface": "west"}, "up": {"uv": [2, 0, 2.0375, 1], "texture": "#p", "cullface": "up"}, "down": {"uv": [2, 0, 2.0375, 1], "texture": "#p"}}},
+    {"from": [-0.15, 14.4, 10.7], "to": [0, 15, 11.3], "faces": {"north": {"uv": [7, 0.0625, 7.0094, 0.1], "texture": "#p"}, "south": {"uv": [7.9906, 0.0625, 8, 0.1], "texture": "#p"}, "east": {"uv": [7.2938, 0.0625, 7.3313, 0.1], "texture": "#p"}, "west": {"uv": [7.6688, 0.0625, 7.7063, 0.1], "texture": "#p"}, "up": {"uv": [7.9906, 0.6688, 8, 0.7063], "texture": "#p"}, "down": {"uv": [7.9906, 0.2938, 8, 0.3313], "texture": "#p"}}},
+    {"from": [-0.15, 14.4, 4.7], "to": [0, 15, 5.3], "faces": {"north": {"uv": [7, 0.0625, 7.0094, 0.1], "texture": "#p"}, "south": {"uv": [7.9906, 0.0625, 8, 0.1], "texture": "#p"}, "east": {"uv": [7.6688, 0.0625, 7.7063, 0.1], "texture": "#p"}, "west": {"uv": [7.2938, 0.0625, 7.3313, 0.1], "texture": "#p"}, "up": {"uv": [7.9906, 0.2938, 8, 0.3313], "texture": "#p"}, "down": {"uv": [7.9906, 0.6688, 8, 0.7063], "texture": "#p"}}}
+  ]
+}

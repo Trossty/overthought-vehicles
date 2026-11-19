@@ -3,7 +3,7 @@
 // to the north-east corner, a tray of sockets and a spanner left out.
 const RED = C.RED, VISE = C.BLUE_DARK;
 
-k.model('vehicle_workbench', {particle: 'car:block/shop_wood'}, () => {
+k.model('vehicle_workbench', {particle: 'overthought_vehicles:block/shop_wood'}, () => {
     // ---- the frame ------------------------------------------------------------
     k.g('frame');
     for (const [x, z] of [[0.6, 0.6], [13.6, 0.6], [0.6, 13.6], [13.6, 13.6]]) {

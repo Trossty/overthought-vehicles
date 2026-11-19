@@ -48,13 +48,13 @@ public class SprayCanItem extends Item {
         Consumer<Component> tooltip = lines::add;
         Integer colour = colourOf(stack);
         if (colour == null || isEmpty(stack)) {
-            tooltip.accept(Component.translatable("tooltip.car.spray_empty").withStyle(ChatFormatting.DARK_GRAY));
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.spray_empty").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        tooltip.accept(Component.translatable("tooltip.car.spray_colour",
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.spray_colour",
                         Component.literal(String.format("#%06X", colour)).withColor(colour))
                 .withStyle(ChatFormatting.GRAY));
-        tooltip.accept(Component.translatable("tooltip.car.spray_charges",
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.spray_charges",
                 stack.getMaxDamage() - stack.getDamageValue(), stack.getMaxDamage()).withStyle(ChatFormatting.GRAY));
     }
 }

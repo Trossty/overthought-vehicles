@@ -80,6 +80,7 @@ public class CarPhotoTest {
             scenes.put("fuelSystem", this::fuelSystem);
             scenes.put("refuelling", this::refuelling);
             scenes.put("longCorolla", this::longCorolla);
+            scenes.put("modIcon", this::modIcon);
             scenes.put("longFleet", this::longFleet);
             scenes.put("anyLiquid", this::anyLiquid);
             scenes.put("portableGenerators", this::portableGenerators);
@@ -131,9 +132,9 @@ public class CarPhotoTest {
      */
     private void servicingOnLift(ClientGameTestContext context, TestServerContext server) {
         String[][] vehicles = {
-                {"car:car", "car:toyota_corolla"},
-                {"car:fuel_tanker", "car:mercedes_atego"},
-                {"car:motorcycle", "car:honda_cbr600rr"},
+                {"overthought_vehicles:car", "overthought_vehicles:sedan"},
+                {"overthought_vehicles:fuel_tanker", "overthought_vehicles:tanker_truck"},
+                {"overthought_vehicles:motorcycle", "overthought_vehicles:sport_bike"},
         };
         for (String[] vehicle : vehicles) {
             String name = vehicle[1].substring(4);
@@ -143,7 +144,7 @@ public class CarPhotoTest {
             server.runCommand("fill -6 %d -6 6 %d 6 minecraft:air".formatted(Y, Y + 8));
             server.runCommand("fill -6 %d -6 6 %d 6 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
             server.runCommand("setblock 0 %d 0 car:%s[level=4]{Stop:2}".formatted(Y,
-                    vehicle[0].equals("car:motorcycle") ? "motorcycle_lift" : "vehicle_lift"));
+                    vehicle[0].equals("overthought_vehicles:motorcycle") ? "motorcycle_lift" : "vehicle_lift"));
             server.runCommand("summon %s 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"%s\",Color:14,Tags:[\"lift\"]}"
                     .formatted(vehicle[0], Y, vehicle[1]));
             context.waitTicks(5);
@@ -235,13 +236,13 @@ public class CarPhotoTest {
         server.runCommand("fill -44 %d -2 64 %d 8 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
         server.runCommand("clear @a");
         server.runCommand("give @a minecraft:coal 12");
-        server.runCommand("give @a car:engine 1");
+        server.runCommand("give @a overthought_vehicles:engine 1");
         String[][] machines = {
-                {"car:vehicle_workbench", "workbench"}, {"car:vehicle_workstation", "workstation"},
-                {"car:fuel_refinery", "refinery"}, {"car:hydrotreater", "hydrotreater"},
-                {"car:pumpjack", "pumpjack"}, {"car:generator", "generator"},
-                {"car:diesel_generator", "diesel_generator"}, {"car:battery_bank", "battery_bank"},
-                {"car:charging_post", "charging_post"}, {"car:toolbox", "toolbox"}};
+                {"overthought_vehicles:vehicle_workbench", "workbench"}, {"overthought_vehicles:vehicle_workstation", "workstation"},
+                {"overthought_vehicles:fuel_refinery", "refinery"}, {"overthought_vehicles:hydrotreater", "hydrotreater"},
+                {"overthought_vehicles:pumpjack", "pumpjack"}, {"overthought_vehicles:generator", "generator"},
+                {"overthought_vehicles:diesel_generator", "diesel_generator"}, {"overthought_vehicles:battery_bank", "battery_bank"},
+                {"overthought_vehicles:charging_post", "charging_post"}, {"overthought_vehicles:toolbox", "toolbox"}};
         for (int i = 0; i < machines.length; i++) {
             int x = i * 8 - 40;
             // Not every one of them turns: a plain setblock stands if the facing one is refused.
@@ -265,7 +266,7 @@ public class CarPhotoTest {
             context.takeScreenshot("menu_" + machines[i][1]);
             context.runOnClient(client -> client.setScreen(null));
         }
-        server.runCommand("summon car:car 60.5 %d 4.5 {Rotation:[0f,0f],Tags:[\"menus\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 60.5 %d 4.5 {Rotation:[0f,0f],Tags:[\"menus\"]}".formatted(Y));
         server.runCommand("tp @a 60.5 %d 1.5 0 20".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> {
@@ -283,9 +284,9 @@ public class CarPhotoTest {
 
     private void markingMenuAndTablet(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("fill -4 %d 0 4 %d 8 car:asphalt".formatted(Y, Y));
+        server.runCommand("fill -4 %d 0 4 %d 8 overthought_vehicles:asphalt".formatted(Y, Y));
         server.runCommand("clear @a");
-        server.runCommand("item replace entity @a weapon.mainhand with car:yellow_road_paint");
+        server.runCommand("item replace entity @a weapon.mainhand with overthought_vehicles:yellow_road_paint");
         server.runCommand("tp @a 0.5 %d 4.5 180 -60".formatted(Y + 1));
         context.waitTicks(10);
         // Used in the air: the menu.
@@ -323,26 +324,26 @@ public class CarPhotoTest {
         for (int i = 0; i < modes.length; i++) {
             server.runCommand(("summon minecraft:item_display %.1f %.1f 12.5 {item_display:\"%s\","
                     + "transformation:{left_rotation:[0f,0.2f,0f,0.98f],right_rotation:[0f,0f,0f,1f],"
-                    + "translation:[0f,0f,0f],scale:[1.4f,1.4f,1.4f]},item:{id:\"car:obd_scanner\",count:1}}")
+                    + "translation:[0f,0f,0f],scale:[1.4f,1.4f,1.4f]},item:{id:\"overthought_vehicles:obd_scanner\",count:1}}")
                     .formatted(-2.4 + i * 1.6, Y + 1.5, modes[i]));
         }
         server.runCommand(("summon minecraft:item_display 0.5 %.1f 12.5 {item_display:\"fixed\","
                 + "transformation:{left_rotation:[0f,1f,0f,0f],right_rotation:[0f,0f,0f,1f],"
-                + "translation:[0f,0f,0f],scale:[1.4f,1.4f,1.4f]},item:{id:\"car:obd_scanner\",count:1}}")
+                + "translation:[0f,0f,0f],scale:[1.4f,1.4f,1.4f]},item:{id:\"overthought_vehicles:obd_scanner\",count:1}}")
                 .formatted(Y + 3.1));
         context.runOnClient(client -> client.options.hideGui = true);
         shot(context, server, "tablet3d_display", 0.0, Y + 0.8, 17.0, 180, -5);
         shot(context, server, "tablet3d_display_side", 3.5, Y + 0.8, 16.0, 150, -5);
         clear(server);
-        server.runCommand("summon minecraft:item {Item:{id:\"car:obd_scanner\",count:1},Motion:[0d,0d,0d]}".replace("{Item", "0.5 %d 3.5 {Item".formatted(Y)));
+        server.runCommand("summon minecraft:item {Item:{id:\"overthought_vehicles:obd_scanner\",count:1},Motion:[0d,0d,0d]}".replace("{Item", "0.5 %d 3.5 {Item".formatted(Y)));
         shot(context, server, "tablet3d_dropped", 0.5, Y + 0.6, 5.5, 180, 30);
 
         // Held: both hands from a low angle shows its edge and back; one hand shows the side.
         context.runOnClient(client -> client.options.hideGui = false);
-        server.runCommand("item replace entity @a weapon.mainhand with car:obd_scanner");
+        server.runCommand("item replace entity @a weapon.mainhand with overthought_vehicles:obd_scanner");
         shot(context, server, "tablet3d_held_low", 0.5, Y, -3.5, 0, -10);
         shot(context, server, "tablet3d_held", 0.5, Y, -3.5, 0, 35);
-        server.runCommand("item replace entity @a weapon.offhand with car:white_road_paint");
+        server.runCommand("item replace entity @a weapon.offhand with overthought_vehicles:white_road_paint");
         shot(context, server, "tablet3d_one_hand", 0.5, Y, -3.5, 0, 10);
         server.runCommand("item replace entity @a weapon.offhand with air");
         context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
@@ -352,7 +353,7 @@ public class CarPhotoTest {
         shot(context, server, "tablet3d_third_back", 0.5, Y, -3.5, 150, 25);
         context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
         context.runOnClient(client -> client.options.hideGui = false);
-        String[] hotbar = {"car:obd_scanner", "car:yellow_road_paint", "car:asphalt"};
+        String[] hotbar = {"overthought_vehicles:obd_scanner", "overthought_vehicles:yellow_road_paint", "overthought_vehicles:asphalt"};
         server.runCommand("clear @a");
         for (int i = 0; i < hotbar.length; i++) {
             server.runCommand("item replace entity @a hotbar.%d with %s".formatted(i + 1, hotbar[i]));
@@ -363,7 +364,7 @@ public class CarPhotoTest {
 
     /** One block of road at ground level, painted. */
     private void road(TestServerContext server, int x, int z, String marking, String paint, String facing) {
-        server.runCommand("setblock %d %d %d car:asphalt[marking=%s,paint=%s,facing=%s]"
+        server.runCommand("setblock %d %d %d overthought_vehicles:asphalt[marking=%s,paint=%s,facing=%s]"
                 .formatted(x, Y - 1, z, marking, paint, facing));
     }
 
@@ -378,7 +379,7 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -20 %d -10 20 %d 45 minecraft:grass_block".formatted(Y - 1, Y - 1));
         server.runCommand("fill -20 %d -10 20 %d 45 minecraft:air".formatted(Y, Y + 8));
-        server.runCommand("fill -3 %d 0 3 %d 30 car:asphalt".formatted(Y - 1, Y - 1));
+        server.runCommand("fill -3 %d 0 3 %d 30 overthought_vehicles:asphalt".formatted(Y - 1, Y - 1));
         for (int z = 0; z <= 30; z++) {
             road(server, -3, z, "edge", "white", "north");
             road(server, 3, z, "edge", "white", "south");
@@ -399,21 +400,21 @@ public class CarPhotoTest {
         // A ramp at the end, a layer higher every block, the centre line carried up it.
         for (int i = 0; i < 8; i++) {
             int z = 31 + i;
-            server.runCommand("fill -3 %d %d 3 %d %d car:asphalt[layers=%d]".formatted(Y, z, Y, z, i + 1));
-            server.runCommand("setblock 0 %d %d car:asphalt[layers=%d,marking=dashed,facing=north]"
+            server.runCommand("fill -3 %d %d 3 %d %d overthought_vehicles:asphalt[layers=%d]".formatted(Y, z, Y, z, i + 1));
+            server.runCommand("setblock 0 %d %d overthought_vehicles:asphalt[layers=%d,marking=dashed,facing=north]"
                     .formatted(Y, z, i + 1));
         }
-        server.runCommand("summon car:car -1.8 %d 33.5 {Rotation:[0f,0f],Color:14,Tags:[\"ramp\"]}".formatted(Y + 1));
+        server.runCommand("summon overthought_vehicles:car -1.8 %d 33.5 {Rotation:[0f,0f],Color:14,Tags:[\"ramp\"]}".formatted(Y + 1));
 
         // A roundabout: four bends make a ring.
-        server.runCommand("fill 7 %d 3 10 %d 6 car:asphalt".formatted(Y - 1, Y - 1));
+        server.runCommand("fill 7 %d 3 10 %d 6 overthought_vehicles:asphalt".formatted(Y - 1, Y - 1));
         road(server, 8, 4, "corner", "white", "north");
         road(server, 9, 4, "corner", "white", "east");
         road(server, 9, 5, "corner", "white", "south");
         road(server, 8, 5, "corner", "white", "west");
 
         // A car park: bays, a disabled bay in blue, a hatched no-parking strip.
-        server.runCommand("fill 6 %d 11 12 %d 20 car:asphalt".formatted(Y - 1, Y - 1));
+        server.runCommand("fill 6 %d 11 12 %d 20 overthought_vehicles:asphalt".formatted(Y - 1, Y - 1));
         for (int z = 11; z <= 16; z++) {
             for (int x = 6; x <= 12; x += 2) {
                 road(server, x, z, "edge", "white", "north");
@@ -459,7 +460,7 @@ public class CarPhotoTest {
         // The OBD tablet: unpaired, then paired with the wreck, held up in both hands.
         context.runOnClient(client -> client.options.hideGui = false);
         server.runCommand("clear @a");
-        server.runCommand("item replace entity @a weapon.mainhand with car:obd_scanner");
+        server.runCommand("item replace entity @a weapon.mainhand with overthought_vehicles:obd_scanner");
         shot(context, server, "tablet_unpaired", -6.5, Y, 20.5, 90, 45);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -475,11 +476,11 @@ public class CarPhotoTest {
         shot(context, server, "tablet_night", -6.5, Y, 20.5, 90, 50);
         server.runCommand("time set noon");
 
-        server.runCommand("item replace entity @a weapon.offhand with car:yellow_road_paint");
+        server.runCommand("item replace entity @a weapon.offhand with overthought_vehicles:yellow_road_paint");
         shot(context, server, "tablet_one_hand", -6.5, Y, 20.5, 90, 40);
         server.runCommand("clear @a");
-        String[] hotbar = {"car:asphalt", "car:white_road_paint", "car:yellow_road_paint", "car:red_road_paint",
-                "car:blue_road_paint", "car:tar", "car:obd_scanner"};
+        String[] hotbar = {"overthought_vehicles:asphalt", "overthought_vehicles:white_road_paint", "overthought_vehicles:yellow_road_paint", "overthought_vehicles:red_road_paint",
+                "overthought_vehicles:blue_road_paint", "overthought_vehicles:tar", "overthought_vehicles:obd_scanner"};
         for (int i = 0; i < hotbar.length; i++) {
             server.runCommand("item replace entity @a hotbar.%d with %s".formatted(i, hotbar[i]));
         }
@@ -495,17 +496,17 @@ public class CarPhotoTest {
     private void roadsAndCharging(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
-        server.runCommand("fill -2 %d 0 2 %d 40 car:asphalt".formatted(Y - 1, Y - 1));
-        server.runCommand("fill 0 %d 0 0 %d 40 car:asphalt[marking=dashed,facing=north]".formatted(Y - 1, Y - 1));
-        server.runCommand("fill 3 %d 0 3 %d 40 car:asphalt[layers=4]".formatted(Y, Y));
-        server.runCommand("setblock -9 %d 20 car:generator[facing=south]".formatted(Y));
-        server.runCommand("setblock -6 %d 20 car:battery_bank[facing=east]".formatted(Y));
-        server.runCommand("setblock -3 %d 20 car:charging_post[facing=east]".formatted(Y));
+        server.runCommand("fill -2 %d 0 2 %d 40 overthought_vehicles:asphalt".formatted(Y - 1, Y - 1));
+        server.runCommand("fill 0 %d 0 0 %d 40 overthought_vehicles:asphalt[marking=dashed,facing=north]".formatted(Y - 1, Y - 1));
+        server.runCommand("fill 3 %d 0 3 %d 40 overthought_vehicles:asphalt[layers=4]".formatted(Y, Y));
+        server.runCommand("setblock -9 %d 20 overthought_vehicles:generator[facing=south]".formatted(Y));
+        server.runCommand("setblock -6 %d 20 overthought_vehicles:battery_bank[facing=east]".formatted(Y));
+        server.runCommand("setblock -3 %d 20 overthought_vehicles:charging_post[facing=east]".formatted(Y));
         int[][] run = {{-8, 20}, {-7, 20}, {-5, 20}, {-4, 20}};
         for (int[] c : run) {
-            server.runCommand("setblock %d %d %d car:energy_cable".formatted(c[0], Y, c[1]));
+            server.runCommand("setblock %d %d %d overthought_vehicles:energy_cable".formatted(c[0], Y, c[1]));
         }
-        server.runCommand("summon car:car -0.8 %d 20.5 {Rotation:[0f,0f],Color:3,Tags:[\"ev\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car -0.8 %d 20.5 {Rotation:[0f,0f],Color:3,Tags:[\"ev\"]}".formatted(Y));
         context.waitTicks(3);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -577,7 +578,7 @@ public class CarPhotoTest {
                 player.openMenu(new net.minecraft.world.SimpleMenuProvider(
                         (syncId, inventory, who) -> me.trossty.car.machine.MachineScreenHandler.of(
                                 syncId, inventory, bank, null),
-                        net.minecraft.network.chat.Component.translatable("block.car.battery_bank")));
+                        net.minecraft.network.chat.Component.translatable("block.overthought_vehicles.battery_bank")));
             }
         });
         context.waitTicks(10);
@@ -590,13 +591,13 @@ public class CarPhotoTest {
                 player.openMenu(new net.minecraft.world.SimpleMenuProvider(
                         (syncId, inventory, who) -> me.trossty.car.machine.MachineScreenHandler.of(
                                 syncId, inventory, post, null),
-                        net.minecraft.network.chat.Component.translatable("block.car.charging_post")));
+                        net.minecraft.network.chat.Component.translatable("block.overthought_vehicles.charging_post")));
             }
         });
         context.waitTicks(10);
         context.takeScreenshot("charger_screen");
         context.runOnClient(client -> client.setScreen(null));
-        place(server, "car:fuel_refinery", -12, 5);
+        place(server, "overthought_vehicles:fuel_refinery", -12, 5);
         server.runCommand("tp @a -11.5 %d 9.5 180 20".formatted(Y));
         context.waitTicks(3);
         server.runOnServer(minecraft -> {
@@ -616,9 +617,9 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.setScreen(null));
 
         server.runCommand("clear @a");
-        String[] hotbar = {"car:tar", "car:asphalt", "car:white_road_paint", "car:yellow_road_paint", "car:obd_scanner",
-                "car:engine[car:part_variant=8]", "car:battery_bank", "car:charging_post",
-                "car:jerry_can[car:fuel_raw=true]"};
+        String[] hotbar = {"overthought_vehicles:tar", "overthought_vehicles:asphalt", "overthought_vehicles:white_road_paint", "overthought_vehicles:yellow_road_paint", "overthought_vehicles:obd_scanner",
+                "overthought_vehicles:engine[overthought_vehicles:part_variant=8]", "overthought_vehicles:battery_bank", "overthought_vehicles:charging_post",
+                "overthought_vehicles:jerry_can[overthought_vehicles:fuel_raw=true]"};
         for (int i = 0; i < hotbar.length; i++) {
             server.runCommand("item replace entity @a hotbar.%d with %s".formatted(i, hotbar[i]));
         }
@@ -630,9 +631,9 @@ public class CarPhotoTest {
     private void fuelSystem(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:gravel".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:8,Tags:[\"photo\"]}".formatted(Y));
-        server.runCommand("summon car:motorcycle 6.5 %d -6.5 {Rotation:[0f,0f],Model:\"car:vespa_primavera\",Tags:[\"vespa\"]}".formatted(Y));
-        server.runCommand("summon car:fuel_tanker -7.5 %d -2.5 {Rotation:[0f,0f],Tags:[\"tanker\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:8,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:motorcycle 6.5 %d -6.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:scooter\",Tags:[\"vespa\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:fuel_tanker -7.5 %d -2.5 {Rotation:[0f,0f],Tags:[\"tanker\"]}".formatted(Y));
         context.waitTicks(10);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -747,9 +748,9 @@ public class CarPhotoTest {
     private void refuelling(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:gravel".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d -2.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
-        server.runCommand("setblock 4 %d -6 car:fuel_pump[facing=west,half=lower]".formatted(Y));
-        server.runCommand("setblock 4 %d -6 car:fuel_pump[facing=west,half=upper]".formatted(Y + 1));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -2.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("setblock 4 %d -6 overthought_vehicles:fuel_pump[facing=west,half=lower]".formatted(Y));
+        server.runCommand("setblock 4 %d -6 overthought_vehicles:fuel_pump[facing=west,half=upper]".formatted(Y + 1));
         context.waitTicks(10);
         double[] cap = new double[3];
         server.runOnServer(minecraft -> {
@@ -830,12 +831,12 @@ public class CarPhotoTest {
                 .setGameMode(net.minecraft.world.level.GameType.CREATIVE));
     }
 
-    /** The Corolla at its full length, from the side and from the front three-quarter, someone beside it for scale. */
+    /** The sedan at its full length, from the side and from the front three-quarter, someone beside it for scale. */
     private void longCorolla(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d 10.5 {Rotation:[0f,0f],Color:14}".formatted(Y));
-        server.runCommand("summon car:car 0.5 %d 2.5 {Rotation:[0f,0f],Model:\"car:tofas_sahin\",Color:0}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 10.5 {Rotation:[0f,0f],Color:14}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 2.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:classic_sedan\",Color:0}".formatted(Y));
         server.runCommand("summon minecraft:villager 2.8 %d 10.5 {NoAI:1b,Rotation:[90f,0f]}".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
         shot(context, server, "corolla_side", 9.0, Y + 1.2, 10.5, 90, 5);
@@ -844,17 +845,34 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
     }
 
-    /** Every car and the lorry drawn out like the Corolla: noses in a line, then each from the side. */
+    /**
+     * The picture the mod's icon is cut from: a red muscle car on open grass at
+     * noon, front three-quarter and low, so it stands against the sky.
+     */
+    private void modIcon(ClientGameTestContext context, TestServerContext server) {
+        clear(server);
+        server.runCommand("fill -30 %d -30 30 %d 30 minecraft:grass_block".formatted(Y - 1, Y - 1));
+        server.runCommand("time set noon");
+        server.runCommand("weather clear");
+        server.runCommand(("summon overthought_vehicles:car 0.5 %d 0.5 {Rotation:[0f,0f],"
+                + "Model:\"overthought_vehicles:muscle_car\",Color:14}").formatted(Y));
+        context.runOnClient(client -> client.options.hideGui = true);
+        // Standing on the grass: the eye a little over the roof.
+        shot(context, server, "mod_icon", 4.3, Y, 5.3, 141, 8);
+        context.runOnClient(client -> client.options.hideGui = false);
+    }
+
+    /** Every car and the lorry drawn out like the sedan: noses in a line, then each from the side. */
     private void longFleet(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         String[][] vehicles = {
-                {"car:car", "car:tofas_sahin", "0"},
-                {"car:car", "car:toyota_corolla", "14"},
-                {"car:car", "car:ford_mustang", "11"},
-                {"car:car", "car:jeep_wrangler", "5"},
-                {"car:pickup", "car:toyota_hilux", "9"},
-                {"car:fuel_tanker", "car:mercedes_atego", "0"},
+                {"overthought_vehicles:car", "overthought_vehicles:classic_sedan", "0"},
+                {"overthought_vehicles:car", "overthought_vehicles:sedan", "14"},
+                {"overthought_vehicles:car", "overthought_vehicles:muscle_car", "11"},
+                {"overthought_vehicles:car", "overthought_vehicles:off_roader", "5"},
+                {"overthought_vehicles:pickup", "overthought_vehicles:pickup_truck", "9"},
+                {"overthought_vehicles:fuel_tanker", "overthought_vehicles:tanker_truck", "0"},
         };
         double x = -12.5;
         for (String[] vehicle : vehicles) {
@@ -888,7 +906,7 @@ public class CarPhotoTest {
     private void anyLiquid(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:fuel_tanker 0.5 %d -6.5 {Rotation:[0f,0f],Tags:[\"liq\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:fuel_tanker 0.5 %d -6.5 {Rotation:[0f,0f],Tags:[\"liq\"]}".formatted(Y));
         server.runCommand("setblock 3 %d -7 minecraft:lava_cauldron".formatted(Y));
         context.waitTicks(3);
         server.runOnServer(minecraft -> tanker(minecraft).setHose(me.trossty.car.entity.TankerEntity.Hose.LOAD));
@@ -961,7 +979,7 @@ public class CarPhotoTest {
                 {me.trossty.car.registry.ModFluids.PETROL, 0.6F},
         };
         for (int i = 0; i < loads.length; i++) {
-            server.runCommand("summon car:fuel_tanker %.1f %d 14.5 {Rotation:[0f,0f],Color:0,Tags:[\"show%d\"]}"
+            server.runCommand("summon overthought_vehicles:fuel_tanker %.1f %d 14.5 {Rotation:[0f,0f],Color:0,Tags:[\"show%d\"]}"
                     .formatted(-16.0 + i * 8.0, Y, i));
         }
         context.waitTicks(3);
@@ -1011,20 +1029,20 @@ public class CarPhotoTest {
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d 0 20 %d 40 minecraft:stone".formatted(Y - 12, Y - 2));
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
-        server.runCommand("fill -10 %d 17 -6 %d 22 car:oil_deposit".formatted(Y - 9, Y - 7));
-        server.runCommand("setblock -11 %d 22 car:oil_seep".formatted(Y));
-        server.runCommand("setblock -12 %d 23 car:oil_seep".formatted(Y));
-        place(server, "car:pumpjack", -9, 20);
-        place(server, "car:fuel_refinery", -5, 20);
-        place(server, "car:hydrotreater", -4, 20);
-        place(server, "car:fuel_refinery", 3, 20);
-        server.runCommand("setblock -10 %d 20 car:diesel_generator[facing=south]".formatted(Y));
-        server.runCommand("setblock -7 %d 21 car:generator[facing=south]".formatted(Y));
-        server.runCommand("setblock -3 %d 20 car:biofuel_generator[facing=south]".formatted(Y));
-        server.runCommand("setblock 4 %d 20 car:generator[facing=south]".formatted(Y));
-        server.runCommand("setblock 9 %d 25 car:generator[facing=south]".formatted(Y));
-        server.runCommand("setblock 10 %d 25 car:biofuel_generator[facing=south]".formatted(Y));
-        server.runCommand("setblock 12 %d 25 car:diesel_generator[facing=south]".formatted(Y));
+        server.runCommand("fill -10 %d 17 -6 %d 22 overthought_vehicles:oil_deposit".formatted(Y - 9, Y - 7));
+        server.runCommand("setblock -11 %d 22 overthought_vehicles:oil_seep".formatted(Y));
+        server.runCommand("setblock -12 %d 23 overthought_vehicles:oil_seep".formatted(Y));
+        place(server, "overthought_vehicles:pumpjack", -9, 20);
+        place(server, "overthought_vehicles:fuel_refinery", -5, 20);
+        place(server, "overthought_vehicles:hydrotreater", -4, 20);
+        place(server, "overthought_vehicles:fuel_refinery", 3, 20);
+        server.runCommand("setblock -10 %d 20 overthought_vehicles:diesel_generator[facing=south]".formatted(Y));
+        server.runCommand("setblock -7 %d 21 overthought_vehicles:generator[facing=south]".formatted(Y));
+        server.runCommand("setblock -3 %d 20 overthought_vehicles:biofuel_generator[facing=south]".formatted(Y));
+        server.runCommand("setblock 4 %d 20 overthought_vehicles:generator[facing=south]".formatted(Y));
+        server.runCommand("setblock 9 %d 25 overthought_vehicles:generator[facing=south]".formatted(Y));
+        server.runCommand("setblock 10 %d 25 overthought_vehicles:biofuel_generator[facing=south]".formatted(Y));
+        server.runCommand("setblock 12 %d 25 overthought_vehicles:diesel_generator[facing=south]".formatted(Y));
         context.waitTicks(3);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -1082,9 +1100,9 @@ public class CarPhotoTest {
         shot(context, server, "line_night", -3.0, Y + 5.0, 30.0, 180, 16);
         server.runCommand("time set noon");
         context.runOnClient(client -> client.options.hideGui = false);
-        String[] items = {"car:pumpjack", "car:fuel_refinery", "car:hydrotreater", "car:generator",
-                "car:biofuel_generator", "car:diesel_generator", "car:oil_deposit",
-                "car:jerry_can[car:fuel_kind=2]", "car:oil_seep"};
+        String[] items = {"overthought_vehicles:pumpjack", "overthought_vehicles:fuel_refinery", "overthought_vehicles:hydrotreater", "overthought_vehicles:generator",
+                "overthought_vehicles:biofuel_generator", "overthought_vehicles:diesel_generator", "overthought_vehicles:oil_deposit",
+                "overthought_vehicles:jerry_can[overthought_vehicles:fuel_kind=2]", "overthought_vehicles:oil_seep"};
         for (int i = 0; i < items.length; i++) {
             server.runCommand("item replace entity @a hotbar.%d with %s".formatted(i, items[i]));
         }
@@ -1098,10 +1116,10 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -4 %d 18 10 %d 32 minecraft:air".formatted(Y, Y + 6));
         server.runCommand("fill -4 %d 18 10 %d 32 minecraft:grass_block".formatted(Y - 1, Y - 1));
-        server.runCommand("setblock 1 %d 25 car:generator[facing=south]".formatted(Y));
-        server.runCommand("setblock 3 %d 25 car:biofuel_generator[facing=south]".formatted(Y));
-        server.runCommand("setblock 5 %d 25 car:diesel_generator[facing=south]".formatted(Y));
-        server.runCommand("setblock 7 %d 25 car:diesel_generator[facing=east]".formatted(Y));
+        server.runCommand("setblock 1 %d 25 overthought_vehicles:generator[facing=south]".formatted(Y));
+        server.runCommand("setblock 3 %d 25 overthought_vehicles:biofuel_generator[facing=south]".formatted(Y));
+        server.runCommand("setblock 5 %d 25 overthought_vehicles:diesel_generator[facing=south]".formatted(Y));
+        server.runCommand("setblock 7 %d 25 overthought_vehicles:diesel_generator[facing=east]".formatted(Y));
         context.waitTicks(3);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -1127,7 +1145,7 @@ public class CarPhotoTest {
         shot(context, server, "gen_night", 3.0, Y + 1.2, 27.6, 180, 22);
         server.runCommand("time set noon");
         context.runOnClient(client -> client.options.hideGui = false);
-        String[] items = {"car:generator", "car:biofuel_generator", "car:diesel_generator"};
+        String[] items = {"overthought_vehicles:generator", "overthought_vehicles:biofuel_generator", "overthought_vehicles:diesel_generator"};
         for (int i = 0; i < items.length; i++) {
             server.runCommand("item replace entity @a hotbar.%d with %s".formatted(i, items[i]));
         }
@@ -1139,13 +1157,13 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -4 %d 18 14 %d 34 minecraft:air".formatted(Y, Y + 6));
         server.runCommand("fill -4 %d 18 14 %d 34 minecraft:grass_block".formatted(Y - 1, Y - 1));
-        server.runCommand("setblock 0 %d 25 car:generator[facing=south]".formatted(Y));
-        place(server, "car:fuel_refinery", 10, 25);
-        place(server, "car:hydrotreater", 5, 29);
+        server.runCommand("setblock 0 %d 25 overthought_vehicles:generator[facing=south]".formatted(Y));
+        place(server, "overthought_vehicles:fuel_refinery", 10, 25);
+        place(server, "overthought_vehicles:hydrotreater", 5, 29);
         int[][] run = {{1, 0, 25}, {2, 0, 25}, {2, 1, 25}, {3, 1, 25}, {4, 1, 25}, {4, 0, 25},
                 {5, 0, 25}, {6, 0, 25}, {5, 0, 26}, {5, 0, 27}, {5, 0, 28}};
         for (int[] c : run) {
-            server.runCommand("setblock %d %d %d car:energy_cable".formatted(c[0], Y + c[1], c[2]));
+            server.runCommand("setblock %d %d %d overthought_vehicles:energy_cable".formatted(c[0], Y + c[1], c[2]));
         }
         context.waitTicks(3);
         server.runOnServer(minecraft -> {
@@ -1191,7 +1209,7 @@ public class CarPhotoTest {
         shot(context, server, "cable_step", 3.0, Y + 0.6, 22.0, 0, 15);
         shot(context, server, "cable_branch", 9.0, Y + 1.5, 29.5, 125, 30);
         context.runOnClient(client -> client.options.hideGui = false);
-        server.runCommand("item replace entity @a hotbar.0 with car:energy_cable");
+        server.runCommand("item replace entity @a hotbar.0 with overthought_vehicles:energy_cable");
         shot(context, server, "cable_hotbar", 3.0, Y, 33.0, 180, 30);
     }
 
@@ -1278,7 +1296,7 @@ public class CarPhotoTest {
         // a glass tank of water standing at window height
         server.runCommand("fill 103 %d 94 106 %d 105 minecraft:glass".formatted(Y, Y + 3));
         server.runCommand("fill 104 %d 95 105 %d 104 minecraft:water".formatted(Y, Y + 2));
-        server.runCommand("summon car:car 100.5 %d 99.5 {Rotation:[0f,0f],Color:3}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 100.5 %d 99.5 {Rotation:[0f,0f],Color:3}".formatted(Y));
         context.waitTicks(20);
         // through both side windows to the tank on the far side
         shot(context, server, "glass_water_side", 97.0, Y + 1.5, 99.4, -90, 4);
@@ -1288,7 +1306,7 @@ public class CarPhotoTest {
     /** The pumpjack alone, from the side, the front and a three-quarter angle, mid-stroke. */
     private void pumpjackLook(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        place(server, "car:pumpjack", 0, 0);
+        place(server, "overthought_vehicles:pumpjack", 0, 0);
         context.waitTicks(30);
         shot(context, server, "pumpjack_side", 6.5, Y + 1.6, -1.0, 90, 8);
         shot(context, server, "pumpjack_front", 0.5, Y + 1.6, 6.0, 180, 8);
@@ -1299,11 +1317,11 @@ public class CarPhotoTest {
     private void hydroCables(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -4 %d -4 4 %d 4 minecraft:air".formatted(Y, Y + 4));
-        place(server, "car:hydrotreater", 0, 0);
+        place(server, "overthought_vehicles:hydrotreater", 0, 0);
         // none of them touch each other, so every one ends in a plate on the machine
         int[][] cables = {{0, 0, -1}, {1, 0, 0}, {0, 1, 1}, {-1, 1, 0}, {0, 2, 0}};
         for (int[] c : cables) {
-            server.runCommand("setblock %d %d %d car:energy_cable".formatted(c[0], Y + c[1], c[2]));
+            server.runCommand("setblock %d %d %d overthought_vehicles:energy_cable".formatted(c[0], Y + c[1], c[2]));
         }
         context.waitTicks(3);
         server.runOnServer(minecraft -> {
@@ -1336,7 +1354,7 @@ public class CarPhotoTest {
         String overlay = net.neoforged.fml.ModList.get().isLoaded("wthit") ? "wthit" : "jade";
         clear(server);
         server.runCommand("fill -6 %d -6 6 %d 6 minecraft:air".formatted(Y, Y + 4));
-        place(server, "car:hydrotreater", 3, 0);
+        place(server, "overthought_vehicles:hydrotreater", 3, 0);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
             var wreck = wreck(world);
@@ -1364,9 +1382,9 @@ public class CarPhotoTest {
         server.runCommand("fill -4 %d -4 14 %d 4 minecraft:air".formatted(Y, Y + 4));
         // x, z and how many stops up: the top for one bike lift, the first for the other
         int[][] lifts = {{0, 0, 0}, {6, 0, 2}, {10, 0, 1}};
-        server.runCommand("setblock 0 %d 0 car:vehicle_lift[facing=north]".formatted(Y));
-        server.runCommand("setblock 6 %d 0 car:motorcycle_lift[facing=north]".formatted(Y));
-        server.runCommand("setblock 10 %d 0 car:motorcycle_lift[facing=north]".formatted(Y));
+        server.runCommand("setblock 0 %d 0 overthought_vehicles:vehicle_lift[facing=north]".formatted(Y));
+        server.runCommand("setblock 6 %d 0 overthought_vehicles:motorcycle_lift[facing=north]".formatted(Y));
+        server.runCommand("setblock 10 %d 0 overthought_vehicles:motorcycle_lift[facing=north]".formatted(Y));
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
             for (int[] l : lifts) {
@@ -1498,10 +1516,10 @@ public class CarPhotoTest {
                 me.trossty.car.entity.CarEntity.class, box, e -> e.getTags().contains("photo")).get(0).getFuel();
     }
 
-    /** An old Jeep for the OBD to read: dented, worn through, a part or two gone, stale fuel. */
+    /** An old off-roader for the OBD to read: dented, worn through, a part or two gone, stale fuel. */
     private static me.trossty.car.entity.CarEntity wreck(net.minecraft.server.level.ServerLevel world) {
         var car = me.trossty.car.registry.ModEntities.CAR.create(world);
-        car.setModel(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("car", "jeep_wrangler"));
+        car.setModel(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(me.trossty.car.CarMain.MOD_ID, "off_roader"));
         var defined = car.getDefinition();
         car.setSetup(defined.factory().setup());
         car.refreshDimensions();
@@ -1536,8 +1554,8 @@ public class CarPhotoTest {
         for (int i = 0; i < 3; i++) {
             boolean nozzle = i != 1;
             int x = -2 + i * 2;
-            server.runCommand("setblock %d %d 4 car:fuel_pump[half=lower,facing=south,nozzle=%s]".formatted(x, Y, nozzle));
-            server.runCommand("setblock %d %d 4 car:fuel_pump[half=upper,facing=south,nozzle=%s]".formatted(x, Y + 1, nozzle));
+            server.runCommand("setblock %d %d 4 overthought_vehicles:fuel_pump[half=lower,facing=south,nozzle=%s]".formatted(x, Y, nozzle));
+            server.runCommand("setblock %d %d 4 overthought_vehicles:fuel_pump[half=upper,facing=south,nozzle=%s]".formatted(x, Y + 1, nozzle));
         }
         context.waitTicks(3);
         server.runOnServer(minecraft -> {
@@ -1567,16 +1585,16 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("setblock -4 %d 4 car:fuel_pump[half=lower,facing=south,nozzle=true]".formatted(Y));
-        server.runCommand("setblock -4 %d 4 car:fuel_pump[half=upper,facing=south,nozzle=true]".formatted(Y + 1));
+        server.runCommand("setblock -4 %d 4 overthought_vehicles:fuel_pump[half=lower,facing=south,nozzle=true]".formatted(Y));
+        server.runCommand("setblock -4 %d 4 overthought_vehicles:fuel_pump[half=upper,facing=south,nozzle=true]".formatted(Y + 1));
         net.minecraft.world.level.material.Fluid[] liquids = {null, me.trossty.car.registry.ModFluids.PETROL,
                 me.trossty.car.registry.ModFluids.DIESEL, net.minecraft.world.level.material.Fluids.WATER,
                 net.minecraft.world.level.material.Fluids.LAVA, me.trossty.car.registry.ModFluids.MILK,
                 me.trossty.car.registry.ModFluids.CRUDE_OIL};
         for (int i = 0; i < liquids.length; i++) {
-            server.runCommand("setblock %d %d 4 car:fuel_drum[facing=south]".formatted(-2 + i, Y));
+            server.runCommand("setblock %d %d 4 overthought_vehicles:fuel_drum[facing=south]".formatted(-2 + i, Y));
         }
-        server.runCommand("setblock 0 %d 5 car:fuel_drum[facing=east]".formatted(Y));
+        server.runCommand("setblock 0 %d 5 overthought_vehicles:fuel_drum[facing=east]".formatted(Y));
         context.waitTicks(3);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -1610,18 +1628,18 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("setblock -3 %d 4 car:fuel_pump[half=lower,facing=south,nozzle=true]".formatted(Y));
-        server.runCommand("setblock -3 %d 4 car:fuel_pump[half=upper,facing=south,nozzle=true]".formatted(Y + 1));
-        server.runCommand("setblock -1 %d 4 car:fuel_pump[half=lower,facing=east,nozzle=false]".formatted(Y));
-        server.runCommand("setblock -1 %d 4 car:fuel_pump[half=upper,facing=east,nozzle=false]".formatted(Y + 1));
+        server.runCommand("setblock -3 %d 4 overthought_vehicles:fuel_pump[half=lower,facing=south,nozzle=true]".formatted(Y));
+        server.runCommand("setblock -3 %d 4 overthought_vehicles:fuel_pump[half=upper,facing=south,nozzle=true]".formatted(Y + 1));
+        server.runCommand("setblock -1 %d 4 overthought_vehicles:fuel_pump[half=lower,facing=east,nozzle=false]".formatted(Y));
+        server.runCommand("setblock -1 %d 4 overthought_vehicles:fuel_pump[half=upper,facing=east,nozzle=false]".formatted(Y + 1));
         // The three stops: on the floor, a little way up, right up.
         int[] stops = {0, 1, 4};
         for (int stop = 0; stop < stops.length; stop++) {
-            server.runCommand("setblock %d %d 4 car:vehicle_lift[level=%d,facing=north]{Stop:%d}"
+            server.runCommand("setblock %d %d 4 overthought_vehicles:vehicle_lift[level=%d,facing=north]{Stop:%d}"
                     .formatted(2 + stop * 4, Y, stops[stop], stop));
         }
-        server.runCommand("setblock 4 %d 13 car:vehicle_lift[level=4,facing=east]{Stop:2}".formatted(Y));
-        server.runCommand("summon car:car 4.5 %d 13.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:14}"
+        server.runCommand("setblock 4 %d 13 overthought_vehicles:vehicle_lift[level=4,facing=east]{Stop:2}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 4.5 %d 13.5 {Rotation:[90f,0f],Model:\"overthought_vehicles:sedan\",Color:14}"
                 .formatted(Y + 1));
         context.waitTicks(20);
         shot(context, server, "pump_front", -2.5, Y + 1.2, 7.5, 165, 12);
@@ -1640,9 +1658,9 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        String[] row = {"car:vehicle_workbench", "car:vehicle_workstation", "car:vehicle_lift", "car:fuel_pump",
-                "car:fuel_valve", "car:fuel_pipe", "car:generator", "car:diesel_generator",
-                "car:biofuel_generator", "car:battery_bank", "car:charging_post", "car:energy_cable"};
+        String[] row = {"overthought_vehicles:vehicle_workbench", "overthought_vehicles:vehicle_workstation", "overthought_vehicles:vehicle_lift", "overthought_vehicles:fuel_pump",
+                "overthought_vehicles:fuel_valve", "overthought_vehicles:fuel_pipe", "overthought_vehicles:generator", "overthought_vehicles:diesel_generator",
+                "overthought_vehicles:biofuel_generator", "overthought_vehicles:battery_bank", "overthought_vehicles:charging_post", "overthought_vehicles:energy_cable"};
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
             for (int i = 0; i < row.length; i++) {
@@ -1674,7 +1692,7 @@ public class CarPhotoTest {
             fillTank(world, new BlockPos(-2, Y, 10), net.minecraft.world.level.material.Fluids.WATER, 64000);
             fillTank(world, new BlockPos(2, Y, 10), me.trossty.car.registry.ModFluids.MILK, 30000);
         });
-        server.runCommand("setblock 14 %d 4 car:vehicle_lift[level=3]{Stop:2}".formatted(Y));
+        server.runCommand("setblock 14 %d 4 overthought_vehicles:vehicle_lift[level=3]{Stop:2}".formatted(Y));
         context.waitTicks(10);
         shot(context, server, "blocks_row", -0.5, Y + 2.2, 10.0, 180, 22);
         shot(context, server, "blocks_row_left", -7.5, Y + 1.0, 7.5, 180, 15);
@@ -1735,11 +1753,11 @@ public class CarPhotoTest {
 
     private void showroom(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("summon car:car -10.0 %d 10.5 {Rotation:[0f,0f],Color:9}".formatted(Y));
-        server.runCommand("summon car:car -5.0 %d 10.5 {Rotation:[0f,0f],Model:\"car:tofas_sahin\",Color:0}".formatted(Y));
-        server.runCommand("summon car:car 0.0 %d 10.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:13}".formatted(Y));
-        server.runCommand("summon car:pickup 5.0 %d 10.5 {Rotation:[0f,0f],Color:14}".formatted(Y));
-        server.runCommand("summon car:fuel_tanker 10.5 %d 10.5 {Rotation:[0f,0f],Color:0}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car -10.0 %d 10.5 {Rotation:[0f,0f],Color:9}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car -5.0 %d 10.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:classic_sedan\",Color:0}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.0 %d 10.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:off_roader\",Color:13}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:pickup 5.0 %d 10.5 {Rotation:[0f,0f],Color:14}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:fuel_tanker 10.5 %d 10.5 {Rotation:[0f,0f],Color:0}".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
         shot(context, server, "showroom_front", 13.0, Y + 3, 21.0, 140, 16);
         shot(context, server, "showroom_back", -13.0, Y + 3, 0.0, -40, 16);
@@ -1753,24 +1771,24 @@ public class CarPhotoTest {
     private void portraits(ClientGameTestContext context, TestServerContext server) {
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         String[][] vehicles = {
-                {"car:car", "car:toyota_corolla", "9"},
-                {"car:car", "car:tofas_sahin", "0"},
-                {"car:car", "car:jeep_wrangler", "5"},
-                {"car:car", "car:ford_mustang", "11"},
-                {"car:pickup", "car:toyota_hilux", "14"},
-                {"car:fuel_tanker", "car:mercedes_atego", "0"},
+                {"overthought_vehicles:car", "overthought_vehicles:sedan", "9"},
+                {"overthought_vehicles:car", "overthought_vehicles:classic_sedan", "0"},
+                {"overthought_vehicles:car", "overthought_vehicles:off_roader", "5"},
+                {"overthought_vehicles:car", "overthought_vehicles:muscle_car", "11"},
+                {"overthought_vehicles:pickup", "overthought_vehicles:pickup_truck", "14"},
+                {"overthought_vehicles:fuel_tanker", "overthought_vehicles:tanker_truck", "0"},
         };
         context.runOnClient(client -> client.options.hideGui = true);
         for (String[] vehicle : vehicles) {
             clear(server);
             server.runCommand("summon %s 0.5 %d 10.5 {Rotation:[0f,0f],Model:\"%s\",Color:%s}"
                     .formatted(vehicle[0], Y, vehicle[1], vehicle[2]));
-            boolean big = vehicle[0].equals("car:fuel_tanker");
+            boolean big = vehicle[0].equals("overthought_vehicles:fuel_tanker");
             double back = big ? 7.0 : 4.0;
             shot(context, server, "portrait_" + vehicle[1].substring(4),
                     0.5 + back * 0.55, Y + (big ? 1.8 : 1.0), 10.5 + back, 151, 10);
-            if (vehicle[1].startsWith("car:ford_")) {
-                // the newer ones from behind too: the Mustang's roof line, the dolmuş's doors
+            if (vehicle[1].startsWith("overthought_vehicles:ford_")) {
+                // the newer ones from behind too: the muscle car's roof line, the dolmuş's doors
                 shot(context, server, "rear_" + vehicle[1].substring(4),
                         0.5 - back * 0.55, Y + 1.0, 10.5 - back, -29, 10);
             }
@@ -1784,12 +1802,12 @@ public class CarPhotoTest {
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
         // the vehicle, its kind, its paint, and its front axle in pixels ahead of the middle
         String[][] vehicles = {
-                {"car:car", "car:ford_mustang", "11", "26.28"},
-                {"car:car", "car:toyota_corolla", "9", "25.2"},
-                {"car:car", "car:tofas_sahin", "0", "24.18"},
-                {"car:car", "car:jeep_wrangler", "5", "26.22"},
-                {"car:pickup", "car:toyota_hilux", "14", "29.5"},
-                {"car:fuel_tanker", "car:mercedes_atego", "0", "35.72"},
+                {"overthought_vehicles:car", "overthought_vehicles:muscle_car", "11", "26.28"},
+                {"overthought_vehicles:car", "overthought_vehicles:sedan", "9", "25.2"},
+                {"overthought_vehicles:car", "overthought_vehicles:classic_sedan", "0", "24.18"},
+                {"overthought_vehicles:car", "overthought_vehicles:off_roader", "5", "26.22"},
+                {"overthought_vehicles:pickup", "overthought_vehicles:pickup_truck", "14", "29.5"},
+                {"overthought_vehicles:fuel_tanker", "overthought_vehicles:tanker_truck", "0", "35.72"},
         };
         context.runOnClient(client -> client.options.hideGui = true);
         for (String[] vehicle : vehicles) {
@@ -1812,34 +1830,34 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("time set noon");
         String[][] items = {
-                {"car:car", "car:toyota_corolla"},
-                {"car:car", "car:tofas_sahin"},
-                {"car:car", "car:jeep_wrangler"},
-                {"car:car", "car:ford_mustang"},
-                {"car:pickup", "car:toyota_hilux"},
-                {"car:pickup", "car:hilux_tow"},
-                {"car:fuel_tanker", "car:mercedes_atego"},
-                {"car:motorcycle", "car:vespa_primavera"},
-                {"car:motorcycle", "car:honda_cbr600rr"},
-                {"car:motorboat", "car:bayliner_bowrider"},
-                {"car:airplane", "car:cessna_172"},
-                {"car:trailer", "car:box_trailer"},
-                {"car:trailer", "car:flatbed_trailer"},
-                {"car:trailer", "car:caravan"},
-                {"car:trailer", "car:tow_dolly"},
-                {"car:trailer", "car:plane_tow_dolly"},
-                {"car:trailer", "car:wheel_lift"},
+                {"overthought_vehicles:car", "overthought_vehicles:sedan"},
+                {"overthought_vehicles:car", "overthought_vehicles:classic_sedan"},
+                {"overthought_vehicles:car", "overthought_vehicles:off_roader"},
+                {"overthought_vehicles:car", "overthought_vehicles:muscle_car"},
+                {"overthought_vehicles:pickup", "overthought_vehicles:pickup_truck"},
+                {"overthought_vehicles:pickup", "overthought_vehicles:tow_truck"},
+                {"overthought_vehicles:fuel_tanker", "overthought_vehicles:tanker_truck"},
+                {"overthought_vehicles:motorcycle", "overthought_vehicles:scooter"},
+                {"overthought_vehicles:motorcycle", "overthought_vehicles:sport_bike"},
+                {"overthought_vehicles:motorboat", "overthought_vehicles:bowrider"},
+                {"overthought_vehicles:airplane", "overthought_vehicles:light_aircraft"},
+                {"overthought_vehicles:trailer", "overthought_vehicles:box_trailer"},
+                {"overthought_vehicles:trailer", "overthought_vehicles:flatbed_trailer"},
+                {"overthought_vehicles:trailer", "overthought_vehicles:caravan"},
+                {"overthought_vehicles:trailer", "overthought_vehicles:tow_dolly"},
+                {"overthought_vehicles:trailer", "overthought_vehicles:plane_tow_dolly"},
+                {"overthought_vehicles:trailer", "overthought_vehicles:wheel_lift"},
         };
         // Nine to a line, and under each line the same nine dyed.
         int perLine = 9;
         for (int i = 0; i < items.length; i++) {
             double x = -8.0 + (i % perLine) * 2.0;
             for (int row = 0; row < 2; row++) {
-                String color = row == 0 ? "" : ",\"car:color\":14";
+                String color = row == 0 ? "" : ",\"overthought_vehicles:color\":14";
                 server.runCommand(("summon minecraft:item_display %.1f %.1f 12.5 {item_display:\"gui\","
                         + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
                         + "translation:[0f,0f,0f],scale:[1.6f,1.6f,1.6f]},"
-                        + "item:{id:\"%s\",count:1,components:{\"car:vehicle\":\"%s\"%s}}}")
+                        + "item:{id:\"%s\",count:1,components:{\"overthought_vehicles:vehicle\":\"%s\"%s}}}")
                         .formatted(x, Y + 6.6 - (i / perLine * 2 + row) * 1.9, items[i][0], items[i][1], color));
             }
         }
@@ -1854,7 +1872,7 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -16 %d -10 16 %d 30 minecraft:grass_block".formatted(Y - 1, Y - 1));
         server.runCommand("fill -16 %d -10 16 %d 30 minecraft:air".formatted(Y, Y + 8));
-        server.runCommand("summon car:airplane 0.5 %d 10.5 {Rotation:[180f,0f]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:airplane 0.5 %d 10.5 {Rotation:[180f,0f]}".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
         shot(context, server, "plane_front34", -7.0, Y + 2.2, 2.5, -45, 12);
         shot(context, server, "plane_side", -10.5, Y + 1.0, 10.5, -90, 3);
@@ -1869,7 +1887,7 @@ public class CarPhotoTest {
         server.runCommand("difficulty easy");
         for (int i = 0; i < 2; i++) {
             server.runCommand("summon husk 0.5 %d 14.5 {NoAI:1b,Silent:1b,Tags:[\"crew\"]}".formatted(Y));
-            server.runCommand("ride @e[tag=crew,limit=1,sort=nearest] mount @e[type=car:airplane,limit=1]");
+            server.runCommand("ride @e[tag=crew,limit=1,sort=nearest] mount @e[type=overthought_vehicles:airplane,limit=1]");
             server.runCommand("tag @e[tag=crew] remove crew");
         }
         shot(context, server, "plane_crew_side", -6.0, Y + 1.6, 9.2, -90, 8);
@@ -1879,7 +1897,7 @@ public class CarPhotoTest {
         server.runCommand("difficulty peaceful");
         server.runCommand("tp @a 3.5 %d 10.5".formatted(Y));
         context.waitTicks(5);
-        server.runCommand("ride @p mount @e[type=car:airplane,limit=1]");
+        server.runCommand("ride @p mount @e[type=overthought_vehicles:airplane,limit=1]");
         context.waitTicks(10);
         context.runOnClient(client -> {
             client.player.setYRot(180);
@@ -1902,16 +1920,16 @@ public class CarPhotoTest {
      * MrCrayfish set.
      */
     private static final String[][] NEW_VEHICLES = {
-            {"car:car", "car:massey_ferguson_240", "14"},
-            {"car:trailer", "car:seed_drill", "11"},
-            {"car:trailer", "car:fertilizer_spreader", "1"},
-            {"car:car", "car:john_deere_x350", "13"},
-            {"car:car", "car:honda_fourtrax_rancher", "14"},
-            {"car:car", "car:tony_kart_racer_401", "5"},
-            {"car:car", "car:meyers_manx", "1"},
-            {"car:car", "car:club_car_precedent", "0"},
-            {"car:motorboat", "car:yamaha_waverunner_vx", "11"},
-            {"car:helicopter", "car:robinson_r44", "14"},
+            {"overthought_vehicles:car", "overthought_vehicles:tractor", "14"},
+            {"overthought_vehicles:trailer", "overthought_vehicles:seed_drill", "11"},
+            {"overthought_vehicles:trailer", "overthought_vehicles:fertilizer_spreader", "1"},
+            {"overthought_vehicles:car", "overthought_vehicles:lawn_tractor", "13"},
+            {"overthought_vehicles:car", "overthought_vehicles:quad_bike", "14"},
+            {"overthought_vehicles:car", "overthought_vehicles:go_kart", "5"},
+            {"overthought_vehicles:car", "overthought_vehicles:dune_buggy", "1"},
+            {"overthought_vehicles:car", "overthought_vehicles:golf_cart", "0"},
+            {"overthought_vehicles:motorboat", "overthought_vehicles:water_scooter", "11"},
+            {"overthought_vehicles:helicopter", "overthought_vehicles:helicopter", "14"},
     };
 
     /** The NBT that summons {@code model} in its factory paint, from {@link #NEW_VEHICLES}. */
@@ -1928,7 +1946,7 @@ public class CarPhotoTest {
     private void newVehicles(ClientGameTestContext context, TestServerContext server) {
         context.runOnClient(client -> client.options.hideGui = true);
         for (String[] vehicle : NEW_VEHICLES) {
-            boolean boat = vehicle[0].equals("car:motorboat");
+            boolean boat = vehicle[0].equals("overthought_vehicles:motorboat");
             clear(server);
             server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
             if (boat) {
@@ -1936,7 +1954,7 @@ public class CarPhotoTest {
             }
             server.runCommand("summon %s 0.5 %d 10.5 {%s}".formatted(vehicle[0], Y, newVehicle(vehicle[1])));
             String name = vehicle[1].substring(4);
-            double back = vehicle[0].equals("car:helicopter") ? 7.5 : name.equals("massey_ferguson_240") ? 4.5 : 3.6;
+            double back = vehicle[0].equals("overthought_vehicles:helicopter") ? 7.5 : name.equals("tractor") ? 4.5 : 3.6;
             double up = back > 5 ? 2.2 : 1.0;
             // Over water the camera flies: dropping in, its own splash fills the shot with big blue squares.
             fly(server, boat);
@@ -1955,15 +1973,15 @@ public class CarPhotoTest {
      * bars of the quad and the jet ski, on a wheel in the rest.
      */
     private void newRiders(ClientGameTestContext context, TestServerContext server) {
-        String[] riders = {"car:honda_fourtrax_rancher", "car:tony_kart_racer_401", "car:meyers_manx",
-                "car:club_car_precedent", "car:john_deere_x350", "car:massey_ferguson_240",
-                "car:yamaha_waverunner_vx", "car:robinson_r44"};
+        String[] riders = {"overthought_vehicles:quad_bike", "overthought_vehicles:go_kart", "overthought_vehicles:dune_buggy",
+                "overthought_vehicles:golf_cart", "overthought_vehicles:lawn_tractor", "overthought_vehicles:tractor",
+                "overthought_vehicles:water_scooter", "overthought_vehicles:helicopter"};
         for (String model : riders) {
-            String type = model.equals("car:yamaha_waverunner_vx") ? "car:motorboat"
-                    : model.equals("car:robinson_r44") ? "car:helicopter" : "car:car";
+            String type = model.equals("overthought_vehicles:water_scooter") ? "overthought_vehicles:motorboat"
+                    : model.equals("overthought_vehicles:helicopter") ? "overthought_vehicles:helicopter" : "overthought_vehicles:car";
             clear(server);
             server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
-            if (type.equals("car:motorboat")) {
+            if (type.equals("overthought_vehicles:motorboat")) {
                 server.runCommand("fill -8 %d 2 8 %d 19 minecraft:water".formatted(Y - 1, Y - 1));
             }
             server.runCommand("summon %s 0.5 %d 10.5 {%s,Tags:[\"ride\"]}".formatted(type, Y, newVehicle(model)));
@@ -2003,10 +2021,10 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = true);
         for (String[] set : sets) {
             server.runCommand("kill @e[type=!player]");
-            server.runCommand("summon car:car 0.5 %d 6.5 {%s,Tags:[\"tractor\"]}"
-                    .formatted(Y, newVehicle("car:massey_ferguson_240")));
-            server.runCommand("summon car:trailer 0.5 %d 2.5 {%s,Tags:[\"implement\"]}"
-                    .formatted(Y, newVehicle("car:" + set[0])));
+            server.runCommand("summon overthought_vehicles:car 0.5 %d 6.5 {%s,Tags:[\"tractor\"]}"
+                    .formatted(Y, newVehicle("overthought_vehicles:tractor")));
+            server.runCommand("summon overthought_vehicles:trailer 0.5 %d 2.5 {%s,Tags:[\"implement\"]}"
+                    .formatted(Y, newVehicle("overthought_vehicles:" + set[0])));
             context.waitTicks(5);
             server.runOnServer(minecraft -> {
                 var box = new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 30);
@@ -2042,10 +2060,10 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        String inside = "{id:\"car:car\",count:1,components:{\"car:vehicle\":\"car:honda_fourtrax_rancher\"}}";
-        server.runCommand("setblock -3 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s}".formatted(Y, inside));
-        server.runCommand("setblock 0 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s,Pries:2}".formatted(Y, inside));
-        server.runCommand("setblock 3 %d 10 car:vehicle_crate[facing=south]{Vehicle:%s,Pries:3,Opening:15}"
+        String inside = "{id:\"overthought_vehicles:car\",count:1,components:{\"overthought_vehicles:vehicle\":\"overthought_vehicles:quad_bike\"}}";
+        server.runCommand("setblock -3 %d 10 overthought_vehicles:vehicle_crate[facing=south]{Vehicle:%s}".formatted(Y, inside));
+        server.runCommand("setblock 0 %d 10 overthought_vehicles:vehicle_crate[facing=south]{Vehicle:%s,Pries:2}".formatted(Y, inside));
+        server.runCommand("setblock 3 %d 10 overthought_vehicles:vehicle_crate[facing=south]{Vehicle:%s,Pries:3,Opening:15}"
                 .formatted(Y, inside));
         context.runOnClient(client -> client.options.hideGui = true);
         shot(context, server, "crates_front34", 4.5, Y + 2.6, 16.5, 155, 20);
@@ -2054,11 +2072,11 @@ public class CarPhotoTest {
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:air".formatted(Y, Y + 8));
         String[][] items = new String[NEW_VEHICLES.length + 2][];
         for (int i = 0; i < NEW_VEHICLES.length; i++) {
-            items[i] = new String[] {NEW_VEHICLES[i][0], ",components:{\"car:vehicle\":\"" + NEW_VEHICLES[i][1] + "\"}"};
+            items[i] = new String[] {NEW_VEHICLES[i][0], ",components:{\"overthought_vehicles:vehicle\":\"" + NEW_VEHICLES[i][1] + "\"}"};
         }
-        items[NEW_VEHICLES.length] = new String[] {"car:vehicle_crate",
-                ",components:{\"minecraft:block_entity_data\":{id:\"car:vehicle_crate\",Vehicle:" + inside + "}}"};
-        items[NEW_VEHICLES.length + 1] = new String[] {"car:wrench", ""};
+        items[NEW_VEHICLES.length] = new String[] {"overthought_vehicles:vehicle_crate",
+                ",components:{\"minecraft:block_entity_data\":{id:\"overthought_vehicles:vehicle_crate\",Vehicle:" + inside + "}}"};
+        items[NEW_VEHICLES.length + 1] = new String[] {"overthought_vehicles:wrench", ""};
         for (int i = 0; i < items.length; i++) {
             double x = -5.0 + (i % 6) * 2.0;
             double y = Y + 2.8 - (i / 6) * 1.9;
@@ -2077,7 +2095,7 @@ public class CarPhotoTest {
         clear(server);
         // road, dirt, snow, sport
         for (int i = 0; i < 4; i++) {
-            server.runCommand("summon car:car %d.0 %d 10.5 {Rotation:[0f,0f],Color:8,Setup:%d}"
+            server.runCommand("summon overthought_vehicles:car %d.0 %d 10.5 {Rotation:[0f,0f],Color:8,Setup:%d}"
                     .formatted(-9 + i * 6, Y, i << 3));
         }
         context.runOnClient(client -> client.options.hideGui = true);
@@ -2092,19 +2110,19 @@ public class CarPhotoTest {
         clear(server);
         int y = Y;
         // refinery -> straight run -> bend -> tank -> run -> pump; generator beside
-        server.runCommand("setblock -6 %d 20 car:fuel_refinery[facing=south]".formatted(y));
-        server.runCommand("setblock -8 %d 20 car:generator[facing=south]".formatted(y));
-        server.runCommand("fill -5 %d 20 -2 %d 20 car:fuel_pipe".formatted(y, y));
-        server.runCommand("fill -2 %d 21 -2 %d 22 car:fuel_pipe".formatted(y, y));
-        server.runCommand("setblock -2 %d 23 car:fuel_tank".formatted(y));
-        server.runCommand("fill -2 %d 24 -2 %d 25 car:fuel_pipe".formatted(y, y));
-        server.runCommand("fill -1 %d 25 1 %d 25 car:fuel_pipe".formatted(y, y));
-        server.runCommand("setblock 2 %d 25 car:fuel_pump[facing=south,half=lower]".formatted(y));
-        server.runCommand("setblock 2 %d 25 car:fuel_pump[facing=south,half=upper]".formatted(y + 1));
+        server.runCommand("setblock -6 %d 20 overthought_vehicles:fuel_refinery[facing=south]".formatted(y));
+        server.runCommand("setblock -8 %d 20 overthought_vehicles:generator[facing=south]".formatted(y));
+        server.runCommand("fill -5 %d 20 -2 %d 20 overthought_vehicles:fuel_pipe".formatted(y, y));
+        server.runCommand("fill -2 %d 21 -2 %d 22 overthought_vehicles:fuel_pipe".formatted(y, y));
+        server.runCommand("setblock -2 %d 23 overthought_vehicles:fuel_tank".formatted(y));
+        server.runCommand("fill -2 %d 24 -2 %d 25 overthought_vehicles:fuel_pipe".formatted(y, y));
+        server.runCommand("fill -1 %d 25 1 %d 25 overthought_vehicles:fuel_pipe".formatted(y, y));
+        server.runCommand("setblock 2 %d 25 overthought_vehicles:fuel_pump[facing=south,half=lower]".formatted(y));
+        server.runCommand("setblock 2 %d 25 overthought_vehicles:fuel_pump[facing=south,half=upper]".formatted(y + 1));
         // a riser, and a pipe beside a cauldron (another fluid holder)
-        server.runCommand("fill 4 %d 20 4 %d 20 car:fuel_pipe".formatted(y, y + 2));
+        server.runCommand("fill 4 %d 20 4 %d 20 overthought_vehicles:fuel_pipe".formatted(y, y + 2));
         server.runCommand("setblock 5 %d 20 minecraft:cauldron".formatted(y));
-        server.runCommand("setblock 4 %d 21 car:fuel_pipe".formatted(y));
+        server.runCommand("setblock 4 %d 21 overthought_vehicles:fuel_pipe".formatted(y));
         context.runOnClient(client -> client.options.hideGui = true);
         shot(context, server, "station_overview", -1.0, y + 4.5, 31.0, 180, 30);
         shot(context, server, "station_pump", 4.5, y + 1.6, 29.0, 150, 10);
@@ -2116,7 +2134,7 @@ public class CarPhotoTest {
     private void driving(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:gravel".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:8,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:8,Tags:[\"photo\"]}".formatted(Y));
         context.waitTicks(5);
         server.runCommand("ride @p mount @e[tag=photo,limit=1]");
         context.waitTicks(5);
@@ -2143,7 +2161,7 @@ public class CarPhotoTest {
     private void batteryGauge(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:gravel".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:3,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:3,Tags:[\"photo\"]}".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> photoCar(minecraft).setSetup(me.trossty.car.entity.CarSetup.withVariant(
                 me.trossty.car.entity.CarSetup.DEFAULT, me.trossty.car.entity.CarPart.ENGINE,
@@ -2213,7 +2231,7 @@ public class CarPhotoTest {
         server.runCommand("fill -4 %d 16 4 %d 34 minecraft:grass_block".formatted(Y, Y));
         server.runCommand("fill -4 %d 21 4 %d 28 minecraft:grass_block".formatted(Y + 1, Y + 1));
         server.runCommand("fill -4 %d 34 4 %d 40 minecraft:air".formatted(Y, Y));
-        server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
         context.waitTicks(5);
         server.runCommand("ride @p mount @e[tag=photo,limit=1]");
         context.waitTicks(5);
@@ -2274,9 +2292,9 @@ public class CarPhotoTest {
     private void twoWheelsAndTrailer(ClientGameTestContext context, TestServerContext server) {
         server.runCommand("fill -12 %d -10 12 %d 90 minecraft:grass_block".formatted(Y - 1, Y - 1));
         String[][] vehicles = {
-                {"car:motorcycle", "car:vespa_primavera"},
-                {"car:motorcycle", "car:honda_cbr600rr"},
-                {"car:trailer", "car:box_trailer"},
+                {"overthought_vehicles:motorcycle", "overthought_vehicles:scooter"},
+                {"overthought_vehicles:motorcycle", "overthought_vehicles:sport_bike"},
+                {"overthought_vehicles:trailer", "overthought_vehicles:box_trailer"},
         };
         context.runOnClient(client -> client.options.hideGui = true);
         for (String[] vehicle : vehicles) {
@@ -2290,17 +2308,17 @@ public class CarPhotoTest {
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
     }
 
-    /** The workstation's window with a Mustang picked, painted blue, and only some of what it takes. */
+    /** The workstation's window with a muscle car picked, painted blue, and only some of what it takes. */
     private void workstation(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("setblock 0 %d 14 car:vehicle_workstation[facing=north]".formatted(Y));
+        server.runCommand("setblock 0 %d 14 overthought_vehicles:vehicle_workstation[facing=north]".formatted(Y));
         // Within reach of it, or the menu closes as soon as it opens.
         server.runCommand("tp @a 0.5 %d 11.5 0 30".formatted(Y));
         server.runCommand("clear @a");
         server.runCommand("give @a minecraft:iron_block 2");
         server.runCommand("give @a minecraft:iron_ingot 5");
-        server.runCommand("give @a car:engine 1");
-        server.runCommand("give @a car:car_body 1");
+        server.runCommand("give @a overthought_vehicles:engine 1");
+        server.runCommand("give @a overthought_vehicles:car_body 1");
         server.runCommand("gamemode survival @a");
         server.runOnServer(minecraft -> {
             var player = minecraft.getPlayerList().getPlayers().get(0);
@@ -2319,7 +2337,7 @@ public class CarPhotoTest {
     }
 
     /**
-     * Flat bed trailers: one on a pickup's hitch with a Mustang winched on,
+     * Flat bed trailers: one on a pickup's hitch with a muscle car winched on,
      * one with a boat, one with an engine; then one walked by its drawbar and
      * dropped on a car's tow ball. Logs how much each load takes off the pull.
      */
@@ -2327,20 +2345,20 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("clear @a");
         server.runCommand("fill -25 %d -20 30 %d 40 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 18.5 %d 14.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:11,Tags:[\"tractor2\"]}".formatted(Y));
-        server.runCommand("summon car:trailer 18.5 %d 9.1 {Rotation:[0f,0f],Model:\"car:tow_dolly\",Tags:[\"bed_dolly\"]}".formatted(Y));
-        server.runCommand("summon car:car 18.5 %d 3.0 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Tags:[\"load\"]}".formatted(Y));
-        server.runCommand("summon car:pickup 0.5 %d 7.5 {Rotation:[0f,0f],Color:14,Tags:[\"tractor\"]}".formatted(Y));
-        String bed = "summon car:trailer %.1f %d %.1f {Rotation:[0f,0f],Model:\"car:flatbed_trailer\",Tags:[\"%s\"]}";
+        server.runCommand("summon overthought_vehicles:car 18.5 %d 14.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:off_roader\",Color:11,Tags:[\"tractor2\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:trailer 18.5 %d 9.1 {Rotation:[0f,0f],Model:\"overthought_vehicles:tow_dolly\",Tags:[\"bed_dolly\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 18.5 %d 3.0 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3,Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:pickup 0.5 %d 7.5 {Rotation:[0f,0f],Color:14,Tags:[\"tractor\"]}".formatted(Y));
+        String bed = "summon overthought_vehicles:trailer %.1f %d %.1f {Rotation:[0f,0f],Model:\"overthought_vehicles:flatbed_trailer\",Tags:[\"%s\"]}";
         server.runCommand(bed.formatted(0.5, Y, -1.5, "bed_car"));
         server.runCommand(bed.formatted(8.5, Y, -1.5, "bed_boat"));
         server.runCommand(bed.formatted(-7.5, Y, -1.5, "bed_engine"));
         server.runCommand(bed.formatted(-7.5, Y, 14.5, "bed_walked"));
         server.runCommand(bed.formatted(-15.5, Y, -1.5, "bed_bike"));
-        server.runCommand("summon car:motorcycle -15.5 %d -7.5 {Rotation:[0f,0f],Model:\"car:honda_cbr600rr\",Tags:[\"load\"]}".formatted(Y));
-        server.runCommand("summon car:car 0.5 %d -9.5 {Rotation:[0f,0f],Model:\"car:ford_mustang\",Tags:[\"load\"]}".formatted(Y));
-        server.runCommand("summon car:motorboat 8.5 %d -11.5 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
-        server.runCommand("summon car:car -1.5 %d 19.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Tags:[\"walk_to\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:motorcycle -15.5 %d -7.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sport_bike\",Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -9.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:muscle_car\",Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:motorboat 8.5 %d -11.5 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car -1.5 %d 19.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Tags:[\"walk_to\"]}".formatted(Y));
         context.waitTicks(10);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -2374,7 +2392,7 @@ public class CarPhotoTest {
                     + walked.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND)
                     + " held=" + (me.trossty.car.entity.TrailerEntity.heldBy(player) == walked));
         });
-        // Walk the drawbar across behind the Corolla, then click the car.
+        // Walk the drawbar across behind the sedan, then click the car.
         server.runCommand("tp @p -1.5 %d 15.6 0 0".formatted(Y));
         context.waitTicks(10);
         server.runOnServer(minecraft -> {
@@ -2411,14 +2429,14 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
     }
 
-    /** A pickup pulling a Cessna by its nose wheel on the aircraft tow dolly. */
+    /** A pickup pulling a light aircraft by its nose wheel on the aircraft tow dolly. */
     private void planeTow(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("clear @a");
         server.runCommand("fill -20 %d -30 20 %d 30 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:pickup 0.5 %d 10.5 {Rotation:[0f,0f],Color:0,Tags:[\"tractor\"]}".formatted(Y));
-        server.runCommand("summon car:trailer 0.5 %d 5.0 {Rotation:[0f,0f],Model:\"car:plane_tow_dolly\",Color:4,Tags:[\"tug\"]}".formatted(Y));
-        server.runCommand("summon car:airplane 0.5 %d -2.0 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:pickup 0.5 %d 10.5 {Rotation:[0f,0f],Color:0,Tags:[\"tractor\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:trailer 0.5 %d 5.0 {Rotation:[0f,0f],Model:\"overthought_vehicles:plane_tow_dolly\",Color:4,Tags:[\"tug\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:airplane 0.5 %d -2.0 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
         context.waitTicks(10);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -2459,13 +2477,13 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("clear @a");
         server.runCommand("fill -24 %d -30 24 %d 30 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:trailer -6.5 %d 8.0 {Rotation:[0f,0f],Model:\"car:flatbed_trailer\",Tags:[\"bed\"]}".formatted(Y));
-        server.runCommand("summon car:motorboat -3.5 %d 1.0 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
-        server.runCommand("setblock -7 %d 0 car:boat_cradle[facing=south]".formatted(Y));
-        server.runCommand("setblock -13 %d 6 car:boat_cradle[facing=south]".formatted(Y));
-        server.runCommand("setblock 8 %d -1 car:aircraft_jack[raised=true]".formatted(Y));
-        server.runCommand("setblock 14 %d 8 car:aircraft_jack".formatted(Y));
-        server.runCommand("summon car:airplane 8.5 %d -2.1 {Rotation:[0f,0f],Tags:[\"jacked\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:trailer -6.5 %d 8.0 {Rotation:[0f,0f],Model:\"overthought_vehicles:flatbed_trailer\",Tags:[\"bed\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:motorboat -3.5 %d 1.0 {Rotation:[0f,0f],Tags:[\"load\"]}".formatted(Y));
+        server.runCommand("setblock -7 %d 0 overthought_vehicles:boat_cradle[facing=south]".formatted(Y));
+        server.runCommand("setblock -13 %d 6 overthought_vehicles:boat_cradle[facing=south]".formatted(Y));
+        server.runCommand("setblock 8 %d -1 overthought_vehicles:aircraft_jack[raised=true]".formatted(Y));
+        server.runCommand("setblock 14 %d 8 overthought_vehicles:aircraft_jack".formatted(Y));
+        server.runCommand("summon overthought_vehicles:airplane 8.5 %d -2.1 {Rotation:[0f,0f],Tags:[\"jacked\"]}".formatted(Y));
         context.waitTicks(10);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -2504,8 +2522,8 @@ public class CarPhotoTest {
     private void bedLoad(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:pickup 0.5 %d 0.5 {Rotation:[0f,0f],Color:11}".formatted(Y));
-        server.runCommand("summon car:trailer 4.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:box_trailer\"}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:pickup 0.5 %d 0.5 {Rotation:[0f,0f],Color:11}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:trailer 4.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:box_trailer\"}".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -2535,15 +2553,15 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
     }
 
-    /** A Corolla on a flat front tyre, and one with two tyres taken off. */
-    /** Bonnets and boot lids up: a Corolla, a Mustang, a Hilux. */
+    /** A sedan on a flat front tyre, and one with two tyres taken off. */
+    /** Bonnets and boot lids up: a sedan, a muscle car, a pickup truck. */
     private void lids(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Lids:3,Boot:{Items:[{Slot:0b,id:\"minecraft:chest\",count:1},{Slot:1b,id:\"minecraft:bread\",count:4},{Slot:2b,id:\"minecraft:oak_log\",count:8},{Slot:3b,id:\"car:jerry_can\",count:1},{Slot:4b,id:\"minecraft:apple\",count:3}]}}".formatted(Y));
-        server.runCommand("summon car:car 0.5 %d 8.5 {Rotation:[0f,0f],Model:\"car:ford_mustang\",Color:14,Lids:3}".formatted(Y));
-        server.runCommand("summon car:pickup 0.5 %d -8.5 {Rotation:[0f,0f],Model:\"car:toyota_hilux\",Color:11,Lids:1}".formatted(Y));
-        server.runCommand("summon car:car 6.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:1,Boot:{Items:[{Slot:0b,id:\"minecraft:chest\",count:1},{Slot:1b,id:\"minecraft:oak_log\",count:8}]}}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3,Lids:3,Boot:{Items:[{Slot:0b,id:\"minecraft:chest\",count:1},{Slot:1b,id:\"minecraft:bread\",count:4},{Slot:2b,id:\"minecraft:oak_log\",count:8},{Slot:3b,id:\"overthought_vehicles:jerry_can\",count:1},{Slot:4b,id:\"minecraft:apple\",count:3}]}}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 8.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:muscle_car\",Color:14,Lids:3}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:pickup 0.5 %d -8.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:pickup_truck\",Color:11,Lids:1}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 6.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:1,Boot:{Items:[{Slot:0b,id:\"minecraft:chest\",count:1},{Slot:1b,id:\"minecraft:oak_log\",count:8}]}}".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
         context.waitTicks(20);
         shot(context, server, "lids_side", -6.5, Y + 1.6, 0.5, -90, 8);
@@ -2557,12 +2575,12 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
     }
 
-    /** A Corolla on the ground, bonnet up, an engine hoist pushed up to its nose. */
+    /** A sedan on the ground, bonnet up, an engine hoist pushed up to its nose. */
     private void hoist(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Lids:1}".formatted(Y));
-        server.runCommand("setblock 0 %d 3 car:engine_hoist[facing=north]".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3,Lids:1}".formatted(Y));
+        server.runCommand("setblock 0 %d 3 overthought_vehicles:engine_hoist[facing=north]".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
         context.waitTicks(20);
         shot(context, server, "hoist_corner", -3.5, Y + 2.0, 5.5, -145, 18);
@@ -2574,12 +2592,12 @@ public class CarPhotoTest {
     private void garageTools(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("setblock 0 %d 0 car:dyno".formatted(Y - 1));
-        server.runCommand("setblock 0 %d 1 car:dyno".formatted(Y - 1));
-        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
-        server.runCommand("setblock 3 %d 0 car:drain_pan".formatted(Y));
-        server.runCommand("setblock 3 %d 2 car:toolbox[facing=east]".formatted(Y));
-        server.runCommand("setblock 3 %d -2 car:engine_stand[facing=east]".formatted(Y));
+        server.runCommand("setblock 0 %d 0 overthought_vehicles:dyno".formatted(Y - 1));
+        server.runCommand("setblock 0 %d 1 overthought_vehicles:dyno".formatted(Y - 1));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3}".formatted(Y));
+        server.runCommand("setblock 3 %d 0 overthought_vehicles:drain_pan".formatted(Y));
+        server.runCommand("setblock 3 %d 2 overthought_vehicles:toolbox[facing=east]".formatted(Y));
+        server.runCommand("setblock 3 %d -2 overthought_vehicles:engine_stand[facing=east]".formatted(Y));
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
             var pos = new net.minecraft.core.BlockPos(3, Y, -2);
@@ -2605,14 +2623,14 @@ public class CarPhotoTest {
         clear(server);
         server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
         server.runCommand("clear @a");
-        server.runCommand("setblock 0 %d 4 car:engine_stand[facing=south]".formatted(Y));
+        server.runCommand("setblock 0 %d 4 overthought_vehicles:engine_stand[facing=south]".formatted(Y));
         String[] parts = {"pistons", "valves", "head_gasket", "crankshaft"};
         for (int i = 0; i < parts.length; i++) {
             server.runCommand(("summon item_display %.2f %.2f 4.5 {item:{id:\"car:%s\",count:1},"
                     + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
                     + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(2.6 + i * 0.85, Y + 0.45, parts[i]));
         }
-        server.runCommand("summon car:car 0.5 %d -3.0 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -3.0 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3}".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -2713,8 +2731,8 @@ public class CarPhotoTest {
                     + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
                     + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(Y + 0.45, -3.3 + i * 0.85, parts[i]));
         }
-        server.runCommand("setblock 6 %d 0 car:dyno".formatted(Y));
-        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        server.runCommand("setblock 6 %d 0 overthought_vehicles:dyno".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3}".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -2742,7 +2760,7 @@ public class CarPhotoTest {
         clear(server);
         java.util.List<String> ids = new java.util.ArrayList<>();
         for (var key : net.minecraft.core.registries.BuiltInRegistries.ITEM.keySet()) {
-            if (key.getNamespace().equals("car")) {
+            if (key.getNamespace().equals(me.trossty.car.CarMain.MOD_ID)) {
                 ids.add(key.getPath());
             }
         }
@@ -2775,9 +2793,9 @@ public class CarPhotoTest {
         server.runCommand("fill -4 %d -3 3 %d 3 minecraft:farmland[moisture=7]".formatted(Y - 1, Y - 1));
         int[] ages = {0, 2, 4, 5, 6, 7, 7, 7};
         for (int x = -4; x <= 3; x++) {
-            server.runCommand("fill %d %d -3 %d %d 3 car:rapeseed_crop[age=%d]".formatted(x, Y, x, Y, ages[x + 4]));
+            server.runCommand("fill %d %d -3 %d %d 3 overthought_vehicles:rapeseed_crop[age=%d]".formatted(x, Y, x, Y, ages[x + 4]));
         }
-        server.runCommand(("summon item_display -5.5 %.2f 0.5 {item:{id:\"car:rapeseed\",count:1},"
+        server.runCommand(("summon item_display -5.5 %.2f 0.5 {item:{id:\"overthought_vehicles:rapeseed\",count:1},"
                 + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
                 + "translation:[0f,0f,0f],scale:[0.8f,0.8f,0.8f]}}").formatted(Y + 0.45));
         server.runCommand("time set noon");
@@ -2797,7 +2815,7 @@ public class CarPhotoTest {
         server.runCommand("fill -12 %d -6 12 %d 24 minecraft:dirt".formatted(Y - 1, Y - 1));
         server.runCommand("fill -12 %d 25 12 %d 60 minecraft:stone".formatted(Y - 1, Y - 1));
         server.runCommand("fill -6 %d 44 6 %d 45 minecraft:stone_bricks".formatted(Y, Y + 2));
-        server.runCommand("summon car:car 0.5 %d -2.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:14,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -2.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:14,Tags:[\"photo\"]}".formatted(Y));
         server.runCommand("tp @a 0.5 %d -2.5".formatted(Y));
         context.waitTicks(20);
         server.runCommand("ride @p mount @e[tag=photo,limit=1]");
@@ -2841,7 +2859,7 @@ public class CarPhotoTest {
         server.runCommand("kill @e[tag=photo]");
         clear(server);
         server.runCommand("fill -30 %d -30 30 %d 40 minecraft:stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 15.5 %d -24.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 15.5 %d -24.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3,Tags:[\"photo\"]}".formatted(Y));
         server.runCommand("tp @a 15.5 %d -24.5".formatted(Y));
         context.waitTicks(20);
         server.runCommand("ride @p mount @e[tag=photo,limit=1]");
@@ -2866,8 +2884,8 @@ public class CarPhotoTest {
         // Clean and filthy, side by side.
         clear(server);
         server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car -2.0 %d 0.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:0}".formatted(Y));
-        server.runCommand("summon car:car -2.0 %d 6.5 {Rotation:[90f,0f],Model:\"car:toyota_corolla\",Color:0,Dirt:1.0f}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car -2.0 %d 0.5 {Rotation:[90f,0f],Model:\"overthought_vehicles:sedan\",Color:0}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car -2.0 %d 6.5 {Rotation:[90f,0f],Model:\"overthought_vehicles:sedan\",Color:0,Dirt:1.0f}".formatted(Y));
         context.waitTicks(10);
         shot(context, server, "road_clean_and_dirty", 6.0, Y + 1.0, 3.5, 90, 8);
         context.runOnClient(client -> client.options.hideGui = false);
@@ -2876,8 +2894,8 @@ public class CarPhotoTest {
     private void tyreLooks(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -20 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3,FlatTyre:0}".formatted(Y));
-        server.runCommand("summon car:car 0.5 %d 8.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:14,TyresOff:5}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3,FlatTyre:0}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 8.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:14,TyresOff:5}".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
         context.waitTicks(10);
         shot(context, server, "tyre_flat", -3.5, Y + 0.6, 3.6, -120, 6);
@@ -2885,12 +2903,12 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
     }
 
-    /** A caravan on a Jeep's tow ball, from the door side and from behind. */
+    /** A caravan on an off-roader's tow ball, from the door side and from behind. */
     private void caravan(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -25 20 %d 20 minecraft:grass_block".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:car 0.5 %d 4.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:13}".formatted(Y));
-        server.runCommand("summon car:trailer 0.5 %d -2.0 {Rotation:[0f,0f],Model:\"car:caravan\",Color:11}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 4.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:off_roader\",Color:13}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:trailer 0.5 %d -2.0 {Rotation:[0f,0f],Model:\"overthought_vehicles:caravan\",Color:11}".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -2907,13 +2925,13 @@ public class CarPhotoTest {
         context.runOnClient(client -> client.options.hideGui = false);
     }
 
-    /** The tow truck with its wheel lift on, a Corolla's front wheels up in it. */
+    /** The tow truck with its wheel lift on, a sedan's front wheels up in it. */
     private void towTruck(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -25 20 %d 20 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:pickup 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:hilux_tow\",Color:4}".formatted(Y));
-        server.runCommand("summon car:trailer 0.5 %d -4.0 {Rotation:[0f,0f],Model:\"car:wheel_lift\",Color:4}".formatted(Y));
-        server.runCommand("summon car:car 0.5 %d -8.5 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:pickup 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:tow_truck\",Color:4}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:trailer 0.5 %d -4.0 {Rotation:[0f,0f],Model:\"overthought_vehicles:wheel_lift\",Color:4}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -8.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3}".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -2941,8 +2959,8 @@ public class CarPhotoTest {
     private void towing(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -20 %d -10 20 %d 40 minecraft:gravel".formatted(Y - 1, Y - 1));
-        server.runCommand("summon car:pickup 0.5 %d 1.5 {Rotation:[0f,0f],Color:14,Tags:[\"tractor\"]}".formatted(Y));
-        server.runCommand("summon car:trailer 0.5 %d -3.5 {Rotation:[0f,0f],Tags:[\"towed\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:pickup 0.5 %d 1.5 {Rotation:[0f,0f],Color:14,Tags:[\"tractor\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:trailer 0.5 %d -3.5 {Rotation:[0f,0f],Tags:[\"towed\"]}".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -3038,7 +3056,7 @@ public class CarPhotoTest {
                     + "transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],"
                     + "translation:[0f,0f,0f],scale:[1.4f,1.4f,1.4f]}}").formatted(-3.0 + i * 0.95, Y + 0.3, parts[i]));
         }
-        server.runCommand("summon car:car 0.5 %d 0.0 {Rotation:[0f,0f],Model:\"car:toyota_corolla\",Color:3}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 0.0 {Rotation:[0f,0f],Model:\"overthought_vehicles:sedan\",Color:3}".formatted(Y));
         context.waitTicks(5);
         server.runOnServer(minecraft -> {
             var world = minecraft.overworld();
@@ -3046,7 +3064,7 @@ public class CarPhotoTest {
             for (int i = 0; i < parts.length; i++) {
                 player.getInventory().setItem(i, new net.minecraft.world.item.ItemStack(
                         net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
-                                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("car", parts[i]))));
+                                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(me.trossty.car.CarMain.MOD_ID, parts[i]))));
             }
             var car = world.getEntitiesOfClass(me.trossty.car.entity.CarEntity.class,
                     new net.minecraft.world.phys.AABB(-10, Y - 5, -10, 10, Y + 5, 10), e -> true).get(0);
@@ -3086,9 +3104,9 @@ public class CarPhotoTest {
     private void items3d(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         String[] items = {
-                "id:\"car:spray_can\"",
-                "id:\"car:spray_can\",components:{\"minecraft:dyed_color\":3949738}",
-                "id:\"car:car_key\"",
+                "id:\"overthought_vehicles:spray_can\"",
+                "id:\"overthought_vehicles:spray_can\",components:{\"minecraft:dyed_color\":3949738}",
+                "id:\"overthought_vehicles:car_key\"",
         };
         for (int i = 0; i < items.length; i++) {
             for (int row = 0; row < 2; row++) {
@@ -3103,8 +3121,8 @@ public class CarPhotoTest {
         shot(context, server, "items3d_display", 0.0, Y + 0.6, 17.0, 180, 0);
         clear(server);
         server.runCommand("clear @a");
-        server.runCommand("item replace entity @p weapon.mainhand with car:spray_can[minecraft:dyed_color=11546150]");
-        server.runCommand("item replace entity @p weapon.offhand with car:car_key");
+        server.runCommand("item replace entity @p weapon.mainhand with overthought_vehicles:spray_can[minecraft:dyed_color=11546150]");
+        server.runCommand("item replace entity @p weapon.offhand with overthought_vehicles:car_key");
         context.runOnClient(client -> client.options.hideGui = false);
         shot(context, server, "items3d_in_hand", 0.5, Y, 0.5, 0, 10);
         context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
@@ -3117,11 +3135,11 @@ public class CarPhotoTest {
 
     /** Each car close up from the rear three-quarter and the side, to find where light shows through. */
     private void carGaps(ClientGameTestContext context, TestServerContext server) {
-        String only = System.getProperty("car.photo.cars", "ford_mustang,toyota_corolla,tofas_sahin,jeep_wrangler,toyota_hilux,mercedes_atego");
+        String only = System.getProperty("car.photo.cars", "muscle_car,sedan,classic_sedan,off_roader,pickup_truck,tanker_truck");
         for (String name : only.split(",")) {
             clear(server);
-            String type = name.equals("toyota_hilux") ? "car:pickup" : name.equals("mercedes_atego") ? "car:fuel_tanker" : "car:car";
-            server.runCommand("summon %s 0.5 %d 10.5 {Rotation:[0f,0f],Color:11}".formatted(type, Y) .replace("{Rotation", "{Model:\"car:" + name + "\",Rotation"));
+            String type = name.equals("pickup_truck") ? "overthought_vehicles:pickup" : name.equals("tanker_truck") ? "overthought_vehicles:fuel_tanker" : "overthought_vehicles:car";
+            server.runCommand("summon %s 0.5 %d 10.5 {Rotation:[0f,0f],Color:11}".formatted(type, Y) .replace("{Rotation", "{Model:\"overthought_vehicles:" + name + "\",Rotation"));
             context.runOnClient(client -> client.options.hideGui = true);
             context.waitTicks(10);
             shot(context, server, "gap_" + name + "_rear34", 4.5, Y + 1.4, 5.5, 36, 12);
@@ -3157,7 +3175,7 @@ public class CarPhotoTest {
     private void kerbClimb(ClientGameTestContext context, TestServerContext server) {
         clear(server);
         server.runCommand("fill -6 %d 8 6 %d 30 minecraft:stone".formatted(Y, Y));
-        server.runCommand("summon car:car 0.5 %d -2.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -2.5 {Rotation:[0f,0f],Color:14,Tags:[\"photo\"]}".formatted(Y));
         server.runCommand("tp @a 0.5 %d -2.5".formatted(Y));
         context.waitTicks(20);
         server.runCommand("ride @p mount @e[tag=photo,limit=1]");
@@ -3199,7 +3217,7 @@ public class CarPhotoTest {
         String[] items = {"car_key", "jerry_can", "spark_plugs", "wheel", "brake_discs"};
         for (String item : items) {
             server.runCommand("clear @a");
-            server.runCommand("item replace entity @p weapon.mainhand with car:" + item);
+            server.runCommand("item replace entity @p weapon.mainhand with overthought_vehicles:" + item);
             context.runOnClient(client -> {
                 client.options.hideGui = false;
                 client.options.setCameraType(CameraType.FIRST_PERSON);
@@ -3224,9 +3242,9 @@ public class CarPhotoTest {
      */
     private void parked(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("summon car:motorcycle -2.5 %d 10.5 {Rotation:[0f,0f],Model:\"car:vespa_primavera\"}".formatted(Y));
-        server.runCommand("summon car:trailer 1.0 %d 10.5 {Rotation:[0f,0f]}".formatted(Y));
-        server.runCommand("summon car:car 5.5 %d 10.5 {Rotation:[0f,0f],Color:14,Tags:[\"locked\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:motorcycle -2.5 %d 10.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:scooter\"}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:trailer 1.0 %d 10.5 {Rotation:[0f,0f]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 5.5 %d 10.5 {Rotation:[0f,0f],Color:14,Tags:[\"locked\"]}".formatted(Y));
         context.runOnClient(client -> client.options.hideGui = true);
         // The poses ease in, so give them a second to settle.
         context.waitTicks(30);
@@ -3251,7 +3269,7 @@ public class CarPhotoTest {
     /** The rider leant over with the bike, hands on the bars, from behind and in front. */
     private void riderLean(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("summon car:motorcycle 0.5 %d -6.5 {Rotation:[0f,0f],Model:\"car:honda_cbr600rr\",Tags:[\"bike\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:motorcycle 0.5 %d -6.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sport_bike\",Tags:[\"bike\"]}".formatted(Y));
         context.waitTicks(5);
         server.runCommand("ride @p mount @e[tag=bike,limit=1]");
         context.waitTicks(5);
@@ -3292,7 +3310,7 @@ public class CarPhotoTest {
     /** The driver's hands on a steering wheel that turns, seen through the windscreen. */
     private void steeringWheel(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("summon car:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:0,Tags:[\"photo\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:car 0.5 %d -6.5 {Rotation:[0f,0f],Color:0,Tags:[\"photo\"]}".formatted(Y));
         server.runCommand("tp @a 3.5 %d -6.5".formatted(Y));
         context.waitTicks(10);
         server.runCommand("ride @p mount @e[tag=photo,limit=1]");
@@ -3327,7 +3345,7 @@ public class CarPhotoTest {
     /** The sports bike leant over in a fast right-hander. */
     private void leaning(ClientGameTestContext context, TestServerContext server) {
         clear(server);
-        server.runCommand("summon car:motorcycle 0.5 %d -6.5 {Rotation:[0f,0f],Model:\"car:honda_cbr600rr\",Tags:[\"bike\"]}".formatted(Y));
+        server.runCommand("summon overthought_vehicles:motorcycle 0.5 %d -6.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:sport_bike\",Tags:[\"bike\"]}".formatted(Y));
         context.waitTicks(5);
         server.runCommand("ride @p mount @e[tag=bike,limit=1]");
         context.waitTicks(5);
@@ -3350,7 +3368,7 @@ public class CarPhotoTest {
     }
 
     /**
-     * The Jeep at night facing a rise in the road, a villager and a wall: the
+     * The off-roader at night facing a rise in the road, a villager and a wall: the
      * pool of light should climb the steps, and the villager and the wall
      * should come out of the dark lit by the lamps.
      */
@@ -3363,11 +3381,11 @@ public class CarPhotoTest {
         server.runCommand("fill -4 %d 18 4 %d 18 minecraft:stone_bricks".formatted(Y + 2, Y + 5));
         server.runCommand("summon villager 2.5 %d 12.5 {NoAI:1b,Rotation:[180f,0f],Tags:[\"photo\"]}".formatted(Y + 2));
         server.runCommand("time set 18000");
-        server.runCommand("summon car:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"car:jeep_wrangler\",Color:14,Tags:[\"photo\"]}"
+        server.runCommand("summon overthought_vehicles:car 0.5 %d 0.5 {Rotation:[0f,0f],Model:\"overthought_vehicles:off_roader\",Color:14,Tags:[\"photo\"]}"
                 .formatted(Y));
         server.runCommand("tp @a 3.5 %d 0.5".formatted(Y));
         context.waitTicks(10);
-        server.runCommand("ride @p mount @e[type=car:car,tag=photo,limit=1]");
+        server.runCommand("ride @p mount @e[type=overthought_vehicles:car,tag=photo,limit=1]");
         context.waitTicks(10);
         context.runOnClient(client -> {
             client.player.setYRot(0);
@@ -3400,13 +3418,13 @@ public class CarPhotoTest {
         server.runCommand("fill -20 %d -30 20 %d 30 minecraft:air".formatted(Y, Y + 8));
         server.runCommand("time set 18000");
         String[][] vehicles = {
-                {"car:car", "car:toyota_corolla"},
-                {"car:car", "car:jeep_wrangler"},
-                {"car:car", "car:ford_mustang"},
-                {"car:car", "car:tofas_sahin"},
-                {"car:pickup", "car:toyota_hilux"},
-                {"car:fuel_tanker", "car:mercedes_atego"},
-                {"car:motorcycle", "car:honda_cbr600rr"},
+                {"overthought_vehicles:car", "overthought_vehicles:sedan"},
+                {"overthought_vehicles:car", "overthought_vehicles:off_roader"},
+                {"overthought_vehicles:car", "overthought_vehicles:muscle_car"},
+                {"overthought_vehicles:car", "overthought_vehicles:classic_sedan"},
+                {"overthought_vehicles:pickup", "overthought_vehicles:pickup_truck"},
+                {"overthought_vehicles:fuel_tanker", "overthought_vehicles:tanker_truck"},
+                {"overthought_vehicles:motorcycle", "overthought_vehicles:sport_bike"},
         };
         for (String[] vehicle : vehicles) {
             clear(server);
@@ -3468,9 +3486,9 @@ public class CarPhotoTest {
     private void cabins(ClientGameTestContext context, TestServerContext server) {
         server.runCommand("fill -20 %d -30 20 %d 30 minecraft:smooth_stone".formatted(Y - 1, Y - 1));
         String[][] vehicles = {
-                {"car:car", "car:toyota_corolla", "0"},
-                {"car:car", "car:ford_mustang", "11"},
-                {"car:fuel_tanker", "car:mercedes_atego", "0"},
+                {"overthought_vehicles:car", "overthought_vehicles:sedan", "0"},
+                {"overthought_vehicles:car", "overthought_vehicles:muscle_car", "11"},
+                {"overthought_vehicles:fuel_tanker", "overthought_vehicles:tanker_truck", "0"},
         };
         for (String[] vehicle : vehicles) {
             clear(server);
@@ -3494,7 +3512,7 @@ public class CarPhotoTest {
             context.takeScreenshot("cab_" + name + "_down");
             server.runCommand("ride @p dismount");
             context.waitTicks(5);
-            boolean big = vehicle[0].equals("car:fuel_tanker");
+            boolean big = vehicle[0].equals("overthought_vehicles:fuel_tanker");
             shot(context, server, "cab_" + name + "_window", big ? 3.0 : 2.7, Y + (big ? 3.9 : 1.7),
                     big ? -3.6 : -6.3, 90, big ? 42 : 35);
         }

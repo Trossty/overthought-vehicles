@@ -44,15 +44,15 @@ public class VehiclePartItem extends Item {
     /** What a part of this kind is called, on the item and on the car alike. */
     public static Component nameOf(CarPart part, int variant) {
         return switch (part) {
-            case ENGINE -> variant == CarSetup.ELECTRIC_MOTOR ? Component.translatable("item.car.engine.electric")
-                    : Component.translatable("item.car.engine.kind",
-                    Component.translatable("engine.car." + CarSetup.layoutOf(variant).key()),
-                    Component.translatable("fuel.car." + CarSetup.fuelOf(variant).key() + ".short"));
-            case WHEELS -> Component.translatable("item.car.wheel.kind",
-                    Component.translatable("tyre.car." + CarSetup.Tyre.byOrdinal(variant).key()));
+            case ENGINE -> variant == CarSetup.ELECTRIC_MOTOR ? Component.translatable("item.overthought_vehicles.engine.electric")
+                    : Component.translatable("item.overthought_vehicles.engine.kind",
+                    Component.translatable("engine.overthought_vehicles." + CarSetup.layoutOf(variant).key()),
+                    Component.translatable("fuel.overthought_vehicles." + CarSetup.fuelOf(variant).key() + ".short"));
+            case WHEELS -> Component.translatable("item.overthought_vehicles.wheel.kind",
+                    Component.translatable("tyre.overthought_vehicles." + CarSetup.Tyre.byOrdinal(variant).key()));
             case AIR_FILTER -> Component.translatable(
-                    variant == 1 ? "item.car.air_filter.open" : "item.car.air_filter");
-            default -> Component.translatable("part.car." + part.key());
+                    variant == 1 ? "item.overthought_vehicles.air_filter.open" : "item.overthought_vehicles.air_filter");
+            default -> Component.translatable("part.overthought_vehicles." + part.key());
         };
     }
 
@@ -69,25 +69,25 @@ public class VehiclePartItem extends Item {
             int variant = CarEntity.variantOf(stack);
             switch (part) {
                 case ENGINE -> {
-                    tooltip.accept(Component.translatable("tooltip.car.layout."
+                    tooltip.accept(Component.translatable("tooltip.overthought_vehicles.layout."
                             + CarSetup.layoutOf(variant).key()).withStyle(ChatFormatting.DARK_AQUA));
-                    tooltip.accept(Component.translatable("tooltip.car.fuel."
+                    tooltip.accept(Component.translatable("tooltip.overthought_vehicles.fuel."
                             + CarSetup.fuelOf(variant).key()).withStyle(ChatFormatting.DARK_AQUA));
                 }
-                case WHEELS -> tooltip.accept(Component.translatable("tooltip.car.tyre."
+                case WHEELS -> tooltip.accept(Component.translatable("tooltip.overthought_vehicles.tyre."
                         + CarSetup.Tyre.byOrdinal(variant).key()).withStyle(ChatFormatting.DARK_AQUA));
                 default -> tooltip.accept(Component.translatable(variant == 1
-                        ? "tooltip.car.filter.open" : "tooltip.car.filter.paper")
+                        ? "tooltip.overthought_vehicles.filter.open" : "tooltip.overthought_vehicles.filter.paper")
                         .withStyle(ChatFormatting.DARK_AQUA));
             }
         }
         java.util.List<Integer> cylinders = stack.get(me.trossty.car.registry.ModComponents.PART_CYLINDERS);
         if (cylinders != null) {
             // Pistons and valves out of an engine: each cylinder's own, a bent one at nothing.
-            net.minecraft.network.chat.MutableComponent line = Component.translatable("tooltip.car.cylinders");
+            net.minecraft.network.chat.MutableComponent line = Component.translatable("tooltip.overthought_vehicles.cylinders");
             for (int i = 0; i < cylinders.size(); i++) {
                 int condition = cylinders.get(i);
-                line.append(" ").append(Component.translatable("tooltip.car.cylinder", i + 1, condition)
+                line.append(" ").append(Component.translatable("tooltip.overthought_vehicles.cylinder", i + 1, condition)
                         .withStyle(condition / CarPart.MAX_CONDITION <= me.trossty.car.entity.FaultCodes.CRITICAL
                                 ? ChatFormatting.RED : condition / CarPart.MAX_CONDITION <= me.trossty.car.entity.FaultCodes.WARNING
                                 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
@@ -95,20 +95,20 @@ public class VehiclePartItem extends Item {
             tooltip.accept(line.withStyle(ChatFormatting.GRAY));
         }
         CarPart.Quality quality = Workshop.qualityOf(stack);
-        tooltip.accept(Component.translatable("tooltip.car.part_quality",
-                        Component.translatable("quality.car." + quality.key()))
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.part_quality",
+                        Component.translatable("quality.overthought_vehicles." + quality.key()))
                 .withStyle(colorOf(quality)));
         if (part != null && CarParts.gradeIsFelt(part) && quality.performance() != 1.0F) {
             // A grade is felt on the road as well as in how long the part lasts.
             int percent = Math.round((quality.performance() - 1.0F) * 100.0F);
-            tooltip.accept(Component.translatable("tooltip.car.grade_effect",
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.grade_effect",
                             (percent > 0 ? "+" : "") + percent,
-                            Component.translatable("part.car." + part.key() + ".effect"))
+                            Component.translatable("part.overthought_vehicles." + part.key() + ".effect"))
                     .withStyle(colorOf(quality)));
         }
         Integer condition = stack.get(ModComponents.PART_CONDITION);
         if (condition != null) {
-            tooltip.accept(Component.translatable("tooltip.car.part_condition", condition)
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.part_condition", condition)
                     .withStyle(condition < 35 ? ChatFormatting.RED : ChatFormatting.GRAY));
         }
     }

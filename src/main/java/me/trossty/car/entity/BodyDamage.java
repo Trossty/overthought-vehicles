@@ -405,7 +405,7 @@ public final class BodyDamage {
         world.playSound(null, this.car.getX(), this.car.getY() + 0.5, this.car.getZ(),
                 SoundEvents.ITEM_BREAK, SoundSource.NEUTRAL, 0.9F, 0.6F);
         if (this.car.getControllingPassenger() instanceof Player driver) {
-            driver.displayClientMessage(Component.translatable("message.car.tank_holed"), true);
+            driver.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_holed"), true);
         }
     }
 
@@ -463,7 +463,7 @@ public final class BodyDamage {
         if (!player.isCreative()) {
             ingots.shrink(1);
         }
-        player.displayClientMessage(Component.translatable("message.car.body_beaten",
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.body_beaten",
                 side.displayName(), Math.round(this.zoneFraction(side) * 100.0F)), true);
         this.car.level().playSound(
                 null,

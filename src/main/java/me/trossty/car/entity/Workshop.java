@@ -30,11 +30,11 @@ public final class Workshop {
 
     /** Takes the tyre off the wheel the player points at, and hands it over. */
     private InteractionResult removeTyre(Player player) {
-        Component name = Component.translatable("part.car.wheel");
+        Component name = Component.translatable("part.overthought_vehicles.wheel");
         int wheel = this.car.aimedWheel(player, true);
         if (wheel < 0) {
-            player.displayClientMessage(Component.translatable("message.car.part_absent",
-                    Component.translatable("part.car." + CarPart.WHEELS.key())), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_absent",
+                    Component.translatable("part.overthought_vehicles." + CarPart.WHEELS.key())), true);
             return InteractionResult.CONSUME;
         }
         float condition = this.car.parts().getCondition(CarPart.WHEELS, wheel);
@@ -56,7 +56,7 @@ public final class Workshop {
         }
         this.handAside(player, asStack(CarPart.WHEELS, condition, quality, variant, 1));
         this.playWrench();
-        player.displayClientMessage(Component.translatable("message.car.part_removed", name,
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_removed", name,
                 Math.round(condition / CarPart.MAX_CONDITION * 100.0F)), true);
         return InteractionResult.CONSUME;
     }
@@ -68,7 +68,7 @@ public final class Workshop {
      * its own wear, so a new one among worn ones stays new.
      */
     private InteractionResult fitTyre(Player player, ItemStack spare) {
-        Component name = Component.translatable("part.car.wheel");
+        Component name = Component.translatable("part.overthought_vehicles.wheel");
         int wheel = this.car.aimedWheel(player, null);
         float fitting = conditionOf(spare);
         CarPart.Quality fittingQuality = qualityOf(spare);
@@ -78,12 +78,12 @@ public final class Workshop {
         int on = this.car.tyresOn();
         int others = swap ? on - 1 : on;
         if (others > 0 && fittingVariant != this.car.getVariant(CarPart.WHEELS)) {
-            player.displayClientMessage(Component.translatable("message.car.tyre_mixed"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.tyre_mixed"), true);
             return InteractionResult.CONSUME;
         }
         if (swap && now >= CarPart.MAX_CONDITION && fittingQuality == this.car.parts().getQuality(CarPart.WHEELS)
                 && fittingVariant == this.car.getVariant(CarPart.WHEELS)) {
-            player.displayClientMessage(Component.translatable("message.car.part_already_new", name), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_already_new", name), true);
             return InteractionResult.CONSUME;
         }
         if (swap) {
@@ -111,9 +111,9 @@ public final class Workshop {
         this.playWrench();
         int fittedPercent = Math.round(fitting / CarPart.MAX_CONDITION * 100.0F);
         player.displayClientMessage(swap
-                ? Component.translatable("message.car.part_fitted", name,
+                ? Component.translatable("message.overthought_vehicles.part_fitted", name,
                         Math.round(now / CarPart.MAX_CONDITION * 100.0F), fittedPercent)
-                : Component.translatable("message.car.part_fitted_new", name, fittedPercent), true);
+                : Component.translatable("message.overthought_vehicles.part_fitted_new", name, fittedPercent), true);
         return InteractionResult.CONSUME;
     }
 
@@ -220,9 +220,9 @@ public final class Workshop {
             return VehicleLiftBlock.needsLift(this.car);
         }
         if (!this.car.isLidOpen(CarEntity.BONNET_BIT)) {
-            return Component.translatable("message.car.open_bonnet");
+            return Component.translatable("message.overthought_vehicles.open_bonnet");
         }
-        return Component.translatable("message.car.needs_hoist");
+        return Component.translatable("message.overthought_vehicles.needs_hoist");
     }
 
     /** What is inside the engine, to go with it off the car; null for any other part, or none in. */
@@ -270,22 +270,22 @@ public final class Workshop {
         }
         if (this.car.isLocked()) {
             // Whichever window or click it came from, a locked car keeps its parts.
-            player.displayClientMessage(Component.translatable("message.car.locked"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.locked"), true);
             return InteractionResult.CONSUME;
         }
-        Component name = Component.translatable("part.car." + part.key());
+        Component name = Component.translatable("part.overthought_vehicles." + part.key());
         if (!this.isWorkable(part)) {
             player.displayClientMessage(this.cannotWork(part), true);
             return InteractionResult.CONSUME;
         }
         if (!this.car.parts().isFitted(part)) {
-            player.displayClientMessage(Component.translatable("message.car.part_absent", name), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_absent", name), true);
             return InteractionResult.CONSUME;
         }
         CarPart inTheWay = this.blockedBy(part);
         if (inTheWay != null) {
-            player.displayClientMessage(Component.translatable("message.car.part_blocked",
-                    Component.translatable("part.car." + inTheWay.key()), name), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_blocked",
+                    Component.translatable("part.overthought_vehicles." + inTheWay.key()), name), true);
             return InteractionResult.CONSUME;
         }
         if (part == CarPart.WHEELS) {
@@ -298,7 +298,7 @@ public final class Workshop {
             }
             if (hoist == null || hoist.isHolding()) {
                 // Every hook over the bay has an engine on it already.
-                player.displayClientMessage(Component.translatable("message.car.hoist_full"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.hoist_full"), true);
                 return InteractionResult.CONSUME;
             }
         }
@@ -329,8 +329,8 @@ public final class Workshop {
         }
         this.playWrench();
         int percent = Math.round(condition / CarPart.MAX_CONDITION * 100.0F);
-        player.displayClientMessage(hooked ? Component.translatable("message.car.engine_lifted", percent)
-                : Component.translatable("message.car.part_removed", name, percent), true);
+        player.displayClientMessage(hooked ? Component.translatable("message.overthought_vehicles.engine_lifted", percent)
+                : Component.translatable("message.overthought_vehicles.part_removed", name, percent), true);
         return InteractionResult.CONSUME;
     }
 
@@ -397,7 +397,7 @@ public final class Workshop {
         }
         if (this.car.isLocked()) {
             // Whichever window or click it came from, a locked car keeps its parts.
-            player.displayClientMessage(Component.translatable("message.car.locked"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.locked"), true);
             return InteractionResult.CONSUME;
         }
         if (part == CarPart.WHEELS && this.car.hasFlatTyre()) {
@@ -406,25 +406,25 @@ public final class Workshop {
             this.car.getEntityData().set(CarEntity.FLAT_TYRE, (byte) -1);
             spares.consume(1, player);
             this.car.playSound(SoundEvents.ARMOR_EQUIP_IRON.value(), 1.0F, 0.8F);
-            player.displayClientMessage(Component.translatable("message.car.tyre_changed"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.tyre_changed"), true);
             return InteractionResult.CONSUME;
         }
-        Component name = Component.translatable("part.car." + part.key());
+        Component name = Component.translatable("part.overthought_vehicles." + part.key());
         int fittedNow = Math.round(this.car.parts().getConditionFraction(part) * 100.0F);
 
         if (!this.isWorkable(part)) {
             // A closed bonnet says what is wrong; off a lift, what it reads.
             CarPart hidden = this.hiddenBy(part);
             player.displayClientMessage(this.underBonnet(part) ? this.cannotWork(part)
-                    : hidden != null ? Component.translatable("message.car.part_hidden", name,
-                            Component.translatable("part.car." + hidden.key()))
-                    : Component.translatable("message.car.part_reading", name, fittedNow), true);
+                    : hidden != null ? Component.translatable("message.overthought_vehicles.part_hidden", name,
+                            Component.translatable("part.overthought_vehicles." + hidden.key()))
+                    : Component.translatable("message.overthought_vehicles.part_reading", name, fittedNow), true);
             return InteractionResult.CONSUME;
         }
         CarPart inTheWay = this.blockedBy(part);
         if (inTheWay != null) {
-            player.displayClientMessage(Component.translatable("message.car.part_blocked",
-                    Component.translatable("part.car." + inTheWay.key()), name), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_blocked",
+                    Component.translatable("part.overthought_vehicles." + inTheWay.key()), name), true);
             return InteractionResult.CONSUME;
         }
         if (part == CarPart.WHEELS) {
@@ -433,17 +433,17 @@ public final class Workshop {
         if (this.onTheHoist(part)) {
             if (hoist == null) {
                 // Too heavy to hold up and bolt in: it goes in on the hook.
-                player.displayClientMessage(Component.translatable("message.car.engine_by_hoist"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_by_hoist"), true);
                 return InteractionResult.CONSUME;
             }
             if (this.car.parts().isFitted(part)) {
-                player.displayClientMessage(Component.translatable("message.car.engine_bay_full"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_bay_full"), true);
                 return InteractionResult.CONSUME;
             }
         }
         if (spares.getCount() < this.car.parts().countOf(part)) {
             player.displayClientMessage(
-                    Component.translatable("message.car.part_needs", this.car.parts().countOf(part), name), true);
+                    Component.translatable("message.overthought_vehicles.part_needs", this.car.parts().countOf(part), name), true);
             return InteractionResult.CONSUME;
         }
 
@@ -463,7 +463,7 @@ public final class Workshop {
             // gain, though, so that one goes through — otherwise the only way
             // to put a good gearbox in a sound car would be to wear the
             // standard one out first.
-            player.displayClientMessage(Component.translatable("message.car.part_already_new", name), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_already_new", name), true);
             return InteractionResult.CONSUME;
         }
         this.car.parts().setCondition(part, fitting);
@@ -486,7 +486,7 @@ public final class Workshop {
             // The slot was empty, so there is nothing to hand back.
             this.playWrench();
             player.displayClientMessage(
-                    Component.translatable("message.car.part_fitted_new", name, fittedPercent), true);
+                    Component.translatable("message.overthought_vehicles.part_fitted_new", name, fittedPercent), true);
             return InteractionResult.CONSUME;
         }
         // The old one goes into your pockets rather than on the floor.
@@ -496,7 +496,7 @@ public final class Workshop {
         }
         this.handAside(player, old);
         this.playWrench();
-        player.displayClientMessage(Component.translatable("message.car.part_fitted", name,
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_fitted", name,
                 fittedNow, fittedPercent), true);
         return InteractionResult.CONSUME;
     }
@@ -519,11 +519,11 @@ public final class Workshop {
             return InteractionResult.CONSUME;
         }
         if (!this.car.parts().isFitted(CarPart.ENGINE)) {
-            player.displayClientMessage(Component.translatable("message.car.turbo_no_engine"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.turbo_no_engine"), true);
             return InteractionResult.CONSUME;
         }
         if (this.car.hasTurbo()) {
-            player.displayClientMessage(Component.translatable("message.car.turbo_already"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.turbo_already"), true);
             return InteractionResult.CONSUME;
         }
         this.car.setTurbo(true);
@@ -531,7 +531,7 @@ public final class Workshop {
             turbo.shrink(1);
         }
         this.playWrench();
-        player.displayClientMessage(Component.translatable("message.car.turbo_fitted"), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.turbo_fitted"), true);
         return InteractionResult.CONSUME;
     }
 
@@ -574,7 +574,7 @@ public final class Workshop {
         // as a click is, so it is turned away at the same door.
         if (this.car.isLocked()) {
             if (!this.car.level().isClientSide()) {
-                player.displayClientMessage(Component.translatable("message.car.locked"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.locked"), true);
             }
             return InteractionResult.CONSUME;
         }
@@ -587,8 +587,8 @@ public final class Workshop {
             int wheel = this.car.aimedWheel(player, null);
             if (wheel >= 0 && !this.car.isTyreOn(wheel) && !offering) {
                 if (!this.car.level().isClientSide()) {
-                    player.displayClientMessage(Component.translatable("message.car.part_hold_spare",
-                            Component.translatable("part.car." + part.key())), true);
+                    player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_hold_spare",
+                            Component.translatable("part.overthought_vehicles." + part.key())), true);
                 }
                 return InteractionResult.CONSUME;
             }
@@ -599,8 +599,8 @@ public final class Workshop {
         }
         if (!offering) {
             if (!this.car.level().isClientSide()) {
-                player.displayClientMessage(Component.translatable("message.car.part_hold_spare",
-                        Component.translatable("part.car." + part.key())), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.part_hold_spare",
+                        Component.translatable("part.overthought_vehicles." + part.key())), true);
             }
             return InteractionResult.CONSUME;
         }

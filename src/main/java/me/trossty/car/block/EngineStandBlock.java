@@ -104,14 +104,14 @@ public class EngineStandBlock extends ModelEntityBlock {
                 if (!stand.isStripped()) {
                     stand.strip();
                     world.playSound(null, pos, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.0F, 0.8F);
-                    player.displayClientMessage(Component.translatable("message.car.engine_stripped"), true);
+                    player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_stripped"), true);
                 } else if (stand.isComplete()) {
                     stand.rebuild();
                     world.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 1.0F, 0.8F);
-                    player.displayClientMessage(Component.translatable("message.car.engine_rebuilt",
+                    player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_rebuilt",
                             Math.round(me.trossty.car.entity.Workshop.conditionOf(stand.getEngine()))), true);
                 } else {
-                    player.displayClientMessage(Component.translatable("message.car.engine_incomplete"), true);
+                    player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_incomplete"), true);
                 }
             }
             return ItemInteractionResult.sidedSuccess(world.isClientSide());
@@ -142,7 +142,7 @@ public class EngineStandBlock extends ModelEntityBlock {
                     ItemStack inside = stand.getInternals().get(slot);
                     if (!inside.isEmpty()) {
                         stand.setInternal(slot, ItemStack.EMPTY);
-                        player.displayClientMessage(Component.translatable("message.car.internal_out",
+                        player.displayClientMessage(Component.translatable("message.overthought_vehicles.internal_out",
                                 inside.getHoverName(), Math.round(me.trossty.car.entity.Workshop.conditionOf(inside))), true);
                         if (!player.addItem(inside)) {
                             player.drop(inside, false);
@@ -150,7 +150,7 @@ public class EngineStandBlock extends ModelEntityBlock {
                         return InteractionResult.CONSUME;
                     }
                 }
-                player.displayClientMessage(Component.translatable("message.car.engine_incomplete"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_incomplete"), true);
                 return InteractionResult.CONSUME;
             }
             ItemStack engine = stand.getEngine();

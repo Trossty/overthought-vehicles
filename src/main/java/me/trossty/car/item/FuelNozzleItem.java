@@ -111,7 +111,7 @@ public class FuelNozzleItem extends Item {
         Vec3 cap = car.fillerPos();
         if (outlet == null || cap == null
                 || cap.distanceToSqr(outlet) > FuelPumpBlockEntity.HOSE_LENGTH * FuelPumpBlockEntity.HOSE_LENGTH) {
-            player.displayClientMessage(Component.translatable("message.car.hose_too_short"), true);
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.hose_too_short"), true);
             user.releaseUsingItem();
             return;
         }
@@ -119,10 +119,10 @@ public class FuelNozzleItem extends Item {
         int spent = pump.refuel(car, CarEntity.NOZZLE_FLOW);
         if (spent <= 0) {
             if (pump.getPetrol() < FuelPumpBlockEntity.PETROL_PER_FUEL_UNIT) {
-                player.displayClientMessage(Component.translatable("message.car.pump_dry"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.pump_dry"), true);
             } else if (car.hasFuel() && car.getTankFuel() != CarSetup.Fuel.PETROL) {
-                player.displayClientMessage(Component.translatable("message.car.tank_holds",
-                        Component.translatable("fuel.car." + car.getTankFuel().key())), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.tank_holds",
+                        Component.translatable("fuel.overthought_vehicles." + car.getTankFuel().key())), true);
             } else {
                 car.fillingStopped(player);
             }

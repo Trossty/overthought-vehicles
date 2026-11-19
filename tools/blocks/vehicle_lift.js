@@ -5,7 +5,7 @@
 // VehicleLiftBlock holds it: two up, and seven and a half more a level.
 // The power unit hangs on the south face of the east column.
 const POST = C.BLUE, POST_DARK = C.BLUE_DARK, ARM = C.YELLOW;
-const HAZARD = 'car:block/shop_hazard', PLATE = 'car:block/lift_plate';
+const HAZARD = 'overthought_vehicles:block/shop_hazard', PLATE = 'overthought_vehicles:block/lift_plate';
 const SIN = Math.sin(Math.PI / 8), COS = Math.cos(Math.PI / 8);
 
 function lift(level) {
@@ -84,5 +84,5 @@ function lift(level) {
 }
 
 for (let level = 0; level <= 4; level++) {
-    k.model(level ? 'vehicle_lift_' + level : 'vehicle_lift', {ao: false, particle: 'car:block/lift_plate'}, () => lift(level));
+    k.model(level ? 'vehicle_lift_' + level : 'vehicle_lift', {ao: false, particle: 'overthought_vehicles:block/lift_plate'}, () => lift(level));
 }

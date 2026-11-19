@@ -130,7 +130,7 @@ public class FuelTankBlock extends ModelEntityBlock {
                 }
                 if (!me.trossty.car.fluid.Liquids.isBlank(liquid) && liquid != held) {
                     if (context.getPlayer() != null) {
-                        context.getPlayer().displayClientMessage(Component.translatable("message.car.tank_mixed"), true);
+                        context.getPlayer().displayClientMessage(Component.translatable("message.overthought_vehicles.tank_mixed"), true);
                     }
                     return null;
                 }
@@ -203,7 +203,7 @@ public class FuelTankBlock extends ModelEntityBlock {
     /** "Petrol · 12.5 / 32 B · 2 cells", or "Empty tank · 32 B · 2 cells". */
     private static void report(Player player, FuelTankBlockEntity tank) {
         FuelTankBlockEntity.Group whole = tank.getGroup();
-        LiquidStores.report(player, whole, whole.getLock(), "message.car.tank_empty", "message.car.tank_contents", whole.size());
+        LiquidStores.report(player, whole, whole.getLock(), "message.overthought_vehicles.tank_empty", "message.overthought_vehicles.tank_contents", whole.size());
     }
 
     // ---- redstone ----

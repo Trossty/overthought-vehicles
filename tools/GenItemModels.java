@@ -39,7 +39,7 @@ import java.util.Locale;
  */
 public class GenItemModels {
 
-    static final String ASSETS = "src/main/resources/assets/car/";
+    static final String ASSETS = "src/main/resources/assets/overthought_vehicles/";
 
     /** One swatch is one block face's worth of texels. */
     static final int SWATCH = 16;
@@ -510,7 +510,7 @@ public class GenItemModels {
             }
         }
         KINDS.put("engine", kinds);
-        COMPONENT.put("engine", "car:part_variant");
+        COMPONENT.put("engine", "overthought_vehicles:part_variant");
     }
 
     /** base item -> (component value -> the model that value shows). */
@@ -727,7 +727,7 @@ public class GenItemModels {
         // Diesel goes in the yellow one, so the two are never confused.
         jerryCan("jerry_can_diesel", Mat.HAZARD, Mat.HAZARD_DARK);
         KINDS.put("jerry_can", Map.of(1, "jerry_can_diesel"));
-        COMPONENT.put("jerry_can", "car:fuel_kind");
+        COMPONENT.put("jerry_can", "overthought_vehicles:fuel_kind");
     }
 
     static void jerryCan(String name, Mat paint, Mat dark) {
@@ -930,8 +930,8 @@ public class GenItemModels {
         StringBuilder out = new StringBuilder();
         out.append("{\n");
         out.append("  \"textures\": {\n");
-        out.append("    \"particle\": \"car:item/materials\",\n");
-        out.append("    \"sheet\": \"car:item/materials\"\n");
+        out.append("    \"particle\": \"overthought_vehicles:item/materials\",\n");
+        out.append("    \"sheet\": \"overthought_vehicles:item/materials\"\n");
         out.append("  },\n");
         out.append("  \"elements\": [\n");
         for (int i = 0; i < model.boxes.size(); i++) {
@@ -1030,21 +1030,21 @@ public class GenItemModels {
             for (Map.Entry<Integer, String> kind : kinds.entrySet()) {
                 cases.append("      {\n        \"when\": ").append(kind.getKey())
                         .append(",\n        \"model\": { \"type\": \"minecraft:model\", ")
-                        .append("\"model\": \"car:item/").append(kind.getValue()).append("\" }\n      }")
+                        .append("\"model\": \"overthought_vehicles:item/").append(kind.getValue()).append("\" }\n      }")
                         .append(--left == 0 ? "" : ",").append("\n");
             }
             return "{\n  \"model\": {\n    \"type\": \"minecraft:select\",\n"
                     + "    \"property\": \"minecraft:component\",\n"
                     + "    \"component\": \"" + COMPONENT.get(model.name) + "\",\n"
                     + "    \"cases\": [\n" + cases + "    ],\n"
-                    + "    \"fallback\": { \"type\": \"minecraft:model\", \"model\": \"car:item/"
+                    + "    \"fallback\": { \"type\": \"minecraft:model\", \"model\": \"overthought_vehicles:item/"
                     + model.name + "\" }\n  }\n}";
         }
         if (!model.tinted) {
             return "{\n  \"model\": {\n    \"type\": \"minecraft:model\",\n"
-                    + "    \"model\": \"car:item/" + model.name + "\"\n  }\n}";
+                    + "    \"model\": \"overthought_vehicles:item/" + model.name + "\"\n  }\n}";
         }
-        // One model, painted by the stack: car:color holds a DyeColor index,
+        // One model, painted by the stack: overthought_vehicles:color holds a DyeColor index,
         // and each case hands the model that dye as its tint.
         StringBuilder cases = new StringBuilder();
         for (int i = 0; i < DYES.length; i++) {
@@ -1054,13 +1054,13 @@ public class GenItemModels {
         }
         return "{\n  \"model\": {\n    \"type\": \"minecraft:select\",\n"
                 + "    \"property\": \"minecraft:component\",\n"
-                + "    \"component\": \"car:color\",\n"
+                + "    \"component\": \"overthought_vehicles:color\",\n"
                 + "    \"cases\": [\n" + cases + "    ],\n"
                 + "    \"fallback\": " + painted(model, (int) DYES[DEFAULT_DYE][1]) + "\n  }\n}";
     }
 
     static String painted(Model model, int rgb) {
-        return "{ \"type\": \"minecraft:model\", \"model\": \"car:item/" + model.name
+        return "{ \"type\": \"minecraft:model\", \"model\": \"overthought_vehicles:item/" + model.name
                 + "\", \"tints\": [{ \"type\": \"minecraft:constant\", \"value\": " + rgb + " }] }";
     }
 
@@ -1193,7 +1193,7 @@ public class GenItemModels {
         airFilter();
         airFilterOpen();
         KINDS.put("air_filter", Map.of(1, "air_filter_open"));
-        COMPONENT.put("air_filter", "car:part_variant");
+        COMPONENT.put("air_filter", "overthought_vehicles:part_variant");
         turbo();
         sparkPlugs();
         oilFilter();
@@ -1217,7 +1217,7 @@ public class GenItemModels {
         KINDS.put("wheel", new LinkedHashMap<>(Map.of(1, "wheel_dirt")));
         KINDS.get("wheel").put(2, "wheel_snow");
         KINDS.get("wheel").put(3, "wheel_sport");
-        COMPONENT.put("wheel", "car:part_variant");
+        COMPONENT.put("wheel", "overthought_vehicles:part_variant");
         carBody();
         car();
         pickup();

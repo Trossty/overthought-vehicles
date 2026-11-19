@@ -125,16 +125,16 @@ public class JerryCanItem extends Item {
         super.appendHoverText(stack, context, lines, type);
         Consumer<Component> tooltip = lines::add;
         if (JerryCans.isEmpty(stack)) {
-            tooltip.accept(Component.translatable("tooltip.car.can_empty").withStyle(ChatFormatting.DARK_GRAY));
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.can_empty").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        tooltip.accept(Component.translatable("tooltip.car.can_level",
-                        Component.translatable("fuel.car." + CarEntity.fuelIn(stack).key()),
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.can_level",
+                        Component.translatable("fuel.overthought_vehicles." + CarEntity.fuelIn(stack).key()),
                         JerryCans.litres(JerryCans.units(stack)),
                         JerryCans.litres(JerryCans.CAPACITY))
                 .withStyle(ChatFormatting.GOLD));
         if (CarEntity.isRaw(stack)) {
-            tooltip.accept(Component.translatable("tooltip.car.can_raw").withStyle(ChatFormatting.RED));
+            tooltip.accept(Component.translatable("tooltip.overthought_vehicles.can_raw").withStyle(ChatFormatting.RED));
         }
     }
 }

@@ -7,8 +7,8 @@
 //
 // What FuelTankRenderer counts on: the glass and the walls 0.6 in from each
 // side, the floor's top at 1.5 and the lid's underside at 14.5.
-const FRAME = C.STEEL, BOLT = C.CHROME, FLOOR = C.DARK_STEEL, GLASS = 'car:block/tank_glass',
-    TREAD = 'car:block/tank_lid';
+const FRAME = C.STEEL, BOLT = C.CHROME, FLOOR = C.DARK_STEEL, GLASS = 'overthought_vehicles:block/tank_glass',
+    TREAD = 'overthought_vehicles:block/tank_lid';
 
 /** An angle iron up the corner at (x, z): one flange along x, the other along z, bolted twice. */
 function post(x, z) {
@@ -70,11 +70,11 @@ const PIECES = [
     }
 ];
 
-PIECES.forEach((draw, i) => k.model('tank/part_' + i, {particle: 'car:block/tank_glass'}, () => {
+PIECES.forEach((draw, i) => k.model('tank/part_' + i, {particle: 'overthought_vehicles:block/tank_glass'}, () => {
     k.g('piece');
     draw();
 }));
-k.model('tank/inventory', {parent: 'minecraft:block/block', particle: 'car:block/tank_glass'}, () => {
+k.model('tank/inventory', {parent: 'minecraft:block/block', particle: 'overthought_vehicles:block/tank_glass'}, () => {
     for (const draw of PIECES) {
         draw();
     }

@@ -3,7 +3,7 @@ The tank's model is drawn in tools/blocks/fuel_tank.js. Run: python3 tools/gen_t
 """
 import random
 from PIL import Image
-T = '/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/car/textures/block/'
+T = '/Users/egementopcu/IdeaProjects/car/src/main/resources/assets/overthought_vehicles/textures/block/'
 random.seed(7)
 # glass: faint blue tint, two highlight streaks, a gauge strip of ticks near one edge
 g = Image.new('RGBA', (16, 16), (170, 205, 220, 46))

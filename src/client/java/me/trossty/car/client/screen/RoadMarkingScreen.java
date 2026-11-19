@@ -45,7 +45,7 @@ public class RoadMarkingScreen extends Screen {
     private int top;
 
     public RoadMarkingScreen(InteractionHand hand) {
-        super(Component.translatable("screen.car.road_paint"));
+        super(Component.translatable("screen.overthought_vehicles.road_paint"));
         this.hand = hand;
     }
 
@@ -68,7 +68,7 @@ public class RoadMarkingScreen extends Screen {
 
     /** Wide enough for the grid, or for the hint line under it if that is wider. */
     private int panelWidth() {
-        return Math.max(gridWidth(), this.font.width(Component.translatable("screen.car.road_paint.hint"))) + PAD * 2;
+        return Math.max(gridWidth(), this.font.width(Component.translatable("screen.overthought_vehicles.road_paint.hint"))) + PAD * 2;
     }
 
     private int panelHeight() {
@@ -150,7 +150,7 @@ public class RoadMarkingScreen extends Screen {
         Component label = Component.translatable(name.translationKey());
         if (name == Marking.NONE) {
             label = label.copy().append(Component.literal(" · "))
-                    .append(Component.translatable("screen.car.road_paint.erase_note"));
+                    .append(Component.translatable("screen.overthought_vehicles.road_paint.erase_note"));
         }
         int footer = gridTop + gridHeight() + 10;
         GuiStyle.readout(context, this.font, label, gridLeft - 4, footer, gridWidth() + 8,
@@ -158,7 +158,7 @@ public class RoadMarkingScreen extends Screen {
 
         int lineY = footer + GuiStyle.READOUT_HEIGHT + 6;
         this.paintLeft(context, tin, paint, empty, lineY);
-        context.drawCenteredString(this.font, Component.translatable("screen.car.road_paint.hint"),
+        context.drawCenteredString(this.font, Component.translatable("screen.overthought_vehicles.road_paint.hint"),
                 this.left + w / 2, lineY + 14, HINT);
     }
 
@@ -197,7 +197,7 @@ public class RoadMarkingScreen extends Screen {
     /** How much paint is left, in words and as a row of LEDs in the paint's colour. */
     private void paintLeft(GuiGraphics context, ItemStack tin, int paint, boolean empty, int y) {
         int left = tin.getMaxDamage() - tin.getDamageValue();
-        Component words = Component.translatable("screen.car.road_paint.left", left, tin.getMaxDamage());
+        Component words = Component.translatable("screen.overthought_vehicles.road_paint.left", left, tin.getMaxDamage());
         int textWidth = this.font.width(words);
         int x = this.left + (this.panelWidth() - textWidth - 5 - GAUGE_WIDTH) / 2;
         context.drawString(this.font, words, x, y, empty ? ERASE : GuiStyle.TEXT, false);

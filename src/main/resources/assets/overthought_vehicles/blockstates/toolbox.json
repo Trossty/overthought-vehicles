@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "overthought_vehicles:block/toolbox",
+      "y": 0
+    },
+    "facing=east": {
+      "model": "overthought_vehicles:block/toolbox",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "overthought_vehicles:block/toolbox",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "overthought_vehicles:block/toolbox",
+      "y": 270
+    }
+  }
+}

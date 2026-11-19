@@ -188,7 +188,7 @@ public class EngineHoistBlock extends ModelEntityBlock {
             hoist.setEngine(held.copyWithCount(1));
             held.consume(1, player);
             world.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 1.0F, 0.8F);
-            player.displayClientMessage(Component.translatable("message.car.engine_hooked",
+            player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_hooked",
                     Math.round(Workshop.conditionOf(hoist.getEngine()))), true);
         }
         return ItemInteractionResult.sidedSuccess(world.isClientSide());
@@ -222,7 +222,7 @@ public class EngineHoistBlock extends ModelEntityBlock {
             if (stand != null && stand.getEngine().isEmpty()) {
                 stand.setEngine(hoist.takeEngine());
                 world.playSound(null, pos, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.0F, 0.8F);
-                player.displayClientMessage(Component.translatable("message.car.engine_on_stand"), true);
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_on_stand"), true);
                 return InteractionResult.CONSUME;
             }
             if (car != null) {
@@ -233,13 +233,13 @@ public class EngineHoistBlock extends ModelEntityBlock {
             if (stand != null && !stand.getEngine().isEmpty()) {
                 if (stand.isStripped()) {
                     // The block and its insides are not one thing to lift yet.
-                    player.displayClientMessage(Component.translatable("message.car.engine_open_on_stand"), true);
+                    player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_open_on_stand"), true);
                     return InteractionResult.CONSUME;
                 }
                 hoist.setEngine(stand.getEngine());
                 stand.setEngine(ItemStack.EMPTY);
                 world.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 1.0F, 0.8F);
-                player.displayClientMessage(Component.translatable("message.car.engine_hooked",
+                player.displayClientMessage(Component.translatable("message.overthought_vehicles.engine_hooked",
                         Math.round(Workshop.conditionOf(hoist.getEngine()))), true);
                 return InteractionResult.CONSUME;
             }
@@ -248,7 +248,7 @@ public class EngineHoistBlock extends ModelEntityBlock {
                 return InteractionResult.CONSUME;
             }
         }
-        player.displayClientMessage(Component.translatable("message.car.hoist_nothing"), true);
+        player.displayClientMessage(Component.translatable("message.overthought_vehicles.hoist_nothing"), true);
         return InteractionResult.CONSUME;
     }
 

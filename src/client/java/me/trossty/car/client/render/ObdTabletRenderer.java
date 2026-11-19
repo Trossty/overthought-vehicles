@@ -82,16 +82,16 @@ public final class ObdTabletRenderer {
         boolean blink = (client.player.tickCount / 10) % 2 == 0;
 
         screen.text(Component.literal("OBD-II"), 5, 4, 0.75F, CYAN, 80);
-        Component status = Component.translatable(car != null ? "obd.car.tablet.online" : "obd.car.tablet.offline");
+        Component status = Component.translatable(car != null ? "obd.overthought_vehicles.tablet.online" : "obd.overthought_vehicles.tablet.offline");
         screen.textRight(status, 112, 5, 0.55F, DIM);
         screen.fill(115, 5, 120, 10, -0.02F, car != null ? GOOD : blink ? BAD : RULE);
         screen.fill(5, 13, 123, 14, -0.02F, RULE);
 
         if (car == null) {
             boolean paired = stack.has(ModComponents.OBD_LINK);
-            screen.textCentred(Component.translatable(paired ? "obd.car.tablet.no_signal" : "obd.car.tablet.unpaired"),
+            screen.textCentred(Component.translatable(paired ? "obd.overthought_vehicles.tablet.no_signal" : "obd.overthought_vehicles.tablet.unpaired"),
                     54, 0.9F, paired ? AMBER : TEXT);
-            screen.textCentred(Component.translatable(paired ? "obd.car.tablet.out_of_range" : "obd.car.tablet.hint"),
+            screen.textCentred(Component.translatable(paired ? "obd.overthought_vehicles.tablet.out_of_range" : "obd.overthought_vehicles.tablet.hint"),
                     68, 0.55F, DIM);
             return;
         }
@@ -99,8 +99,8 @@ public final class ObdTabletRenderer {
         // Which car, and how far it has been.
         screen.text(car.getVehicleName(), 5, 17, 0.85F, TEXT, 118);
         Component sub = car.isElectric()
-                ? Component.translatable("obd.car.tablet.electric")
-                : Component.translatable("fuel.car." + car.getTankFuel().key());
+                ? Component.translatable("obd.overthought_vehicles.tablet.electric")
+                : Component.translatable("fuel.overthought_vehicles." + car.getTankFuel().key());
         screen.text(Component.empty().append(CarEntity.formatOdometer(car.parts().getOdometer())).append("  ·  ").append(sub),
                 5, 27, 0.6F, DIM, 118);
 
@@ -108,18 +108,18 @@ public final class ObdTabletRenderer {
         float tank = car.getFuel() / Math.max(1.0F, car.getMaxFuel());
         float body = car.damage().getHealthFraction();
         float temp = car.getEngineTemp();
-        screen.gauge(Component.translatable(car.isElectric() ? "obd.car.tablet.charge" : "obd.car.tablet.fuel"),
+        screen.gauge(Component.translatable(car.isElectric() ? "obd.overthought_vehicles.tablet.charge" : "obd.overthought_vehicles.tablet.fuel"),
                 35, tank, tank < 0.15F ? BAD : car.getDirtyFuel() >= 0.25F ? AMBER : CYAN);
-        screen.gauge(Component.translatable("obd.car.tablet.body"), 43, body,
+        screen.gauge(Component.translatable("obd.overthought_vehicles.tablet.body"), 43, body,
                 body < 0.35F ? BAD : body < 0.6F ? AMBER : GOOD);
-        screen.gauge(Component.translatable("obd.car.tablet.temp"), 51, temp,
+        screen.gauge(Component.translatable("obd.overthought_vehicles.tablet.temp"), 51, temp,
                 temp >= 0.85F ? BAD : temp > 0.7F ? AMBER : CYAN);
         screen.fill(5, 59, 123, 60, -0.02F, RULE);
 
         // The stored codes, worst first.
         List<FaultCodes.Fault> faults = FaultCodes.read(car);
-        screen.text(faults.isEmpty() ? Component.translatable("obd.car.clear")
-                : Component.translatable("obd.car.count", faults.size()), 5, 63, 0.6F, faults.isEmpty() ? GOOD : TEXT, 118);
+        screen.text(faults.isEmpty() ? Component.translatable("obd.overthought_vehicles.clear")
+                : Component.translatable("obd.overthought_vehicles.count", faults.size()), 5, 63, 0.6F, faults.isEmpty() ? GOOD : TEXT, 118);
         int shown = faults.size() > LINES ? LINES - 1 : faults.size();
         float y = 72.0F;
         for (int i = 0; i < shown; i++) {
@@ -129,7 +129,7 @@ public final class ObdTabletRenderer {
             y += 7.0F;
         }
         if (faults.size() > shown) {
-            screen.text(Component.translatable("obd.car.more", faults.size() - shown).withStyle(ChatFormatting.ITALIC),
+            screen.text(Component.translatable("obd.overthought_vehicles.more", faults.size() - shown).withStyle(ChatFormatting.ITALIC),
                     5, y, 0.55F, DIM, 118);
             y += 7.0F;
         }
@@ -141,7 +141,7 @@ public final class ObdTabletRenderer {
         }
         float mileage = CarParts.mileageFactor(car.parts().getOdometer());
         if (mileage > 1.05F) {
-            screen.text(Component.translatable("obd.car.high_mileage", Math.round((mileage - 1.0F) * 100.0F)),
+            screen.text(Component.translatable("obd.overthought_vehicles.high_mileage", Math.round((mileage - 1.0F) * 100.0F)),
                     5, 120, 0.5F, DIM, 118);
         }
     }

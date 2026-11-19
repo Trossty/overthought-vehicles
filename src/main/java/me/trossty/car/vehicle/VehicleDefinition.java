@@ -406,17 +406,43 @@ public record VehicleDefinition(
         ).apply(instance, Performance::new));
     }
 
-    /** What it is fitted with when it is new: the engine, the fuel, the tyres. */
-    public record Factory(String engine, String fuel, String tyres, boolean turbo) {
+    /**
+     * What it is fitted with when it is new: the engine, the fuel, the tyres,
+     * whether a turbo is bolted on — and the engine's own figures: how many
+     * {@code cylinders} fire, the {@code idle_rpm} it ticks over at and the
+     * {@code redline_rpm} the red band starts at. Those are the real engine's,
+     * a single in a scooter, three in a tractor; left out, the engine
+     * family's plain ones stand in ({@link CarSetup.EngineSpec#of}).
+     */
+    public record Factory(String engine, String fuel, String tyres, boolean turbo,
+                          Optional<Integer> cylinders, Optional<Integer> idleRpm, Optional<Integer> redlineRpm) {
 
-        public static final Factory PLAIN = new Factory("inline4", "petrol", "road", false);
+        public static final Factory PLAIN = new Factory("inline4", "petrol", "road", false,
+                Optional.empty(), Optional.empty(), Optional.empty());
 
-        public static final Codec<Factory> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+        public static final Codec<Factory> CODEC = RecordCodecBuilder.<Factory>create(instance -> instance.group(
                 Codec.STRING.optionalFieldOf("engine", "inline4").forGetter(Factory::engine),
                 Codec.STRING.optionalFieldOf("fuel", "petrol").forGetter(Factory::fuel),
                 Codec.STRING.optionalFieldOf("tyres", "road").forGetter(Factory::tyres),
-                Codec.BOOL.optionalFieldOf("turbo", false).forGetter(Factory::turbo)
-        ).apply(instance, Factory::new));
+                Codec.BOOL.optionalFieldOf("turbo", false).forGetter(Factory::turbo),
+                Codec.intRange(1, 16).optionalFieldOf("cylinders").forGetter(Factory::cylinders),
+                Codec.intRange(300, 5000).optionalFieldOf("idle_rpm").forGetter(Factory::idleRpm),
+                Codec.intRange(1000, 25000).optionalFieldOf("redline_rpm").forGetter(Factory::redlineRpm)
+        ).apply(instance, Factory::new)).validate(factory -> factory.idleRpm().isPresent()
+                && factory.redlineRpm().isPresent() && factory.redlineRpm().get() < factory.idleRpm().get() * 2
+                ? com.mojang.serialization.DataResult.error(() -> "redline_rpm must be at least twice idle_rpm")
+                : com.mojang.serialization.DataResult.success(factory));
+
+        /**
+         * The figures of the engine this leaves the factory with: what the
+         * definition gives, and the family's own, {@code family}, for the rest.
+         */
+        public CarSetup.EngineSpec engineSpec(CarSetup.EngineSpec family) {
+            return new CarSetup.EngineSpec(
+                    this.cylinders.orElse(family.cylinders()),
+                    this.idleRpm.map(Integer::floatValue).orElse(family.idleRpm()),
+                    this.redlineRpm.map(Integer::floatValue).orElse(family.redlineRpm()));
+        }
 
         /** The same thing as the one number a car keeps its fittings in. */
         public int setup() {
@@ -512,18 +538,18 @@ public record VehicleDefinition(
 
     /**
      * What each machine is when nothing says otherwise. There is no "plain"
-     * car any more: a car is a Corolla, a pickup a Hilux, a tanker an Atego.
+     * car any more: a car is a sedan, a pickup a pickup truck, a tanker a tanker truck.
      */
     public static ResourceLocation defaultFor(Chassis chassis) {
         return CarMain.id(switch (chassis) {
-            case PICKUP -> "toyota_hilux";
-            case TANKER -> "mercedes_atego";
+            case PICKUP -> "pickup_truck";
+            case TANKER -> "tanker_truck";
             case TRAILER -> "box_trailer";
-            case MOTORCYCLE -> "honda_cbr600rr";
-            case CAR -> "toyota_corolla";
-            case BOAT -> "bayliner_bowrider";
-            case PLANE -> "cessna_172";
-            case HELICOPTER -> "robinson_r44";
+            case MOTORCYCLE -> "sport_bike";
+            case CAR -> "sedan";
+            case BOAT -> "bowrider";
+            case PLANE -> "light_aircraft";
+            case HELICOPTER -> "helicopter";
         });
     }
 

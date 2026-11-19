@@ -100,10 +100,10 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
                     this.leftPos + QUALITY_X + index * (QUALITY_WIDTH + QUALITY_GAP), this.topPos + QUALITY_Y,
                     QUALITY_WIDTH, QUALITY_HEIGHT, Component.empty(),
                     whatever -> this.sendSelect(VehicleWorkbenchScreenHandler.QUALITY_BUTTON_ID + index));
-            button.setTooltip(Tooltip.create(Component.translatable("quality.car." + quality.key())
+            button.setTooltip(Tooltip.create(Component.translatable("quality.overthought_vehicles." + quality.key())
                     .withStyle(quality.formatting())
                     .append(Component.literal("\n"))
-                    .append(Component.translatable("gui.car.quality_tip." + quality.key())
+                    .append(Component.translatable("gui.overthought_vehicles.quality_tip." + quality.key())
                             .withStyle(ChatFormatting.GRAY))));
             this.qualityButtons.add(button);
             this.addRenderableWidget(button);
@@ -340,10 +340,10 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
     @Override
     protected void renderLabels(GuiGraphics context, int mouseX, int mouseY) {
         GuiStyle.title(context, this.font, this.title, this.imageWidth - GuiStyle.TITLE_X - 10);
-        GuiStyle.caption(context, this.font, Component.translatable("gui.car.materials"),
+        GuiStyle.caption(context, this.font, Component.translatable("gui.overthought_vehicles.materials"),
                 SHEET_X + SHEET_WIDTH / 2, SHEET_Y + 2, SHEET_WIDTH - 10);
         if (!this.menu.choosesQuality()) {
-            Component single = Component.translatable("gui.car.quality_single");
+            Component single = Component.translatable("gui.overthought_vehicles.quality_single");
             FormattedCharSequence line = GuiStyle.fit(this.font, single, QUALITY_STRIP - 8);
             context.drawString(this.font, line, QUALITY_X + (QUALITY_STRIP - this.font.width(line)) / 2,
                     QUALITY_Y + 3, GuiStyle.TITLE_SOFT, false);
@@ -362,7 +362,7 @@ public class VehicleWorkbenchScreen extends AbstractContainerScreen<VehicleWorkb
                 ItemStack stack = new ItemStack(material.item(), material.count());
                 int have = this.menu.countInput(material.item());
                 List<Component> lines = new ArrayList<>(getTooltipFromItem(this.minecraft, stack));
-                lines.add(Component.translatable("gui.car.materials.have", have, material.count())
+                lines.add(Component.translatable("gui.overthought_vehicles.materials.have", have, material.count())
                         .withStyle(have >= material.count() ? ChatFormatting.GREEN : ChatFormatting.RED));
                 context.renderComponentTooltip(this.font, lines, mouseX, mouseY);
                 return;

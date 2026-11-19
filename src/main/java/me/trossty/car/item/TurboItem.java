@@ -19,6 +19,6 @@ public class TurboItem extends Item {
                                 java.util.List<Component> lines, TooltipFlag type) {
         super.appendHoverText(stack, context, lines, type);
         Consumer<Component> tooltip = lines::add;
-        tooltip.accept(Component.translatable("tooltip.car.turbo").withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.accept(Component.translatable("tooltip.overthought_vehicles.turbo").withStyle(ChatFormatting.DARK_AQUA));
     }
 }

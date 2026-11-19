@@ -1,7 +1,7 @@
 // A rolling road let into the floor: a steel deck with two pits across it,
 // a roller in each. The deck is the block; DynoRenderer draws the rollers
 // from dyno_roller, turning, their axles three up at z 5.5 and 10.5.
-const DECK = C.DARK_STEEL, HAZARD = 'car:block/shop_hazard';
+const DECK = C.DARK_STEEL, HAZARD = 'overthought_vehicles:block/shop_hazard';
 
 k.model('dyno', {particle: 'minecraft:block/gray_concrete'}, () => {
     k.g('deck');
@@ -23,8 +23,8 @@ k.model('dyno', {particle: 'minecraft:block/gray_concrete'}, () => {
     k.g('tread');
     k.box(0, 3, 0, 16, 3.15, 1.4, HAZARD);
     k.box(0, 3, 14.6, 16, 3.15, 16, HAZARD);
-    k.box(1, 3, 1.8, 15, 3.12, 3.4, 'car:block/lift_plate');
-    k.box(1, 3, 12.6, 15, 3.12, 14.2, 'car:block/lift_plate');
+    k.box(1, 3, 1.8, 15, 3.12, 3.4, 'overthought_vehicles:block/lift_plate');
+    k.box(1, 3, 12.6, 15, 3.12, 14.2, 'overthought_vehicles:block/lift_plate');
     k.box(1, 3, 7.5, 15, 3.1, 8.5, C.STEEL);
     for (const x of [1.4, 14]) {
         for (const z of [7.7, 8]) {

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "overthought_vehicles:jerry_can"
+    },
+    "B": {
+      "item": "minecraft:iron_block"
+    },
+    "L": {
+      "item": "minecraft:lever"
+    }
+  },
+  "pattern": [
+    "ILI",
+    "ICI",
+    "IBI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:fuel_pump"
+  }
+}

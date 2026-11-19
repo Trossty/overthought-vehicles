@@ -257,7 +257,7 @@ public class FuelPipeBlock extends ModelEntityBlock {
         }
         world.playSound(null, pos, net.minecraft.sounds.SoundEvents.IRON_TRAPDOOR_CLOSE,
                 net.minecraft.sounds.SoundSource.BLOCKS, 0.5F, cut ? 1.4F : 1.8F);
-        player.displayClientMessage(Component.translatable(cut ? "message.car.pipe_cut" : "message.car.pipe_joined"), true);
+        player.displayClientMessage(Component.translatable(cut ? "message.overthought_vehicles.pipe_cut" : "message.overthought_vehicles.pipe_joined"), true);
         return net.minecraft.world.ItemInteractionResult.CONSUME;
     }
 
@@ -279,8 +279,8 @@ public class FuelPipeBlock extends ModelEntityBlock {
         }
         if (world.getBlockEntity(pos) instanceof FuelPipeBlockEntity pipe) {
             player.displayClientMessage(pipe.getFlow() <= 0
-                    ? Component.translatable("message.car.pipe_empty")
-                    : Component.translatable("message.car.pipe_flow",
+                    ? Component.translatable("message.overthought_vehicles.pipe_empty")
+                    : Component.translatable("message.overthought_vehicles.pipe_flow",
                             me.trossty.car.fluid.Liquids.name(pipe.getFluid()), pipe.getFlow()), true);
         }
         return InteractionResult.CONSUME;

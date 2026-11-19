@@ -22,7 +22,7 @@ import java.util.Map;
  */
 public final class GenPlantModels {
 
-    static final String ROOT = "src/main/resources/assets/car/";
+    static final String ROOT = "src/main/resources/assets/overthought_vehicles/";
     static final String[] ALL = {"north", "south", "west", "east", "up", "down"};
 
     record Box(float[] from, float[] to, Map<String, String> faces) {
@@ -304,10 +304,10 @@ public final class GenPlantModels {
      */
     static Model refinery(boolean lit) {
         Model m = new Model()
-                .tex("particle", "car:block/fuel_refinery_side")
-                .tex("front", lit ? "car:block/fuel_refinery_front_lit" : "car:block/fuel_refinery_front")
-                .tex("side", "car:block/fuel_refinery_side")
-                .tex("top", "car:block/fuel_refinery_top")
+                .tex("particle", "overthought_vehicles:block/fuel_refinery_side")
+                .tex("front", lit ? "overthought_vehicles:block/fuel_refinery_front_lit" : "overthought_vehicles:block/fuel_refinery_front")
+                .tex("side", "overthought_vehicles:block/fuel_refinery_side")
+                .tex("top", "overthought_vehicles:block/fuel_refinery_top")
                 .tex("stone", STONE).tex("iron", IRON).tex("copper", COPPER).tex("dark", DARK)
                 .tex("grey", GREY).tex("brick", BRICK).tex("light", LIGHT).tex("red", RED)
                 .tex("white", WHITE).tex("window", WINDOW);
@@ -771,7 +771,7 @@ public final class GenPlantModels {
         for (int f = 0; f < 4; f++) {
             for (int level = 0; level <= 4; level++) {
                 lines.add(variant("facing=" + FACINGS[f] + ",level=" + level,
-                        "car:block/battery_bank_" + level, f * 90));
+                        "overthought_vehicles:block/battery_bank_" + level, f * 90));
             }
         }
         write("blockstates/battery_bank.json", "{\n  \"variants\": {\n" + String.join(",\n", lines) + "\n  }\n}\n");
@@ -813,7 +813,7 @@ public final class GenPlantModels {
         for (int f = 0; f < 4; f++) {
             for (boolean lit : new boolean[]{false, true}) {
                 lines.add(variant("facing=" + FACINGS[f] + ",lit=" + lit,
-                        "car:block/" + model + (lit ? "_lit" : ""), f * 90));
+                        "overthought_vehicles:block/" + model + (lit ? "_lit" : ""), f * 90));
             }
         }
         write("blockstates/" + block + ".json", "{\n  \"variants\": {\n" + String.join(",\n", lines) + "\n  }\n}\n");
@@ -837,7 +837,7 @@ public final class GenPlantModels {
      * shows a block model gets a model there that is just that block's.
      */
     static void item(String name, String model) throws IOException {
-        if (!model.equals("car:item/" + name)) {
+        if (!model.equals("overthought_vehicles:item/" + name)) {
             write("models/item/" + name + ".json", "{\n  \"parent\": \"" + model + "\"\n}\n");
         }
     }
@@ -884,9 +884,9 @@ public final class GenPlantModels {
             }
         }
         multiblockStates("fuel_refinery", refineryCells.length, (part, lit) ->
-                "car:block/fuel_refinery/p" + part + (lit && litParts.contains(part) ? "_lit" : ""));
+                "overthought_vehicles:block/fuel_refinery/p" + part + (lit && litParts.contains(part) ? "_lit" : ""));
         write("models/item/fuel_refinery.json", refinery.shrunk(24).json());
-        item("fuel_refinery", "car:item/fuel_refinery");
+        item("fuel_refinery", "overthought_vehicles:item/fuel_refinery");
         refineryLayout(refineryCells, outlines, columnTop, stackTop);
         System.out.println("refinery: " + refineryCells.length + " cells, lit " + litParts
                 + ", column top " + columnTop + ", stack top " + stackTop);
@@ -895,9 +895,9 @@ public final class GenPlantModels {
         cells("hydrotreater", hydrotreater(false), hydroCells);
         model("hydrotreater/p0_lit", hydrotreater(true).cell(0, 0, 0));
         multiblockStates("hydrotreater", 2, (part, lit) ->
-                "car:block/hydrotreater/p" + part + (lit && part == 0 ? "_lit" : ""));
+                "overthought_vehicles:block/hydrotreater/p" + part + (lit && part == 0 ? "_lit" : ""));
         write("models/item/hydrotreater.json", hydrotreater(false).shrunk(20).json());
-        item("hydrotreater", "car:item/hydrotreater");
+        item("hydrotreater", "overthought_vehicles:item/hydrotreater");
 
         int[][] jackCells = {
                 {0, 0, 0}, {0, 0, 1}, {0, 0, 2},
@@ -910,12 +910,12 @@ public final class GenPlantModels {
         model("pumpjack/beam", beam());
         model("pumpjack/crank", crank());
         multiblockStates("pumpjack", jackCells.length + 2, (part, lit) ->
-                part == jackCells.length ? "car:block/pumpjack/beam"
-                        : part == jackCells.length + 1 ? "car:block/pumpjack/crank"
-                        : "car:block/pumpjack/p" + part + (lit && part == 2 ? "_lit" : ""));
+                part == jackCells.length ? "overthought_vehicles:block/pumpjack/beam"
+                        : part == jackCells.length + 1 ? "overthought_vehicles:block/pumpjack/crank"
+                        : "overthought_vehicles:block/pumpjack/p" + part + (lit && part == 2 ? "_lit" : ""));
         Model whole = pumpjack().add(beam().shifted(0, 32, 16)).add(crank().shifted(0, 16, 32));
         write("models/item/pumpjack.json", whole.shrunk(24).json());
-        item("pumpjack", "car:item/pumpjack");
+        item("pumpjack", "overthought_vehicles:item/pumpjack");
 
         model("generator", coalGenerator(false));
         model("generator_lit", coalGenerator(true));
@@ -926,28 +926,28 @@ public final class GenPlantModels {
         singleStates("generator", "generator");
         singleStates("biofuel_generator", "biofuel_generator");
         singleStates("diesel_generator", "diesel_generator");
-        item("generator", "car:block/generator");
-        item("biofuel_generator", "car:block/biofuel_generator");
-        item("diesel_generator", "car:block/diesel_generator");
+        item("generator", "overthought_vehicles:block/generator");
+        item("biofuel_generator", "overthought_vehicles:block/biofuel_generator");
+        item("diesel_generator", "overthought_vehicles:block/diesel_generator");
 
         for (int level = 0; level <= 4; level++) {
             model("battery_bank_" + level, batteryBank(level));
         }
         batteryStates();
-        item("battery_bank", "car:block/battery_bank_4");
+        item("battery_bank", "overthought_vehicles:block/battery_bank_4");
         model("charging_post", chargingPost(false));
         model("charging_post_lit", chargingPost(true));
         singleStates("charging_post", "charging_post");
-        item("charging_post", "car:item/charging_post");
-        write("models/item/charging_post.json", tallItem("car:block/charging_post"));
+        item("charging_post", "overthought_vehicles:item/charging_post");
+        write("models/item/charging_post.json", tallItem("overthought_vehicles:block/charging_post"));
 
-        write("models/block/oil_deposit.json", cube("car:block/oil_deposit"));
+        write("models/block/oil_deposit.json", cube("overthought_vehicles:block/oil_deposit"));
         write("blockstates/oil_deposit.json",
-                "{\n  \"variants\": {\n    \"\": { \"model\": \"car:block/oil_deposit\" }\n  }\n}\n");
-        item("oil_deposit", "car:block/oil_deposit");
+                "{\n  \"variants\": {\n    \"\": { \"model\": \"overthought_vehicles:block/oil_deposit\" }\n  }\n}\n");
+        item("oil_deposit", "overthought_vehicles:block/oil_deposit");
         // The oil seep's models and item are tools/gen_paint_tar.py's; only its blockstate is here.
         write("blockstates/oil_seep.json",
-                "{\n  \"variants\": {\n    \"\": { \"model\": \"car:block/oil_seep\" }\n  }\n}\n");
+                "{\n  \"variants\": {\n    \"\": { \"model\": \"overthought_vehicles:block/oil_seep\" }\n  }\n}\n");
         System.out.println("done");
     }
 }

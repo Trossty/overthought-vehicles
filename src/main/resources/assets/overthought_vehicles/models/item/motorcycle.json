@@ -1,0 +1,17 @@
+{
+  "parent": "overthought_vehicles:item/vehicle_sport_bike",
+  "overrides": [
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 6
+      },
+      "model": "overthought_vehicles:item/vehicle_scooter"
+    },
+    {
+      "predicate": {
+        "overthought_vehicles:vehicle": 7
+      },
+      "model": "overthought_vehicles:item/vehicle_sport_bike"
+    }
+  ]
+}

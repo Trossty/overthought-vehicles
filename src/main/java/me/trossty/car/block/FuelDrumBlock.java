@@ -116,7 +116,7 @@ public class FuelDrumBlock extends ModelEntityBlock {
     }
 
     private static void report(Player player, FuelDrumBlockEntity drum) {
-        LiquidStores.report(player, drum.getFluidStorage(), drum.getLock(), "message.car.drum_empty", "message.car.drum_contents");
+        LiquidStores.report(player, drum.getFluidStorage(), drum.getLock(), "message.overthought_vehicles.drum_empty", "message.overthought_vehicles.drum_contents");
     }
 
     @Override

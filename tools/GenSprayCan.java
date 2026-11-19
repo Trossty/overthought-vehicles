@@ -39,7 +39,7 @@ public class GenSprayCan {
     }
 
     public static void main(String[] args) throws Exception {
-        String out = args.length > 0 ? args[0] : "src/main/resources/assets/car/textures/item";
+        String out = args.length > 0 ? args[0] : "src/main/resources/assets/overthought_vehicles/textures/item";
 
         // Layer 0: the tin, with its outline, rim and the nozzle.
         img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);

@@ -335,7 +335,7 @@ public class DashboardHud implements LayeredDraw.Layer {
         // stall, flashing in it.
         if (car instanceof me.trossty.car.entity.AirplaneEntity plane && plane.stallWarning()) {
             if (!plane.isStalled() || client.player.tickCount / 4 % 2 == 0) {
-                context.drawCenteredString(client.font, net.minecraft.network.chat.Component.translatable("hud.car.stall"),
+                context.drawCenteredString(client.font, net.minecraft.network.chat.Component.translatable("hud.overthought_vehicles.stall"),
                         cx, cy + ICON_OFFSET_Y + 10, 0xFFFF4A3C);
             }
         } else {
@@ -411,7 +411,7 @@ public class DashboardHud implements LayeredDraw.Layer {
         if (leaking) {
             if ((System.currentTimeMillis() / 400L) % 2L == 0L) {
                 context.drawCenteredString(client.font,
-                        net.minecraft.network.chat.Component.translatable("hud.car.leak"), cx, cy + ICON_OFFSET_Y + 10, ICON_DAMAGE);
+                        net.minecraft.network.chat.Component.translatable("hud.overthought_vehicles.leak"), cx, cy + ICON_OFFSET_Y + 10, ICON_DAMAGE);
             }
         } else {
             drawCaption(context, client, CarEntity.formatDistance(range),
@@ -476,7 +476,7 @@ public class DashboardHud implements LayeredDraw.Layer {
         matrices.translate(cx, cy + PERCENT_Y, 0.0F);
         matrices.scale(PERCENT_SCALE, PERCENT_SCALE, 1.0F);
         context.drawCenteredString(client.font,
-                net.minecraft.network.chat.Component.translatable("hud.car.battery_percent", percent),
+                net.minecraft.network.chat.Component.translatable("hud.overthought_vehicles.battery_percent", percent),
                 0, 0, percent > BATTERY_LOW_PERCENT ? LABEL : color);
         matrices.popPose();
 

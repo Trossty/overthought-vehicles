@@ -1,0 +1,27 @@
+{
+  "criteria": {
+    "tick": {
+      "trigger": "minecraft:tick"
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "overthought_vehicles:car",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancements.overthought_vehicles.root.title"
+    },
+    "description": {
+      "translate": "advancements.overthought_vehicles.root.description"
+    },
+    "background": "minecraft:gui/advancements/backgrounds/stone",
+    "show_toast": false,
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "tick"
+    ]
+  ]
+}

@@ -8,7 +8,7 @@
 // What FuelPumpRenderer and FuelPumpBlock.hoseOutlet count on: the hollow
 // behind the glass is x 5..11, y 2.5..9, z 4..9; the display's face is at
 // z 3.5, centred 23 up; the hose leaves at x 2.1, y 20.5, z 9.5.
-const RED = C.RED, WHITE = C.WHITE, GLASS = 'car:block/pump_glass';
+const RED = C.RED, WHITE = C.WHITE, GLASS = 'overthought_vehicles:block/pump_glass';
 
 function pump(nozzle) {
     // ---- the plinth -------------------------------------------------------------
@@ -100,5 +100,5 @@ function pump(nozzle) {
 const HALVES = {_lower: [0, 0, 0], _upper: [0, 1, 0]};
 const EMPTY = {_lower_empty: [0, 0, 0], _upper_empty: [0, 1, 0]};
 
-k.model('fuel_pump', {cells: HALVES, particle: 'car:block/pump_red'}, () => pump(true));
-k.model('fuel_pump', {cells: EMPTY, particle: 'car:block/pump_red'}, () => pump(false));
+k.model('fuel_pump', {cells: HALVES, particle: 'overthought_vehicles:block/pump_red'}, () => pump(true));
+k.model('fuel_pump', {cells: EMPTY, particle: 'overthought_vehicles:block/pump_red'}, () => pump(false));

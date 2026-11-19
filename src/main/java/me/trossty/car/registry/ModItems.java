@@ -286,21 +286,21 @@ public final class ModItems {
         Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, GROUP,
                 net.minecraft.world.item.CreativeModeTab.builder()
                         .icon(() -> new net.minecraft.world.item.ItemStack(CAR))
-                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.vehicles"))
+                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.overthought_vehicles.vehicles"))
                         .withTabsBefore(net.minecraft.world.item.CreativeModeTabs.SPAWN_EGGS)
                         .displayItems((context, output) -> vehicles(context, new Entries(output)))
                         .build());
         Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, PARTS_GROUP,
                 net.minecraft.world.item.CreativeModeTab.builder()
                         .icon(() -> new net.minecraft.world.item.ItemStack(ENGINE))
-                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.parts"))
+                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.overthought_vehicles.parts"))
                         .withTabsBefore(GROUP)
                         .displayItems((context, output) -> parts(new Entries(output)))
                         .build());
         Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, MACHINES_GROUP,
                 net.minecraft.world.item.CreativeModeTab.builder()
                         .icon(() -> new net.minecraft.world.item.ItemStack(ModBlocks.PUMPJACK))
-                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.car.machines"))
+                        .title(net.minecraft.network.chat.Component.translatable("itemGroup.overthought_vehicles.machines"))
                         .withTabsBefore(PARTS_GROUP)
                         .displayItems((context, output) -> machines(new Entries(output)))
                         .build());

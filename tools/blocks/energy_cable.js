@@ -24,10 +24,10 @@ function box() {
     }
 }
 
-k.model('energy_cable_arm', {particle: 'car:block/energy_cable'}, () => arm(8));
-k.model('energy_cable_core', {particle: 'car:block/energy_cable'}, box);
+k.model('energy_cable_arm', {particle: 'overthought_vehicles:block/energy_cable'}, () => arm(8));
+k.model('energy_cable_core', {particle: 'overthought_vehicles:block/energy_cable'}, box);
 
-k.model('energy_cable_plate', {particle: 'car:block/energy_cable'}, () => {
+k.model('energy_cable_plate', {particle: 'overthought_vehicles:block/energy_cable'}, () => {
     k.box(3, 3, 0, 13, 13, 1.2, C.STEEL);
     for (const [x, y] of [[3.6, 3.6], [11.6, 3.6], [3.6, 11.6], [11.6, 11.6]]) {
         k.box(x, y, 1.2, x + 0.8, y + 0.8, 1.5, C.CHROME);
@@ -36,7 +36,7 @@ k.model('energy_cable_plate', {particle: 'car:block/energy_cable'}, () => {
     k.box(5.5, 5.5, -3.5, 10.5, 10.5, 0, C.DARK_STEEL);
 });
 
-k.model('energy_cable_inventory', {particle: 'car:block/energy_cable'}, () => {
+k.model('energy_cable_inventory', {particle: 'overthought_vehicles:block/energy_cable'}, () => {
     arm(16);
     k.round('z', 8, 8, 15.4, 2.35, 1.2, C.DARK_STEEL);
     box();

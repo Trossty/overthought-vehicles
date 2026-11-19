@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "G": {
+      "item": "minecraft:glass_pane"
+    },
+    "E": {
+      "item": "overthought_vehicles:energy_cable"
+    }
+  },
+  "pattern": [
+    "IGI",
+    "CRC",
+    "IEI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overthought_vehicles:charging_post"
+  }
+}
