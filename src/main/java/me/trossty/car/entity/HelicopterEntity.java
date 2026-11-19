@@ -98,7 +98,8 @@ public class HelicopterEntity extends CarEntity {
     public boolean hasPart(CarPart part) {
         return super.hasPart(part) && part != CarPart.RADIATOR && part != CarPart.WHEELS
                 && part != CarPart.BRAKE_PADS && part != CarPart.BRAKE_DISCS && part != CarPart.SUSPENSION
-                && part != CarPart.STEERING_RACK;
+                && part != CarPart.STEERING_RACK && part != CarPart.WATER_PUMP && part != CarPart.THERMOSTAT
+                && part != CarPart.BRAKE_CALIPERS && part != CarPart.BALL_JOINTS && part != CarPart.MUFFLER;
     }
 
     @Override

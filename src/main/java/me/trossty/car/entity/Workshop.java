@@ -127,7 +127,9 @@ public final class Workshop {
         // worth naming: there is no point telling somebody to take the clutch
         // out while the driveshaft is still bolted on.
         for (CarPart above : part.blockedBy()) {
-            if (this.car.parts().isFitted(above)) {
+            // One this vehicle never has is in nobody's way: a diesel's plugs
+            // are not behind coils, an electric motor not behind plugs.
+            if (this.car.hasPart(above) && this.car.parts().isFitted(above)) {
                 return above;
             }
         }
@@ -143,7 +145,9 @@ public final class Workshop {
      */
     public @Nullable CarPart hiddenBy(CarPart part) {
         for (CarPart above : part.blockedBy()) {
-            if (!this.car.parts().isFitted(above) || above == CarPart.BRAKE_PADS) {
+            // A pad is read through the window in its caliper, a disc round both.
+            if (!this.car.hasPart(above) || !this.car.parts().isFitted(above)
+                    || above == CarPart.BRAKE_PADS || above == CarPart.BRAKE_CALIPERS) {
                 continue;
             }
             if (above == CarPart.WHEELS && this.car.tyresOn() < this.car.tyreCount()) {

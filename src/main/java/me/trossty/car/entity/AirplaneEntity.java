@@ -159,8 +159,10 @@ public class AirplaneEntity extends CarEntity {
      */
     @Override
     public boolean hasPart(CarPart part) {
+        // Air-cooled and unsilenced, and the legs do not steer on joints.
         return super.hasPart(part) && part != CarPart.TRANSMISSION && part != CarPart.CLUTCH
-                && part != CarPart.DRIVESHAFT && part != CarPart.RADIATOR;
+                && part != CarPart.DRIVESHAFT && part != CarPart.RADIATOR && part != CarPart.WATER_PUMP
+                && part != CarPart.THERMOSTAT && part != CarPart.MUFFLER && part != CarPart.BALL_JOINTS;
     }
 
     @Override

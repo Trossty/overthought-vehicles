@@ -40,6 +40,9 @@ public final class Upkeep {
     /** Coolant boils off slower, and faster the hotter the engine runs. */
     private static final float COOLANT_LOSS = 1.0F / 216000.0F;
 
+    /** How many times faster than that a water pump with its seal gone weeps it away: a few minutes from full to low. */
+    private static final float PUMP_WEEP_LOSS = 30.0F;
+
     /** Below this a level is low: the dash says so. */
     public static final float FLUID_LOW = 0.2F;
 
@@ -169,7 +172,9 @@ public final class Upkeep {
         if (this.car.hasPart(CarPart.RADIATOR)) {
             this.setCoolantLevel(this.getCoolantLevel()
                     - COOLANT_LOSS * running * (1.0F + 2.0F * this.car.getEngineTemp())
-                    * (this.isGasketBlown() ? GASKET_COOLANT_LOSS : 1.0F));
+                    * (this.isGasketBlown() ? GASKET_COOLANT_LOSS : 1.0F)
+                    // A tired water pump weeps out of its seal while it is under pressure.
+                    * (1.0F + PUMP_WEEP_LOSS * this.car.parts().pumpWeep()));
         }
     }
 
@@ -300,18 +305,29 @@ public final class Upkeep {
     }
 
     /**
-     * How much louder than it should be the engine sounds: a blowing silencer
-     * lets the whole bang out, and with none at all it is a racket.
+     * How much louder than it should be the engine sounds. The silencer is what
+     * keeps it down: a tired one lets more of the bang out the more it rots, and
+     * with none, or no pipe to hang it on, it is a racket. A holed pipe only
+     * blows a little.
      */
     public float exhaustNoise() {
         if (!this.car.hasPart(CarPart.EXHAUST) || this.car.isElectric()) {
             return 1.0F;
         }
-        if (!this.car.parts().isFitted(CarPart.EXHAUST)) {
+        if (!this.car.parts().isFitted(CarPart.EXHAUST)
+                || this.car.hasPart(CarPart.MUFFLER) && !this.car.parts().isFitted(CarPart.MUFFLER)) {
             return 1.8F;
         }
-        float worn = this.car.parts().getConditionFraction(CarPart.EXHAUST);
-        return worn > FaultCodes.WARNING ? 1.0F : 1.0F + 0.6F * (FaultCodes.WARNING - worn) / FaultCodes.WARNING;
+        float noise = 1.0F + 0.2F * rot(this.car.parts().getConditionFraction(CarPart.EXHAUST));
+        if (this.car.hasPart(CarPart.MUFFLER)) {
+            noise += 0.7F * rot(this.car.parts().getConditionFraction(CarPart.MUFFLER));
+        }
+        return noise;
+    }
+
+    /** 0 for a part still above half, rising to 1 as it rots to nothing. */
+    private static float rot(float left) {
+        return left >= FaultCodes.ADVISORY ? 0.0F : (FaultCodes.ADVISORY - left) / FaultCodes.ADVISORY;
     }
 
     /** Whether the car stands on a rolling road: its wheels turn it nowhere. */
@@ -349,12 +365,14 @@ public final class Upkeep {
                 || this.car.parts().getConditionFraction(CarPart.OIL_FILTER) <= FaultCodes.CRITICAL);
     }
 
-    /** Too much fuel for the air: a choked filter or tired plugs, black smoke. */
+    /** Too much fuel for the air: a choked filter, tired plugs or leaking injectors, black smoke. */
     public boolean isRunningRich() {
         return this.car.hasPart(CarPart.AIR_FILTER) && (!this.car.parts().isFitted(CarPart.AIR_FILTER)
                 || this.car.parts().getConditionFraction(CarPart.AIR_FILTER) <= FaultCodes.WARNING)
                 || this.car.hasPart(CarPart.SPARK_PLUGS) && this.car.parts().isFitted(CarPart.SPARK_PLUGS)
-                && this.car.parts().getConditionFraction(CarPart.SPARK_PLUGS) <= FaultCodes.WARNING;
+                && this.car.parts().getConditionFraction(CarPart.SPARK_PLUGS) <= FaultCodes.WARNING
+                || this.car.hasPart(CarPart.INJECTORS) && this.car.parts().isFitted(CarPart.INJECTORS)
+                && this.car.parts().worstFraction(CarPart.INJECTORS) <= FaultCodes.WARNING;
     }
 
     /** An engine short of oil knocks, and so does one whose bearings are gone. */

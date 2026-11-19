@@ -591,7 +591,8 @@ public class TrailerEntity extends CarEntity {
     /** Wheels, springs and brakes: a trailer has nothing else to service. */
     @Override
     public boolean hasPart(CarPart part) {
-        return part == CarPart.WHEELS || part == CarPart.SUSPENSION
+        // The axle does not steer, so there are no ball joints to wear.
+        return part == CarPart.WHEELS || part == CarPart.SUSPENSION || part == CarPart.BRAKE_CALIPERS
                 || part == CarPart.BRAKE_PADS || part == CarPart.BRAKE_DISCS;
     }
 

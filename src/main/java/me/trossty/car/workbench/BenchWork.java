@@ -133,7 +133,7 @@ public final class BenchWork {
             return result;
         }
 
-        int assembledFrom = CarEntity.defaultQualityBits();
+        long assembledFrom = CarEntity.defaultQualityBits();
         int setup = CarSetup.DEFAULT;
         for (VehicleRecipe.Material material : materialsFor(recipe, quality)) {
             CarPart kinded = CarPart.forItem(material.item());

@@ -355,12 +355,20 @@
                 const to = (o.to === undefined ? 172 : o.to) * DEG;
                 const t = o.lipThick || 0.7, deep = o.lipDeep || 1.2, flare = o.flare === undefined ? 0.25 : o.flare;
                 const rr = r + t / 2 - 0.05;
-                const reach = rr / Math.cos((to - from) / segs / 2);
+                const halfStep = (to - from) / segs / 2;
+                const reach = rr / Math.cos(halfStep);
+                // each flat runs on past the corner by as much as its outer edge falls short of the next
+                const over = t / 2 * Math.tan(halfStep) + 0.02;
                 for (let i = 0; i < segs; i++) {
                     const a = from + (to - from) * i / segs, b = from + (to - from) * (i + 1) / segs;
                     // corner to corner on the circumscribed polygon, so the flats close up
-                    const zA = o.z - Math.cos(a) * reach, yA = o.y + Math.sin(a) * reach;
-                    const zB = o.z - Math.cos(b) * reach, yB = o.y + Math.sin(b) * reach;
+                    let zA = o.z - Math.cos(a) * reach, yA = o.y + Math.sin(a) * reach;
+                    let zB = o.z - Math.cos(b) * reach, yB = o.y + Math.sin(b) * reach;
+                    const len = Math.hypot(zB - zA, yB - yA), uz = (zB - zA) / len, uy = (yB - yA) / len;
+                    zA -= uz * over;
+                    yA -= uy * over;
+                    zB += uz * over;
+                    yB += uy * over;
                     this.slabs(half + flare - deep, half + flare, yA, zA, yB, zB, t, o.lip || 'paint', 0);
                 }
             }
@@ -382,8 +390,41 @@
             }
             this.box(x1, y1, z, x2, y2, z + out * d, color);
             if (glow) {
-                const ix = (x2 - x1) * 0.25, iy = (y2 - y1) * 0.25;
-                this.box(x1 + ix, y1 + iy, z + out * 0.05, x2 - ix, y2 - iy, z + out * (d + 0.05), glow);
+                // o.cells: that many reflectors side by side instead of one bright middle
+                const n = o.cells || 1, gap = 0.3;
+                const ix = (x2 - x1) * (n > 1 ? 0.08 : 0.25), iy = (y2 - y1) * 0.25;
+                const w = (x2 - x1 - 2 * ix - (n - 1) * gap) / n;
+                for (let i = 0; i < n; i++) {
+                    const a = x1 + ix + i * (w + gap);
+                    this.box(a, y1 + iy, z + out * 0.05, a + w, y2 - iy, z + out * (d + 0.05), glow);
+                }
+            }
+        }
+
+        /** A disc facing along z: eight flats round (cx, cy), r to each flat, z1 to z2 deep. */
+        discZ(cx, cy, r, z1, z2, color) {
+            const flat = 2 * r * Math.tan(Math.PI / 8);
+            for (let i = 0; i < 4; i++) {
+                this.box(cx - r, cy - flat / 2, z1, cx + r, cy + flat / 2, z2, color, {roll: i * 45 - 45});
+            }
+        }
+
+        /**
+         * A round lamp facing along z, as lamp() is a square one: a ring
+         * round it (o.bezel, o.ring wide), the lens r across the flats and
+         * a brighter middle.
+         */
+        roundLamp(cx, cy, r, z, color, front, o) {
+            o = o || {};
+            const out = front ? 1 : -1;
+            const glow = color === C.LAMP ? C.LAMP_GLOW : color === C.TAIL ? C.TAIL_GLOW : null;
+            const d = o.depth || 0.4;
+            if (o.bezel !== false) {
+                this.discZ(cx, cy, r + (o.ring || 0.3), z - out * 0.1, z + out * (d - 0.1), o.bezel || C.BLACK);
+            }
+            this.discZ(cx, cy, r, z, z + out * d, color);
+            if (glow) {
+                this.discZ(cx, cy, r * 0.5, z + out * 0.05, z + out * (d + 0.05), glow);
             }
         }
 

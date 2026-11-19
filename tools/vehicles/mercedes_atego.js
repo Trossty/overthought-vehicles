@@ -144,7 +144,13 @@ for (const z of [33.0, 50.6]) {
 }
 k.pair(H, 12.0, 50.5, H + 0.08, 16.4, 50.7, PD);
 k.pair(H, 18.4, 33.8, H + 0.35, 19.3, 36.6, C.BLACK);
-k.pair(H - 0.4, 11.6, 44.6, H + 0.1, 12.0, 50.4, C.BLACK);
+k.pair(H - 0.4, 11.6, 44.6, H + 0.45, 12.0, 50.4, C.DARK_STEEL);
+// a grab handle up the corner of the cab, ahead of the door
+k.sym(() => {
+    k.box(H + 0.3, 14.0, 51.4, H + 0.55, 22.5, 51.8, C.BLACK);
+    k.box(H, 14.0, 51.4, H + 0.55, 14.4, 51.8, C.BLACK);
+    k.box(H, 22.1, 51.4, H + 0.55, 22.5, 51.8, C.BLACK);
+});
 // the face
 k.box(-11.6, 12.6, FRONT, 11.6, 21.2, FRONT + 0.15, C.BLACK);
 for (const y of [13.4, 15.0, 18.8, 20.2]) {
@@ -168,9 +174,13 @@ k.plate(-3.4, 8.2, 3.4, 10.4, 53.6, true);
 k.sym(() => {
     k.box(10.9, 7.5, 53.5, 15.4, 10.9, 53.7, C.BLACK);
     k.box(11.2, 7.8, 53.7, 14.2, 10.6, 53.85, C.LAMP);
-    k.box(11.9, 8.5, 53.85, 13.5, 9.9, 53.95, C.LAMP_GLOW);
+    // two projectors behind the glass
+    k.discZ(11.95, 9.2, 0.6, 53.75, 53.95, C.LAMP_GLOW);
+    k.discZ(13.4, 9.2, 0.6, 53.75, 53.95, C.LAMP_GLOW);
     k.box(14.2, 7.8, 53.7, 15.1, 10.6, 53.85, C.AMBER);
+    // the lower step, let into the end of the bumper
     k.box(H + 0.3, 8.6, 45.2, H + 0.42, 10.6, 50.2, C.BLACK);
+    k.box(H - 0.4, 8.45, 45.2, H + 0.6, 8.85, 50.2, C.DARK_STEEL);
     k.box(H, 12.6, 49.4, H + 0.14, 13.6, 51.4, C.AMBER_SIDE);
 });
 
@@ -185,7 +195,9 @@ k.slab(-15.6, 15.6, BELT, zW(BELT), 24.8, zW(24.8), 1.3, C.BLACK);
 k.slab(-15.6, 15.6, 42.2, zW(42.2), TOP, zW(TOP), 1.3, P);
 k.sideGlass({xLow: 16.45, yLow: BELT, xHigh: 16.45, yHigh: 42.0, rearLow: zW(42.0) - 0.9, rearHigh: zW(42.0) - 0.9,
     frontLow: zW(BELT) - 0.5, frontHigh: zW(42.0) - 0.5, bands: 6, thick: 0.7, color: C.BLACK});
-k.box(-16.4, 41.4, zW(42) + 0.1, 16.4, 42.4, zW(42) + 2.6, DARK);
+// the sun visor, tipped down over the glass
+k.slab(-16.4, 16.4, 42.5, zW(42) + 0.1, 41.2, zW(42) + 3.0, 0.5, P, 0);
+k.pair(16.0, 41.3, zW(42) + 0.1, 16.4, 42.6, zW(42) + 2.6, P);
 k.wipers({y: 24.2, z: 52.45, len: 8.6, pivots: [6.0, -3.0, -12.0]});
 // the roof, with a low cap and a hatch
 k.box(-H, TOP, REAR, H, 44.5, zW(TOP) + 0.4, P);
@@ -198,7 +210,16 @@ k.sym(() => {
     k.box(H, 27.4, 49.7, 18.2, 28.0, 50.3, C.BLACK);
     k.box(17.9, 26.2, 49.4, 19.6, 35.0, 50.7, C.BLACK);
     k.box(18.1, 26.6, 49.32, 19.4, 34.6, 49.4, C.MIRROR);
+    // a wide-angle mirror under it on its own arm
+    k.box(H, 23.6, 49.7, 18.1, 24.2, 50.3, C.BLACK);
+    k.box(18.6, 25.4, 49.8, 18.9, 26.2, 50.2, C.BLACK);
+    k.box(18.0, 22.4, 49.4, 19.5, 25.4, 50.5, C.BLACK);
+    k.box(18.2, 22.7, 49.32, 19.3, 25.1, 49.4, C.MIRROR);
 });
+// over the passenger's side, a kerb mirror out in front of the glass
+k.box(-14.6, 43.2, zW(TOP) - 0.2, -14.1, 43.7, 54.3, C.BLACK);
+k.box(-15.7, 41.3, 54.0, -13.0, 43.5, 54.8, C.BLACK);
+k.box(-15.5, 41.5, 53.92, -13.2, 43.3, 54.0, C.MIRROR);
 
 // ---- inside -------------------------------------------------------------------------
 k.g('interior');

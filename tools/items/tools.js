@@ -377,3 +377,37 @@ k.model('tar', KEEP, () => {
     k.box(9.8, 2.8, 4.6, 11.0, 2.85, 5.2, SHINE);
     k.box(12.2, 0.6, 7.0, 13.2, 0.65, 7.6, SHINE);
 });
+
+// ---- OBD tablet ----------------------------------------------------------------------
+
+k.model('obd_scanner', Object.assign({particle: 'car:item/obd_tablet_screen'}, KEEP), () => {
+    // a rugged workshop tablet: the shell, the glass with the live screen under it, three keys below
+    const SHELL = '#282B30', GLASS = '#0E1A22', GUARD = '#D8832D', STRAP = '#4A545E';
+    k.g('shell');
+    k.box(2.0, 1.0, 7.25, 14.0, 15.0, 8.5, SHELL);
+    k.box(2.4, 1.4, 8.5, 13.6, 14.6, 8.6, GLASS, {only: ['south', 'east', 'west', 'up', 'down']});
+    k.box(2.9, 3.4, 8.6, 13.1, 13.9, 8.62, 'car:item/obd_tablet_screen', {only: ['south'], uv: {south: [0, 0, 16, 16]}, shade: false});
+    k.round('z', 8, 14.2, 8.62, 0.18, 0.04, '#3B4250');
+    for (const x of [6.2, 8, 9.8]) {
+        k.box(x - 0.6, 2.1, 8.6, x + 0.6, 2.7, 8.75, '#3B4250');
+    }
+    // the bumper: rubber down the edges, orange guards on the corners, the power key on top
+    k.g('bumper');
+    k.sym(() => {
+        k.box(1.7, 3.0, 7.15, 2.0, 13.0, 8.6, RUBBER);
+        for (const [y1, y2] of [[0.4, 3.0], [13.0, 15.6]]) {
+            k.box(1.4, y1, 7.0, 3.6, y2, 8.75, GUARD);
+        }
+    });
+    k.box(3.6, 0.7, 7.15, 12.4, 1.0, 8.6, RUBBER);
+    k.box(3.6, 15.0, 7.15, 12.4, 15.3, 8.6, RUBBER);
+    k.box(10.0, 15.3, 7.6, 11.4, 15.5, 8.1, GUARD);
+    // the back: the camera in its plate, a hand strap across, and the port the VCI plugs into
+    k.g('back');
+    k.box(10.5, 11.5, 6.9, 13.0, 14.0, 7.25, '#3A3D42');
+    k.round('z', 11.75, 12.75, 6.85, 0.6, 0.1, C.BLACK, {sides: 16});
+    k.box(5.0, 4.0, 6.85, 11.0, 4.6, 7.25, STRAP);
+    k.box(5.0, 10.4, 6.85, 11.0, 11.0, 7.25, STRAP);
+    k.box(5.6, 4.6, 6.75, 10.4, 10.4, 6.95, STRAP);
+    k.box(13.9, 6.0, 7.5, 14.1, 7.4, 8.2, C.BLACK);
+});

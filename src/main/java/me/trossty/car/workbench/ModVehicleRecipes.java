@@ -82,6 +82,31 @@ public final class ModVehicleRecipes {
             new VehicleRecipe(ModItems.EXHAUST, List.of(
                     new VehicleRecipe.Material(Items.IRON_INGOT, 4),
                     new VehicleRecipe.Material(Items.COPPER_INGOT, 1))),
+            new VehicleRecipe(ModItems.WATER_PUMP, List.of(
+                    new VehicleRecipe.Material(Items.IRON_INGOT, 2),
+                    new VehicleRecipe.Material(Items.COPPER_INGOT, 1))),
+            // The wax pellet that opens it as the coolant warms.
+            new VehicleRecipe(ModItems.THERMOSTAT, List.of(
+                    new VehicleRecipe.Material(Items.COPPER_INGOT, 1),
+                    new VehicleRecipe.Material(Items.HONEYCOMB, 1))),
+            new VehicleRecipe(ModItems.TANK_PUMP, List.of(
+                    new VehicleRecipe.Material(Items.IRON_INGOT, 2),
+                    new VehicleRecipe.Material(Items.COPPER_INGOT, 1),
+                    new VehicleRecipe.Material(Items.REDSTONE, 2))),
+            new VehicleRecipe(ModItems.INJECTORS, List.of(
+                    new VehicleRecipe.Material(Items.IRON_INGOT, 2),
+                    new VehicleRecipe.Material(Items.REDSTONE, 2))),
+            new VehicleRecipe(ModItems.IGNITION_COILS, List.of(
+                    new VehicleRecipe.Material(Items.COPPER_INGOT, 3),
+                    new VehicleRecipe.Material(Items.REDSTONE, 2))),
+            new VehicleRecipe(ModItems.BRAKE_CALIPERS, List.of(
+                    new VehicleRecipe.Material(Items.IRON_INGOT, 3))),
+            // Leather for the boot that keeps the grease in.
+            new VehicleRecipe(ModItems.BALL_JOINTS, List.of(
+                    new VehicleRecipe.Material(Items.IRON_INGOT, 2),
+                    new VehicleRecipe.Material(Items.LEATHER, 1))),
+            new VehicleRecipe(ModItems.MUFFLER, List.of(
+                    new VehicleRecipe.Material(Items.IRON_INGOT, 3))),
             // The clipboard. Cheap on purpose: a workshop that cannot find out
             // what is wrong is just a shop that sells gearboxes.
             new VehicleRecipe(ModItems.DIAGNOSTIC_SHEET, List.of(

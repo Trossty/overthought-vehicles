@@ -213,7 +213,7 @@ public class VehicleWorkstationScreenHandler extends AbstractContainerMenu {
         ItemStack result = CarItem.stackOf(id, definition);
 
         int setup = definition.factory().setup();
-        int tiers = CarEntity.defaultQualityBits();
+        long tiers = CarEntity.defaultQualityBits();
         List<Integer> conditions = new ArrayList<>();
         for (CarPart ignored : CarPart.values()) {
             conditions.add(100);

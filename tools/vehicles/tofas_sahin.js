@@ -41,19 +41,30 @@ k.arch({z: FZ, y: WY, r: AR, half: H, inner: 10.3, floor: 7.0, top: z => k.at(FE
 k.box(-H, 7.0, FZ + AR, H, 15.6, NOSE, P);
 k.loft(LID + 0.05, H, FEN, 1.3, P);
 k.loft(-H, -LID - 0.05, FEN, 1.3, P);
+// the shut line down each side of the bonnet
+k.loft(LID + 0.05, LID + 0.3, FEN, 0.04, PD, 1);
+k.loft(-LID - 0.3, -LID - 0.05, FEN, 0.04, PD, 1);
 k.box(-LID, 16.6, 17.7, LID, 17.25, 19.2, C.BLACK);
 k.wipers({y: 17.35, z: 18.6, pivots: [1.0, -9.0], len: 8.6});
 
-// the face: two big lamps, the grille between them, amber round the corners
+// the face: two big lamps, the grille between them in a frame of the body's
+// colour with a bar and a round badge across it, amber round the corners
 k.box(-9.2, 11.6, NOSE, 9.2, 15.4, NOSE + 0.15, C.BLACK);
-for (const y of [12.0, 12.9, 13.8, 14.7]) {
-    k.box(-8.9, y, NOSE + 0.1, 8.9, y + 0.35, NOSE + 0.32, '#34363A');
+for (const y of [12.0, 12.75, 14.15, 14.9]) {
+    k.box(-8.9, y, NOSE + 0.1, 8.9, y + 0.3, NOSE + 0.32, '#34363A');
 }
-k.box(-1.3, 12.9, NOSE + 0.25, 1.3, 14.1, NOSE + 0.45, C.CHROME);
-k.box(-0.9, 13.2, NOSE + 0.4, 0.9, 13.8, NOSE + 0.5, '#2B4FA8');
+k.box(-9.2, 15.1, NOSE, 9.2, 15.5, NOSE + 0.42, P);
+k.box(-9.2, 11.5, NOSE, 9.2, 11.85, NOSE + 0.42, P);
+k.pair(8.85, 11.85, NOSE, 9.2, 15.1, NOSE + 0.42, P);
+k.box(-8.85, 13.3, NOSE + 0.1, 8.85, 13.65, NOSE + 0.45, C.CHROME);
+k.discZ(0, 13.47, 0.95, NOSE + 0.2, NOSE + 0.5, C.CHROME);
+k.discZ(0, 13.47, 0.68, NOSE + 0.25, NOSE + 0.55, '#2B4FA8');
 k.sym(() => {
-    k.lamp(9.5, 11.6, 13.2, 15.4, NOSE, C.LAMP, true);
-    k.box(13.45, 11.6, 35.6, H + 0.12, 15.4, NOSE + 0.3, C.AMBER);
+    k.lamp(9.5, 11.6, 13.2, 15.4, NOSE, C.LAMP, true, {bezel: C.CHROME});
+    // the indicator wraps round the corner and steps back along the wing
+    k.box(13.45, 11.6, 36.6, H + 0.12, 15.4, NOSE + 0.3, C.AMBER);
+    k.box(H - 0.3, 12.6, 35.6, H + 0.12, 15.4, 36.6, C.AMBER);
+    k.box(H - 0.3, 13.6, 34.6, H + 0.12, 15.4, 35.6, C.AMBER);
 });
 k.bumper({front: true, z: 39.25, depth: 1.8, y1: 7.0, y2: 10.9, half: H + 0.35, cut: 1.6, wrap: FZ + AR + 0.6,
     color: BUMP, stripColor: '#4A4C52'});
@@ -62,6 +73,9 @@ k.box(-12.6, 6.1, 36.2, 12.6, 7.0, 38.3, PD);
 
 k.g('bonnet');
 k.loft(-LID, LID, BON, 0.6, P);
+// two creases down the bonnet
+k.loft(5.3, 5.55, BON, 0.04, PD, 1);
+k.loft(-5.55, -5.3, BON, 0.04, PD, 1);
 k.pair(3.6, 17.0, 21.0, 4.2, 17.25, 21.6, C.BLACK);
 
 // ---- the back end ---------------------------------------------------------------

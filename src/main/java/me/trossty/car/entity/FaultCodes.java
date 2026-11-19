@@ -133,7 +133,7 @@ public final class FaultCodes {
             case SPARK_PLUGS -> "P0300";
             case ENGINE -> electric ? "P0A1A" : "P0521";
             case OIL_FILTER -> "P0520";
-            case RADIATOR -> "P0128";
+            case RADIATOR -> "P2181";
             case BATTERY -> electric ? "P0AFA" : "P0562";
             case ALTERNATOR -> "P0620";
             case DRIVESHAFT -> "P0720";
@@ -145,17 +145,27 @@ public final class FaultCodes {
             case SUSPENSION -> "C0690";
             case STEERING_RACK -> "C0460";
             case EXHAUST -> "P0420";
+            case WATER_PUMP -> "P2600";
+            case THERMOSTAT -> "P0128";
+            case TANK_PUMP -> "P0087";
+            case INJECTORS -> "P0200";
+            case IGNITION_COILS -> "P0350";
+            case BRAKE_CALIPERS -> "C0070";
+            case BALL_JOINTS -> "C0545";
+            // No sensor watches the silencer: it never reaches a reader.
+            case MUFFLER -> "P0000";
         };
     }
 
-    /** Whether this part matters at all on this car: an electric one has no plugs, airbox or exhaust to read. */
+    /**
+     * Whether a reader sees this part at all: only what the car has (an
+     * electric one has no plugs, airbox or exhaust), what a diesel fires with
+     * besides plugs, and nothing it has no sensor on, like the silencer, which
+     * is heard rather than read.
+     */
     static boolean relevant(CarPart part, CarEntity car) {
-        if (!car.hasPart(part)) {
+        if (!car.hasPart(part) || part == CarPart.MUFFLER) {
             return false;
-        }
-        if (car.isElectric()) {
-            return part != CarPart.SPARK_PLUGS && part != CarPart.AIR_FILTER && part != CarPart.EXHAUST
-                    && part != CarPart.OIL_FILTER;
         }
         return part != CarPart.SPARK_PLUGS || car.getEngineFuel().needsSpark();
     }
@@ -166,7 +176,11 @@ public final class FaultCodes {
      */
     private static final List<CarPart> SLIP = List.of(CarPart.TRANSMISSION, CarPart.CLUTCH);
     private static final List<CarPart> JUDDER = List.of(CarPart.BRAKE_DISCS, CarPart.BRAKE_PADS);
-    private static final List<CarPart> MISFIRE = List.of(CarPart.SPARK_PLUGS, CarPart.ENGINE);
+    /** What a misfire can be: the plug, the coil firing it, the injector feeding it, or the cylinder itself. */
+    private static final List<CarPart> MISFIRE = List.of(
+            CarPart.SPARK_PLUGS, CarPart.IGNITION_COILS, CarPart.INJECTORS, CarPart.ENGINE);
+    /** A diesel has no spark to lose. */
+    private static final List<CarPart> DIESEL_MISFIRE = List.of(CarPart.INJECTORS, CarPart.ENGINE);
 
     /** A cylinder misfiring at least this badly sets its own code. */
     private static final float MISFIRE_CODE = 1.0F - ADVISORY;
@@ -204,7 +218,7 @@ public final class FaultCodes {
                         Severity.of(fraction), percent, SLIP, null));
                 case BRAKE_DISCS -> faults.add(new Fault(codeFor(part, electric), part, "obd.car.brake_judder",
                         Severity.of(fraction), percent, JUDDER, at));
-                default -> faults.add(new Fault(codeFor(part, electric), part,
+                default -> faults.add(new Fault(code(part, electric, worst), part,
                         at == null ? "obd.car.worn" : "obd.car.worn_at", Severity.of(fraction), percent, List.of(), at));
             }
         }
@@ -265,6 +279,15 @@ public final class FaultCodes {
     }
 
     /**
+     * The code for one place of a part: a coil or an injector has a circuit
+     * per cylinder, P0351 the first coil and P0201 the first injector.
+     */
+    private static String code(CarPart part, boolean electric, int place) {
+        String code = codeFor(part, electric);
+        return place >= 0 && PartPositions.inCylinders(part) ? code.substring(0, 4) + (place + 1) : code;
+    }
+
+    /**
      * A part's condition, 0 to 1, for reading it alongside another: 2 when
      * there is none on the car to read, so it never decides anything (a part
      * that is missing has a code of its own).
@@ -275,16 +298,20 @@ public final class FaultCodes {
 
     /**
      * What the engine's misfire counters show: the cylinder that keeps
-     * missing, which a plug or a leaking cylinder can be behind alike, or
-     * when too many miss at once, only that the engine runs rough.
+     * missing, which a plug, its coil, its injector or a leaking cylinder can
+     * be behind alike, or when too many miss at once, only that the engine
+     * runs rough. Which of them it is takes a look at each in turn.
      */
     private static void readMisfires(CarEntity car, List<Fault> faults) {
-        if (!relevant(CarPart.SPARK_PLUGS, car) || !car.parts().isFitted(CarPart.SPARK_PLUGS)) {
+        if (car.isElectric() || !car.hasPart(CarPart.ENGINE) || !car.parts().isFitted(CarPart.ENGINE)) {
             return;
         }
+        boolean spark = car.getEngineFuel().needsSpark();
+        CarPart filed = spark ? CarPart.SPARK_PLUGS : CarPart.INJECTORS;
+        List<CarPart> suspects = spark ? MISFIRE : DIESEL_MISFIRE;
         List<Integer> missing = new ArrayList<>();
         float worst = 0.0F;
-        for (int cylinder = 0; cylinder < car.parts().placesOf(CarPart.SPARK_PLUGS); cylinder++) {
+        for (int cylinder = 0; cylinder < car.parts().placesOf(CarPart.INJECTORS); cylinder++) {
             float misfire = car.parts().misfireIn(cylinder);
             if (misfire >= MISFIRE_CODE) {
                 missing.add(cylinder);
@@ -292,15 +319,15 @@ public final class FaultCodes {
             }
         }
         if (missing.size() >= MANY_MISFIRES) {
-            faults.add(new Fault("P0300", CarPart.SPARK_PLUGS, "obd.car.misfire_many",
-                    Severity.of(1.0F - worst), Math.round((1.0F - worst) * 100.0F), MISFIRE, null));
+            faults.add(new Fault("P0300", filed, "obd.car.misfire_many",
+                    Severity.of(1.0F - worst), Math.round((1.0F - worst) * 100.0F), suspects, null));
             return;
         }
         for (int cylinder : missing) {
             float misfire = car.parts().misfireIn(cylinder);
-            faults.add(new Fault("P030" + (cylinder + 1), CarPart.SPARK_PLUGS, "obd.car.misfire",
-                    Severity.of(1.0F - misfire), Math.round((1.0F - misfire) * 100.0F), MISFIRE,
-                    car.parts().placeName(CarPart.SPARK_PLUGS, cylinder)));
+            faults.add(new Fault("P030" + (cylinder + 1), filed, "obd.car.misfire",
+                    Severity.of(1.0F - misfire), Math.round((1.0F - misfire) * 100.0F), suspects,
+                    car.parts().placeName(filed, cylinder)));
         }
     }
 }

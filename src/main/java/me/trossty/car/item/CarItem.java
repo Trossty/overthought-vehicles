@@ -185,7 +185,7 @@ public class CarItem extends Item {
 
         // So do the grades, so the good gearbox you paid for is still the one
         // in the car when you put it back down.
-        Integer qualities = stack.get(ModComponents.CAR_PART_QUALITY);
+        Long qualities = stack.get(ModComponents.CAR_PART_QUALITY);
         if (qualities != null) {
             car.parts().setQualityBits(qualities);
         }

@@ -94,6 +94,7 @@ public final class PartLayout {
 
         net.minecraft.world.phys.AABB hollow = me.trossty.car.vehicle.LidCavity.of(
                 definition, VehicleDefinition.Box.BONNET);
+        float[] cab = hollow == null ? underCab(definition, wheel, frontAxle, nose) : null;
         if (hollow != null) {
             // An engine bay under a bonnet: each box goes exactly where the
             // part is drawn in it, so what you see is what you click.
@@ -101,6 +102,8 @@ public final class PartLayout {
                 float[] at = spot.centre(hollow);
                 put(map, spot.part(), at[0], at[1], at[2], at[3]);
             }
+        } else if (cab != null) {
+            cabOver(map, cab, scale);
         } else {
             put(map, CarPart.RADIATOR, 0.0F, bay + 0.5F * tall, front - 2.5F, 2.0F * scale);
             put(map, CarPart.ENGINE, 0.0F, bay + 0.4F * tall, engineZ, 3.2F * scale);
@@ -109,17 +112,32 @@ public final class PartLayout {
             put(map, CarPart.BATTERY, side, bay + 0.8F * tall, engineZ, 1.9F * scale);
             put(map, CarPart.ALTERNATOR, side, bay + 0.4F * tall, engineZ, 1.7F * scale);
             put(map, CarPart.OIL_FILTER, side, bay, engineZ, 1.5F * scale);
+            // The other flank: coils on top, the injector rail under them;
+            // in front of the block, towards the radiator, the water pump
+            // low down and the thermostat on the hose above it.
+            float ahead = (engineZ + front - 2.5F) / 2.0F;
+            put(map, CarPart.IGNITION_COILS, -side, bay + 0.88F * tall, engineZ, 1.5F * scale);
+            put(map, CarPart.INJECTORS, -side, bay + 0.62F * tall, engineZ, 1.5F * scale);
+            put(map, CarPart.WATER_PUMP, -0.5F * side, bay + 0.3F * tall, ahead, 1.5F * scale);
+            put(map, CarPart.THERMOSTAT, -0.5F * side, bay + 0.7F * tall, ahead, 1.2F * scale);
         }
 
         // Under the floor, between the axles — and still under the body where
         // there is only the one axle, as on a short trailer.
         float under = Math.max(1.8F, Math.min(bottom, axleY) - 1.5F);
         float tail = rear + 1.0F;
-        put(map, CarPart.STEERING_RACK, 0.0F, under, frontAxle, 2.2F * scale);
+        // Across the front axle; under a cab the engine is there, and a
+        // lorry's steering box is on the frame ahead of the axle instead.
+        put(map, CarPart.STEERING_RACK, 0.0F, under, cab != null ? frontAxle + 0.5F * radius : frontAxle,
+                2.2F * scale);
         put(map, CarPart.CLUTCH, 0.0F, under, Math.max(tail, frontAxle - 0.15F * wheelbase), 2.4F * scale);
         put(map, CarPart.TRANSMISSION, 0.0F, under, Math.max(tail, frontAxle - 0.3F * wheelbase), 2.8F * scale);
         put(map, CarPart.DRIVESHAFT, 0.0F, under, Math.max(tail, frontAxle - 0.6F * wheelbase), 2.4F * scale);
         put(map, CarPart.EXHAUST, 0.3F * halfWidth, under, rear + 3.0F, 2.0F * scale);
+        // The silencer further up the same pipe, and the pump in the top of
+        // the tank, which sits ahead of the back axle.
+        put(map, CarPart.MUFFLER, 0.3F * halfWidth, under, rear + 7.0F, 1.8F * scale);
+        put(map, CarPart.TANK_PUMP, -0.3F * halfWidth, under, Math.max(tail, rearAxle + 0.15F * wheelbase), 1.8F * scale);
 
         corner(map, wheel);
         return map;
@@ -159,7 +177,9 @@ public final class PartLayout {
      * Laid out as under a real bonnet: the engine across the middle, the
      * radiator upright behind the grille, the battery and the air box either
      * side behind it, the alternator and the oil filter low on the engine's
-     * flanks, the plugs along its back.
+     * flanks, the plugs along its back; the coils and the injector rail
+     * either side of them, the water pump and the thermostat between the
+     * engine and the radiator.
      */
     public static final List<BaySpot> BAY = List.of(
             new BaySpot(CarPart.ENGINE, 0.0F, 0.48F, 0.40F, 2.2F, 13.8F, 0.0F),
@@ -168,12 +188,103 @@ public final class PartLayout {
             new BaySpot(CarPart.AIR_FILTER, 0.7F, 0.22F, 0.24F, 5.3F, 10.7F, 0.0F),
             new BaySpot(CarPart.ALTERNATOR, 0.5F, 0.66F, 0.18F, 1.8F, 14.2F, 0.0F),
             new BaySpot(CarPart.OIL_FILTER, -0.5F, 0.66F, 0.14F, 3.95F, 12.05F, 0.0F),
-            new BaySpot(CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.5F, 12.5F, 0.0F));
+            new BaySpot(CarPart.SPARK_PLUGS, 0.0F, 0.16F, 0.26F, 3.5F, 12.5F, 0.0F),
+            new BaySpot(CarPart.INJECTORS, -0.55F, 0.42F, 0.10F, 4.5F, 11.5F, 0.0F),
+            new BaySpot(CarPart.IGNITION_COILS, 0.48F, 0.40F, 0.12F, 3.15F, 12.85F, 0.0F),
+            new BaySpot(CarPart.WATER_PUMP, 0.30F, 0.80F, 0.12F, 3.32F, 12.68F, 0.0F),
+            new BaySpot(CarPart.THERMOSTAT, -0.30F, 0.80F, 0.08F, 3.1F, 12.9F, 0.0F));
 
-    /** A tyre, and the brakes and strut behind it: one at every wheel, not only the first. */
+    /**
+     * The room under a cab that sits over the front axle, as on a lorry: a
+     * seat stands where a bonnet would be, so the engine is under its floor.
+     * Between the brakes of the two front wheels, from the road clearance up
+     * to the underside of that floor, and from the back of the floor to its
+     * front. As {half its width, bottom, top, back, front} in pixels; null
+     * when no seat is over the engine bay, or there is too little room.
+     */
+    private static float[] underCab(VehicleDefinition definition, VehicleDefinition.Wheel wheel,
+                                    float frontAxle, float nose) {
+        float top = Float.MAX_VALUE;
+        float back = 0.0F;
+        float ahead = 0.0F;
+        for (net.minecraft.world.phys.Vec3 seat : definition.seats()) {
+            if (seat.z < frontAxle - 0.25F * nose) {
+                continue;
+            }
+            // The floor: the lowest of the bodywork under the seat.
+            for (VehicleDefinition.Box box : definition.shape()) {
+                float bottom = Math.min(box.from().y(), box.to().y());
+                if (!solid(box) || bottom >= seat.y
+                        || seat.x < Math.min(box.from().x(), box.to().x())
+                        || seat.x > Math.max(box.from().x(), box.to().x())
+                        || seat.z < Math.min(box.from().z(), box.to().z())
+                        || seat.z > Math.max(box.from().z(), box.to().z())) {
+                    continue;
+                }
+                if (bottom < top) {
+                    top = bottom;
+                    back = Math.min(box.from().z(), box.to().z());
+                    ahead = Math.max(box.from().z(), box.to().z());
+                }
+            }
+        }
+        if (top == Float.MAX_VALUE) {
+            return null;
+        }
+        float low = Math.max(1.0F, wheel.at().y() - 0.8F * wheel.radius());
+        // Clear of the brakes' boxes inboard of the wheels.
+        float across = Math.abs(wheel.at().x()) - inboard(wheel) - 2.0F;
+        if (top - low < 4.0F || across < 3.0F) {
+            return null;
+        }
+        return new float[]{across, low, top, back, ahead};
+    }
+
+    /**
+     * Under a cab, the way a lorry has it: the engine lengthwise behind the
+     * front axle, the plugs on top of it, the battery and the air box behind
+     * it either side, the injectors and the coils along its flanks, the oil
+     * filter and the alternator ahead of them, then the water pump and the
+     * thermostat, and the radiator behind the bumper. The cab tips forward
+     * to get at it all. Along the room from 0 at its back to 1 at its front;
+     * the flanks are the room either side of the engine.
+     */
+    private static void cabOver(Map<CarPart, CarPart.Anchor> map, float[] cab, float scale) {
+        float across = cab[0];
+        float low = cab[1];
+        float top = cab[2];
+        float back = cab[3];
+        float length = cab[4] - cab[3];
+        float mid = (low + top) / 2.0F;
+        float engine = Math.min(3.2F * scale, Math.min((top - low) / 2.0F - 0.3F, 0.4F * across));
+        float flank = (engine + across) / 2.0F;
+        float room = (across - engine) / 2.0F - 0.05F;
+        float engineZ = back + 0.26F * length;
+        put(map, CarPart.ENGINE, 0.0F, mid, engineZ, engine);
+        float plugs = Math.min(1.7F * scale, 1.3F);
+        put(map, CarPart.SPARK_PLUGS, 0.0F, mid + engine + plugs + 0.05F, engineZ, plugs);
+        put(map, CarPart.BATTERY, -flank, mid, back + 0.08F * length, Math.min(1.9F * scale, room));
+        put(map, CarPart.AIR_FILTER, flank, mid, back + 0.08F * length, Math.min(1.9F * scale, room));
+        put(map, CarPart.INJECTORS, -flank, mid + 0.6F, engineZ, Math.min(1.5F * scale, room));
+        put(map, CarPart.IGNITION_COILS, flank, mid + 0.6F, engineZ, Math.min(1.5F * scale, room));
+        put(map, CarPart.OIL_FILTER, -flank, mid - 0.8F, back + 0.44F * length, Math.min(1.5F * scale, room));
+        put(map, CarPart.ALTERNATOR, flank, mid, back + 0.44F * length, Math.min(1.7F * scale, room));
+        put(map, CarPart.WATER_PUMP, -flank, mid, back + 0.68F * length, Math.min(1.5F * scale, room));
+        put(map, CarPart.THERMOSTAT, flank, mid + 0.6F, back + 0.68F * length, Math.min(1.2F * scale, room));
+        put(map, CarPart.RADIATOR, 0.0F, mid, back + 0.89F * length, 2.0F * scale);
+    }
+
+    /** How far in from a wheel's middle the brakes and the strut behind it stand. */
+    private static float inboard(VehicleDefinition.Wheel wheel) {
+        float tyre = Math.min(wheel.radius(), 7.0F) * 0.85F;
+        // Clear of the tyre's box too, which on a tall, narrow tyre reaches
+        // further in than the tyre does.
+        return Math.max(wheel.width() / 2.0F + 2.2F, tyre - 1.0F);
+    }
+
+    /** A tyre, and the brakes, strut and ball joint behind it: one at every wheel, not only the first. */
     private static boolean atEveryCorner(CarPart part) {
-        return part == CarPart.WHEELS || part == CarPart.BRAKE_PADS
-                || part == CarPart.BRAKE_DISCS || part == CarPart.SUSPENSION;
+        return PartPositions.atWheels(part);
     }
 
     /**
@@ -225,13 +336,15 @@ public final class PartLayout {
         // brakes on the right.
         float inward = x < -0.5F ? 1.0F : x > 0.5F ? -1.0F : 1.0F;
         float tyre = Math.min(radius, 7.0F) * 0.85F;
-        // Clear of the tyre's box too, which on a tall, narrow tyre reaches
-        // further in than the tyre does.
-        float inboard = x + inward * Math.max(wheel.width() / 2.0F + 2.2F, tyre - 1.0F);
+        float inboard = x + inward * inboard(wheel);
         put(map, CarPart.WHEELS, x, y, z, tyre);
         put(map, CarPart.BRAKE_PADS, inboard, y + 0.4F * radius, z, 1.6F);
         put(map, CarPart.BRAKE_DISCS, inboard, y - 0.4F * radius, z, 1.6F);
         put(map, CarPart.SUSPENSION, inboard, y + radius + 2.0F, z, 1.8F);
+        // The caliper clamps the disc behind the pads; the ball joint is at
+        // the bottom of the hub, ahead of the disc.
+        put(map, CarPart.BRAKE_CALIPERS, inboard, y + 0.4F * radius, z - 0.6F * radius, 1.3F);
+        put(map, CarPart.BALL_JOINTS, inboard, y, z + 0.6F * radius, 1.2F);
     }
 
     /** A motorbike: the engine hangs between the wheels, the rest round it. */
@@ -253,6 +366,12 @@ public final class PartLayout {
         put(map, CarPart.DRIVESHAFT, -2.5F, axleY, (rearAxle + middle - 5.0F) / 2.0F, 1.5F);
         put(map, CarPart.STEERING_RACK, 0.0F, axleY + 2.2F * radius, frontAxle - 2.0F, 1.6F);
         put(map, CarPart.EXHAUST, 3.5F, axleY, rearAxle + radius + 1.0F, 1.6F);
+        put(map, CarPart.MUFFLER, 3.5F, axleY + 0.5F * radius, rearAxle, 1.5F);
+        put(map, CarPart.TANK_PUMP, 0.0F, engineY + 6.5F, middle - 2.5F, 1.3F);
+        put(map, CarPart.IGNITION_COILS, 0.0F, engineY + 5.0F, middle - 1.5F, 1.1F);
+        put(map, CarPart.INJECTORS, -2.5F, engineY + 3.5F, middle, 1.2F);
+        put(map, CarPart.WATER_PUMP, 2.5F, engineY - 2.5F, middle + 3.0F, 1.2F);
+        put(map, CarPart.THERMOSTAT, 0.0F, engineY + 2.5F, middle + 4.0F, 1.0F);
         corner(map, wheel);
     }
 

@@ -51,6 +51,9 @@ k.arch({z: FZ, y: WY, r: AR, half: H, inner: 10.3, floor: 5.0, top: z => k.at(FE
 k.box(-H, 5.0, FZ + AR, H, 13.2, NOSE, P);
 k.loft(LID + 0.05, H, FEN, 1.3, P);
 k.loft(-H, -LID - 0.05, FEN, 1.3, P);
+// the shut line down each side of the bonnet
+k.loft(LID + 0.05, LID + 0.3, FEN, 0.04, PD, 1);
+k.loft(-LID - 0.3, -LID - 0.05, FEN, 0.04, PD, 1);
 k.box(-LID, 14.4, 19.3, LID, 15.0, 20.9, C.BLACK);
 k.wipers({y: 15.1, z: 20.1});
 
@@ -68,8 +71,9 @@ k.box(-2.0, 10.85, NOSE + 0.15, 2.0, 11.1, NOSE + 0.45, C.CHROME);
 k.pair(1.75, 8.5, NOSE + 0.15, 2.0, 11.1, NOSE + 0.45, C.CHROME);
 k.box(-1.1, 9.4, NOSE + 0.15, 1.1, 10.3, NOSE + 0.5, C.CHROME);
 k.sym(() => {
-    k.box(10.2, 7.9, NOSE, 14.0, 12.0, NOSE + 0.3, P);
-    k.lamp(10.5, 8.3, 13.7, 11.5, NOSE + 0.3, C.LAMP, true, {bezel: C.CHROME, depth: 0.45});
+    // each lamp round, in a bucket at the end of the wing, a chrome ring round the glass
+    k.discZ(12.3, 9.95, 2.2, NOSE - 0.2, NOSE + 0.55, P);
+    k.roundLamp(12.3, 9.95, 1.55, NOSE + 0.55, C.LAMP, true, {bezel: C.CHROME, ring: 0.32, depth: 0.3});
     k.box(9.9, 4.75, 42.3, 12.6, 5.75, 42.5, C.AMBER);
 });
 k.bumper({front: true, z: 42.3, depth: 1.9, y1: 4.4, y2: 6.1, half: H + 0.3, cut: 1.8, wrap: 37.4,
