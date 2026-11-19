@@ -2470,3 +2470,8 @@ Henüz yapılmadı, MrCrayfish'te olan katmanlar:
 - **Ertelenenler** ([GELISTIRME.md](GELISTIRME.md)'de nedenleriyle):
   arıtıcının 2×2 yapılması, iki istemcili çok oyunculu test, EMI/REI tarif
   gösterimi, WTHIT ve Create uyumunun oyun içinde denenmesi
+
+## Lisans
+
+MIT ([LICENSE.txt](LICENSE.txt)): herkes kullanabilir, değiştirebilir,
+üstüne geliştirebilir ve dağıtabilir; yeter ki lisans notu kopyayla gitsin.

@@ -89,4 +89,4 @@ A vehicle you place stays a vehicle: it can't be picked back up. Hitting it dent
 
 ### Licence
 
-All rights reserved.
+MIT: use it, change it, build on it and share it, in modpacks or in your own mods. Keep the licence notice with any copy.
